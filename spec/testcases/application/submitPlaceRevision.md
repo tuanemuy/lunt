@@ -1,0 +1,23 @@
+# submitPlaceRevision
+
+エリアのマスターは [../ports/areaCatalog.md](../ports/areaCatalog.md) の「テスト用のマスター」。
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| 店舗 p1 は公開されていて、店舗管理者がいない。利用者 A がログインしている | A が、p1 の名称と営業時間だけを変えた内容と補足で、情報修正を申請する | 確認中の情報修正の申請が保存される。内容は名称と営業時間の項目だけを持ち、変えていない項目を持たない。`application.submitted`（承認者の席は `operator`）が出る。店舗は変わらない（AC-09） | |
+| 店舗 p1（営業中）に店舗管理者がいない | A が、営業状況を「閉店」にするだけの情報修正を申請する | 営業状況の項目だけを持つ申請が確認中で保存される | |
+| 店舗 p1（誤って閉店になっている）に店舗管理者がいない | A が、営業状況を「営業中」にする情報修正を申請する | 申請が確認中で保存される | |
+| 店舗 p1 の写真は ph1。A が登録した、持ち主のない写真 ph2 がある | A が、写真の並びを ph1、ph2 にして情報修正を申請する | 申請が持ち主になる写真は ph2 だけ。ph1 の持ち主は p1 のまま | |
+| 店舗 p1 に店舗管理者がいない。利用者 B の p1 への情報修正の申請が確認中 | A が p1 の情報修正を申請する | A の申請が確認中で保存される。B の申請は変わらない（別の申請者の申請は独立している） | |
+| A の p1 への情報修正の申請が否認になっている | A が、別の ID で p1 の情報修正を申請する | 新しい申請が確認中で保存される。前の申請は否認のまま残る（AC-21） | |
+| 店舗 p1 に店舗管理者がいる | A が p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_PLACE_HAS_STEWARD`）になる。申請は作られない（AC-09） | |
+| A の p1 への情報修正の申請が確認中 | A が、別の ID で p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_ALREADY_ACTIVE`）になる。申請は作られない | |
+| A の p1 への情報修正の申請が差し戻し | A が、別の ID で p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_ALREADY_ACTIVE`）になる | |
+| 店舗 p1 はサービス運営者が非公開にしている。店舗管理者はいない | A が p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_TARGET_NOT_VIEWABLE`）になる。申請は作られない | |
+| 店舗 p1 に店舗管理者がいない | A が、現在の内容から何も変えずに申請する | `BusinessRuleError`（`PLACE_REVISION_EMPTY`）になる | |
+| 店舗 p1 に店舗管理者がいない | A が、名称を空白だけにして申請する | `BusinessRuleError`（`PLACE_NAME_REQUIRED`）になる | |
+| A の情報修正の申請 a1 が確認中で保存されている | A が、同じ ID a1 と同じ内容・補足で、もう一度申請する | 成功として a1 を返す。書き込みもドメインイベントもない | |
+| 店舗 p1 に店舗管理者がいない | A が、マスターにない町域を指定して情報修正を申請する | `BusinessRuleError`（`AREA_TOWN_NOT_FOUND`）になる。申請は作られない | |
+| ID が p9 の店舗はない | A が p9 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_TARGET_NOT_VIEWABLE`）になる。申請は作られない | |
+| 店舗 p1 に店舗管理者がいて、p1 はサービス運営者が非公開にしている | A が p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_PLACE_HAS_STEWARD`）になる（前提を、閲覧できない対象より先に判定する） | |
+| A の p1 への情報修正の申請が確認中。その後、p1 はサービス運営者によって非公開になった | A が、別の ID で p1 の情報修正を申請する | `BusinessRuleError`（`APPLICATION_TARGET_NOT_VIEWABLE`）になる（閲覧できない対象を、重ねた申請より先に判定する） | |

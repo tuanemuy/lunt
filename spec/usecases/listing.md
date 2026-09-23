@@ -1,0 +1,837 @@
+# Listing のユースケース
+
+ドメイン: Listing（[../domains/listing.md](../domains/listing.md)。カテゴリーを含む）
+
+| 名前 | 説明 | 実現する |
+| --- | --- | --- |
+| `createListingDraft` | 店舗に紐づく掲載の下書きを作る | LST-01、LST-02、LST-03、LST-15 / SM-04 |
+| `updateListing` | 掲載の内容を保存する。公開中の掲載は保存した時点で反映する | LST-02、LST-03、LST-06、LST-11、LST-16、MOD-03、MOD-06 / SM-04 |
+| `publishListing` | 下書きを公開する。一時非公開の掲載を再公開する | LST-04、LST-07、LST-15、LST-16、MOD-03 / SM-04、CM-03 |
+| `unpublishListing` | 公開中の掲載を一時非公開にする | LST-07、LST-16 / SM-04 |
+| `endListingOffering` | 公開中の掲載を提供終了にする | LST-08、LST-16 / SM-04 |
+| `resumeListingOffering` | 管理する人が提供終了にした掲載を、提供中に戻す | LST-08、LST-16 / SM-04 |
+| `duplicateListing` | 掲載を複製して、同じ店舗の下書きを作る | LST-09 / SM-04 |
+| `deleteListing` | 掲載を削除する | LST-10、LST-16 / SM-04 |
+| `getManagedListing` | 掲載1件の内容、公開状態、運営による非公開、提供状態を返す | LST-05、LST-06、LST-11、LST-16、MOD-07 / SM-04、OM-03 |
+| `listPlaceListings` | 店舗の掲載を管理上の区分で絞って返し、区分ごとの件数を返す | LST-05、LST-11、LST-16、SHP-05 / SM-03、SM-01 |
+| `previewListing` | 保存済みの掲載の内容を、閲覧者に見えるのと同じ形で返す | LST-04、LST-15 / CM-03 |
+| `suspendListing` | サービス運営者が、掲載を運営による非公開にする | MOD-07、MOD-02 / OM-03 |
+| `unsuspendListing` | サービス運営者が、運営による非公開を解除する | MOD-07 / OM-03 |
+| `takeDownListingPhotos` | サービス運営者が、申立ての対象の掲載から、選んだ写真を削除する | MOD-02 / OM-04 |
+| `searchListingsForOperation` | サービス運営者が、閲覧できない掲載を含めて、キーワードで掲載を探す | LST-16、MOD-07 / OM-02 |
+| `detectEndedOfferings` | 日次のジョブ。公開中の掲載の提供終了を取り出して、ドメインイベントを出す | LST-03、LST-08 |
+| `provisionInitialCategories` | 開設時に、初期値の4つのカテゴリーを台帳に入れる | OPE-02 |
+| `listCategories` | 現役のカテゴリーを作成順で返す | OPE-02、LST-01 / OM-06、SM-04 |
+| `addCategory` | サービス運営者が、カテゴリーを追加する | OPE-02 / OM-06 |
+| `renameCategory` | サービス運営者が、カテゴリーの名称を変更する | OPE-02 / OM-06 |
+| `retireCategory` | サービス運営者が、移行先を指定してカテゴリーを廃止する | OPE-03 / OM-06 |
+
+掲載の申請と掲載の修正の申請の提出・承認（LST-12〜LST-14）は Application のユースケースが行う。
+
+## 共通の組み立て
+
+各ユースケースの「使用するドメインの振る舞い・ポート」は、次の2つの可否の確かめ方と、読み取りの組み立てを名前で参照する。
+
+内容を編集して保存する要求（`updateListing`）は、編集を始めたときの掲載の版を含む。状態を変えるだけの要求（公開、一時非公開、提供終了、提供中への復帰、削除、運営による非公開と解除、申立てに基づく写真の削除）は版を含まず、すでにその状態であることを `BusinessRuleError` で返し、同時の書き込みは `save`・`delete` の楽観ロックで守る（[../domains/index.md](../domains/index.md)「編集の競合」）。
+
+### 掲載の管理の可否
+
+操作する人が、掲載の紐づく店舗の掲載を管理できること（店舗管理者、または店舗管理者のいない店舗でのサービス運営者）を確かめる。店舗管理者とサービス運営者は、同じユースケースを使う。
+
+- `RoleRosterRepository.findRolesOf`（`ActorAuthority` を作る）
+- `StewardshipRepository.findById`（対象は `{ kind: "place"; id: placeId }`。なければ `Stewardship.vacant`）
+- `Stewardship.standingOf`
+- `AccessPolicy.decide`（`{ kind: "manage_target"; standing }`）。`allowed: false` なら `ForbiddenError`
+
+書き込みを持つユースケースは、書き込みと同じ UnitOfWork の中で、書き込みの前に確かめる。
+
+### サービス運営の可否
+
+- `RoleRosterRepository.findRolesOf`
+- `AccessPolicy.decide`（`{ kind: "operate_service" }`）。`allowed: false` なら `ForbiddenError`
+
+書き込みを持つユースケースは、書き込みと同じ UnitOfWork の中で、書き込みの前に確かめる。
+
+### 管理する掲載の読み取りの組み立て
+
+掲載を返すユースケースは、保存された `CategoryId` を `CategoryCatalog.resolve` で現役のカテゴリーにし、提供状態を `Listing.offeringStatus(listing, LocalDate.fromInstant(now))` で求め、写真の表示用の参照を `PhotoStorage.displayRefs` で得て返す。
+
+- `CategoryCatalogRepository.find`、`CategoryCatalog.resolve`
+- `Listing.offeringStatus`、`LocalDate.fromInstant`、`Clock`
+- `PhotoStorage.displayRefs`
+
+ID で引く問い合わせ（`PhotoStorage.displayRefs`、`PhotoAssetRepository.findByIds`、`PlaceRepository.findByIds`、`StewardshipRepository.findByTargets`）は 0〜100件を受け取る。100件を超える ID は、100件ずつに分けて呼ぶ。
+
+## createListingDraft
+
+### 概要
+
+店舗に紐づく掲載の下書きを作る。必要なのは店舗への紐づけだけで、名称・説明・カテゴリー・写真・提供の設定は空でよい。公開条件は確かめない。載せた写真の持ち主を、同じ UnitOfWork でこの掲載に設定する。作った下書きは閲覧者に表示されない。
+
+冪等な作成。呼び出し側が掲載の ID を決める。同じ ID の掲載がすでにあり、`placeId` と `ListingContent` が等しければ、書き込みなしに成功として扱う。
+
+### 入出力
+
+- 入力: `Actor`、呼び出し側が決めた `ListingId`、`PlaceId`、掲載の内容（名称、説明、カテゴリー、写真の並びと写真ごとの見せる範囲、提供の設定）
+- 出力: 作った下書き（`getManagedListing` と同じ形）
+- 価格とキャッチコピーを受け取らない。所在地と所属地域を受け取らない
+- 提供の設定は「設定しない / 提供期間 / 開催日」のどれか1つ。提供期間は開始日と終了日のどちらか一方以上を持ち、終了日は開始日より前にならない。開催日は1つ以上
+
+### 使用するドメインの振る舞い・ポート
+
+- 掲載の管理の可否
+- `PlaceRepository.findById`（店舗があること）
+- `CategoryCatalogRepository.find`
+- `ListingContent.create`、`Listing.createDraft`
+- `ListingRepository.findById`（冪等な作成の判定。`ListingContent` の等価性で比べる）、`insert`
+- `PhotoAssetRepository.findByIds`、`PhotoOwnership.claimAll`（持ち主は `{ kind: "listing"; id }`）、`PhotoAssetRepository.save`
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `insert`、載せた写真の `save`（持ち主の設定）。ドメインイベントはない
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`placeRepository`、`categoryCatalogRepository`、`listingRepository`、`photoAssetRepository`
+- ロールバック: 可否が成り立たない、店舗がない、カテゴリーが現役でない、写真の持ち主を設定できない、ID の重複または楽観ロックの競合。どの場合も、掲載も写真の持ち主も残らない
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない（管理権限がない、操作の途中で管理権限を失った、店舗管理者のいる店舗でサービス運営者が作成した、代行の途中で店舗管理者が就いた） | `ForbiddenError` |
+| 店舗がない | `NotFoundError` |
+| 選んだカテゴリーが廃止されている | `BusinessRuleError`（`LISTING_CATEGORY_NOT_AVAILABLE`） |
+| 名称が改行を含む | `BusinessRuleError`（`LISTING_INVALID_NAME`） |
+| 終了日が開始日より前 | `BusinessRuleError`（`LISTING_OFFERING_PERIOD_REVERSED`） |
+| 提供期間を選んで、開始日も終了日もない | `BusinessRuleError`（`LISTING_OFFERING_PERIOD_EMPTY`） |
+| 開催日を選んで、開催日が1つもない | `BusinessRuleError`（`LISTING_OPEN_DATES_EMPTY`） |
+| 同じ ID で、`placeId` または内容の違う掲載がある | `ConflictError` |
+
+## updateListing
+
+### 概要
+
+掲載の内容（名称、説明、カテゴリー、写真、提供の設定）を、受け取った内容で置き換えて保存する。承認を求めない。公開中の掲載は、保存した時点で閲覧者への表示に反映する。公開中の掲載は、公開条件を欠く内容では保存できない。下書きと一時非公開の掲載は、どの項目が空でも保存できる。
+
+加わった写真の持ち主を同じ UnitOfWork でこの掲載に設定し、外れた写真を `photos.released` で手放す。運営による非公開の間も保存できる。内容が変わらなければ、何も書き込まない。
+
+提供状態は保存しない。保存の後の提供状態は、保存した提供の設定と今日の暦日から決まる。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`、編集を始めたときの掲載の版、掲載の内容（`createListingDraft` と同じ項目と規則）
+- 出力: 保存した後の掲載（`getManagedListing` と同じ形。保存の後の提供状態を含む）
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`（編集を始めたときの版と違えば `ConflictError`）、`save`
+- 掲載の管理の可否（掲載の `placeId` で確かめる）
+- `CategoryCatalogRepository.find`
+- `ListingContent.create`、`Listing.update`
+- `PhotoAssetRepository.findByIds`、`PhotoOwnership.claimAll`（現在の内容になく、受け取った内容にある写真）、`PhotoAssetRepository.save`
+- `collectEvents`（`photos.released`）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`、加わった写真の `save`（持ち主の設定）、`photos.released` の保存
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`categoryCatalogRepository`、`listingRepository`、`photoAssetRepository`
+- ロールバック: 可否が成り立たない、掲載がない、版が違う、公開条件を欠く、カテゴリーが現役でない、写真の持ち主を設定できない、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない（`createListingDraft` と同じ場合。店舗管理者が残っている店舗の掲載をサービス運営者が更新する場合を含む） | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 別の人が先に保存している（編集を始めたときの版と違う、または同時の保存） | `ConflictError` |
+| 公開中の掲載を、写真・名称・カテゴリーのいずれかを欠く内容で保存する | `BusinessRuleError`（`LISTING_PUBLISH_CONDITION_UNMET`） |
+| 選んだカテゴリーが廃止されている | `BusinessRuleError`（`LISTING_CATEGORY_NOT_AVAILABLE`） |
+| 名称・提供の設定の入力エラー（`createListingDraft` と同じ） | `BusinessRuleError`（`LISTING_INVALID_NAME`、`LISTING_OFFERING_PERIOD_REVERSED`、`LISTING_OFFERING_PERIOD_EMPTY`、`LISTING_OPEN_DATES_EMPTY`） |
+
+## publishListing
+
+### 概要
+
+下書きを公開する。一時非公開の掲載を再公開する。保存済みの内容が写真・名称・カテゴリーを持てば成立し、承認を求めない。公開条件を欠く場合は、不足する項目を添えて拒否し、掲載は公開していない状態のまま残る。運営による非公開の掲載は公開できない。店舗が非公開でも公開できる。
+
+再公開は `manualEnd` を保つ。公開の後の提供状態は、提供の設定・`manualEnd`・今日の暦日から決まる。ドメインイベントはない。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 公開した後の掲載（`getManagedListing` と同じ形）
+- 公開条件を欠くエラーは、不足する項目（写真・名称・カテゴリー）を添える
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`、`save`
+- 掲載の管理の可否
+- `Listing.publish`、`ListingContent.missingForPublication`（判定の順は、共有カーネルの `Publication.publish` が持つ: 運営による非公開、不正な遷移、公開条件）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、運営による非公開、公開条件を欠く、すでに公開中、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 運営による非公開（後から管理権限を得た店舗管理者も同じ） | `BusinessRuleError`（`LISTING_SUSPENDED`） |
+| すでに公開中（別の人が先に公開した） | `BusinessRuleError`（`PUBLICATION_INVALID_TRANSITION`） |
+| 写真・名称・カテゴリーのいずれかを欠く（申立てで写真がなくなった掲載を含む） | `BusinessRuleError`（`LISTING_PUBLISH_CONDITION_UNMET`。不足する項目を添える） |
+| 同時の保存 | `ConflictError` |
+
+## unpublishListing
+
+### 概要
+
+公開中の掲載を一時非公開にする。公開状態は `unpublished`（`reason: "byManager"`）になり、`listing.unpublished` を出す。内容、`manualEnd`、`firstPublishedAt` は変わらない。運営による非公開の掲載は一時非公開にできない。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 一時非公開にした後の掲載（`getManagedListing` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`、`save`
+- 掲載の管理の可否
+- `Listing.unpublish`
+- `collectEvents`（`listing.unpublished`）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`、`listing.unpublished` の保存
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、運営による非公開、公開中でない、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 運営による非公開 | `BusinessRuleError`（`LISTING_SUSPENDED`） |
+| 公開中でない（下書き、別の人が先に一時非公開にした） | `BusinessRuleError`（`PUBLICATION_INVALID_TRANSITION`） |
+| 同時の保存 | `ConflictError` |
+
+## endListingOffering
+
+### 概要
+
+公開中の掲載を、管理する人の操作で提供終了にする。提供の設定を問わず、運営による非公開の間も行える。`manualEnd` を記録するだけで、ドメインイベントは出さない。提供終了のドメインイベントは `detectEndedOfferings` が出す。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 提供終了にした後の掲載（`getManagedListing` と同じ形。提供状態は `ended`・`cause: "manual"`）
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`、`save`
+- 掲載の管理の可否
+- `Listing.endOffering`
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、公開中でない、すでに管理する人が提供終了にしている、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 公開中でない（下書き、一時非公開） | `BusinessRuleError`（`LISTING_NOT_PUBLISHED`） |
+| すでに管理する人が提供終了にしている | `BusinessRuleError`（`LISTING_ALREADY_ENDED`） |
+| 同時の保存 | `ConflictError` |
+
+## resumeListingOffering
+
+### 概要
+
+管理する人が提供終了にした公開中の掲載を、提供中に戻す。`manualEnd` を外すだけで、戻した後の提供状態は提供の設定と今日の暦日から決まる。終了日または最後の開催日を過ぎている掲載は、戻しても提供終了（`cause: "schedule"`）のまま。期日で自動で提供終了になった掲載は、この操作の対象ではない。ドメインイベントはない。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 戻した後の掲載（`getManagedListing` と同じ形。戻した後の提供状態を含む）
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`、`save`
+- 掲載の管理の可否
+- `Listing.resumeOffering`
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、公開中でない、管理する人による提供終了でない、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 公開中でない（下書き、一時非公開） | `BusinessRuleError`（`LISTING_NOT_PUBLISHED`） |
+| 管理する人が提供終了にした掲載でない（期日による提供終了を含む） | `BusinessRuleError`（`LISTING_NOT_MANUALLY_ENDED`） |
+| 同時の保存 | `ConflictError` |
+
+## duplicateListing
+
+### 概要
+
+掲載を元にして、同じ店舗の新しい下書きを作る。名称・説明・カテゴリー・写真（並び順と見せる範囲）を引き継ぎ、提供の設定は「設定しない」にする。下書き・公開・一時非公開のどの掲載も、提供状態と運営による非公開を問わず元にできる。新しい下書きは、元の掲載の運営による非公開を引き継がない。元の掲載は変わらない。
+
+写真は Media の `duplicatePhotos` で複製し、複製した写真の `markStored` と持ち主の設定を、新しい掲載の書き込みと同じ UnitOfWork で行う。元の写真の持ち主は変わらない。
+
+冪等な作成。呼び出し側が新しい掲載の ID を決める（[../domains/index.md](../domains/index.md) の「リポジトリの共通の契約」）。新しい ID の掲載がすでにあり、元の掲載と同じ店舗の掲載なら、送り直しとして、書き込みも写真の複製もなしに成功として扱う。違う店舗の掲載なら `ConflictError`。この判定は、写真の複製の前に行う。
+
+### 入出力
+
+- 入力: `Actor`、元にする掲載の `ListingId`、呼び出し側が決めた新しい `ListingId`
+- 出力: 作った下書き（`getManagedListing` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`（元の掲載。新しい ID の掲載の有無と `placeId` による冪等な作成の判定）、`insert`
+- 掲載の管理の可否（元の掲載の `placeId` で確かめる）
+- Media の `duplicatePhotos`（元の `PhotoId` から新しい `PhotoId` への対応を得る）
+- `CategoryCatalogRepository.find`
+- `Listing.duplicate`
+- `PhotoAssetRepository.findByIds`、`PhotoAsset.markStored`、`PhotoOwnership.claimAll`（持ち主は新しい掲載）、`PhotoAssetRepository.save`
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+元の掲載の読み取り、可否の確認、冪等な作成の判定、写真の複製（`duplicatePhotos`。その UnitOfWork と `PhotoStorage.copy`）の後に、UnitOfWork を1つ使う。可否は、この UnitOfWork の中でもう一度確かめる。
+
+- 書き込み: 新しい掲載の `insert`、複製した写真の `save`（`markStored` と持ち主の設定）。ドメインイベントはない
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`categoryCatalogRepository`、`listingRepository`、`photoAssetRepository`
+- ロールバック: 可否が成り立たない、元の掲載がない、ID の重複または楽観ロックの競合
+- 途中で失敗した場合に残る状態: 新しい掲載は作られない。複製した写真は持ち主のないまま残り、Media の `sweepUnownedPhotos` が削除する。元の掲載と元の写真は変わらない
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 元の掲載が削除されている | `NotFoundError` |
+| 新しい `ListingId` と同じ ID の、別の店舗の掲載がある | `ConflictError` |
+
+## deleteListing
+
+### 概要
+
+掲載を削除する。公開状態・提供状態・運営による非公開を問わない。削除した掲載は復元できず、以後のどの読み取りにも現れない。`listing.deleted` と、すべての写真の `photos.released` を出す。提供状態の確認記録も同じ UnitOfWork で削除する。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: なし
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`、`delete`
+- 掲載の管理の可否
+- `Listing.delete`
+- `OfferingPhaseLedger.remove`
+- `collectEvents`（`listing.deleted`、`photos.released`）
+- `Clock`
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `delete`、`OfferingPhaseLedger.remove`、`listing.deleted` と `photos.released` の保存
+- リポジトリ: `roleRosterRepository`、`stewardshipRepository`、`listingRepository`、`offeringPhaseLedger`
+- ロールバック: 可否が成り立たない、掲載がない、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 別の人が先に削除している | `NotFoundError` |
+| 同時の保存・削除 | `ConflictError` |
+
+## getManagedListing
+
+### 概要
+
+掲載1件を、管理する人に返す。内容、公開状態（一時非公開の理由を含み、申立てで写真がなくなった掲載を区別できる）、運営による非公開、提供状態（提供終了は、期日によるものと管理する人によるものを区別する）を返す。閲覧できない掲載（下書き、一時非公開、運営による非公開、非公開の店舗の掲載）も返す。
+
+その店舗の掲載を管理できる人と、サービス運営者が読める。サービス運営者は、店舗管理者のいる店舗の掲載も読める（運営による非公開の対象を確かめる）。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 掲載の ID、`PlaceId`、版、内容（名称、説明、現役に解決したカテゴリー、写真の並びと見せる範囲と表示用の参照、提供の設定）、公開状態と理由、運営による非公開、提供状態、更新日時、操作する人がこの掲載を管理できるかどうか、店舗に店舗管理者がいるかどうか
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`
+- 掲載の管理の可否、サービス運営の可否（どちらかが成り立てば読める。サービス運営者が対象を開いて確かめる読み取りは `operate_service` に含まれる）
+- `Stewardship.isVacant`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork は不要。読み取りだけを行う。
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できず、サービス運営者でもない | `ForbiddenError` |
+| 掲載が削除されている、または存在しない | `NotFoundError` |
+
+## listPlaceListings
+
+### 概要
+
+店舗のすべての掲載（下書き、一時非公開、運営による非公開、代理作成や申請の承認で公開された掲載、店舗管理者のいなかった時期の下書きを含む）を、更新の新しい順に返す。管理上の区分（公開中・下書き・非公開・提供終了）で絞れる。区分ごとの件数を併せて返す。区分と件数は今日の暦日で決まる。
+
+### 入出力
+
+- 入力: `Actor`、`PlaceId`、管理上の区分（指定しなければすべて）、`Pagination`
+- 出力: 掲載の一覧（代表写真、名称、現役に解決したカテゴリー、公開状態と理由、運営による非公開、提供状態）と条件に合う全件数、区分ごとの件数
+
+### 使用するドメインの振る舞い・ポート
+
+- 掲載の管理の可否
+- `ListingRepository.findPageByPlace`、`countByPlace`
+- `LocalDate.fromInstant`、`Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork は不要。読み取りだけを行う。
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+
+掲載が1件もない店舗と、選んだ区分に当てはまる掲載がない場合は、空の一覧を返す。
+
+## previewListing
+
+### 概要
+
+保存済みの掲載の内容を、公開状態を問わず、閲覧者向けの掲載の要約と掲載詳細と同じ形で返す。下書きと一時非公開の掲載の、公開前の見え方の確認に使う。店舗名と地域名は、紐づく店舗の情報から引く。価格とキャッチコピーを含まない。掲載は変わらない。
+
+公開できるかどうかの判断に要る状態（公開状態、運営による非公開、店舗が非公開かどうか）を併せて返す。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 写真の並びと見せる範囲と表示用の参照（1枚目が代表写真）、名称、店舗名、閲覧者に示す地域の名称、現役に解決したカテゴリー、説明、提供の設定と提供状態、公開状態、運営による非公開、店舗が非公開かどうか
+
+### 使用するドメインの振る舞い・ポート
+
+- `ListingRepository.findById`
+- 掲載の管理の可否
+- `PlaceRepository.findById`（店舗名、店舗が非公開かどうか）
+- `PlaceAffiliationsRepository.findById`、`RegionRepository.findByIds`（店舗の所属と、所属地域）
+- Discovery の `ViewProjection.previewListing`（掲載の内容、店舗、所属、地域、今日の暦日を渡す。閲覧者に示す地域と、要約と詳細の形は、この投影だけが定める）
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork は不要。読み取りだけを行う。
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| その店舗の掲載を管理できない | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+
+## suspendListing
+
+### 概要
+
+サービス運営者が、掲載を運営による非公開にする。店舗管理者の有無と公開状態を問わない。公開状態は書き換えない。`listing.suspended` を出す。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 運営による非公開にした後の掲載（`getManagedListing` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `ListingRepository.findById`、`save`
+- `Listing.suspend`
+- `collectEvents`（`listing.suspended`）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`、`listing.suspended` の保存
+- リポジトリ: `roleRosterRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、すでに運営による非公開、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない（操作の途中で役割を解除された場合を含む） | `ForbiddenError` |
+| 掲載が削除されている | `NotFoundError` |
+| 別のサービス運営者がすでに運営による非公開にしている | `BusinessRuleError`（`LISTING_ALREADY_SUSPENDED`） |
+| 同時の保存 | `ConflictError` |
+
+## unsuspendListing
+
+### 概要
+
+サービス運営者が、掲載の運営による非公開を解除する。公開状態は書き換えず、解除すると公開状態がそのまま現れる。運営による非公開の間に申立てで最後の写真が削除された掲載は、一時非公開（`photoTakedown`）として現れる。`listing.unsuspended` を出す。
+
+### 入出力
+
+- 入力: `Actor`、`ListingId`
+- 出力: 解除した後の掲載（`getManagedListing` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `ListingRepository.findById`、`save`
+- `Listing.unsuspend`
+- `collectEvents`（`listing.unsuspended`）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`、`listing.unsuspended` の保存
+- リポジトリ: `roleRosterRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、掲載がない、運営による非公開でない、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+| 運営による非公開の間に、掲載が削除されている | `NotFoundError` |
+| 別のサービス運営者がすでに解除している | `BusinessRuleError`（`LISTING_NOT_SUSPENDED`） |
+| 同時の保存 | `ConflictError` |
+
+## takeDownListingPhotos
+
+### 概要
+
+サービス運営者が、取り下げの申立てに基づいて、掲載から選んだ写真を外す（[../domains/index.md](../domains/index.md)「申立てに基づく写真の削除」）。外せるのは、未対応の申立ての対象である掲載の写真で、申立人が示した写真に限らない。申立てが未対応で、対象がこの掲載であることは、Moderation のポートから申立てを読み、`TakedownClaim.authorizePhotoRemoval` で確かめる。運営による非公開の間も行える。
+
+写真が残る掲載は公開が続き、1枚目を外すと次の写真が代表写真になる。公開中の掲載で写真が残らなければ、一時非公開（`photoTakedown`）にする。`listing.photos_taken_down` と `photos.released` を出し、一時非公開にした場合は `listing.unpublished` も出す。`listing.photos_taken_down` の `unpublished` は、この削除で一時非公開になったときだけ `true`。削除した写真は戻せない。
+
+申立ての状態は変えない。申立てを対応済みにする操作（Moderation）とは別の UnitOfWork で確定する。
+
+### 入出力
+
+- 入力: `Actor`、`TakedownClaimId`、`ListingId`、削除する写真の `PhotoId`（重複のない1つ以上）。版を含めない
+- 出力: 削除した後の掲載（`getManagedListing` と同じ形。現在の公開状態を含む）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `TakedownClaimRepository.findById`、`TakedownClaim.authorizePhotoRemoval`（`owner` は `{ kind: "listing"; id }`）。申立てがなければ `NotFoundError`。不成立は、対応済み（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`）を、対象の不一致（`TAKEDOWN_TARGET_MISMATCH`）より先に判定する（[../domains/moderation.md](../domains/moderation.md)）
+- `ListingRepository.findById`、`save`
+- `Listing.takeDownPhotos`
+- `collectEvents`（`listing.photos_taken_down`、`listing.unpublished`、`photos.released`）
+- `Clock`
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 掲載の `save`（写真の削除と、公開条件を欠いた場合の `unpublished`）、ドメインイベントの保存。申立ては書き込まない
+- リポジトリ: `roleRosterRepository`、`takedownClaimRepository`、`listingRepository`
+- ロールバック: 可否が成り立たない、申立てまたは掲載がない、申立てが前提を欠く、掲載にない写真、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+| 申立てがない | `NotFoundError` |
+| 申立てが対応済み | `BusinessRuleError`（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`） |
+| 申立ての対象がこの掲載でない | `BusinessRuleError`（`TAKEDOWN_TARGET_MISMATCH`） |
+| 掲載が対応の前に削除されている | `NotFoundError` |
+| 削除する写真に、掲載の写真でないものがある（対応の前に外された写真を含む）。1枚も外さない | `BusinessRuleError`（`LISTING_PHOTO_NOT_FOUND`） |
+| 同時の保存 | `ConflictError` |
+
+## searchListingsForOperation
+
+### 概要
+
+サービス運営者が、キーワードを名称または説明に含む掲載を、閲覧者に表示されない掲載（下書き、一時非公開、運営による非公開、非公開の店舗の掲載）を含めて探す。一致は、共有カーネルの `TextNormalization.normalize` を当てた値どうしの部分一致で、保存先によらない（`ListingRepository.searchForOperation` の契約）。結果は関連度の高い順。掲載ごとに、紐づく店舗の名称、店舗管理者の有無、掲載の状態を添える。
+
+### 入出力
+
+- 入力: `Actor`、キーワード、`Pagination`
+- 出力: 掲載の一覧（名称、代表写真、店舗名、店舗に店舗管理者がいるかどうか、公開状態、運営による非公開、提供状態）と条件に合う全件数
+- 正規化した結果が空のキーワード（空白だけを含む）は、空の結果を返す
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `ListingRepository.searchForOperation`
+- `PlaceRepository.findByIds`（店舗名）
+- `StewardshipRepository.findByTargets`、`Stewardship.isVacant`（店舗管理者の有無）
+- 管理する掲載の読み取りの組み立て
+
+### トランザクション境界
+
+UnitOfWork は不要。読み取りだけを行う。
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+
+## detectEndedOfferings
+
+### 概要
+
+日次のジョブ。入力はスケジュール。公開中の掲載のうち、提供状態の段階が最後に確かめた段階と違う掲載（確認記録のない掲載を含む）を読み、掲載ごとに確認記録を今日の段階に更新する。今日の段階が提供終了で、記録が提供終了でなかった掲載について、`listing.offering_ended`（`cause` は期日によるものか、管理する人によるものか。`observedOn` は今日の暦日）を出す。提供中に戻った掲載は、記録だけを更新する。掲載は書き込まず、掲載の版を進めない。
+
+冪等。確認記録の更新とドメインイベントの保存を、掲載1件ごとに1つの UnitOfWork で確定する。記録を更新した掲載は `findPageDrifted` の結果から外れるので、同じ日に何度実行しても、1つの提供終了について出るドメインイベントは1つ。提供終了にして次の実行までに提供中へ戻した掲載は、ドメインイベントを出さない。
+
+先頭のページを読み直して進める。1件の失敗は他の掲載の処理を妨げない。読んだページの全件が失敗したら打ち切り、残りは次の実行が続ける。
+
+### 入出力
+
+- 入力: なし（スケジュール）。今日の暦日は `LocalDate.fromInstant(now)`
+- 出力: なし
+- `Actor` を取らない
+
+### 使用するドメインの振る舞い・ポート
+
+- `OfferingPhaseLedger.findPageDrifted`（`page: 1` を読み直す）、`record`
+- `OfferingWatch.detect`
+- `collectEvents`（`listing.offering_ended`）
+- `LocalDate.fromInstant`、`Clock`
+
+### トランザクション境界
+
+掲載1件ごとに UnitOfWork を1つ使う。
+
+- 書き込み: `OfferingPhaseLedger.record`、`listing.offering_ended` の保存。掲載は書き込まない
+- リポジトリ: `offeringPhaseLedger`
+- ロールバック: その掲載の書き込みの失敗。記録もドメインイベントも残らず、次の実行が同じ掲載を取り出す
+- 途中で失敗した場合に残る状態: 処理を終えた掲載の記録とドメインイベントは確定している。残りの掲載は記録が古いまま残り、次の実行が続ける
+
+### エラーケース
+
+要件が振る舞いを定めるエラーはない。
+
+## provisionInitialCategories
+
+### 概要
+
+開設時に、空の台帳に初期値の4つのカテゴリー（「食べる」「買う」「体験」「見る」）を、この順の現役のカテゴリーとして入れる。画面からは呼ばず、開設の手順が、最初のサービス運営者の設定（Authority の `establishFirstOperator`）と併せて呼ぶ。台帳が空の間は、カテゴリーを選べず、掲載を公開できない。
+
+冪等。台帳が空でなければ、何も書き込まずに成功として扱う。同時の実行は、台帳の楽観ロックで一方だけが成立する。
+
+### 入出力
+
+- 入力: なし
+- 出力: なし
+- `Actor` を取らない。カテゴリーの ID は `IdGenerator` で決める
+
+### 使用するドメインの振る舞い・ポート
+
+- `CategoryCatalogRepository.find`、`save`
+- `CategoryName.create`、`CategoryCatalog.establish`（`INITIAL_CATEGORY_NAMES`）
+- `Clock`、`IdGenerator`
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 台帳の `save`。ドメインイベントはない
+- リポジトリ: `categoryCatalogRepository`
+- ロールバック: 楽観ロックの競合（同時の開設）
+
+### エラーケース
+
+要件が振る舞いを定めるエラーはない。
+
+## listCategories
+
+### 概要
+
+現役のカテゴリーを作成順で返す。掲載に設定するカテゴリーの選択肢、閲覧者の絞り込みの選択肢、カテゴリーの管理の一覧に使う。廃止済みのカテゴリーは返さない。カテゴリーは1階層。
+
+### 入出力
+
+- 入力: なし
+- 出力: 現役のカテゴリーの ID と名称の並び（作成順）
+- `Actor` を取らない
+
+### 使用するドメインの振る舞い・ポート
+
+- `CategoryCatalogRepository.find`
+- `CategoryCatalog.actives`
+
+### トランザクション境界
+
+UnitOfWork は不要。読み取りだけを行う。
+
+### エラーケース
+
+要件が振る舞いを定めるエラーはない。
+
+## addCategory
+
+### 概要
+
+サービス運営者が、カテゴリーを追加する。追加したカテゴリーは現役で、並びの最後に入り、掲載に設定するカテゴリーの選択肢と絞り込みの選択肢に加わる。廃止済みのカテゴリーと同じ名称は追加できる。ドメインイベントはない。
+
+冪等な作成。呼び出し側がカテゴリーの ID を決める。同じ ID で同じ名称の現役のカテゴリーがすでにあれば、書き込みなしに成功として扱う。
+
+### 入出力
+
+- 入力: `Actor`、呼び出し側が決めた `CategoryId`、名称
+- 出力: 追加した後の現役のカテゴリーの並び（`listCategories` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `CategoryCatalogRepository.find`、`save`
+- `CategoryName.create`、`CategoryCatalog.add`
+- `Clock`
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 台帳の `save`
+- リポジトリ: `roleRosterRepository`、`categoryCatalogRepository`
+- ロールバック: 可否が成り立たない、名称の誤り・重複、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+| 名称が空 | `BusinessRuleError`（`CATEGORY_INVALID_NAME`） |
+| 現役のカテゴリーに同じ名称がある | `BusinessRuleError`（`CATEGORY_NAME_TAKEN`） |
+| 同じ ID で、名称の違うカテゴリーがある | `ConflictError` |
+| 別のサービス運営者が同時に台帳を保存した | `ConflictError` |
+
+## renameCategory
+
+### 概要
+
+サービス運営者が、現役のカテゴリーの名称を変更する。そのカテゴリーを設定している掲載は、付け替えなしに新しい名称で読み取られる。掲載の公開状態・提供状態は変わらない。同じ名称への変更は、何も書き込まない。ドメインイベントはない。
+
+### 入出力
+
+- 入力: `Actor`、`CategoryId`、新しい名称
+- 出力: 変更した後の現役のカテゴリーの並び（`listCategories` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `CategoryCatalogRepository.find`、`save`
+- `CategoryName.create`、`CategoryCatalog.rename`
+- `Clock`
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 台帳の `save`。掲載は書き込まない
+- リポジトリ: `roleRosterRepository`、`categoryCatalogRepository`
+- ロールバック: 可否が成り立たない、名称の誤り・重複、カテゴリーがない・廃止済み、楽観ロックの競合
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+| 名称が空 | `BusinessRuleError`（`CATEGORY_INVALID_NAME`） |
+| 他の現役のカテゴリーと同じ名称 | `BusinessRuleError`（`CATEGORY_NAME_TAKEN`） |
+| 別のサービス運営者がすでに廃止している | `BusinessRuleError`（`CATEGORY_RETIRED`） |
+| カテゴリーが台帳にない | `BusinessRuleError`（`CATEGORY_NOT_FOUND`） |
+| 別のサービス運営者が同時に台帳を保存した | `ConflictError` |
+
+## retireCategory
+
+### 概要
+
+サービス運営者が、移行先を指定して現役のカテゴリーを廃止する。移行先は、廃止するカテゴリー以外の現役のカテゴリーで、そのカテゴリーの掲載と申請が1件もなくても必須。最後の1つの現役のカテゴリーは廃止できない。廃止は取り消せない。
+
+確定するのは台帳の書き込み（廃止と移行先の記録）と `category.retired` の保存。廃止が確定した時点から、廃止したカテゴリーは選択肢から消え、その掲載と申請は `CategoryCatalog.resolve` によって移行先のカテゴリーのものとして読み取られる（[../domains/listing.md](../domains/listing.md)「カテゴリーの解決」）。掲載と申請に保存された `CategoryId` は書き換えず、掲載の版と更新日時は進まない。店舗管理者への通知は、`category.retired` の消費（Notification）で結果整合にする。
+
+### 入出力
+
+- 入力: `Actor`、廃止する `CategoryId`、移行先の `CategoryId`（必須）
+- 出力: 廃止した後の現役のカテゴリーの並び（`listCategories` と同じ形）
+
+### 使用するドメインの振る舞い・ポート
+
+- サービス運営の可否
+- `CategoryCatalogRepository.find`、`save`
+- `CategoryCatalog.retire`
+- `collectEvents`（`category.retired`）
+- `Clock`
+
+### トランザクション境界
+
+UnitOfWork を1つ使う。
+
+- 書き込み: 台帳の `save`、`category.retired` の保存。掲載と申請は書き込まない
+- リポジトリ: `roleRosterRepository`、`categoryCatalogRepository`
+- ロールバック: 可否が成り立たない、移行先が妥当でない、最後の1つ、廃止済み、楽観ロックの競合。台帳は変わらず、ドメインイベントも残らない
+
+### エラーケース
+
+| 条件 | 種類 |
+| --- | --- |
+| サービス運営者でない | `ForbiddenError` |
+| 移行先が、廃止するカテゴリーと同じ、台帳にない、または別のサービス運営者がすでに廃止している | `BusinessRuleError`（`CATEGORY_SUCCESSOR_INVALID`） |
+| 現役のカテゴリーが1つだけ | `BusinessRuleError`（`CATEGORY_LAST_ONE`） |
+| 廃止するカテゴリーを、別のサービス運営者がすでに廃止している | `BusinessRuleError`（`CATEGORY_RETIRED`） |
+| 別のサービス運営者が同時に台帳を保存した | `ConflictError` |
