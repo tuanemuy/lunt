@@ -6,7 +6,8 @@
 | 操作する人は地域 R の運営者。解除を取り消した後 | `detachRegionLink` で再び解除する | `detached` になり、`occasion.region_link_detached` が出る | |
 | 操作する人は地域 R の運営者。解除を取り消した後 | イベント O の運営者が `unlinkRegion` で地域 R を外す | 関連づけが削除される | |
 | 地域 R に地域運営者がいない。操作する人はサービス運営者 | 解除を取り消す | `linked` に戻る（代行） | |
-| 操作する人は地域 R の運営者。関連づけは `linked` | 解除を取り消す | `BusinessRuleError`（`REGION_LINK_NOT_DETACHED`）。関連づけは変わらない | |
+| 操作する人は地域 R の運営者。関連づけは `linked` | 解除を取り消す | `BusinessRuleError`（`OCCASION_REGION_LINK_NOT_DETACHED`）。関連づけは変わらない | |
 | 操作する人は地域 R の運営者。イベント O と地域 R の関連づけがない | 解除を取り消す | `NotFoundError` | |
 | 操作する人は、イベント O の運営者で、地域 R の管理権限を持たない | 解除を取り消す | `ForbiddenError`。関連づけは `detached` のまま | |
 | 地域 R に地域運営者がいる。操作する人は、地域 R の管理権限を持たないサービス運営者 | 解除を取り消す | `ForbiddenError` | |
+| 操作する人は地域 R の運営者。関連づけは `detached`。別の運営者の解除の取り消しが同時に確定する | 解除を取り消す | 後に確定する側が `ConflictError` になり、その側の変更は残らない | |

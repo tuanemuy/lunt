@@ -13,7 +13,8 @@
 | 時刻 T1 に公開し、その後に `unpublishArticle` で取り下げた読みもの | 時刻 T2 に公開する | 成功する。`published` になり、`firstPublishedAt` は T1 のまま | |
 | 申立てによる写真の削除で公開が取り下げられ、`reviseArticle` で写真を加えた読みもの | 公開する | 成功する。`published` になり、`firstPublishedAt` は最初の公開の日時のまま（AC-79） | |
 | 申立てによる写真の削除で公開が取り下げられ、写真を加えていない読みもの | 公開する | `BusinessRuleError`（`ARTICLE_PUBLISH_CONDITION_UNMET`）。欠けている項目として `photos` を示す（AC-79） | |
-| 編集担当者 A が下書きを開いた後、編集担当者 B が先に公開した | A が公開する | `BusinessRuleError`（`PUBLICATION_INVALID_TRANSITION`）。読みものは B が公開した状態のまま変わらない | |
+| 編集担当者 A が下書きを開いた後、編集担当者 B が先に公開した | A が公開する | `BusinessRuleError`（`COMMON_PUBLICATION_INVALID_TRANSITION`）。読みものは B が公開した状態のまま変わらない | |
+| 編集担当者 A と B の、同じ下書きを公開する要求が同時に実行され、どちらも下書きを読んだ後に、B が先にコミットした | A の要求がコミットする | `ConflictError`。読みものは B が公開した状態のまま | |
 | 編集担当者 A が下書きを開いた後、編集担当者 B が内容を保存した | A が公開する | 成功する。B が保存した内容で公開される。公開の要求は版を含まない | |
 | 編集担当者の役割を持たない利用者 | 公開する | `ForbiddenError` | |
 | 下書きを開いている間に、編集担当者の任命を解かれた利用者 | 公開する | `ForbiddenError`。下書きのまま残る（AC-75） | |

@@ -18,6 +18,7 @@
 | 営業中の店舗に、提供期間の開始が今日より後の掲載、提供期間の終了が今日より前の掲載、最後の開催日が今日より前の掲載、`manualEnd.ended: true` の掲載がある | `findListings` を呼ぶ | どれも現れない | |
 | 営業中の店舗に、最初の開催日が今日より後の掲載と、提供の設定が「設定しない」の掲載がある | `findListings` を呼ぶ | どちらも現れる | |
 | 提供期間の開始が 5/10 の `published` の掲載 | `today` を 5/9 にして呼ぶ。別に 5/10 にして呼ぶ | 5/9 では現れず、5/10 では現れる（提供状態は引数の `today` で求まる） | |
+| 提供期間の終了が 5/8 の掲載と、最後の開催日が 5/8 の掲載 | `today` を 5/8 にして呼ぶ。別に 5/9 にして呼ぶ | 5/8 ではどちらも現れ、5/9 ではどちらも現れない（`Offering.lastAvailableOn` の日まで提供中） | |
 | 休業中（`temporarilyClosed`）の店舗と、閉店（`permanentlyClosed`）の店舗に、`published` で提供中の掲載がある | `findListings` を呼ぶ | 休業中の店舗の掲載だけが現れる | |
 | フィード対象の掲載 L が、参加（`Participation`）の `listingIds` に添えられている | `findListings` を呼ぶ | L が、他の掲載と同じ条件で1回だけ現れる | |
 
@@ -75,7 +76,8 @@
 | 地域 R1 に所属する店舗（`areaCode` A）に K1 の掲載、地域 R2 に所属する店舗（`areaCode` A）に K2 の掲載、地域 R3 に所属する店舗（`areaCode` B）に K1 の掲載がある。R3 の所在地の `areaCode` は A | `areaCodes: {A}`・`categoryIds: {K1}` で呼ぶ | R1 だけが返る（同じ `criteria` の `findListings` の対象になる掲載を持つ地域に限る。地域の所在地は関わらない） | |
 | 対象になる地域 R1・R2・R3 の `firstPublishedAt` が T1 < T2 < T3 | `origin: null` で呼ぶ | R3、R2、R1 の順 | |
 | `firstPublishedAt` が同じ対象の地域が2つ | `origin: null` で呼ぶ | `RegionId` の昇順 | |
-| 対象になる地域 R1・R2 の位置が、`origin` から 5 km・1 km | その `origin` で呼ぶ | R2、R1 の順（地域の `location` までの距離） | |
+| 地域 R1・R2 の位置と、それぞれに所属しフィード対象の掲載を持つ店舗の位置が、`origin` から 5 km・1 km | その `origin` で呼ぶ | R2、R1 の順 | |
+| 地域 R1 の位置は `origin` から 5 km で、R1 に所属しフィード対象の掲載を持つ店舗の位置は 500 m。地域 R2 の位置と、R2 に所属しフィード対象の掲載を持つ店舗の位置は 1 km。地域 R3 の位置と、R3 に所属しフィード対象の掲載を持つ店舗の位置は 3 km で、R3 に所属する非公開の店舗の位置は 100 m | その `origin` で呼ぶ | R1、R2、R3 の順（地域の距離は、`RegionFootprint.of(…, "reference")` の位置のうち最も近いものまで。非公開の店舗は効かない） | |
 | 対象になる地域が5つ | `limit: 3` で `page: 1`・`page: 2`・`page: 3` を呼ぶ | 3件、2件、空。重複も欠けもない。どれも `count` は 5 | |
 
 ## findOccasionFrames

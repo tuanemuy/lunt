@@ -16,7 +16,7 @@
 | AreaSelection | エリアの選択 | 都道府県・市区町村・エリアのいずれかの単位での選択。都道府県または市区町村の選択は、含まれるすべてのエリアの選択として扱う（P-13） |
 | AreaCatalog | エリアのマスター | 階層と町域を引く読み取り専用のマスター |
 
-- 事業所固有の郵便番号はエリアにならず、マスターに含まれない。マスターにある郵便番号だけが `AreaCode` になる
+- 事業所固有の郵便番号はエリアにならず、マスターに含まれない。`AreaCode` は7桁の形式だけを表し、エリアとしてマスターにあるかどうかは `AreaCatalog` が答える
 - 市区町村の全域を指す郵便番号（郵便番号データの「以下に掲載がない場合」）も、町域として扱う。この町域は固有の地名を持たず、地名は市区町村名だけで示す
 - 1つのエリアに複数の町域が対応することがある。同じ `AreaCode` を持つ町域は同じエリアに属し、町域を選ぶことは、その `AreaCode` のエリアを選ぶことに当たる
 - 所在地のエリアは `Address.areaCode` で決まる。店舗・地域・イベントの所在地が選択エリアにあるかどうかは、「`Address.areaCode` が、選択を展開した `AreaCode` の集合に含まれる」で判定する。Area は選択の展開（`AreaCatalog.expand`）までを担い、対象の集約に対する判定は、その集合を受け取る側（Discovery の問い合わせ）が行う。V-16 の「地域の位置が選択エリアにある」は、地域の `Address.areaCode` に対するこの判定を指す
@@ -35,13 +35,12 @@ type PostalCode = string & { readonly [postalCodeBrand]: true };
 
 - `PostalCode.create(input: string): PostalCode`。全角の数字を半角にし、ハイフンと空白を取り除いた結果が7桁の数字でなければ `BusinessRuleError`（`AREA_INVALID_POSTAL_CODE`）
 - 等価性: 値の一致
-- `AreaCode` は、`PostalCode` のうち `AreaCatalog` に町域を持つもの。`PostalCode` から `AreaCode` への変換は、`AreaCatalog.findTownsByPostalCode` が返す `Town.areaCode` だけが担う
+- `PostalCode` から、マスターにある町域の `AreaCode` を得る経路は、`AreaCatalog.findTownsByPostalCode` が返す `Town.areaCode` だけ
 
 ### AreaCode
 
-共有カーネルの型（[index.md](index.md)）。作る関数を Area が持つ。
+共有カーネルの型と、それを作る `AreaCode.create`（[index.md](index.md)「値の生成」）。
 
-- `AreaCode.create(input: string): AreaCode`: 7桁の数字でなければ `BusinessRuleError`（`AREA_INVALID_AREA_CODE`）。形式だけを確かめ、正規化しない
 - マスターにあるかどうかは `AreaCatalog` が答える。マスターにない `AreaCode` は、`findTown` では `null`、`expand` では集合に入らず、`labelSelections` では結果から除かれる
 - 利用者が選んだ値（`AreaSelection` のエリア、`TownRef`）を受け取るときに使う。利用者が入力した郵便番号は `PostalCode.create` で受ける
 
@@ -146,9 +145,10 @@ interface AreaCatalog {
 共通の契約:
 
 - 読み取り専用。書き込みのメソッドを持たず、UnitOfWork に参加しない。マスターの内容は、1つの要求の中で変わらない
+- マスターの内容は、アダプターを組み立てるときに読み込み元として与える（本番は郵便番号データから作ったマスター、ポート適合テストは「テスト用のマスター」）。ポートはマスターを差し替えるメソッドを持たない
 - マスターは、町域の郵便番号とその都道府県・市区町村・町域だけを持つ。事業所固有の郵便番号を持たない
 - 1つの町域は、ちょうど1つの市区町村と1つの `AreaCode` に対応する。1つの市区町村は、ちょうど1つの都道府県に属する。町域を1つも持たない市区町村と都道府県は、マスターに現れない
-- 存在しないコードは、エラーではなく空の結果になる。マスターを読めない障害を `SystemError` にするのはアダプターの責務で、適合テストの対象にしない
+- 存在しないコードは、エラーではなく空の結果になる
 - ページングを持たない。どの結果も、マスターの階層の1段分で件数が限られる
 
 メソッドごとの契約:

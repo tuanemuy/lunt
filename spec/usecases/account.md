@@ -15,9 +15,9 @@
 
 ログインが成立した後にブラウザをログイン中として扱うこと、元の操作へ戻ること、端末の保存の合流（Bookmark の `mergeDeviceBookmarks`）を呼ぶことは、プレゼンテーション層が行う。ログインを成立させるユースケースは、ログインするアカウントを返すところまでを担う。
 
-`Actor` を取るユースケースの `Actor` は、`Actor` を作る境界（プレゼンテーション層）が `AccountRepository.findById` でアカウントがあることを確かめて作る。退会したアカウントのログインは無効で、その要求はログインしていない要求として扱われる。
+`Actor` を取るユースケースの `Actor` は、`Actor` を作る境界（プレゼンテーション層）が、書き込みのない `run` の中で `AccountRepository.findById` を呼んでアカウントがあることを確かめて作る。退会したアカウントのログインは無効で、その要求はログインしていない要求として扱われる。`Actor` を作った後に本人の退会がコミットしたとき（`getMyAccount`・`withdraw` が本人のアカウントを読んで `null`、または `withdraw` が本人のアカウントを読んだ後に `delete` が失敗する）の扱いは、[../domains/index.md](../domains/index.md)「操作する人」が定める。
 
-退会に伴う保存の削除、個人の申請の取り下げ、サービス内の通知の停止は、`"account.withdrawn"` の消費者（Bookmark、Application、Notification）が行う。
+退会に伴う保存の削除、個人として行った申請の取り下げ、通知の削除は、`"account.withdrawn"` の消費者（Bookmark の `purgeBookmarksOnWithdrawal`、Application の `withdrawApplicationsOfWithdrawnAccount`、Notification の `purgeNotificationsOnWithdrawal`）が行う。
 
 ## startEmailLogin
 
@@ -30,7 +30,7 @@
 ### 入出力
 
 - 入力: ブラウザが決めた `LoginChallengeId`、メールアドレス
-- 出力: ログインの確認の有効期限。秘密の値と、アカウントの有無は返さない
+- 出力: なし。秘密の値と、アカウントの有無を返さない
 - メールアドレスは `EmailAddress.create` の形式を満たす
 - `Actor` を取らない（ログイン中の利用者の、別のメールアドレスでのログインも同じ）
 
@@ -45,10 +45,10 @@
 
 ### トランザクション境界
 
-UnitOfWork を1つ使う。メールの送信は UnitOfWork に入らず、UnitOfWork の前に行う。
+UnitOfWork を2つ使う。メールの送信はどちらの `run` にも入らず、2つの `run` の間に行う（[../domains/account.md](../domains/account.md)「トランザクション境界」）。
 
-- 送り直しの判定（`findById` と `isReplayOf`）は、送信の前に行う
-- スコープに含まれる書き込み: `loginChallengeRepository.insert`
+- 判定の `run`: `findById` と `isReplayOf` で送り直しを判定する。書き込まない。送り直しなら、送信も書き込みもなしに成功とする
+- 書き込みの `run`: `findById` で読み直し、同じ ID がなければ `loginChallengeRepository.insert`。送信の間に保存されていれば、判定の `run` と同じ判定をして書き込まない
 - 送信に失敗すれば、何も保存しない
 - 送信の後に保存が失敗すると、送ったリンクとコードに対応するログインの確認がなく、どちらも無効として扱われる。利用者はメールアドレスの入力からやり直す
 
@@ -57,8 +57,7 @@ UnitOfWork を1つ使う。メールの送信は UnitOfWork に入らず、UnitO
 | 条件 | 種類 |
 | --- | --- |
 | メールアドレスの形式が正しくない | `BusinessRuleError`（`COMMON_INVALID_EMAIL_ADDRESS`）。メールは送られず、何も保存されない |
-| 同じ `LoginChallengeId` のログインの確認が、違うメールアドレスで保存されている | `ConflictError`。メールは送られない |
-| メールの送信を引き受けられない | `SystemError`（再試行できる）。何も保存されない |
+| 同じ `LoginChallengeId` のログインの確認が、違うメールアドレスで保存されている | `ConflictError`。判定の `run` で分かれば、メールは送られない |
 
 ## completeLoginByLink
 
@@ -69,7 +68,7 @@ UnitOfWork を1つ使う。メールの送信は UnitOfWork に入らず、UnitO
 ### 入出力
 
 - 入力: リンクの鍵
-- 出力: ログインするアカウント（`AccountId`、メールアドレス）と、このときに作ったかどうか
+- 出力: ログインするアカウント
 - `Actor` を取らない
 
 ### 使用するドメインの振る舞い・ポート
@@ -95,8 +94,8 @@ UnitOfWork を1つ使う。
 
 | 条件 | 種類 |
 | --- | --- |
-| リンクの鍵に対応するログインの確認がない | `BusinessRuleError`（`LOGIN_CHALLENGE_INVALID`） |
-| ログインの確認が使用済み、誤入力の上限に達した、または有効期間を過ぎた | `BusinessRuleError`（`LOGIN_CHALLENGE_INVALID`）。アカウントは作られない |
+| リンクの鍵に対応するログインの確認がない | `BusinessRuleError`（`ACCOUNT_LOGIN_CHALLENGE_INVALID`） |
+| ログインの確認が使用済み、誤入力の上限に達した、または有効期間を過ぎた | `BusinessRuleError`（`ACCOUNT_LOGIN_CHALLENGE_INVALID`）。アカウントは作られない |
 
 ## completeLoginByCode
 
@@ -109,7 +108,7 @@ UnitOfWork を1つ使う。
 ### 入出力
 
 - 入力: `LoginChallengeId`、コード
-- 出力: ログインするアカウント（`AccountId`、メールアドレス）と、このときに作ったかどうか
+- 出力: ログインするアカウント
 - `Actor` を取らない
 
 ### 使用するドメインの振る舞い・ポート
@@ -129,16 +128,16 @@ UnitOfWork を1つ使う。
 - `outcome: "redeemed"` のスコープに含まれる書き込み: `loginChallengeRepository.save`（使用）と、アカウントがないときの `accountRepository.insert`
 - `outcome: "mismatch"` のスコープに含まれる書き込み: `loginChallengeRepository.save`（誤入力の回数、または `exhausted`）。コミットした後に、`CodeRedemption` の `error` をそのまま投げる。誤入力の保存はロールバックされない
 - 読み取りをすべて終えてから書き込む。ドメインイベントは出さない
-- ロールバックが起きる条件: `redeemByCode` が投げる `LOGIN_CHALLENGE_INVALID`、楽観ロックの競合、`insert` の一意性の違反
+- ロールバックが起きる条件: `redeemByCode` が投げる `ACCOUNT_LOGIN_CHALLENGE_INVALID`、楽観ロックの競合、`insert` の一意性の違反
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| コードが一致せず、誤入力の回数が上限に達していない | `BusinessRuleError`（`LOGIN_CODE_MISMATCH`）。誤入力の回数は保存される。入力し直せる |
-| コードが一致せず、誤入力の回数が上限に達した | `BusinessRuleError`（`LOGIN_CHALLENGE_INVALID`）。ログインの確認は `exhausted` で保存される |
-| `LoginChallengeId` に対応するログインの確認がない | `BusinessRuleError`（`LOGIN_CHALLENGE_INVALID`） |
-| ログインの確認が使用済み、誤入力の上限に達した、または有効期間を過ぎた | `BusinessRuleError`（`LOGIN_CHALLENGE_INVALID`）。アカウントは作られない |
+| コードが一致せず、誤入力の回数が上限に達していない | `BusinessRuleError`（`ACCOUNT_LOGIN_CODE_MISMATCH`）。誤入力の回数は保存される。入力し直せる |
+| コードが一致せず、誤入力の回数が上限に達した | `BusinessRuleError`（`ACCOUNT_LOGIN_CHALLENGE_INVALID`）。ログインの確認は `exhausted` で保存される |
+| `LoginChallengeId` に対応するログインの確認がない | `BusinessRuleError`（`ACCOUNT_LOGIN_CHALLENGE_INVALID`） |
+| ログインの確認が使用済み、誤入力の上限に達した、または有効期間を過ぎた | `BusinessRuleError`（`ACCOUNT_LOGIN_CHALLENGE_INVALID`）。アカウントは作られない |
 
 ## loginWithExternalAccount
 
@@ -152,7 +151,7 @@ UnitOfWork を1つ使う。
 
 - 入力: 提供元、提供元での認証から戻ったときに受け取った証明
 - 提供元は `ExternalProviderKey.create` を通す
-- 出力: ログインするアカウント（`AccountId`、メールアドレス）と、このときに作ったかどうか
+- 出力: ログインするアカウント
 - `Actor` を取らない
 
 ### 使用するドメインの振る舞い・ポート
@@ -161,7 +160,7 @@ UnitOfWork を1つ使う。
 - `ExternalIdentityVerifier.verify`
 - `LoginPolicy.fromExternal`、`LoginPolicy.resolve`
 - `AccountRepository.findByEmail`、`insert`
-- `Clock`、`IdGenerator`
+- `IdGenerator`
 
 ### トランザクション境界
 
@@ -175,10 +174,9 @@ UnitOfWork を1つ使う。検証（`verify`）は UnitOfWork に入らず、Uni
 
 | 条件 | 種類 |
 | --- | --- |
-| 提供元が空、または設定にない | `BusinessRuleError`（`UNKNOWN_EXTERNAL_PROVIDER`）。アカウントは作られない |
-| 確認済みのメールアドレスを受け取れない（メールアドレスがない、または提供元で確認済みでない） | `BusinessRuleError`（`VERIFIED_EMAIL_REQUIRED`）。アカウントは作られない |
-| 利用者が認証または承認をやめた、証明が無効 | `BusinessRuleError`（`EXTERNAL_LOGIN_NOT_AUTHENTICATED`）。アカウントは作られない |
-| 提供元の障害、通信エラー | `SystemError`（再試行できる）。アカウントは作られない |
+| 提供元が設定にない | `BusinessRuleError`（`ACCOUNT_UNKNOWN_EXTERNAL_PROVIDER`）。アカウントは作られない |
+| 確認済みのメールアドレスを受け取れない（メールアドレスがない、または提供元で確認済みでない） | `BusinessRuleError`（`ACCOUNT_VERIFIED_EMAIL_REQUIRED`）。アカウントは作られない |
+| 利用者が認証または承認をやめた、証明が無効 | `BusinessRuleError`（`ACCOUNT_EXTERNAL_LOGIN_NOT_AUTHENTICATED`）。アカウントは作られない |
 
 ## getMyAccount
 
@@ -198,39 +196,38 @@ UnitOfWork を1つ使う。検証（`verify`）は UnitOfWork に入らず、Uni
 
 ### トランザクション境界
 
-UnitOfWork を使わない。1回の読み取りだけを行う。
+UnitOfWork を1つ使い、`findById` だけを読む。書き込まない。
 
 ### エラーケース
 
-| 条件 | 種類 |
-| --- | --- |
-| アカウントがない（退会している） | `NotFoundError` |
+なし。
 
 ## previewWithdrawal
 
 ### 概要
 
-退会の確認のために、退会できるかどうかと、退会で管理者不在になる対象を返す。退会できないのは、唯一のサービス運営者である間だけ。管理者不在になる対象は、自分が唯一の管理者である店舗・地域・イベントで、名称を添えて返す。
+退会の確認のために、退会できるかどうかと、退会で管理者不在になる対象を返す。どちらも、`withdraw` の `removeHolder`・`removeSteward` が確定の時点で使う Authority の判断（`RoleRoster.removal`、`Stewardship.removal`）を、書き込みなしに先に読んだ結果で、このユースケースは判断を持たない。
 
-管理者不在になる対象の判断（`isSoleSteward`）と退会の可否の判断（`isSoleHolder`）は、`withdraw` が同じ集約の `removeSteward`・`removeHolder` で確定する内容を、書き込みなしに先に読むもの。
+- 退会できないのは、`ROLES` のいずれかの名簿で、`RoleRoster.removal` が取り除けないと返すとき（`last_operator`）
+- 管理者不在になる対象は、`Stewardship.removal` が `vacates: true` を返す店舗・地域・イベントで、名称を添えて返す
 
 ### 入出力
 
 - 入力: `Actor`
-- 出力: 退会できるかどうか（できないときは、唯一のサービス運営者であること）、退会で管理者不在になる対象（`StewardedRef` と名称）の一覧（店舗、地域、イベントの順。同じ種類の中は ID の昇順）。名称は `StewardedTargetDirectory.describe` の結果のとおり（名称が未入力の下書きの地域・イベントは、名称なし）
+- 出力: 退会できるかどうか（できないときは、`RoleRoster.removal` が返した理由）、退会で管理者不在になる対象（種類と名称）の一覧。並びは `findPageBySteward` の契約による。名称は `StewardedTargetDirectory.describe` の結果のとおり（名称が未入力の下書きの地域・イベントは、名称なし）
 - 操作の可否を確かめない。自分の管理権限と役割だけを読む
 
 ### 使用するドメインの振る舞い・ポート
 
 - `StewardshipRepository.findPageBySteward`（Authority。すべてのページを読む）
-- `Stewardship.isSoleSteward`（Authority）
-- `RoleRosterRepository.find`（Authority。`operator`）
-- `RoleRoster.isSoleHolder`（Authority）
+- `Stewardship.removal`（Authority）
+- `RoleRosterRepository.find`（Authority。`ROLES` の各役割）
+- `RoleRoster.removal`（Authority）
 - `StewardedTargetDirectory.describe`（Authority。管理者不在になる対象の名称。100件ずつに分けて呼ぶ）
 
 ### トランザクション境界
 
-UnitOfWork を使わない。読み取りだけを行う。確認の後に状況が変われば、`withdraw` が確定の時点の状態で判断する。
+UnitOfWork を1つ使い、管理体制と名簿を読む。書き込まない。名称は、`run` を終えた後に `StewardedTargetDirectory.describe`（UnitOfWork に参加しない読み取り専用のポート）で読む。確認の後に状況が変われば、`withdraw` が確定の時点の状態で判断する。
 
 ### エラーケース
 
@@ -240,7 +237,7 @@ UnitOfWork を使わない。読み取りだけを行う。確認の後に状況
 
 ### 概要
 
-アカウントを削除し、その人が持つすべての管理権限と役割を、同じ UnitOfWork で取り除く。取り消せない。最後の管理者だった対象は管理者不在になり、承諾前の招待は残る。唯一のサービス運営者は退会できず、何も確定しない。
+アカウントを削除し、その人が持つすべての管理権限と役割を、同じ UnitOfWork で取り除く。取り消せない。最後の管理者だった対象は管理者不在になり、承諾前の招待は残る。取り除けない役割があれば（`RoleRoster.removal` が `last_operator` を返す）退会できず、何も確定しない。
 
 退会の後、同じメールアドレスでログインすると、別の `AccountId` のアカウントが作られ、以前の保存・管理権限・役割・申請とは結びつかない。
 
@@ -256,8 +253,8 @@ UnitOfWork を使わない。読み取りだけを行う。確認の後に状況
 - `Account.withdraw`
 - `StewardshipRepository.findPageBySteward`（すべてのページを読む）、`save`（Authority）
 - `Stewardship.removeSteward`（Authority。`reason: "withdrawn"`）
-- `RoleRosterRepository.find`、`save`（Authority。`operator` と `editor`）
-- `RoleRoster.holds`、`RoleRoster.removeHolder`（Authority。`reason: "withdrawn"`）
+- `RoleRosterRepository.find`（Authority。`ROLES` の各役割）、`save`（Authority）
+- `RoleRoster.removal`、`RoleRoster.removeHolder`（Authority。`removal` が `not_held` でない名簿だけに、`reason: "withdrawn"` で呼ぶ。`last_operator` の名簿では `removeHolder` が `AUTHORITY_LAST_OPERATOR` を投げる）
 - `Clock`
 
 ### トランザクション境界
@@ -266,16 +263,15 @@ UnitOfWork を1つ使う。
 
 - スコープに含まれる書き込み: `accountRepository.delete`、その人が管理者であるすべての管理体制の `stewardshipRepository.save`、その人が持ち主である名簿の `roleRosterRepository.save`、ドメインイベント（`"account.withdrawn"`、管理体制ごとの `"authority.steward_removed"`、管理者不在になった対象ごとの `"authority.stewardship_vacated"`、名簿ごとの `"authority.role_revoked"`）の保存
 - スコープ内で使うリポジトリ: `accountRepository`、`stewardshipRepository`、`roleRosterRepository`
-- 読み取り（アカウント、`findPageBySteward` のすべてのページ、2つの名簿）をすべて終えてから書き込む
-- ロールバックが起きる条件: `removeHolder` の `LAST_OPERATOR`、いずれかの集約の楽観ロックの競合。ロールバックでは、アカウントも、どの管理体制・名簿も変わらず、ドメインイベントも残らない。送り直せる
+- 読み取り（アカウント、`findPageBySteward` のすべてのページ、`ROLES` の各役割の名簿）をすべて終えてから書き込む
+- ロールバックが起きる条件: `removeHolder` のエラー（`AUTHORITY_LAST_OPERATOR`）、いずれかの集約の楽観ロックの競合。ロールバックでは、アカウントも、どの管理体制・名簿も変わらず、ドメインイベントも残らない。送り直せる
 - 管理権限・役割を結ぶ書き込み（就任、役割の付与、開設時の設定）は、相手の `Account` の版を同じ UnitOfWork で進める（`Account.markReferenced`）。読み取りの後に結ばれた管理権限・役割があれば、`accountRepository.delete` が楽観ロックの競合になり、送り直した退会が、それを含めて取り除く。退会したアカウントを指す管理権限・役割は残らない
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| アカウントがない（すでに退会している） | `NotFoundError` |
-| サービス運営者が自分1人だけである（確定の時点で1人だけになっている場合を含む） | `BusinessRuleError`（`LAST_OPERATOR`）。何も確定しない |
+| 取り除けない役割がある（`RoleRoster.removal` が `last_operator` を返す。確定の時点でそうなった場合を含む） | `BusinessRuleError`（`AUTHORITY_LAST_OPERATOR`）。何も確定しない |
 
 ## purgeClosedLoginChallenges
 
@@ -288,7 +284,7 @@ UnitOfWork を1つ使う。
 ### 入出力
 
 - 入力: なし（スケジュール）
-- 出力: 削除した件数
+- 出力: なし
 - `Actor` を取らない
 
 ### 使用するドメインの振る舞い・ポート

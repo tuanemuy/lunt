@@ -1,6 +1,6 @@
 # StewardshipRepository
 
-前提条件の管理体制は、`Stewardship.vacant` に `grant`・`appointByApproval`・`invite`・`removeSteward` を適用して作る。P1、P2 は店舗、R1 は地域、O1 はイベントを指す `StewardedRef`（同じ種類の中は ID の昇順）。A、B、C は `AccountId`。`delete` を持たない。
+リポジトリは `UnitOfWorkContext` から得る。「UnitOfWork の中で」と書かない操作は、1つの操作ごとに1つの `run` の中で行い、コミットする。前提条件の管理体制は、`Stewardship.vacant` に `grant`・`appointByApproval`・`invite`・`removeSteward` を適用して作る。P1、P2 は店舗、R1 は地域、O1 はイベントを指す `StewardedRef`（同じ種類の中は ID の昇順）。A、B、C は `AccountId`。`delete` を持たない。
 
 ## insert、findById
 
@@ -56,7 +56,7 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 空 | UnitOfWork の中で A が管理者の P1 の管理体制を `insert` してコミットし、直後に UnitOfWork の外で `findById`・`findByTargets`・`findPageBySteward(A)` | 3つとも P1 の管理体制を返す（read-your-writes） | |
+| 空 | UnitOfWork の中で A が管理者の P1 の管理体制を `insert` してコミットし、直後に別の UnitOfWork で `findById`・`findByTargets`・`findPageBySteward(A)` | 3つとも P1 の管理体制を返す（read-your-writes） | |
 | A が管理者の P1、R1 の管理体制がある | 1つの UnitOfWork の中で、A を取り除いた P1 と R1 の管理体制を `save` してコミットする | 両方が反映される。`findPageBySteward(A)` は空の `items` を返す | |
 | A が管理者の P1、R1 の管理体制がある | 1つの UnitOfWork の中で、A を取り除いた P1 と R1 の管理体制を `save` し、`fn` が例外を投げる | ロールバックされる。`findPageBySteward(A)` は P1 と R1 を、前と同じ `expectedVersion` で返す | |
 | A が管理者の P1、R1 の管理体制がある。R1 の `expectedVersion` V を得た後、R1 の別の `save` が成功している | 1つの UnitOfWork の中で、A を取り除いた P1 の `save` と、V での R1 の `save` を行う | 遅くともコミットの時点で `ConflictError` になる。スコープ全体がロールバックされ、P1 の管理体制も変わらない | |

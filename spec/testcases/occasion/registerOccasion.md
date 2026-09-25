@@ -11,3 +11,4 @@
 | 操作する人はサービス運営者 | 存在しない `PhotoId` を載せて登録する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`）。イベントは保存されない | |
 | 操作する人は、サービス運営者の役割を持たない利用者（編集担当者の役割と、別のイベントの管理権限は持つ） | イベント情報を入力して登録する | `ForbiddenError`。イベントは保存されない | |
 | 操作する人はサービス運営者。選んだ町域が `AreaCatalog` にない | その町域を開催場所にして登録する | `BusinessRuleError`（`AREA_TOWN_NOT_FOUND`）。イベントは保存されない | |
+| 操作する人はサービス運営者。自分が登録した写真のうち1枚は、すでに別のイベントが持ち主 | その写真を含むイベント情報で登録する | `BusinessRuleError`（`MEDIA_PHOTO_ALREADY_OWNED`）。イベントは保存されず、どの写真にも持ち主は設定されない | |

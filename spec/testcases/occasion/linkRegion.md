@@ -6,9 +6,11 @@
 | 操作する人はイベント O の運営者。地域 R を関連づけている | 公開中の地域 S を関連づける | 関連づけが保存される。1つのイベントに複数の地域を関連づけられる | |
 | イベント O にイベント運営者がいない。操作する人はサービス運営者 | 地域 R を関連づける | 関連づけが保存される（代行） | |
 | 操作する人はイベント O の運営者。地域 R との関連づけを `unlinkRegion` で外した後 | 地域 R をあらためて関連づける | 新しい関連づけとして保存される。`linkedAt` は現在時刻 | |
-| 操作する人はイベント O の運営者。地域 R をすでに関連づけている | 地域 R を関連づける | `BusinessRuleError`（`REGION_ALREADY_LINKED`）。`occasion.region_linked` は重ねて出ない | |
-| 操作する人はイベント O の運営者。地域 R の側が関連づけを解除している（`detached`） | 地域 R を関連づける | `BusinessRuleError`（`REGION_LINK_DETACHED`）。関連づけは `detached` のまま（AC-34） | |
-| 操作する人はイベント O の運営者。地域 R は公開の取り下げ中 | 地域 R を関連づける | `BusinessRuleError`（`REGION_NOT_VIEWABLE`）。関連づけは作られない | |
-| 操作する人はイベント O の運営者。地域 R は公開中で、運営による非公開 | 地域 R を関連づける | `BusinessRuleError`（`REGION_NOT_VIEWABLE`） | |
+| 操作する人はイベント O の運営者。地域 R をすでに関連づけている | 地域 R を関連づける | `BusinessRuleError`（`OCCASION_REGION_ALREADY_LINKED`）。`occasion.region_linked` は重ねて出ない | |
+| 操作する人はイベント O の運営者。地域 R の運営者が関連づけを解除している（`detached`） | 地域 R を関連づける | `BusinessRuleError`（`OCCASION_REGION_LINK_DETACHED`）。関連づけは `detached` のまま（AC-34） | |
+| 操作する人はイベント O の運営者。地域 R は公開の取り下げ中 | 地域 R を関連づける | `BusinessRuleError`（`OCCASION_REGION_NOT_VIEWABLE`）。関連づけは作られない | |
+| 操作する人はイベント O の運営者。地域 R は公開中で、運営による非公開 | 地域 R を関連づける | `BusinessRuleError`（`OCCASION_REGION_NOT_VIEWABLE`） | |
 | イベント O にイベント運営者がいる。操作する人は、イベント O の管理権限を持たないサービス運営者 | 地域 R を関連づける | `ForbiddenError` | |
 | 操作する人は、地域 R の運営者で、イベント O の管理権限を持たない | 地域 R を関連づける | `ForbiddenError`。関連づけは作られない | |
+| 操作する人はイベント O の運営者。指定した ID の地域がない | 地域を関連づける | `NotFoundError`。関連づけは作られない | |
+| 操作する人はイベント O の運営者。別の運営者が、同じ地域 R の関連づけを同時に確定する | 地域 R を関連づける | 後に確定する側が `ConflictError` になる。組の関連づけは1つで、`occasion.region_linked` は1件だけ残る | |

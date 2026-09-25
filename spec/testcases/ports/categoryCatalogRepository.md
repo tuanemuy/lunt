@@ -1,6 +1,6 @@
 # CategoryCatalogRepository
 
-ポートの契約は [../../domains/listing.md](../../domains/listing.md) の「CategoryCatalogRepository」と、[../../domains/index.md](../../domains/index.md) の「リポジトリの共通の契約」（全体で1つの集約）による。台帳は、`find` の結果にドメインの振る舞い（`establish`、`add`、`rename`、`retire`）を適用した値を `save` して用意する。
+ポートの契約は [../../domains/listing.md](../../domains/listing.md) の「CategoryCatalogRepository」と、[../../domains/index.md](../../domains/index.md) の「リポジトリの共通の契約」（全体で1つの集約）による。台帳は、`find` の結果にドメインの振る舞い（`establish`、`add`、`rename`、`retire`）を適用した値を `save` して用意する。リポジトリは `UnitOfWorkContext` から得る。`run` と書かない呼び出しは、呼び出しごとに1つの `run` の中で行い、コミットする。
 
 ## find / save
 
@@ -8,10 +8,10 @@
 |---|---|---|---|
 | 保存された台帳がない | `find` する | カテゴリーのない空の台帳（`version` は `Version.initial()`）と、その版の `expectedVersion` が返る。`null` を返さず、エラーにならない | |
 | 保存された台帳がない | `find` し、`establish` で4つのカテゴリーを入れた台帳を、返った `expectedVersion` で `save` する | 成功する。以後の `find` は、4つの現役のカテゴリーを作成順で返す | |
-| 上の `save` が成立している | `find` する | 返る台帳は `save` した台帳と等しい（各カテゴリーの `id`、`name`、`status`、`createdAt`、台帳の `version`、`updatedAt`）。新しい `expectedVersion` が返る | |
+| 上の `save` が成立している | `find` する | 返る台帳は `save` した台帳と等しい（各カテゴリーの `id`、`name`、`status`、台帳の `version`、`updatedAt`）。新しい `expectedVersion` が返る | |
 | 4つのカテゴリーの台帳が保存されている | `find` し、`add` で5つ目を加えた台帳を `save` する | 成功する。以後の `find` は、5つ目を並びの最後に返す | |
 | 台帳が保存されている | `find` し、`rename` で名称を変えた台帳を `save` する | 成功する。以後の `find` は、新しい名称を同じ位置で返す | |
-| 台帳が保存されている | `find` し、`retire` で1つを廃止した台帳を `save` する | 成功する。以後の `find` は、廃止済みのカテゴリーを `status: "retired"`、`retiredAt`、`successorId` とともに、作成順の元の位置で返す。廃止済みのカテゴリーは消えない | |
+| 台帳が保存されている | `find` し、`retire` で1つを廃止した台帳を `save` する | 成功する。以後の `find` は、廃止済みのカテゴリーを `status: "retired"` と `successorId` とともに、作成順の元の位置で返す。廃止済みのカテゴリーは消えない | |
 | 廃止済みのカテゴリーの移行先が、さらに廃止されている台帳を `save` している | `find` する | 2つの廃止済みのカテゴリーと、それぞれの `successorId` がそのまま返る | |
 
 ## 並行性

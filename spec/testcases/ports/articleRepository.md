@@ -1,6 +1,6 @@
 # ArticleRepository
 
-契約: [../../domains/article.md](../../domains/article.md) の `ArticleRepository` と、[../../domains/index.md](../../domains/index.md) のリポジトリの共通の契約。読みものは、`Article` の振る舞い（`create`・`revise`・`publish`・`unpublish`・`takeDownPhotos`）で作った値を `insert`・`save` して用意する。このポートは `delete` を持たない。
+契約: [../../domains/article.md](../../domains/article.md) の `ArticleRepository` と、[../../domains/index.md](../../domains/index.md) のリポジトリの共通の契約。読みものは、`Article` の振る舞い（`create`・`revise`・`publish`・`unpublish`・`takeDownPhotos`）で作った値を `insert`・`save` して用意する。書き込みも読み取りも UnitOfWork の中で行う（読み取りは書き込まない `run`）。このポートは `delete` を持たない。
 
 ## insert・findById・save
 
@@ -11,8 +11,8 @@
 | 読みものがない | 存在しない `ArticleId` で `findById` する | `null` を返す | |
 | `insert` した下書き | `findById` の `expectedVersion` で、`publish` の結果を `save` し、`findById` する | `published` の読みものを返す。`firstPublishedAt` が保たれる | |
 | 公開中の読みもの | `unpublish` の結果を `save` し、`findById` する | `unpublished` の読みものを返す。`firstPublishedAt` と `reason`（`byManager`）が保たれる | |
-| 写真1枚の公開中の読みもの | `takeDownPhotos` の結果を `save` し、`findById` する | `unpublished` の読みものを返す。`reason` は `photoTakedown`。写真はない | |
-| `insert` した読みもの | `revise` の結果を `save` し、`findById` する | 置き換えた内容を返す。`createdAt` は変わらず、`updatedAt` は `revise` の時刻 | |
+| 写真1枚の公開中の読みもの | `takeDownPhotos` の結果を `save` し、`findById` する | `unpublished` の読みものを返す。`reason` は `photoTakedown`。`photos.items` は空で、`photos.takenDown` が `true` のまま保たれる | |
+| `insert` した読みもの | `revise` の結果を `save` し、`findById` する | 置き換えた内容を返す。`updatedAt` は `revise` の時刻 | |
 | `insert` した読みもの | 同じ `ArticleId` の読みものを `insert` する | `ConflictError`。元の読みものは変わらない | |
 | 読みもの A がある。一度も `insert` していない `ArticleId` の読みもの Z | A の `findById` で得た `expectedVersion` で、Z を `save` する | `NotFoundError`。A は変わらない | |
 | 同じ紹介先を持つ読みものが2つ | 2つ目を `insert` する | 成功する。ID のほかに一意性はない | |

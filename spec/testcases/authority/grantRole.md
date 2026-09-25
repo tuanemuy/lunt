@@ -8,7 +8,7 @@
 | O はサービス運営者で、編集担当者ではない | O を `Actor` として、`editor` と O 自身のメールアドレスで実行する | 成功する。O が編集担当者に加わる。サービス運営者の名簿は変わらない | |
 | O はサービス運営者。U は店舗 P の管理者で、編集担当者 | O を `Actor` として、`operator` と U のメールアドレスで実行する | 成功する。P の管理体制と、編集担当者の名簿は変わらない | |
 | O はサービス運営者。あるメールアドレスのアカウントがない | O を `Actor` として、`editor` とそのメールアドレスで実行する | `NotFoundError`。名簿は変わらず、ドメインイベントは出ない | |
-| O はサービス運営者。U は編集担当者 | O を `Actor` として、`editor` と U のメールアドレスで実行する | `BusinessRuleError`（`ROLE_ALREADY_HELD`）。名簿は変わらず、ドメインイベントは出ない | |
+| O はサービス運営者。U は編集担当者 | O を `Actor` として、`editor` と U のメールアドレスで実行する | `BusinessRuleError`（`AUTHORITY_ROLE_ALREADY_HELD`）。名簿は変わらず、ドメインイベントは出ない | |
 | O はサービス運営者 | O を `Actor` として、形式の正しくないメールアドレスで実行する | `BusinessRuleError`（`COMMON_INVALID_EMAIL_ADDRESS`） | |
 | X はサービス運営者ではない（編集担当者、または店舗の管理者）。U のアカウントがある | X を `Actor` として、`editor` と U のメールアドレスで実行する | `ForbiddenError`。名簿は変わらない | |
 | O はサービス運営者だったが、確定の前に役割を解除されている | O を `Actor` として、`editor` と U のメールアドレスで実行する | `ForbiddenError`。名簿は変わらない | |

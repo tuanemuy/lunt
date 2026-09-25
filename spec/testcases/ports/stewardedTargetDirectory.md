@@ -1,6 +1,6 @@
 # StewardedTargetDirectory
 
-契約は [Authority](../../domains/authority.md) の「StewardedTargetDirectory」による。読み取り専用のポートで、書き込みのメソッドを持たない。前提条件は、店舗を Place の `PlaceRepository`、地域を Region の `RegionRepository`、イベントを Occasion の `OccasionRepository` の `insert`・`save` で保存して組み立てる。
+契約は [Authority](../../domains/authority.md) の「StewardedTargetDirectory」による。読み取り専用のポートで、書き込みのメソッドを持たない。前提条件は、店舗を Place の `PlaceRepository`、地域を Region の `RegionRepository`、イベントを Occasion の `OccasionRepository` の `insert`・`save` で、1つの操作ごとに1つの `run` の中で保存して組み立てる。`describe` は `run` の外で呼ぶ。
 
 記号: P1、P2 は店舗、R1 は地域、O1 はイベントを指す `StewardedRef`（同じ種類の中は ID の昇順）。
 

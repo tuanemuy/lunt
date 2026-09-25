@@ -1,6 +1,6 @@
 # NotificationRepository
 
-契約: [../../domains/notification.md](../../domains/notification.md) の `NotificationRepository`。通知は `Notification.issue` で作った値を `deliverAll` して用意する。書き込みは UnitOfWork の中で行う。どの操作も `ConflictError` と `NotFoundError` を返さない。
+契約: [../../domains/notification.md](../../domains/notification.md) の `NotificationRepository`。通知は `Notification.issue` で作った値を `deliverAll` して用意する。書き込みも読み取りも UnitOfWork の中で行う（読み取りは書き込まない `run`）。どの操作も `ConflictError` と `NotFoundError` を返さない。
 
 以下で「キー」は `occurrenceKey` を指す。通知の一意のキーは、`occurrenceKey` と `recipient` の組。
 
@@ -17,8 +17,8 @@
 | A の通知がある | 空の一覧を `deliverAll` する | 成功する。何も変わらない | |
 | 通知がない | 同じ一覧を、2回続けて `deliverAll` する | どちらも成功する。結果は1回目と同じ | |
 | 指す先のない `AccountId` を `recipient` とし、指す先のない `ListingId` を出来事に持つ通知 | `deliverAll` する | 成功する。宛先のアカウントと、出来事が指す先があることを、保存の条件にしない | |
-| 店舗管理者が不在の店舗の出来事の `proxy` の通知と、`direct` の通知 | `deliverAll` して `findByRecipient` で読む | どちらも、`occurrence`・`delivery`・`occurrenceKey`・`recipient`・`createdAt` が、書いた値のまま返る。`proxy` の通知の `Notification.vacantTarget` は、その店舗 | |
-| `Occurrence` の宛先の立場（`applicant`、`approver`、`placeStewards`、`regionStewards`、`occasionStewards`、`editors`、`operators`、`invitee`、`grantee`、`self`）ごとの通知 | それぞれ `deliverAll` して `findByRecipient` で読む | どの立場の通知も、事柄と、事柄が持つ ID・メールアドレスを含めて、書いた値のまま返る | |
+| 店舗管理者が不在の店舗の出来事の `proxy` の通知と、`direct` の通知 | `deliverAll` して `findByRecipient` で読む | どちらも、`occurrence`・`delivery`・`occurrenceKey`・`recipient`・`createdAt` が、書いた値のまま返る。`proxy` の通知の `DeliveredOccurrence.vacantTarget` は、その店舗 | |
+| `Occurrence` の宛先の立場（`applicant`、`approver`、`placeStewards`、`regionStewards`、`occasionStewards`、`contentManagers`、`editors`、`operators`、`invitee`、`grantee`、`self`）ごとの通知 | それぞれ `deliverAll` して `findByRecipient` で読む | どの立場の通知も、事柄と、事柄が持つ ID・メールアドレスを含めて、書いた値のまま返る。`placeStewards` は店舗の事柄と掲載の事柄の、`contentManagers` は店舗・掲載（`placeId` を含む）・地域・イベント・読みものの対象の、どれも書いた値のまま返る | |
 
 ## removeAllByRecipient
 

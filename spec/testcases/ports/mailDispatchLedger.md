@@ -1,6 +1,6 @@
 # MailDispatchLedger
 
-契約: [../../domains/notification.md](../../domains/notification.md) の `MailDispatchLedger`。`record` は UnitOfWork の中で呼ぶ。どの操作も `ConflictError` と `NotFoundError` を返さない。
+契約: [../../domains/notification.md](../../domains/notification.md) の `MailDispatchLedger`。`record` も `findDispatched` も UnitOfWork の中で呼ぶ（`findDispatched` だけの呼び出しは書き込まない `run`）。どの操作も `ConflictError` と `NotFoundError` を返さない。
 
 以下で「キー」は `MailKey`（`occurrenceKey` と `to` の組）を指す。
 
@@ -16,6 +16,7 @@
 | 記録がある | 空の `keys` で `findDispatched` を呼ぶ | 空の並び。エラーにならない | |
 | 記録のあるキーが100件 | 100件のキーで `findDispatched` を呼ぶ | 100件を返す | |
 | — | 101件のキーで `findDispatched` を呼ぶ | `BusinessRuleError`（`COMMON_INVALID_INPUT`） | |
+| アカウント A のメールアドレス M1 について、（K1、M1）の記録がある | A を `AccountRepository.delete` で削除してコミットし、（K1、M1）を `findDispatched` に渡す | （K1、M1）を返す（キーは集約を指さず、記録は宛先のアカウントの削除の後も残る） | |
 
 ## 可視性と UnitOfWork
 

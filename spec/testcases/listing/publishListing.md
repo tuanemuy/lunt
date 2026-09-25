@@ -22,4 +22,5 @@
 | 店舗 A に店舗管理者がいる。操作する人は店舗 A の管理権限を持たないサービス運営者 | 店舗 A の下書きを公開する | `ForbiddenError`。掲載は `draft` のまま（AC-19） | |
 | 操作する人は店舗 A の管理権限を持たない利用者 | 店舗 A の下書きを公開する | `ForbiddenError`。掲載は `draft` のまま | |
 | 別の店舗管理者が掲載を削除している | 公開する | `NotFoundError` | |
-| 別の店舗管理者が、先に同じ下書きを公開している | 公開する | `BusinessRuleError`（`PUBLICATION_INVALID_TRANSITION`）。掲載は `published` のまま変わらず、`firstPublishedAt` も変わらない | |
+| 別の店舗管理者が、先に同じ下書きを公開している | 公開する | `BusinessRuleError`（`COMMON_PUBLICATION_INVALID_TRANSITION`）。掲載は `published` のまま変わらず、`firstPublishedAt` も変わらない | |
+| 店舗 A の下書きは公開条件を満たす。店舗管理者が公開する操作と、別の店舗管理者の同じ掲載の内容の保存が同時に確定する | 公開する | 後に確定する側が `ConflictError` になり、その側の変更は残らない | |

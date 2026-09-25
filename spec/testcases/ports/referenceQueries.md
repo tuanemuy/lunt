@@ -25,7 +25,7 @@
 | 写真のない店舗 P に、`published` の掲載 L1（`firstPublishedAt` が T1）・L2（T2。T1 < T2）がある | P の参照で呼ぶ | `substituteCover` は、L2 とその代表写真 | |
 | 参照がすべて、閲覧できない対象を指す | 呼ぶ | 参照と同じ件数の `viewable: false` が、引数の順で返る。エラーにならない | |
 | 閲覧できる掲載と店舗が、合わせて100件 | 100件の参照で呼ぶ | 100件の `viewable: true` が引数の順で返る | |
-| 閲覧できる掲載と店舗が、合わせて101件 | 101件の参照で呼ぶ | `BusinessRuleError`（`DISCOVERY_TOO_MANY_REFS`） | |
+| 閲覧できる掲載と店舗が、合わせて101件 | 101件の参照で呼ぶ | `BusinessRuleError`（`COMMON_INVALID_INPUT`） | |
 | 掲載と店舗だけの参照（`BookmarkRef`） | 呼ぶ | `ShowcaseRef` と同じ扱いで解決される | |
 
 ## isViewable

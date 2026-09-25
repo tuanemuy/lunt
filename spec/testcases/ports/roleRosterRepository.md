@@ -1,6 +1,6 @@
 # RoleRosterRepository
 
-前提条件の名簿は、`find` が返した名簿に `RoleRoster.establishOperators`・`grant`・`removeHolder` を適用して作る。A、B は `AccountId`。`insert`・`delete` を持たない。
+リポジトリは `UnitOfWorkContext` から得る。「UnitOfWork の中で」と書かない操作は、1つの操作ごとに1つの `run` の中で行い、コミットする。前提条件の名簿は、`find` が返した名簿に `RoleRoster.establishOperators`・`grant`・`removeHolder` を適用して作る。A、B は `AccountId`。`insert`・`delete` を持たない。
 
 ## find、save
 
@@ -32,7 +32,7 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 持ち主 A の `operator` の名簿が保存されている | UnitOfWork の中で B を加えた名簿を `save` してコミットし、直後に UnitOfWork の外で `find("operator")` と `findRolesOf(B)` | 名簿は A、B を返し、`findRolesOf(B)` は `operator` を返す（read-your-writes） | |
+| 持ち主 A の `operator` の名簿が保存されている | UnitOfWork の中で B を加えた名簿を `save` してコミットし、直後に別の UnitOfWork で `find("operator")` と `findRolesOf(B)` | 名簿は A、B を返し、`findRolesOf(B)` は `operator` を返す（read-your-writes） | |
 | 持ち主 A の `operator` の名簿が保存されている | UnitOfWork の中で B を加えた名簿を `save` し、`fn` が例外を投げる | ロールバックされる。`find("operator")` は A だけの名簿を、前と同じ `expectedVersion` で返す。`findRolesOf(B)` は空 | |
 | 空 | UnitOfWork の中で、まだ保存がないことを表す `expectedVersion` で `operator` の名簿を `save` し、`fn` が例外を投げる | ロールバックされる。`find("operator")` は `RoleRoster.initial("operator")` と、まだ保存がないことを表す `expectedVersion` を返す | |
 | A は `editor` と `operator` の両方の名簿の持ち主。`operator` の `expectedVersion` V を得た後、`operator` の別の `save` が成功している | 1つの UnitOfWork の中で、A を取り除いた `editor` の名簿の `save` と、V での `operator` の名簿の `save` を行う | 遅くともコミットの時点で `ConflictError` になる。スコープ全体がロールバックされ、`editor` の名簿も変わらない | |

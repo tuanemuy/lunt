@@ -9,11 +9,12 @@
 | 作成した下書き | `listArticlesForEditing` を読む | 下書きとして現れる。作成した人と別の編集担当者が読んでも現れる | |
 | 作成が成立した読みもの | 同じ `ArticleId` と同じ内容で、もう一度作成する | 成功する。読みものの版は進まず、写真の持ち主の設定も重ねて行われない | |
 | 作成が成立した読みもの | 同じ `ArticleId` で、違うタイトルで作成する | `ConflictError`。元の読みものは変わらない | |
-| 編集担当者 | 同じ掲載を紹介先に2回入れて作成する | `BusinessRuleError`（`ARTICLE_SHOWCASE_DUPLICATED`）。読みものは作成されない | |
-| 編集担当者 | 上限の100件を超える数の紹介先を入れて作成する | `BusinessRuleError`（`ARTICLE_SHOWCASE_LIMIT_EXCEEDED`）。読みものは作成されない | |
+| 編集担当者 | 同じ掲載を紹介先に2回入れて作成する | `BusinessRuleError`（`ARTICLE_INVALID_SHOWCASE_LIST`）。読みものは作成されない | |
+| 編集担当者 | 改行を含むタイトルで作成する | `BusinessRuleError`（`ARTICLE_INVALID_TITLE`）。読みものは作成されず、写真の持ち主も設定されない | |
 | 編集担当者。別の人が登録した、持ち主のない写真 | その写真を入れて作成する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_REGISTRANT`）。読みものは作成されず、写真の持ち主も変わらない | |
 | 編集担当者。すでに別の読みものが持ち主になっている写真 | その写真を入れて作成する | `BusinessRuleError`（`MEDIA_PHOTO_ALREADY_OWNED`）。読みものは作成されない | |
 | 編集担当者。存在しない `PhotoId` と、自分が登録した写真 | 両方を入れて作成する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`）。読みものは作成されず、自分が登録した写真の持ち主も設定されない | |
 | 編集担当者の役割を持たない、ログインした利用者 | 作成する | `ForbiddenError`。読みものは作成されない | |
 | サービス運営者の役割だけを持つ利用者 | 作成する | `ForbiddenError`。役割の兼任は範囲を広げない | |
 | 入力している間に、編集担当者の任命を解かれた利用者 | 作成する | `ForbiddenError`。入力した内容は反映されず、写真の持ち主も設定されない（AC-75） | |
+| 編集担当者。自分が登録した、持ち主のない写真 A | 写真を A・A の順にして作成する | `BusinessRuleError`（`ARTICLE_DUPLICATE_PHOTO`）。読みものは作成されず、A の持ち主は設定されない | |

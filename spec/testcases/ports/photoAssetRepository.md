@@ -1,6 +1,6 @@
 # PhotoAssetRepository
 
-契約: [../../domains/media.md](../../domains/media.md) の `PhotoAssetRepository` と、[../../domains/index.md](../../domains/index.md) のリポジトリの共通の契約。写真は、`PhotoAsset` の振る舞い（`register`・`markStored`・`claim`・`transfer`・`discard`）で作った値を `insert`・`save` して用意する。
+契約: [../../domains/media.md](../../domains/media.md) の `PhotoAssetRepository` と、[../../domains/index.md](../../domains/index.md) のリポジトリの共通の契約。写真は、`PhotoAsset` の振る舞い（`register`・`markStored`・`claim`・`transfer`・`discard`）で作った値を `insert`・`save` して用意する。リポジトリは `UnitOfWorkContext` から得る。UnitOfWork を書かない呼び出しは、呼び出しごとに1つの `run` の中で行い、コミットする。
 
 ## insert・findById・save・delete
 
@@ -8,17 +8,18 @@
 |---|---|---|---|
 | 写真がない | `accepted` の写真を `insert` し、`findById` する | 同じ内容の `accepted` の写真と `expectedVersion` を返す | |
 | 写真がない | 存在しない `PhotoId` で `findById` する | `null` を返す | |
-| `insert` した `accepted` の写真 | `findById` の `expectedVersion` で、`markStored` の結果を `save` し、`findById` する | `stored` の写真を返す。`storedAt` を持ち、`owner` は `null` | |
+| `insert` した `accepted` の写真 | `findById` の `expectedVersion` で、`markStored` の結果を `save` し、`findById` する | `stored` の写真を返す。`owner` は `null` | |
 | 持ち主のない `stored` の写真 | `claim` の結果を `save` し、`findById` する | `owner` が、設定した `PhotoOwnerRef`（種類と ID）のまま返る。`article`・`listing`・`place`・`region`・`occasion`・`application` のどの種類も保たれる | |
 | 申請を持ち主とする `stored` の写真 | `transfer` の結果を `save` し、`findById` する | `owner` が反映先の集約に替わっている | |
-| `stored` の写真 | `discard` の結果を `save` し、`findById` する | `discarded` の写真を返す。`discardedAt` を持ち、`owner` を持たない | |
+| `stored` の写真 | `discard` の結果を `save` し、`findById` する | `discarded` の写真を返す。`owner` を持たない | |
 | `insert` した写真 | 同じ `PhotoId` の写真を `insert` する | `ConflictError`。元の写真は変わらない | |
-| `insert` した写真 | `save` の後に `findById` する | `registeredBy`・`consentedAt`・`registeredAt` は `insert` した値のまま | |
+| `insert` した写真 | `save` の後に `findById` する | `registeredBy`・`consentedAt`・`digest`・`registeredAt` は `insert` した値のまま | |
 | `discarded` の写真 | `findById` の `expectedVersion` で `delete` し、`findById` する | `null` を返す | |
 | 写真 A がある。一度も `insert` していない `PhotoId` の写真 Z | A の `findById` で得た `expectedVersion` で、Z を `save` する | `NotFoundError`。A は変わらない | |
 | 写真 A がある | A の `findById` で得た `expectedVersion` で、一度も `insert` していない `PhotoId` を `delete` する | `NotFoundError`。A は残る | |
 | 写真 A を `delete` した | `delete` の前に得た `expectedVersion` で、A を `save` する | `NotFoundError`。A は戻らない | |
 | 写真 A を `delete` した | `delete` の前に得た `expectedVersion` で、A をもう一度 `delete` する | `NotFoundError` | |
+| 写真 A を `insert` し、`discard` を `save` して `delete` した | A と同じ `PhotoId` の `accepted` の写真を `insert` する | `ConflictError`。`findById` は `null` のまま（削除した写真の ID は、登録に使えない） | |
 
 ## 楽観ロック
 

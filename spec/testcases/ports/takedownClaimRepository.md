@@ -1,20 +1,19 @@
 # TakedownClaimRepository
 
-契約は [Moderation](../../domains/moderation.md) の「TakedownClaimRepository」と、[index.md](../../domains/index.md) の「リポジトリの共通の契約」「UnitOfWork ポート」による。前提条件の申立ては、`TakedownClaim.submit`・`TakedownClaim.resolve`・`TakedownClaim.recordOutcomeSent` で作り、このポートの `insert`・`save` で保存する。書き込みは UnitOfWork の中で行い、結果はコミットの後の読み取りで確かめる。このポートは `delete` を持たない。
+契約は [Moderation](../../domains/moderation.md) の「TakedownClaimRepository」と、[index.md](../../domains/index.md) の「リポジトリの共通の契約」「UnitOfWork ポート」による。前提条件の申立ては、`TakedownClaim.submit`・`TakedownClaim.resolve` で作り、このポートの `insert`・`save` で保存する。書き込みも読み取りも UnitOfWork の中で行い（読み取りは書き込まない `run`）、書き込みの結果はコミットの後の読み取りで確かめる。このポートは `delete` を持たない。
 
 ## insert・findById・save
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 申立てが保存されていない | 店舗本人が店舗を対象にした未対応の申立てを `insert` し、`findById` で読む | 同じ立場・対象・理由・メールアドレス・`receivedAt`・`version` の、`status: "open"` の申立てと、`expectedVersion` が返る。結果と対応した日時は持たない | |
+| 申立てが保存されていない | 店舗本人が店舗を対象にした未対応の申立てを `insert` し、`findById` で読む | 同じ立場・対象・理由・メールアドレス・`receivedAt`・`version` の、`status: "open"` の申立てと、`expectedVersion` が返る。結果は持たない | |
 | 申立てが保存されていない | 写真の権利者が読みものを対象にし、写真を2枚示した未対応の申立てを `insert` し、`findById` で読む | 立場 `photoRightsHolder`、対象、示した2枚の `PhotoId` が返る | |
 | 申立てが保存されていない | 対象が掲載・店舗・地域・イベント・読みものの申立てを1件ずつ `insert` し、それぞれ `findById` で読む | どの申立ても、対象の `kind` と `id` がそのまま返る | |
 | 申立てが保存されていない | `findById` を呼ぶ | `null` が返る | |
 | ID が同じ申立てが保存されている | 同じ ID の申立てを `insert` する | `ConflictError`。保存されている申立ては変わらない | |
 | 申立てが保存されている | 別の ID で、立場・対象・写真・理由・メールアドレスが同じ申立てを `insert` する | 成功する。2つの申立てがどちらも `findById` で読める（ID のほかに一意性はない） | |
 | 申立てが保存されていない | どの集約も指さない ID を対象にした申立てを `insert` する | 成功する。ポートは対象があることを確かめない | |
-| 未対応の申立てが保存されている | `findById` の `expectedVersion` で、`resolve` した申立てを `save` し、`findById` で読む | `status: "resolved"`、添えた結果、`resolvedAt`、`null` の `outcomeSentAt`、進んだ `version` が返る。立場・対象・写真・理由・メールアドレス・`receivedAt` は変わらない | |
-| 対応済みで、`outcomeSentAt` が `null` の申立てが保存されている | `findById` の `expectedVersion` で、`recordOutcomeSent` した申立てを `save` し、`findById` で読む | `status: "resolved"` のまま、記録した `outcomeSentAt` と進んだ `version` が返る。結果と `resolvedAt` は変わらない | |
+| 未対応の申立てが保存されている | `findById` の `expectedVersion` で、`resolve` した申立てを `save` し、`findById` で読む | `status: "resolved"`、添えた結果、進んだ `version` が返る。立場・対象・写真・理由・メールアドレス・`receivedAt` は変わらない | |
 | 未対応の申立てが保存されている。`findById` の後に、別の `save` がコミットされた | 古い `expectedVersion` で `save` する | `ConflictError`。先にコミットされた内容が残る | |
 | 申立てが保存されていない | その ID の申立てを `save` する | `NotFoundError` | |
 

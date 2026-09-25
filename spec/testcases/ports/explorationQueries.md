@@ -4,14 +4,14 @@
 
 - 特に書かなければ、店舗は営業中で非公開でなく、地域・イベント・読みもの・掲載は `published` で運営による非公開でない。`criteria` は条件なし、`selectedRegionId`・`origin`・`vicinity`・`bounds`（`findRegions`）は `null`、`pagination` は `page: 1`・`limit: 10`
 - 地図の読み取りの `bounds` は、特に書かなければ、前提条件のすべての位置を内側に含む矩形。`grid` は 4 × 4
-- 期待結果の `PlaceEntry` は、同じ集約に `ViewProjection.placeEntry` を当てた結果と一致する。区画は `Geo.cellOf`、範囲は `Geo.extentOf`、距離は `Geo.distanceMeters` の結果と一致する
+- 期待結果の `PlaceEntry` は、同じ集約に `ViewProjection.placeEntry` を当てた結果と一致する。区画は `MapClustering.cells`（区画の位置は `Geo.cellOf`）、範囲は `Geo.extentOf`、距離は `Geo.distanceMeters`、エリアと周辺の地域の判定は `RegionFootprint.of` を当てた `BrowseCriteria.matchesRegion`・`Vicinity.includesRegion` の結果と一致する
 
 ## findPlaceCells の対象
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
 | 店舗が1つもない | `findPlaceCells` を呼ぶ | 空の並び | |
-| `bounds` の内側に店舗 P、外側に店舗 S | `findPlaceCells` を呼ぶ | P の区画だけが返る。S はどの区画の `count` にも含まれない | |
+| `bounds` の内側に店舗 P、外側に店舗 S | `findPlaceCells` を呼ぶ | P の区画だけが返る。S はどの区画にも含まれない | |
 | 店舗 P の位置が、`bounds` の南西の角とちょうど同じ。店舗 Q の位置が、北東の角とちょうど同じ | `findPlaceCells` を呼ぶ | どちらも対象になる（両端を含む）。P は `column: 0`・`row: 0`、Q は `column: 3`・`row: 3` の区画 | |
 | 休業中の店舗、閉店した店舗、非公開の店舗が `bounds` の内側にある | `findPlaceCells` を呼ぶ | 休業中の店舗の区画だけが返る | |
 | 掲載を1件も持たない店舗と、写真のない店舗が `bounds` の内側にある | `findPlaceCells` を呼ぶ | どちらも対象になる | |
@@ -25,11 +25,14 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 店舗 P が1件だけ、ある区画にある | `findPlaceCells` を呼ぶ | その区画は `count: 1`、`place` は P の `PlaceEntry`、`extent` は南西と北東がどちらも P の位置。店舗のない区画は返らない | |
-| 位置の違う店舗 P・Q が、同じ区画にある | `findPlaceCells` を呼ぶ | その区画は `count: 2`、`place` は `null`、`extent` は P と Q の位置が収まる最小の矩形 | |
-| 上の結果の `extent` を次の `bounds` にする | 同じ `grid` で呼ぶ | P と Q が別々の区画に、それぞれ `count: 1` で返る | |
+| 店舗 P が1件だけ、ある区画にある | `findPlaceCells` を呼ぶ | その区画は `kind: "single"` で、`place` は P の `PlaceEntry`。店舗のない区画は返らない | |
+| 位置の違う店舗 P・Q が、同じ区画にある | `findPlaceCells` を呼ぶ | その区画は `kind: "cluster"`、`count: 2`、`extent` は P と Q の位置が収まる最小の矩形 | |
+| 上の結果の `extent` を次の `bounds` にする | 同じ `grid` で呼ぶ | P と Q が別々の区画に、それぞれ `kind: "single"` で返る | |
+| 同じ位置の店舗 P・Q・T（`registeredAt` は T1 < T2 < T3）が、同じ区画にある | `findPlaceCells` を呼ぶ | その区画は `kind: "colocated"`、`location` はその位置、`places` は T、Q、P の順の `PlaceEntry` | |
+| 上と同じ | その位置だけの矩形（南西と北東がどちらもその位置）を `bounds` にして呼ぶ | 同じ `colocated` の区画が1つ返る（同じ位置の店舗は分かれない） | |
+| 同じ位置の店舗 P・Q と、位置の違う店舗 S が、同じ区画にある | `findPlaceCells` を呼ぶ | その区画は `kind: "cluster"`、`count: 3` | |
 | 店舗が、区画（`column: 2`・`row: 0`）、（`column: 0`・`row: 1`）、（`column: 3`・`row: 1`）に1件ずつある | `findPlaceCells` を呼ぶ | （2, 0）、（0, 1）、（3, 1）の順（`row`、`column` の昇順） | |
-| `bounds` の内側に店舗が30件ある | `grid` を 1 × 1 にして呼ぶ | 1件の区画が `count: 30` で返る（件数は区画の数で限られる） | |
+| `bounds` の内側に、位置の違う店舗が30件ある | `grid` を 1 × 1 にして呼ぶ | 1件の `cluster` の区画が `count: 30` で返る（件数は区画の数で限られる） | |
 | 同じ経度に店舗 P・Q があり、`bounds` は幅が 0（西端と東端がその経度） | `findPlaceCells` を呼ぶ | どちらの区画も `column: 0`。`row` は緯度で決まる | |
 | 写真のない店舗 P に、提供中の掲載がある。P だけの区画 | `findPlaceCells` を呼ぶ | `place.substituteCover` は、その掲載と代表写真 | |
 
@@ -37,13 +40,15 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 公開中の地域 R に所属する店舗 P は、`criteria` に合わない。店舗 Q は `criteria` に合い、R に所属しない。P と Q は別々の区画 | `selectedRegionId: R` と、その `criteria` で呼ぶ | P の区画は `count: 1`・`affiliatedCount: 1`、Q の区画は `count: 1`・`affiliatedCount: 0`。P の `place.regions` に R が含まれる | |
-| 上と同じ | `selectedRegionId: null` で呼ぶ | Q の区画だけが返る。`affiliatedCount` は 0 | |
-| R に所属し、`criteria` にも合う店舗 P | `selectedRegionId: R` で呼ぶ | P は1回だけ数えられる（`count: 1`・`affiliatedCount: 1`） | |
-| R に所属する店舗 P・Q と、所属しない店舗 S が、同じ区画にある。どれも `criteria` に合う | `selectedRegionId: R` で呼ぶ | その区画は `count: 3`・`affiliatedCount: 2` | |
+| 公開中の地域 R に所属する店舗 P は、`criteria` に合わない。店舗 Q は `criteria` に合い、R に所属しない。P と Q は別々の区画 | `selectedRegionId: R` と、その `criteria` で呼ぶ | P と Q の区画は、どちらも `single`。P の `place.regions` に R が含まれ、Q の `place.regions` に R は含まれない | |
+| 上と同じ | `selectedRegionId: null` で呼ぶ | Q の区画だけが返る | |
+| R に所属し、`criteria` にも合う店舗 P | `selectedRegionId: R` で呼ぶ | P は1回だけ現れる（`single` の区画が1つ） | |
+| R に所属する店舗 P・Q と、所属しない店舗 S が、位置の違う店舗として同じ区画にある。どれも `criteria` に合う | `selectedRegionId: R` で呼ぶ | その区画は `cluster` で、`count: 3`・`affiliatedCount: 2` | |
+| R に所属する店舗 P・Q と、所属しない店舗 S が、同じ位置にある。どれも `criteria` に合う | `selectedRegionId: R` で呼ぶ | その区画は `colocated` で、`places` の P・Q の `regions` に R が含まれ、S の `regions` に R は含まれない | |
+| R に所属する店舗 P・Q が、位置の違う店舗として同じ区画にある | `selectedRegionId: null` で呼ぶ | その区画は `cluster` で、`affiliatedCount: 0` | |
 | R に、閉店した店舗と非公開の店舗が所属している | `selectedRegionId: R` で呼ぶ | どちらも現れない | |
 | R に所属する店舗 P の位置が、`bounds` の外側 | `selectedRegionId: R` で呼ぶ | P は現れない | |
-| 地域 R が `unpublished`、または運営による非公開。R に所属する店舗 P は `criteria` に合わず、R に所属する店舗 Q は `criteria` に合う | `selectedRegionId: R` で呼ぶ | どちらも、P は現れない。Q の区画は返り、`affiliatedCount` は 0 | |
+| 地域 R が `unpublished`、または運営による非公開。R に所属する店舗 P は `criteria` に合わず、R に所属する店舗 Q は `criteria` に合う | `selectedRegionId: R` で呼ぶ | どちらも、P は現れない。Q の区画は `single` で返り、`place.regions` に R は含まれない | |
 | その ID の地域がない | その ID を `selectedRegionId` にして呼ぶ | `selectedRegionId: null` と同じ結果。エラーにならない | |
 
 ## findMapExtent
@@ -66,7 +71,7 @@
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
 | `bounds` の内側に、営業中の店舗、休業中の店舗、閉店した店舗、非公開の店舗。外側に営業中の店舗 | `findPlacesInBounds` を呼ぶ | 内側の営業中の店舗と休業中の店舗の `PlaceEntry` が返る。`count` は 2 | |
-| 店舗が混ざった前提で、`areaCodes` と `categoryIds` を持つ `criteria` | 同じ `bounds`・`criteria`・`today` で、`findPlacesInBounds`（`limit: 100`）と、`selectedRegionId: null` の `findPlaceCells` を呼ぶ | `findPlacesInBounds` の `count` が、区画の `count` の合計と一致する。`count: 1` の区画の店舗は、すべて `items` に含まれる | |
+| 店舗が混ざった前提で、`areaCodes` と `categoryIds` を持つ `criteria` | 同じ `bounds`・`criteria`・`today` で、`findPlacesInBounds`（`limit: 100`）と、`selectedRegionId: null` の `findPlaceCells` を呼ぶ | `findPlacesInBounds` の `count` が、区画の店舗の件数（`single` は 1、`cluster` は `count`、`colocated` は `places` の件数）の合計と一致する。`single` と `colocated` の区画の店舗は、すべて `items` に含まれる | |
 | 店舗 P1・P2・P3 の `registeredAt` が T1 < T2 < T3 | `origin: null` で呼ぶ | P3、P2、P1 の順 | |
 | `registeredAt` が同じ店舗が2つ | `origin: null` で呼ぶ | `PlaceId` の昇順 | |
 | 店舗 P1・P2・P3 の位置が、`origin` から 100 m・500 m・2 km。`registeredAt` は P3 が最も新しい | その `origin` で呼ぶ | P1、P2、P3 の順 | |
@@ -85,17 +90,18 @@
 | 所属する店舗を持たない公開中の地域と、所属する店舗に掲載がない公開中の地域 | 条件をすべて `null` にして呼ぶ | どちらも返る | |
 | 位置が `bounds` の内側の地域 R1、外側の地域 R2、`bounds` の北東の角とちょうど同じ位置の地域 R3 | その `bounds` で呼ぶ | R1 と R3 が返る | |
 | 所在地の `areaCode` が A の地域 R1。所在地は B で、所属する営業中の店舗の所在地が A の地域 R2。所在地も所属する店舗の所在地も B の地域 R3 | `areaCodes: {A}` で呼ぶ | R1 と R2 が返る | |
-| 所在地が B の地域 R に所属する、所在地が A の店舗が、閉店した店舗と非公開の店舗だけ | `areaCodes: {A}` で呼ぶ | R は返らない | |
-| 上の前提で、所在地が A の休業中の店舗が R に所属している | `areaCodes: {A}` で呼ぶ | R が返る | |
+| 所在地が B の地域 R に所属する、所在地が A の店舗が、非公開の店舗だけ | `areaCodes: {A}` で呼ぶ | R は返らない | |
+| 上の前提で、所在地が A の閉店した店舗が R に所属している。別に、所在地が A の休業中の店舗だけが所属する、所在地が B の地域 R' がある | `areaCodes: {A}` で呼ぶ | R と R' が返る（閲覧できる所属店舗は休業・閉店を含む） | |
 | 公開中の地域がある | `areaCodes` を空の集合にして呼ぶ | `items` は空、`count` は 0 | |
 | 位置が `vicinity.center` から 900 m の地域 R1、ちょうど 1,000 m の地域 R2、1,100 m の地域 R3 | `vicinity` の `radiusMeters` を 1000 にして呼ぶ | R1 と R2 が返る（半径ちょうどを含む） | |
+| 位置が `vicinity.center` から 5 km の地域 R4 に、800 m の閉店した店舗が所属している。5 km の地域 R5 に、800 m の非公開の店舗だけが所属している | `radiusMeters` を 1000 にして呼ぶ | R4 は返り、R5 は返らない（`Vicinity.includesRegion` と `RegionFootprint.of`） | |
 | `bounds` の内側で `areaCode` A の地域 R1、`bounds` の内側で B の地域 R2、`bounds` の外側で A の地域 R3 | その `bounds` と `areaCodes: {A}` で呼ぶ | R1 だけが返る（与えた条件のすべてが成り立つ地域） | |
 | 地域 R1・R2・R3 の `firstPublishedAt` が T1 < T2 < T3。R1 は公開を取り下げた後、T3 より後に再び公開されている | `origin: null` で呼ぶ | R3、R2、R1 の順 | |
 | `firstPublishedAt` が同じ地域が2つ | `origin: null` で呼ぶ | `RegionId` の昇順 | |
 | 地域 R1・R2 の位置が、`origin` から 5 km・1 km。`firstPublishedAt` は R1 が新しい | その `origin` で呼ぶ | R2、R1 の順 | |
+| 地域 R1 の位置は `origin` から 5 km で、R1 に所属する閉店した店舗の位置は 500 m。地域 R2 の位置は 1 km。地域 R3 の位置は 3 km で、R3 に所属する非公開の店舗の位置は 100 m | その `origin` で呼ぶ | R1、R2、R3 の順（地域の距離は、`RegionFootprint.of(…, "reference")` の位置のうち最も近いものまで。非公開の店舗は効かない） | |
 | 対象の地域が3つ | `page: 1`・`limit: 3` で呼ぶ | `items` は3件、`count` は 3 | |
 | 対象の地域が5つ | `limit: 3` で `page: 1`・`page: 2`・`page: 3` を呼ぶ | 3件、2件、空。重複も欠けもない。どれも `count` は 5 | |
-| `bounds` の内側に対象の地域が120ある | その `bounds` で、`page: 1`・`limit: 100` で呼ぶ | `items` は並び順の先頭の100件、`count` は 120 | |
 
 ## findPlacesOfRegion
 

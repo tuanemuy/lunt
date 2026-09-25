@@ -7,19 +7,22 @@
 | 下書きの読みもの | タイトル・本文・写真をすべてなくして保存する | 成功する。下書きは公開条件を確かめない | |
 | 公開中の読みもの | 本文を書き換えて保存する | 成功する。公開状態は公開のままで、`firstPublishedAt` は変わらない。保存した時点で、Discovery の読み取りが新しい内容を返す | |
 | 公開中の読みもの | タイトルをなくして保存する | `BusinessRuleError`（`ARTICLE_PUBLISH_CONDITION_UNMET`）。欠けている項目として `title` を示す。読みものは変わらない（AC-68） | |
-| 公開中の読みもの | すべての写真を外して保存する | `BusinessRuleError`（`ARTICLE_PUBLISH_CONDITION_UNMET`）。欠けている項目として `photos` を示す。読みものは変わらず、`PhotosReleased` は出ない | |
-| 写真 A・B を持つ読みもの。編集担当者が登録した持ち主のない写真 C | 写真を B・C の順にして保存する | 成功する。写真は B・C の順になり、B が代表写真になる。C の持ち主がその読みものになる。A を載せた `PhotosReleased` が出る | |
-| 上の保存の後 | `discardReleasedPhotos` が `PhotosReleased` を消費する | 写真 A の実体と記録が削除される | |
-| 写真 A・B を持つ読みもの | 写真を B・A の順に並び替えて保存する | 成功する。B が代表写真になる。`PhotosReleased` は出ず、写真の持ち主は変わらない | |
+| 公開中の読みもの | すべての写真を外して保存する | `BusinessRuleError`（`ARTICLE_PUBLISH_CONDITION_UNMET`）。欠けている項目として `photos` を示す。読みものは変わらず、`photos.released` は出ない | |
+| 写真 A・B を持つ読みもの。編集担当者が登録した持ち主のない写真 C | 写真を B・C の順にして保存する | 成功する。写真は B・C の順になり、B が代表写真になる。C の持ち主がその読みものになる。A を載せた `photos.released` が出る | |
+| 上の保存の後 | `discardReleasedPhotos` が `photos.released` を消費する | 写真 A の実体と記録が削除される | |
+| 写真 A・B を持つ読みもの | 写真を B・A の順に並び替えて保存する | 成功する。B が代表写真になる。`photos.released` は出ず、写真の持ち主は変わらない | |
 | 紹介先に掲載 L を持つ公開中の読みもの。閲覧できるイベント E がある | 紹介先を E・L の順にして保存する | 成功する。紹介先は E・L の順になる。保存した時点で、イベント E の詳細の読み取りから、その読みものをたどれる（AC-71） | |
 | 紹介先に掲載 L と店舗 P を持つ公開中の読みもの | 紹介先から L を外して保存する | 成功する。紹介先は P だけになる。掲載 L の詳細の読み取りから、その読みものをたどれなくなる | |
 | 紹介先の掲載 L が、運営によって非公開になった公開中の読みもの | 紹介先を変えず、本文だけを書き換えて保存する | 成功する。L の結びつけは残り、読みものの公開は続く（AC-15） | |
 | 紹介先の掲載が非公開になった読みもの | 保存の操作をしない | 読みものの内容・版・公開状態は変わらない。本文は自動では書き換わらない（AC-15） | |
-| 読みもの | 同じ店舗を紹介先に2回入れて保存する | `BusinessRuleError`（`ARTICLE_SHOWCASE_DUPLICATED`）。読みものは変わらない | |
+| 読みもの | 同じ店舗を紹介先に2回入れて保存する | `BusinessRuleError`（`ARTICLE_INVALID_SHOWCASE_LIST`）。読みものは変わらない | |
+| 写真 A を持つ読みもの | 写真を A・A の順にして保存する | `BusinessRuleError`（`ARTICLE_DUPLICATE_PHOTO`）。読みものは変わらない | |
 | 読みもの | 保存されている内容と同じ内容で保存する | 成功する。版は進まず、ドメインイベントは出ない | |
 | 編集担当者 A と B が同じ版の読みものを読んだ。B が先に保存した | A が、読んだ時点の版で保存する | `ConflictError`。A の内容は反映されず、B の保存した内容が残る | |
 | 編集担当者が読みものを読んだ後、申立てによる写真の削除が確定した | 読んだ時点の版で保存する | `ConflictError`。削除された写真は読みものに戻らない | |
 | 申立てによる写真の削除で、公開が取り下げられた読みもの（事由は `photoTakedown`） | 写真を登録し、その写真を入れて保存する | 成功する。写真の持ち主がその読みものになる。公開状態は公開の取り下げのままで、事由も `photoTakedown` のまま。保存だけでは公開に戻らない（AC-79） | |
-| 別の人が登録した、持ち主のない写真 | その写真を加えて保存する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_REGISTRANT`）。読みものは変わらず、`PhotosReleased` も出ない | |
-| 一度外して保存し、`PhotosReleased` で削除された写真 | その写真をもう一度加えて保存する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`）。手放した写真は載せ直せない | |
+| 別の人が登録した、持ち主のない写真 | その写真を加えて保存する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_REGISTRANT`）。読みものは変わらず、`photos.released` も出ない | |
+| 一度外して保存し、`photos.released` で削除された写真 | その写真をもう一度加えて保存する | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`）。手放した写真は載せ直せない | |
 | 編集している間に、編集担当者の任命を解かれた利用者 | 保存する | `ForbiddenError`。入力中の内容は反映されない（AC-75） | |
+| 読みもの | 改行を含むタイトルで保存する | `BusinessRuleError`（`ARTICLE_INVALID_TITLE`）。読みものは変わらない | |
+| 自分が登録した写真のうち、すでに別の読みものが持ち主になっている写真 | その写真を加えて保存する | `BusinessRuleError`（`MEDIA_PHOTO_ALREADY_OWNED`）。読みものは変わらず、`photos.released` も出ない | |

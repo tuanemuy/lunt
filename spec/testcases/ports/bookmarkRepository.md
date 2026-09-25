@@ -1,6 +1,6 @@
 # BookmarkRepository
 
-契約: [../../domains/bookmark.md](../../domains/bookmark.md) の `BookmarkRepository`。保存は `Bookmark.save`・`Bookmark.carryOver` で作った値を `add`・`addAll` して用意する。書き込みは UnitOfWork の中で行う。どの操作も `ConflictError` と `NotFoundError` を返さない。
+契約: [../../domains/bookmark.md](../../domains/bookmark.md) の `BookmarkRepository`。保存は `Bookmark.create` で作った値を `add`・`addAll` して用意する。書き込みも読み取りも UnitOfWork の中で行う（読み取りは書き込まない `run`）。どの操作も `ConflictError` と `NotFoundError` を返さない。
 
 ## add
 
@@ -21,8 +21,7 @@
 | A の掲載 L の保存（T0）がある | 掲載 L（T1）と掲載 M（T2）の保存を `addAll` する | 成功する。L は `savedAt` T0 のまま、M が T2 で加わる。`count` は 2 | |
 | A の保存がある | 空の一覧を `addAll` する | 成功する。何も変わらない | |
 | A の保存がない | 1件の一覧を `addAll` する | 成功する。1件が加わる | |
-| A の保存がない | 互いに違う対象の100件の一覧を `addAll` する | 成功する。100件が加わる | |
-| A の保存がない | 互いに違う対象の101件の一覧を `addAll` する | `BusinessRuleError`（`COMMON_INVALID_INPUT`）。1件も加わらない | |
+| A の保存がない | 互いに違う対象の101件の一覧を `addAll` する | 成功する。101件が加わる。件数の上限を持たない | |
 | A の保存がない | 同じ一覧を、2回続けて `addAll` する | どちらも成功する。結果は1回目と同じ | |
 | A の保存がない | UnitOfWork の中で3件を `addAll` し、その後に例外を投げる | `findByAccount` は空。1件も残らない | |
 

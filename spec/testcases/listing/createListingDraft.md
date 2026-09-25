@@ -8,13 +8,19 @@
 | 店舗 B に店舗管理者がいない。操作する人はサービス運営者 | 店舗 B の下書きを作る | 下書きが保存される。写真の持ち主がこの掲載になる（AC-19） | |
 | 店舗 A に店舗管理者がいる。操作する人は店舗 A の管理権限を持たないサービス運営者 | 店舗 A の下書きを作る | `ForbiddenError`。掲載は保存されず、写真の持ち主は設定されない（AC-19） | |
 | 操作する人は店舗 A の管理権限を持たない利用者 | 店舗 A の下書きを作る | `ForbiddenError`。掲載は保存されない | |
-| 操作する人は、作成の途中で店舗 A の管理権限を手放した | 店舗 A の下書きを作る | `ForbiddenError`。掲載は保存されない | |
+| 操作する人は、作成の途中で店舗 A の店舗管理者を辞任した | 店舗 A の下書きを作る | `ForbiddenError`。掲載は保存されない | |
 | サービス運営者が店舗 B の掲載を作成している間に、店舗 B に店舗管理者が就いた | サービス運営者が店舗 B の下書きを作る | `ForbiddenError`。掲載は保存されない | |
 | 指定した `PlaceId` の店舗がない。操作する人はサービス運営者 | 下書きを作る | `NotFoundError`。掲載は保存されない | |
 | 操作する人は店舗 A の店舗管理者。選んだカテゴリーが、保存までに廃止された | そのカテゴリーで下書きを作る | `BusinessRuleError`（`LISTING_CATEGORY_NOT_AVAILABLE`）。掲載は保存されない | |
-| 操作する人は店舗 A の店舗管理者 | 提供期間の終了日を開始日より前にして下書きを作る | `BusinessRuleError`（`LISTING_OFFERING_PERIOD_REVERSED`）。掲載は保存されない | |
-| 操作する人は店舗 A の店舗管理者 | 提供の設定に「提供期間」を選び、開始日も終了日も指定せずに下書きを作る | `BusinessRuleError`（`LISTING_OFFERING_PERIOD_EMPTY`）。掲載は保存されない | |
-| 操作する人は店舗 A の店舗管理者 | 提供の設定に「開催日」を選び、開催日を1つも指定せずに下書きを作る | `BusinessRuleError`（`LISTING_OPEN_DATES_EMPTY`）。掲載は保存されない | |
+| 操作する人は店舗 A の店舗管理者 | 提供期間の終了日を開始日より前にして下書きを作る | `BusinessRuleError`（`LISTING_INVALID_OFFERING_PERIOD`）。掲載は保存されない | |
+| 操作する人は店舗 A の店舗管理者 | 提供の設定に「提供期間」を選び、開始日も終了日も指定せずに下書きを作る | `BusinessRuleError`（`LISTING_INVALID_OFFERING_PERIOD`）。掲載は保存されない | |
+| 操作する人は店舗 A の店舗管理者 | 提供の設定に「開催日」を選び、開催日を1つも指定せずに下書きを作る | `BusinessRuleError`（`LISTING_INVALID_OPEN_DATES`）。掲載は保存されない | |
 | 操作する人は店舗 A の店舗管理者。同じ `ListingId`、同じ店舗、同じ内容の下書きが保存されている | 同じ要求を送り直す | 成功として扱う。書き込みもドメインイベントもない。掲載は1件のまま | |
+| 操作する人は店舗 A の店舗管理者。同じ `ListingId`、同じ店舗、同じ内容の下書きが作られ、その後に公開された | 作成の要求を送り直す | 成功として扱う。書き込みはなく、公開中の掲載をその状態のまま返す | |
 | 操作する人は店舗 A の店舗管理者。同じ `ListingId` の掲載が保存されている | 同じ `ListingId` で、名称の違う内容の下書きを作る | `ConflictError`。保存されている掲載は変わらない | |
+| 操作する人は店舗 A の店舗管理者。`ListingId` X で下書きを作り、その後 X の掲載を削除した | 同じ X と同じ内容で、下書きの作成を送り直す | `ConflictError`。X の掲載は戻らず、`getManagedListing` は `NotFoundError` のまま。写真の持ち主は設定されない | |
 | 操作する人は店舗 A の店舗管理者。指定した写真の1枚が、すでに別の掲載を持ち主に持つ | その写真を含む下書きを作る | `BusinessRuleError`（`MEDIA_PHOTO_ALREADY_OWNED`）。掲載は保存されず、他の写真の持ち主も設定されない | |
+| 操作する人は店舗 A の店舗管理者 | 名称に改行を含めて下書きを作る | `BusinessRuleError`（`LISTING_INVALID_NAME`）。掲載は保存されない | |
+| 操作する人は店舗 A の店舗管理者。操作する人が登録した、持ち主のない写真 P | 写真を P・P の順にして下書きを作る | `BusinessRuleError`（`LISTING_DUPLICATE_PHOTO`）。掲載は保存されず、P の持ち主は設定されない | |
+| 操作する人は店舗 A の店舗管理者。存在しない `PhotoId` と、操作する人が登録した持ち主のない写真 | 両方を載せて下書きを作る | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`）。掲載は保存されず、操作する人が登録した写真の持ち主も設定されない | |
+| 操作する人は店舗 A の店舗管理者。写真 Q は別の人が登録した、持ち主のない写真 | Q を載せて下書きを作る | `BusinessRuleError`（`MEDIA_PHOTO_NOT_REGISTRANT`）。掲載は保存されず、Q の持ち主は設定されない | |

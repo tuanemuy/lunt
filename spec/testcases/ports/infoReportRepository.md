@@ -1,20 +1,20 @@
 # InfoReportRepository
 
-契約は [Moderation](../../domains/moderation.md) の「InfoReportRepository」と、[index.md](../../domains/index.md) の「リポジトリの共通の契約」「UnitOfWork ポート」による。前提条件の連絡は、`InfoReport.submit`（掲載が対象の連絡は、事実の `listingPlaceId` に店舗を渡す）・`InfoReport.requestConfirmation`・`InfoReport.resolve` で作り、このポートの `insert`・`save` で保存する。書き込みは UnitOfWork の中で行い、結果はコミットの後の読み取りで確かめる。このポートは `delete` を持たない。
+契約は [Moderation](../../domains/moderation.md) の「InfoReportRepository」と、[index.md](../../domains/index.md) の「リポジトリの共通の契約」「UnitOfWork ポート」による。前提条件の連絡は、`InfoReport.submit`（掲載が対象の連絡は、事実 `InfoReportSubmissionFacts` の `placeId` に掲載が紐づく店舗を渡す）・`InfoReport.requestConfirmation`・`InfoReport.resolve` で作り、このポートの `insert`・`save` で保存する。書き込みも読み取りも UnitOfWork の中で行い（読み取りは書き込まない `run`）、書き込みの結果はコミットの後の読み取りで確かめる。このポートは `delete` を持たない。
 
 ## insert・findById・save
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 連絡が保存されていない | 店舗を対象にした未対応の連絡を `insert` し、`findById` で読む | 同じ対象（`kind: "place"`、`placeId`）・種類・内容・連絡した人・`receivedAt`・`version` の、`status: "open"` の連絡と、`expectedVersion` が返る。依頼と対応した日時は持たない | |
+| 連絡が保存されていない | 店舗を対象にした未対応の連絡を `insert` し、`findById` で読む | 同じ対象（`kind: "place"`、`placeId`）・種類・内容・連絡した人・`receivedAt`・`version` の、`status: "open"` の連絡と、`expectedVersion` が返る。依頼は持たない | |
 | 連絡が保存されていない | 掲載を対象にした、種類が閉店の未対応の連絡を `insert` し、`findById` で読む | 対象は `kind: "listing"` で、`placeId` と `listingId` の両方が返る。種類は `closure` | |
 | 連絡が保存されていない | `findById` を呼ぶ | `null` が返る | |
 | ID が同じ連絡が保存されている | 同じ ID の連絡を `insert` する | `ConflictError`。保存されている連絡は変わらない | |
 | 連絡が保存されている | 別の ID で、連絡した人・対象・種類・内容が同じ連絡を `insert` する | 成功する。2つの連絡がどちらも `findById` で読める（ID のほかに一意性はない） | |
 | 連絡が保存されていない | どの集約も指さない `placeId`・`listingId`・連絡した人の `AccountId` を持つ連絡を `insert` する | 成功する。ポートは指す先があることを確かめない | |
 | 未対応の連絡が保存されている | `findById` の `expectedVersion` で、`requestConfirmation` した連絡を `save` し、`findById` で読む | `status: "confirmationRequested"`、`request.requestedAt`、進んだ `version` が返る。対象・種類・内容・連絡した人・`receivedAt` は変わらない | |
-| 未対応の連絡が保存されている | `resolve` した連絡を `save` し、`findById` で読む | `status: "resolved"`、`request: null`、`resolvedAt` が返る | |
-| 確認依頼中の連絡が保存されている | `resolve` した連絡を `save` し、`findById` で読む | `status: "resolved"`、確認依頼中のときと同じ `request.requestedAt`、`resolvedAt` が返る | |
+| 未対応の連絡が保存されている | `resolve` した連絡を `save` し、`findById` で読む | `status: "resolved"`、`request: null` が返る | |
+| 確認依頼中の連絡が保存されている | `resolve` した連絡を `save` し、`findById` で読む | `status: "resolved"`、確認依頼中のときと同じ `request.requestedAt` が返る | |
 | 未対応の連絡が保存されている。`findById` の後に、別の `save` がコミットされた | 古い `expectedVersion` で `save` する | `ConflictError`。先にコミットされた内容が残る | |
 | 連絡が保存されていない | その ID の連絡を `save` する | `NotFoundError` | |
 

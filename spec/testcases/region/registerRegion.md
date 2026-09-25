@@ -9,3 +9,5 @@
 | 操作する人がサービス運営者でない（地域運営者、店舗管理者、編集担当者のいずれか） | 地域情報を入力して登録する | `ForbiddenError`。地域は保存されない | |
 | 操作する人がサービス運営者。写真のうち1枚は、別の人が登録した写真 | その写真を含む地域情報で登録する | `BusinessRuleError("MEDIA_PHOTO_NOT_REGISTRANT")`。地域は保存されず、どの写真にも持ち主が設定されない | |
 | 操作する人がサービス運営者。選んだ町域が `AreaCatalog` にない | その町域を所在地にして登録する | `BusinessRuleError("AREA_TOWN_NOT_FOUND")`。地域は保存されない | |
+| 操作する人がサービス運営者。写真のうち1枚は、存在しない `PhotoId` | その写真を含む地域情報で登録する | `BusinessRuleError("MEDIA_PHOTO_NOT_AVAILABLE")`。地域は保存されず、どの写真にも持ち主は設定されない | |
+| 操作する人がサービス運営者。自分が登録した写真のうち1枚は、すでに別の地域が持ち主 | その写真を含む地域情報で登録する | `BusinessRuleError("MEDIA_PHOTO_ALREADY_OWNED")`。地域は保存されず、どの写真にも持ち主は設定されない | |

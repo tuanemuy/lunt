@@ -1,29 +1,29 @@
 # Place のユースケース
 
-ドメイン: Place（[../domains/place.md](../domains/place.md)）。操作の可否は Authority の `AccessPolicy`、写真の持ち主の設定は Media の `PhotoOwnership`、申立てに基づく写真の削除の前提は Moderation の `TakedownClaim.authorizePhotoRemoval`、写真のない店舗の写真の代用は Discovery の `ViewProjection.substituteCover` が定める。
+ドメイン: Place（[../domains/place.md](../domains/place.md)）。操作の可否は Authority の `AccessPolicy`、写真の持ち主の設定は Media の `PhotoOwnership`、写真のない店舗の写真の代用は Discovery の `ViewProjection.substituteCover`、キーワードの一致と関連度は共有カーネルの `KeywordRelevance` が定める。
 
 | 名前 | 説明 | 実現する |
 | --- | --- | --- |
-| matchPlaces（既存店舗を確認する） | 店名・住所で、非公開でない店舗を探し、関連度の高い順に返す | SHP-02 / RQ-02 |
-| searchPlacesForOperation（サービス運営者が店舗を探す） | サービス運営者が、店名・住所で、非公開の店舗を含めて店舗を探し、関連度の高い順に返す | SHP-09、SHP-12、SHP-13、MOD-08、MOD-09 / OM-02、CM-01 |
-| listStewardedPlaces（管理する店舗の一覧を読む） | 操作する人が管理権限を持つ店舗を、名称と状態とともに読む | SHP-05 / SM-01 |
-| getManagedPlace（管理する店舗を読む） | 管理のために、またはサービス運営者が状態と管理者の有無を確かめるために、`PlaceId` で選んだ店舗の情報・営業状況・非公開かどうか・管理者の有無を読む | SHP-05、SHP-06、SHP-07、SHP-13、MOD-08、MOD-09 / SM-01、SM-02、OM-03 |
+| matchPlaces（既存店舗を確認する） | 店名・住所で、非公開でない店舗を探し、関連度の高い順に返す | SHP-02 / RQ-01 |
+| matchPlacesForOperation（サービス運営者が店名・住所で店舗を探す） | サービス運営者が、店名・住所で、非公開の店舗を含めて店舗を探し、関連度の高い順に返す | SHP-09、SHP-12、SHP-13、LST-15、LST-16、MEM-01、MOD-08、MOD-09 / CM-01、OM-02 |
+| listStewardedPlaces（管理する店舗の一覧を読む） | 操作する人が管理権限を持つ店舗を、名称と状態とともに読む | SHP-05、REG-01、EVT-01 / SM-01、RQ-05、RQ-06 |
+| getManagedPlace（管理する店舗を読む） | 管理のために、またはサービス運営者が状態と管理者の有無を確かめるために、`PlaceId` で選んだ店舗の情報・営業状況・非公開かどうか・申立てで写真が削除されたこと・管理者の有無・所属中の地域の名称を読む | SHP-05、SHP-06、SHP-07、SHP-13、LST-01、LST-15、LST-16、MOD-08、MOD-09 / SM-01、SM-02、SM-04（新規）、OM-03 |
 | registerPlaceByProxy（店舗を代理登録する） | サービス運営者が、公開条件を満たす情報で店舗を登録する | SHP-12 / SM-02 |
 | updatePlaceProfile（店舗情報を更新する） | 店舗管理者、または管理者のいない店舗でサービス運営者が、店舗情報を申請なしで置き換える | SHP-06、SHP-13、MOD-06 / SM-02 |
 | changeOperatingStatus（営業状況を変更する） | 店舗管理者、または管理者のいない店舗でサービス運営者が、営業中・休業・閉店のどれかに変える | SHP-07、SHP-13、MOD-06 / SM-02 |
 | suspendPlace（店舗を非公開にする） | サービス運営者が店舗を非公開にする。重複する店舗の整理でも使う | MOD-08、MOD-09 / OM-03 |
 | unsuspendPlace（店舗の非公開を解除する） | サービス運営者が店舗の非公開を解除する | MOD-08、MOD-09 / OM-03 |
-| takeDownPlacePhotos（申立てに基づいて店舗の写真を削除する） | サービス運営者が、申立ての対象の店舗の写真を削除する | MOD-02 / OM-04 |
 
-登録申請の承認による店舗の登録（SHP-09）と、情報修正の申請の承認による反映（SHP-11）は Application のユースケースで、`Place.register`・`Place.applyRevision` を呼ぶ。
+登録申請の承認による店舗の登録（SHP-09）と、情報修正の申請の承認による反映（SHP-11）は Application のユースケースで、`Place.register`・`Place.applyRevision` を呼ぶ。申立てに基づく店舗の写真の削除（MOD-02）は Moderation の `takeDownPhotosByClaim` で、`Place.takeDownPhotos` を呼ぶ。
 
-書き込みを持つユースケースに共通すること。
+ユースケースに共通すること。
 
 - 所在地は、利用者が選んだ町域（`TownRef`）と、町域より後の部分（`rest`）で受け取る。UnitOfWork を始める前に `AreaCatalog.findTown` で町域を解決し、`Town.toAddress` で `Address` を作る。`findTown` が `null` を返せば `BusinessRuleError`（`AREA_TOWN_NOT_FOUND`）にする
-- 可否の判断に使う読み取り（`RoleRosterRepository.findRolesOf`、対象の `Stewardship`）と `PlaceRepository.findById` は、UnitOfWork の中で、書き込みの前に終える
+- 集約のリポジトリ（`placeRepository`、`roleRosterRepository`、`stewardshipRepository`、`photoAssetRepository`）は `UnitOfWorkContext` から得る。書き込みを持つユースケースは、可否の判断に使う読み取りと `PlaceRepository.findById` を、書き込みと同じ `run` の中で、書き込みの前に終える。読み取りだけのユースケースは `run` を1つ使い、書き込まずに返す
+- UnitOfWork に参加しないポート（`AreaCatalog`、Discovery の `ReferenceQueries`、`PhotoStorage`）はコンテナから得て、`run` の外で呼ぶ
 - 保存された管理体制のない店舗は `Stewardship.vacant(target)` として扱う
-- `AccessPolicy.decide` が `allowed: false` なら `ForbiddenError`
-- 店舗情報の更新と営業状況の変更は、読んだときの版を要求に含める。非公開、非公開の解除、申立てに基づく写真の削除は版を含めず、前提の変化を `BusinessRuleError` で返し、同時の書き込みは `save` の楽観ロックで守る（index.md の「編集の競合」）
+- `AccessPolicy.decide` が `allowed: false` なら `ForbiddenError`。エラーケースの表は、可否の条件を再掲せず、`AccessPolicy` の拒否と操作の種類だけを書く
+- 店舗情報の更新と営業状況の変更は、読んだときの版を要求に含める。非公開と非公開の解除は版を含めず、前提の変化を `BusinessRuleError` で返し、同時の書き込みは `save` の楽観ロックで守る（index.md の「編集の競合」）
 
 ## matchPlaces
 
@@ -34,8 +34,8 @@
 ### 入出力
 
 - 入力: 店名、住所（どちらか一方でよい）、ページング。`Actor` を取らない
-- 出力: 一致した店舗の一覧（関連度の降順、同順位は `PlaceId` の昇順）と、条件に合う全件数。店舗ごとに、種別、名称、所在地、営業状況、代表写真の表示用の参照、関連度を返す。非公開の店舗と、管理者の有無は返さない
-- 写真のない店舗には、Discovery の `ReferenceQueries.resolve` が返す `PlaceEntry.substituteCover`（その店舗の閲覧できる掲載の代表写真）を添える。`substituteCover` が `null` の店舗は、写真なしで返す（P-43）。代用の規則はこのユースケースに持たない
+- 出力: 一致した店舗の一覧（`PlaceRepository.match` の並び）と、条件に合う全件数。店舗ごとに、店舗を見分ける情報（名称・所在地・代表写真）と営業状況を返す。非公開の店舗と、管理者の有無は返さない
+- 写真のない店舗には、Discovery の `ReferenceQueries.resolve` が返す `PlaceEntry.substituteCover` を添える。`substituteCover` が `null` の店舗は、写真なしで返す（P-43）。代用の規則はこのユースケースに持たない
 - 一致する店舗がなければ、空の一覧と件数 0 を返す
 
 ### 使用するドメインの振る舞い・ポート
@@ -47,24 +47,26 @@
 
 ### トランザクション境界
 
-UnitOfWork は不要。読み取りだけ。
+UnitOfWork を1つ使い、`PlaceRepository.match` を読んで、書き込まずに返す。`ReferenceQueries.resolve` と `PhotoStorage.displayRefs` は、その後に `run` の外で呼ぶ。
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| 店名も住所も空（空白だけを含む） | `BusinessRuleError`（`PLACE_MATCH_TEXT_REQUIRED`） |
+| 店名も住所も空（空白だけを含む） | `BusinessRuleError`（`PLACE_INVALID_MATCH_CRITERIA`） |
 
-## searchPlacesForOperation
+## matchPlacesForOperation
 
 ### 概要
 
-サービス運営者が、店名・住所から、非公開の店舗を含めて店舗を探す。登録申請の照合、代理登録の前の確認、運営による非公開・連絡への対応のために店舗を探す操作に共通の読み取り。一致と関連度は `matchPlaces` と同じく `PlaceMatching` が定め、営業状況では絞り込まない。
+サービス運営者が、店名・住所で、非公開の店舗を含めて店舗を探す。サービス運営者が店舗を探す操作はすべてこの読み取りを使う（`scenario/index.md`「探し方」の名称・所在地で探す）。登録申請の照合でサービス運営者が自分でも確かめる操作、代理登録の前に登録する店舗が非公開の店舗を含めて存在しないことを確かめる操作、管理者のいない店舗の更新、掲載の代理作成と管理、管理メンバーの確認、運営による非公開のために店舗を開く操作に当たる。一致と関連度は `PlaceMatching` が定め、営業状況では絞り込まない。
+
+`matchPlaces` との違いは、非公開の店舗を含めること、サービス運営者だけが行うこと、店舗ごとに非公開かどうかと管理者の有無を返すこと、写真を代用しないこと。
 
 ### 入出力
 
-- 入力: `Actor`、店名、住所（どちらか一方でよい）、ページング。1つのキーワードで探す操作は、同じ語を店名と住所の両方に入れる
-- 出力: 一致した店舗の一覧（関連度の降順、同順位は `PlaceId` の昇順）と、条件に合う全件数。店舗ごとに、種別、名称、所在地、営業状況、代表写真の表示用の参照、関連度、非公開かどうか、管理者の有無を返す。写真のない店舗は写真なしで返す
+- 入力: `Actor`、店名、住所（どちらか一方でよい）、ページング
+- 出力: 一致した店舗の一覧（`PlaceRepository.match` の並び）と、条件に合う全件数。店舗ごとに、店舗を見分ける情報（名称・所在地・代表写真）、営業状況、非公開かどうか、管理者がいるかどうかを返す。写真のない店舗は写真なしで返す
 - 一致する店舗がなければ、空の一覧と件数 0 を返す
 
 ### 使用するドメインの振る舞い・ポート
@@ -77,14 +79,14 @@ UnitOfWork は不要。読み取りだけ。
 
 ### トランザクション境界
 
-UnitOfWork は不要。読み取りだけ。
+UnitOfWork を1つ使い、可否の判断、`PlaceRepository.match`、`StewardshipRepository.findByTargets` を読んで、書き込まずに返す。`PhotoStorage.displayRefs` は `run` の外で呼ぶ。
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| サービス運営者でない | `ForbiddenError` |
-| 店名も住所も空（空白だけを含む） | `BusinessRuleError`（`PLACE_MATCH_TEXT_REQUIRED`） |
+| `AccessPolicy` の拒否（`operate_service`） | `ForbiddenError` |
+| 店名も住所も空（空白だけを含む） | `BusinessRuleError`（`PLACE_INVALID_MATCH_CRITERIA`） |
 
 ## listStewardedPlaces
 
@@ -95,8 +97,8 @@ UnitOfWork は不要。読み取りだけ。
 ### 入出力
 
 - 入力: `Actor`
-- 出力: 管理する店舗の一覧。店舗ごとに、名称、代表写真の表示用の参照、営業状況、非公開かどうかを返す。`PlaceId` の昇順。管理する店舗がなければ空の一覧
-- 管理する店舗の ID は、`StewardshipRepository.findPageBySteward` のすべてのページを読んだ結果のうち、対象が店舗のもの。`PlaceRepository.findByIds` には100件ごとに分けて渡す
+- 出力: 管理する店舗の一覧（`PlaceId` の昇順）。店舗ごとに、店舗を見分ける情報（名称・代表写真）、営業状況、非公開かどうかを返す。管理する店舗がなければ空の一覧
+- 管理する店舗の ID は、`StewardshipRepository.findPageBySteward` のすべてのページを読んだ結果のうち、対象が店舗のもの。`PlaceRepository.findByIds` には100件ごとに分けて渡し、結果を `PlaceId` の昇順に並べて返す
 
 ### 使用するドメインの振る舞い・ポート
 
@@ -107,7 +109,7 @@ UnitOfWork は不要。読み取りだけ。
 
 ### トランザクション境界
 
-UnitOfWork は不要。読み取りだけ。
+UnitOfWork を1つ使い、`StewardshipRepository.findPageBySteward` と `PlaceRepository.findByIds` を読んで、書き込まずに返す。`PhotoStorage.displayRefs` は `run` の外で呼ぶ。
 
 ### エラーケース
 
@@ -117,31 +119,33 @@ UnitOfWork は不要。読み取りだけ。
 
 ### 概要
 
-`PlaceId` で選んだ1つの店舗を、非公開かどうかにかかわらず読む。店舗管理者と、サービス運営者が読める。サービス運営者は、管理者の有無にかかわらず店舗を開いて、状態と管理者の有無を確かめられる（index.md の「操作の可否」の、サービス運営者が対象を開いて確かめる読み取り）。代行できるのは管理者のいない店舗だけで、その区別を結果に含める。
+`PlaceId` で選んだ1つの店舗を、非公開かどうかにかかわらず読む。読めるかどうかは `inspect_target`（対象を開いて状態と管理者の有無を確かめる読み取り。index.md の「操作の可否」）で確かめる。店舗管理者と、サービス運営者が読める。サービス運営者は、管理者の有無にかかわらず店舗を開いて、状態と管理者の有無を確かめられる。代行できるのは管理者のいない店舗だけで、その区別を `manage_target` の結果で返す。掲載の作成を始めるとき（SM-04 の新規）は、この読み取りが、紐づく店舗と、店舗情報から引いた所在地・所属地域を返す。
 
 ### 入出力
 
 - 入力: `Actor`、`PlaceId`
-- 出力: 店舗情報（種別、名称、写真の並びと表示用の参照、紹介、所在地、位置、営業時間、連絡先）、営業状況、非公開かどうか、登録の日時、版（編集を始めたときの版として、更新の要求に含める）、管理者の有無、操作する人が対象を管理できるかどうかとその立場（`manage_target` の `AccessDecision`）
+- 出力: 店舗1件を、店舗情報と営業状況、非公開かどうか、申立てで写真が削除されたこと（写真の並びの `takenDown`。写真の `PhotoId` の並びが変わるまで）、所属中の地域の名称（最初に所属した順）、管理者がいるかどうか、操作する人が店舗を管理できるかどうかとその立場（`manage_target` の `AccessDecision`）とともに返す
+- 所属地域の読み取りは、Region が入る段階から加わり、それまでの所属地域は空（[../domains/index.md](../domains/index.md)「開発の順序との対応」）
 
 ### 使用するドメインの振る舞い・ポート
 
 - `PlaceRepository.findById`
 - `StewardshipRepository.findById`、`Stewardship.vacant`、`Stewardship.standingOf`、`Stewardship.isVacant`
 - `RoleRosterRepository.findRolesOf`
-- `AccessPolicy.decide`（`manage_target` と `operate_service`。どちらかが `allowed: true` なら読める。結果に含める管理できるかどうかは `manage_target` の `AccessDecision`）
+- `AccessPolicy.decide`（`{ kind: "inspect_target"; standing }`。`allowed: false` なら `ForbiddenError`）。結果に含める管理できるかどうかとその立場は `AccessPolicy.decide`（`{ kind: "manage_target"; standing }`）の `AccessDecision`
 - `Place.isSuspended`
+- `PlaceAffiliationsRepository.findById`（なければ所属なし）、`RegionRepository.findByIds`（所属中の地域の名称）
 - `PhotoStorage.displayRefs`
 
 ### トランザクション境界
 
-UnitOfWork は不要。読み取りだけ。
+UnitOfWork を1つ使い、店舗、管理体制、役割、所属、地域を読んで、書き込まずに返す。`PhotoStorage.displayRefs` は `run` の外で呼ぶ。
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| 店舗管理者でもサービス運営者でもない（管理権限を手放した・解除された人を含む） | `ForbiddenError` |
+| `AccessPolicy` の拒否（`inspect_target`） | `ForbiddenError` |
 | 店舗がない | `NotFoundError` |
 
 ## registerPlaceByProxy
@@ -152,7 +156,7 @@ UnitOfWork は不要。読み取りだけ。
 
 ### 入出力
 
-- 入力: `Actor`、`PlaceId`、種別、名称、写真の `PhotoId` の並び、紹介、町域（`TownRef`）と町域より後の部分、位置、営業時間、連絡先。名称・所在地・位置と種別は必須で、写真・紹介・営業時間・連絡先は任意
+- 入力: `Actor`、`PlaceId`、名称、写真の `PhotoId` の並び、紹介、町域（`TownRef`）と町域より後の部分、位置、営業時間、連絡先。名称・所在地・位置は必須で、写真・紹介・営業時間・連絡先は任意
 - 写真は、操作する人が先に登録した写真（Media の registerPhoto）の `PhotoId` を渡す
 - 出力: 登録した店舗
 - 同じ `PlaceId` の店舗があり、その店舗の現在の店舗情報と入力の店舗情報が `PlaceProfile.equals` で等しければ、書き込みも持ち主の設定もなしに既存の店舗を返す。等しくなければ `ConflictError`
@@ -178,8 +182,8 @@ UnitOfWork が必要。
 
 | 条件 | 種類 |
 | --- | --- |
-| サービス運営者でない | `ForbiddenError` |
-| 種別が列挙にない、名称が空 | `BusinessRuleError`（`PLACE_INVALID_KIND`、`PLACE_NAME_REQUIRED`） |
+| `AccessPolicy` の拒否（`operate_service`） | `ForbiddenError` |
+| 名称が空、写真の `PhotoId` が重なる | `BusinessRuleError`（`PLACE_INVALID_NAME`、`PLACE_DUPLICATE_PHOTO`） |
 | 町域を解決できない（`AreaCatalog.findTown` が `null`。所在地が決まらない） | `BusinessRuleError`（`AREA_TOWN_NOT_FOUND`） |
 | 写真が存在しない・破棄されている、操作する人が登録した写真でない、すでに持ち主がある | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`、`MEDIA_PHOTO_NOT_REGISTRANT`、`MEDIA_PHOTO_ALREADY_OWNED`） |
 | 同じ `PlaceId` で内容の違う店舗がある | `ConflictError` |
@@ -192,7 +196,7 @@ UnitOfWork が必要。
 
 ### 入出力
 
-- 入力: `Actor`、`PlaceId`、編集を始めたときの版、店舗情報の全体（種別、名称、写真の `PhotoId` の並び、紹介、町域と町域より後の部分、位置、営業時間、連絡先）
+- 入力: `Actor`、`PlaceId`、編集を始めたときの版、店舗情報の全体（名称、写真の `PhotoId` の並び、紹介、町域と町域より後の部分、位置、営業時間、連絡先）
 - 写真の並びは、残す写真と新しく加える写真を、表示する順に持つ。新しく加える写真は、操作する人が先に登録した写真。並びから外れた写真は店舗から外れる
 - 出力: 更新後の店舗
 - 内容が現在と変わらなければ、書き込みもドメインイベントもなしに、現在の店舗を返す
@@ -204,25 +208,25 @@ UnitOfWork が必要。
 - `RoleRosterRepository.findRolesOf`、`StewardshipRepository.findById`、`Stewardship.vacant`、`Stewardship.standingOf`、`AccessPolicy.decide`（`manage_target`）
 - `PlaceRepository.findById`、`PlaceRepository.save`
 - 新しく加える写真があるとき: `PhotoAssetRepository.findByIds`、`PhotoOwnership.claimAll`（`photoIds` は新しく加わった写真だけ）、`PhotoAssetRepository.save`
-- `collectEvents`（`PhotosReleased`）
+- `collectEvents`（`photos.released`）
 
 ### トランザクション境界
 
 UnitOfWork が必要。
 
-- スコープに含まれる書き込み: 店舗の `save`、新しく加えた写真の持ち主の設定、`PhotosReleased` の保存
+- スコープに含まれる書き込み: 店舗の `save`、新しく加えた写真の持ち主の設定、`photos.released` の保存
 - スコープ内で使うリポジトリ: `roleRosterRepository`、`stewardshipRepository`、`placeRepository`、`photoAssetRepository`
 - ロールバックの条件: 可否の判断、版の不一致、`claimAll` の `BusinessRuleError`、店舗または写真の楽観ロックの競合。ロールバックでは、店舗情報も持ち主の設定もドメインイベントも残らない
-- 外れた写真の実体の削除は、`PhotosReleased` の消費（Media）で結果整合にする
+- 外れた写真の実体の削除は、`photos.released` の消費（Media）で結果整合にする
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| 店舗管理者でない。サービス運営者だが店舗に管理者がいる（代行の途中で管理者が就いた場合を含む） | `ForbiddenError` |
+| `AccessPolicy` の拒否（`manage_target`） | `ForbiddenError` |
 | 店舗がない | `NotFoundError` |
 | 編集を始めたときの版と現在の版が違う（他の人が先に保存した）、または保存が楽観ロックで競合した | `ConflictError` |
-| 名称が空、種別が列挙にない、写真の `PhotoId` が重なる | `BusinessRuleError`（`PLACE_NAME_REQUIRED`、`PLACE_INVALID_KIND`、`PLACE_DUPLICATE_PHOTO`） |
+| 名称が空、写真の `PhotoId` が重なる | `BusinessRuleError`（`PLACE_INVALID_NAME`、`PLACE_DUPLICATE_PHOTO`） |
 | 町域を解決できない（`AreaCatalog.findTown` が `null`。所在地が決まらない） | `BusinessRuleError`（`AREA_TOWN_NOT_FOUND`） |
 | 新しく加える写真が存在しない・破棄されている、操作する人が登録した写真でない、すでに持ち主がある | `BusinessRuleError`（`MEDIA_PHOTO_NOT_AVAILABLE`、`MEDIA_PHOTO_NOT_REGISTRANT`、`MEDIA_PHOTO_ALREADY_OWNED`） |
 
@@ -252,13 +256,13 @@ UnitOfWork が必要。
 - スコープに含まれる書き込み: 店舗の `save`、`place.operating_status_changed` の保存
 - スコープ内で使うリポジトリ: `roleRosterRepository`、`stewardshipRepository`、`placeRepository`
 - ロールバックの条件: 可否の判断、版の不一致、楽観ロックの競合
-- 通知（閉店のときの編集担当者への通知）は、ドメインイベントの消費で結果整合にする
+- 通知は、ドメインイベントの消費で結果整合にする
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| 店舗管理者でない。サービス運営者だが店舗に管理者がいる | `ForbiddenError` |
+| `AccessPolicy` の拒否（`manage_target`） | `ForbiddenError` |
 | 店舗がない | `NotFoundError` |
 | 読んだときの版と現在の版が違う（他の人が先に営業状況または店舗情報を保存した）、または保存が楽観ロックで競合した | `ConflictError` |
 
@@ -286,13 +290,13 @@ UnitOfWork が必要。
 - スコープに含まれる書き込み: 店舗の `save`、`place.suspended` の保存
 - スコープ内で使うリポジトリ: `roleRosterRepository`、`placeRepository`
 - ロールバックの条件: 可否の判断、`Place.suspend` の `BusinessRuleError`、楽観ロックの競合
-- 店舗管理者と編集担当者への通知は、ドメインイベントの消費で結果整合にする
+- 通知は、ドメインイベントの消費で結果整合にする
 
 ### エラーケース
 
 | 条件 | 種類 |
 | --- | --- |
-| サービス運営者でない（店舗管理者を含む） | `ForbiddenError` |
+| `AccessPolicy` の拒否（`operate_service`） | `ForbiddenError` |
 | 店舗がない | `NotFoundError` |
 | すでに非公開（別のサービス運営者が先に非公開にした） | `BusinessRuleError`（`PLACE_ALREADY_SUSPENDED`） |
 | 同時の保存と競合した | `ConflictError` |
@@ -326,46 +330,7 @@ UnitOfWork が必要。
 
 | 条件 | 種類 |
 | --- | --- |
-| サービス運営者でない（店舗管理者を含む） | `ForbiddenError` |
+| `AccessPolicy` の拒否（`operate_service`） | `ForbiddenError` |
 | 店舗がない | `NotFoundError` |
 | 非公開でない（別のサービス運営者が先に解除した） | `BusinessRuleError`（`PLACE_NOT_SUSPENDED`） |
-| 同時の保存と競合した | `ConflictError` |
-
-## takeDownPlacePhotos
-
-### 概要
-
-サービス運営者が、取り下げの申立てに基づいて、店舗から選んだ写真を外す（index.md の「申立てに基づく写真の削除」）。外せるのは、未対応の申立ての対象である店舗の写真で、申立人が示した写真に限らない。削除は確定の時点で反映され、申立ての状態は変えない（対応を終える操作は Moderation の別のユースケース）。写真がなくなっても店舗の公開は続く。店舗が非公開の間も行える。
-
-### 入出力
-
-- 入力: `Actor`、申立ての ID（`TakedownClaimId`）、`PlaceId`、削除する写真の `PhotoId`（重複のない1つ以上）。版を含めない
-- 出力: 写真を削除した後の店舗（残る写真の並びを含む）
-
-### 使用するドメインの振る舞い・ポート
-
-- `RoleRosterRepository.findRolesOf`、`AccessPolicy.decide`（`operate_service`）
-- 申立ての事実（未対応で、対象がその店舗であること）: Moderation の `TakedownClaimRepository.findById` で申立てを読み、`TakedownClaim.authorizePhotoRemoval`（`owner` は `{ kind: "place", id }`）で確かめる。申立てがなければ `NotFoundError`。不成立は、対応済み（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`）を、対象の不一致（`TAKEDOWN_TARGET_MISMATCH`）より先に判定する
-- `PlaceRepository.findById`、`Place.takeDownPhotos`、`PlaceRepository.save`
-- `collectEvents`（`place.photos_taken_down`、`PhotosReleased`）
-
-### トランザクション境界
-
-UnitOfWork が必要。
-
-- スコープに含まれる書き込み: 店舗の `save`、`place.photos_taken_down` と `PhotosReleased` の保存。申立ては読むだけで書き換えない
-- スコープ内で使うリポジトリ: `roleRosterRepository`、`takedownClaimRepository`、`placeRepository`
-- ロールバックの条件: 可否の判断、`authorizePhotoRemoval`・`takeDownPhotos` の `BusinessRuleError`、楽観ロックの競合
-- 申立てを対応済みにする操作とは別の UnitOfWork で確定する。写真の削除だけが成立して対応を終える操作が成立しなかった場合、写真は削除されたまま、申立ては未対応のまま残る
-- 写真の実体の削除（Media）と店舗管理者への通知は、ドメインイベントの消費で結果整合にする
-
-### エラーケース
-
-| 条件 | 種類 |
-| --- | --- |
-| サービス運営者でない | `ForbiddenError` |
-| 申立てがない、店舗がない | `NotFoundError` |
-| 申立てが対応済み（別のサービス運営者が先に対応を終えた） | `BusinessRuleError`（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`） |
-| 申立ての対象がその店舗でない | `BusinessRuleError`（`TAKEDOWN_TARGET_MISMATCH`） |
-| 削除する写真に、店舗の写真でないものがある（先に外された・削除された写真を含む）。1枚も外さない | `BusinessRuleError`（`PLACE_PHOTO_NOT_FOUND`） |
 | 同時の保存と競合した | `ConflictError` |

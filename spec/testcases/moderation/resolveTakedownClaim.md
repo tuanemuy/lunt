@@ -2,13 +2,15 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 未対応の申立てがある。操作する人はサービス運営者 | 行った措置を結果に添えて対応を終える | 成功する。申立ては対応済みになり、添えた結果と対応した日時（現在時刻）を持つ。立場・対象・写真・理由・メールアドレス・受け付けた日時は変わらない。`takedown_claim.resolved`（`claimId`）が出る。以後の `listOpenTakedownClaims` に現れない（AC-46） | |
+| 未対応の申立てがある。操作する人はサービス運営者 | 行った措置を結果に添えて対応を終える | 成功する。申立ては対応済みになり、添えた結果を持つ。立場・対象・写真・理由・メールアドレス・受け付けた日時は変わらない。`takedown_claim.resolved`（`claimId`）が出る。以後の `listOpenTakedownClaims` に現れない（AC-46） | |
 | 未対応の申立てがあり、措置（写真の削除、非公開）を1つも行っていない | サービス運営者が、措置を行わないことを結果に添えて対応を終える | 成功する。申立ては対応済みになり、`takedown_claim.resolved` が出る | |
 | 未対応の申立ての対象が、対応の前に削除されている | サービス運営者が、措置を行わないことを結果に添えて対応を終える | 成功する。対象の有無を確かめずに対応済みになる | |
-| 未対応の申立てを読んだ後、対象のドメインのユースケースで対象の写真を削除した | サービス運営者が対応を終える | 成功する。写真の削除は申立ての状態も版も変えていない | |
-| 未対応の申立てがある | サービス運営者が、結果を空にして対応を終える | `BusinessRuleError`（`TakedownOutcome` のコード）。申立ては未対応のままで、`takedown_claim.resolved` は出ない | |
-| 対応済みの申立てがある | サービス運営者が、別の結果を添えて対応を終える | `BusinessRuleError`（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`）。結果と対応した日時は変わらず、`takedown_claim.resolved` は新たに出ない | |
-| サービス運営者 A と B が、同じ未対応の申立てを読んだ。B が先に対応を終えた | A が、結果を添えて対応を終える | `BusinessRuleError`（`TAKEDOWN_CLAIM_ALREADY_RESOLVED`）。申立ては B の結果のままで、`takedown_claim.resolved` は B の1件だけ | |
+| 未対応の申立てを読んだ後、`takeDownPhotosByClaim` で対象の写真を削除した | サービス運営者が対応を終える | 成功する。写真の削除は申立ての状態も版も変えていない | |
+| 未対応の申立てがある | サービス運営者が、結果を空にして対応を終える | `BusinessRuleError`（`MODERATION_INVALID_TAKEDOWN_OUTCOME`）。申立ては未対応のままで、`takedown_claim.resolved` は出ない | |
+| 対応済みの申立てがある | サービス運営者が、結果を空にして対応を終える | `BusinessRuleError`（`MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED`）。対応済みを、結果の規則より先に判定する | |
+| 対応済みの申立てがある | サービス運営者が、別の結果を添えて対応を終える | `BusinessRuleError`（`MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED`）。結果は変わらず、`takedown_claim.resolved` は新たに出ない | |
+| サービス運営者 A と B が、同じ未対応の申立てを読んだ。B が先に対応を終えた | A が、結果を添えて対応を終える | `BusinessRuleError`（`MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED`）。申立ては B の結果のままで、`takedown_claim.resolved` は B の1件だけ | |
+| サービス運営者 A と B の、同じ未対応の申立ての対応を終える要求が同時に実行され、どちらも未対応の申立てを読んだ後に、B が先にコミットした | A の要求がコミットする | `ConflictError`。申立ては B の結果のままで、`takedown_claim.resolved` は B の1件だけ | |
 | 未対応の申立てがある。操作する人はサービス運営者の役割を持たない | 結果を添えて対応を終える | `ForbiddenError`。申立ては未対応のままで、ドメインイベントは出ない | |
 | サービス運営者が未対応の申立てを読んだ後、サービス運営者の役割を解除された | 対応を終える | `ForbiddenError`。申立ては未対応のままで、ドメインイベントは出ない | |
-| 未対応の申立ての対象の写真を、対象のドメインのユースケースで削除した | サービス運営者が、結果を空にして対応を終える | `BusinessRuleError`（`TakedownOutcome` のコード）。申立ては未対応のまま。先に確定した写真の削除は戻らない | |
+| 未対応の申立ての対象の写真を、`takeDownPhotosByClaim` で削除した | サービス運営者が、結果を空にして対応を終える | `BusinessRuleError`（`MODERATION_INVALID_TAKEDOWN_OUTCOME`）。申立ては未対応のまま。先に確定した写真の削除は戻らない | |

@@ -12,7 +12,7 @@
 | 店舗 p1 に店舗管理者 S がいる。A は p1 の店舗管理者でない | A が、個人として、p1 の X への所属を申請する | `BusinessRuleError`（`APPLICATION_PLACE_HAS_STEWARD`）になる。申請は作られない（AC-22） | |
 | A は p1 の店舗管理者でない | A が、店舗管理者として、p1 の X への所属を申請する | `ForbiddenError` になる | |
 | S は申請の入力の途中で p1 の管理権限を解除された | S が、店舗管理者として、p1 の X への所属を申請する | `ForbiddenError` になる | |
-| サービス運営者 O は、店舗管理者のいない店舗 p2 の店舗管理者でない | O が、店舗管理者として、p2 の X への所属を申請する | `ForbiddenError` になる（代行では店舗として申請しない） | |
+| サービス運営者 O は、管理者のいない店舗 p2 の店舗管理者でない | O が、店舗管理者として、p2 の X への所属を申請する | `ForbiddenError` になる（店舗管理者として行う申請に不在の代行はない） | |
 | S は p1 の店舗管理者。p1 は X に所属中 | S が p1 の X への所属を申請する | `BusinessRuleError`（`APPLICATION_ALREADY_AFFILIATED`）になる | |
 | S は p1 の店舗管理者。p1 と X の所属は、除外で解除されている | S が p1 の X からの離脱を申請する | `BusinessRuleError`（`APPLICATION_NOT_AFFILIATED`）になる | |
 | p1 の別の店舗管理者 T が店舗管理者として行った、p1 の X への所属の申請が確認中 | S が、店舗管理者として、p1 の X への所属を申請する | `BusinessRuleError`（`APPLICATION_ALREADY_ACTIVE`）になる（店舗を1人の申請者として数える） | |

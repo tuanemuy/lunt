@@ -8,7 +8,7 @@
 - イベント C のイベント運営者は CS1・CS2。イベント CV はイベント運営者が不在
 - どのアカウントも存在し、メールアドレスを持つ
 
-期待結果の「X に届く」は、X を `recipient` とする通知が1つ記録され、同じ `occurrenceKey` のメールが X のメールアドレスに1通送られることを指す。`direct` と `proxy` は通知とメールの `delivery`。`vacantTarget` は `Notification.vacantTarget` の結果。
+期待結果の「X に届く」は、X を `recipient` とする通知が1つ記録され、同じ `occurrenceKey` のメールが X のメールアドレスに1通送られることを指す。`direct` と `proxy` は通知とメールの `delivery`。`pointedContent` は `Occurrence.pointedContent`、`vacantTarget` は `DeliveredOccurrence.vacantTarget` の結果。
 
 ## 記録とメール
 
@@ -16,15 +16,16 @@
 |---|---|---|---|
 | 利用者 U が個人として行った申請 Ap が差し戻された | Ap の `application.returned` を消費する | 消費は成功する。U に `direct` で届く。通知の `occurrence` は `applicant` / `returned` で Ap を指し、`createdAt` は消費の時刻。メールは同じ `occurrence`・`delivery` と、Ap の名称（`labels`）を持つ。ドメインイベントは出ない（AC-41） | |
 | 上の消費の後 | 同じ `application.returned` をもう一度消費する | 消費は成功する。U の通知は1つのままで、`id` と `createdAt` は1回目のまま。U に届くメールは1通のまま | |
-| 店舗 P が運営による非公開になった。`Mailer` が送信を引き受けられない | `place.suspended` を消費する | S1・S2 の通知は記録される。メールは届かない。消費は失敗する（再配送される）。S1・S2 は通知一覧で同じ通知を確かめられる（AC-41） | |
-| 上の失敗の後、`Mailer` が送信を引き受けられる状態に戻った | 同じ `place.suspended` をもう一度消費する | 消費は成功する。S1・S2 の通知は1つずつのまま。S1・S2 にメールが1通ずつ届く | |
-| `Mailer` が S1 への送信だけを引き受けられない | `place.suspended` を消費する | S1・S2 の通知は記録される。S2 にメールが届く。消費は失敗する | |
-| 上の失敗の後、`Mailer` が戻った | 同じ `place.suspended` をもう一度消費する | 消費は成功する。S1 にメールが1通届く。S2 に届くメールは1通のまま | |
+| 店舗 P が運営による非公開になった。`Mailer.send` がどの宛先にも失敗する | `place.suspended` を消費する | S1・S2 の通知は記録される。メールは届かない。消費は失敗する（再配送される）。S1・S2 は通知一覧で同じ通知を確かめられる（AC-41） | |
+| 上の失敗の後、`Mailer.send` が成功するようになった | 同じ `place.suspended` をもう一度消費する | 消費は成功する。S1・S2 の通知は1つずつのまま。S1・S2 にメールが1通ずつ届く | |
+| `Mailer.send` が S1 への送信だけに失敗する | `place.suspended` を消費する | S1・S2 の通知は記録される。S2 にメールが届く。消費は失敗する | |
+| 上の失敗の後、`Mailer.send` が成功するようになった | 同じ `place.suspended` をもう一度消費する | 消費は成功する。S1 にメールが1通届く。S2 に届くメールは1通のまま | |
 | イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。店舗 Q の店舗管理者への通知の記録だけが成立しない | `occasion.cancelled` を消費する | 店舗 P の告知は成立し、S1・S2 に届く。T1 の通知とメールはない。消費は失敗する | |
-| 上の失敗の後、保存先が戻った | 同じ `occasion.cancelled` をもう一度消費する | 消費は成功する。T1 に届く。S1・S2 の通知とメールは1つずつのまま | |
+| 上の失敗の後、記録が成立するようになった | 同じ `occasion.cancelled` をもう一度消費する | 消費は成功する。T1 に届く。S1・S2 の通知とメールは1つずつのまま | |
 | 店舗 P の `place.suspended` の消費が、通知の記録の後、メールの送信の前に失敗した。再配送までに、S2 が店舗管理者を辞任し、S3 が店舗管理者に就いた | 同じ `place.suspended` をもう一度消費する | S1 と S3 にメールが届き、S3 の通知が加わる。S2 の通知は残り、S2 にメールは送られない | |
-| S2 のアカウントが退会でなくなっている（退会と同時の就任で、店舗 P の管理体制には残っている） | `place.suspended` を消費する | 消費は成功する。S1 にだけ届く。S2 の通知は記録されず、メールも送られない | |
-| S1 が店舗 P の店舗管理者で、編集担当者でもある。公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended` を消費する | S1 は、`placeStewards` の通知と `editors` の通知を別に1つずつ受ける（メールも2通）。出来事をまたいでまとめない | |
+| 店舗 P が運営による非公開になった後、`place.suspended` の消費の前に、S2 が退会した（退会は、管理体制からの除去とアカウントの削除を1つの UnitOfWork で確定する） | `place.suspended` を消費する | 消費は成功する。S1 にだけ届く。S2 の通知は記録されず、メールも送られない | |
+| 利用者 U が個人として行った申請 Ap が差し戻された後、`application.returned` の消費の前に、U が退会した | Ap の `application.returned` を消費する | 消費は成功する。存在しないアカウントは宛先から外れ、通知もメールもない | |
+| S1 が店舗 P の店舗管理者で、編集担当者でもある。公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended` を消費する | S1 は、`contentManagers`（掲載 L の `suspended`）の通知と `editors`（`showcase_changed`）の通知を別に1つずつ受ける（メールも2通）。出来事をまたいでまとめない | |
 | サービス運営者の名簿が開設前（サービス運営者がいない）。店舗 V は店舗管理者が不在 | 店舗 V の `place.suspended` を消費する | 消費は成功する。`proxy` の宛先は0人で、通知もメールもない | |
 | サービス運営者の名簿が開設前 | `takedown_claim.submitted` を消費する | 消費は成功する。宛先は0人で、通知もメールもない | |
 
@@ -55,8 +56,8 @@
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
 | 承認者の席が `operator` の申請 Ap（店舗の登録申請） | Ap の `application.submitted`、`application.resubmitted`、`application.withdrawn` をそれぞれ消費する | どれも O1・O2 に `direct` で届く。事柄は順に `submitted`、`resubmitted`、`withdrawn`。`occurrence` が Ap を指す（AC-41） | |
-| 登録申請 Ap1 に管理権限の申請 Ap2 を併せて提出した。店舗はまだない | Ap1 と Ap2 の `application.submitted` をそれぞれ消費する | O1・O2 は、Ap1 の通知と Ap2 の通知を別に1つずつ受ける。どちらのメールの `labels` も、申請の名称に Ap1 の内容の店名を持つ | |
-| 利用者 U が、店舗管理者のいない店舗 V に掲載の申請 Ap を提出した。掲載はまだない | Ap の `application.submitted` を消費する | O1・O2 に `direct` で届く。メールの `labels` は、申請の名称に Ap の内容の掲載の名称と店舗 V の名称を持つ | |
+| 登録申請 Ap1 に管理権限の申請 Ap2 を併せて提出した。店舗はまだない | Ap1 と Ap2 の `application.submitted` をそれぞれ消費する | O1・O2 は、Ap1 の通知と Ap2 の通知を別に1つずつ受ける。どちらのメールの `labels` も、申請の対象の名称として Ap1 の内容の店名を持つ | |
+| 利用者 U が、管理者のいない店舗 V に掲載の申請 Ap を提出した。掲載はまだない | Ap の `application.submitted` を消費する | O1・O2 に `direct` で届く。メールの `labels` は、申請の種類と、対象ごとの名称として Ap の内容の掲載の名称と店舗 V の名称を持つ | |
 | 承認者の席が地域 R の `steward` の所属申請 Ap | Ap の `application.submitted`、`application.resubmitted`、`application.withdrawn` をそれぞれ消費する | どれも RS1・RS2 に `direct` で届く。サービス運営者には届かない | |
 | 承認者の席がイベント C の `steward` の参加申請 Ap | Ap の `application.submitted` を消費する | CS1・CS2 に `direct` で届く | |
 | 承認者の席が、地域運営者が不在の地域 RV の `steward` の所属申請 Ap | Ap の `application.submitted`、`application.resubmitted`、`application.withdrawn` をそれぞれ消費する | どれも O1・O2 に `proxy`（`vacantTarget` は地域 RV）で届く。`occurrence` が Ap を指す | |
@@ -68,34 +69,28 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 店舗 P が地域 R から除外された | `region.affiliation_dissolved`（`cause: "excluded"`）を消費する | S1・S2 に `direct` で届く。事柄は `excluded_from_region`（地域 R）。`pointedContent` は店舗 P（AC-41） | |
-| 店舗 P がイベント C から除外された | `occasion.participation_dissolved`（`cause: "excluded"`）を消費する | S1・S2 に `direct` で届く。事柄は `excluded_from_occasion`（イベント C）。イベント運営者には届かない | |
+| 店舗 P が地域 R から除外された | `region.affiliation_dissolved`（`cause: "excluded"`）を消費する | S1・S2 に `direct` で届く。店舗 P の事柄 `excluded_from_region`（地域 R）。`pointedContent` は店舗 P（AC-41） | |
+| 店舗 P がイベント C から除外された | `occasion.participation_dissolved`（`cause: "excluded"`）を消費する | S1・S2 に `direct` で届く。店舗 P の事柄 `excluded_from_occasion`（イベント C）。イベント運営者には届かない | |
 | イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。イベント C を紹介する公開中の読みものはない | `occasion.cancelled` を消費する | 店舗ごとに1つの出来事になり、S1・S2 に店舗 P の、T1 に店舗 Q の `occasion_cancelled`（イベント C）が `direct` で届く。`pointedContent` はそれぞれの店舗。参加していない店舗の店舗管理者には届かない（AC-69） | |
 | イベント C に店舗 P と、店舗管理者が不在の店舗 V が参加中 | `occasion.period_changed` を消費する | S1・S2 に店舗 P の `occasion_period_changed` が `direct` で、O1・O2 に店舗 V の同じ事柄が `proxy`（`vacantTarget` は店舗 V）で届く | |
 | イベント C に参加中の店舗がない。紹介する公開中の読みものもない | `occasion.cancelled` を消費する | 消費は成功する。通知もメールもない | |
-| 店舗 P が運営による非公開になり、その後に解除された。店舗 P とその掲載を紹介する公開中の読みものはない | `place.suspended`、`place.unsuspended` をそれぞれ消費する | S1・S2 に `direct` で届く。事柄は `place_suspended`、`place_unsuspended`。`pointedContent` は店舗 P（AC-41） | |
-| 掲載 L が運営による非公開になり、その後に解除された。掲載 L を紹介する公開中の読みものはない | `listing.suspended`、`listing.unsuspended` をそれぞれ消費する | 掲載 L の店舗 P の S1・S2 に `direct` で届く。事柄は `listing_suspended`、`listing_unsuspended`。`pointedContent` は掲載 L | |
-| 申立てに基づいて、店舗 P の写真が削除された | `place.photos_taken_down` を消費する | S1・S2 に `direct` で届く。事柄は `place_photos_taken_down`。`pointedContent` は店舗 P（AC-79） | |
-| 申立てに基づいて、掲載 L の最後の写真が削除され、掲載 L が一時非公開になった | `listing.photos_taken_down`（`unpublished: true`）を消費する | S1・S2 に `direct` で届く。事柄は `listing_photos_taken_down`。`pointedContent` は掲載 L。事柄は、公開が取り下げられたかどうかを持たない（AC-79） | |
-| 店舗 P を対象とする連絡 Rp について、確認が依頼された | `info_report.confirmation_requested` を消費する | S1・S2 に `direct` で届く。事柄は `confirmation_requested`（Rp、`listingId` は `null`）。`pointedContent` は店舗 P（AC-41） | |
-| 掲載 L を対象とする連絡 Rp について、確認が依頼された | `info_report.confirmation_requested` を消費する | S1・S2 に `direct` で届く。事柄の `listingId` は掲載 L。`pointedContent` は掲載 L | |
+| 店舗 P を対象とする連絡 Rp について、確認が依頼された | `info_report.confirmation_requested` を消費する | S1・S2 に `direct` で届く。店舗 P の事柄 `confirmation_requested`（Rp）。`pointedContent` は店舗 P（AC-41） | |
+| 掲載 L を対象とする連絡 Rp について、確認が依頼された | `info_report.confirmation_requested` を消費する | S1・S2 に `direct` で届く。掲載 L の事柄 `confirmation_requested`（Rp）。`pointedContent` は掲載 L | |
 | カテゴリー K が廃止された。店舗 P の掲載 L と掲載 M が、K を `CategoryId` として保存している | `category.retired`（`categoryId` は K）を消費する | S1・S2 の通知は、店舗 P とカテゴリー K の組の `categories_reassigned`（`retiredCategoryId` は K）が1つずつ。メールも1通ずつ。事柄は移行先を持たない（AC-72） | |
 | カテゴリー K が廃止された。店舗 P の掲載 L と、店舗管理者が不在の店舗 V の掲載 LV が、K を保存している | `category.retired`（`categoryId` は K）を消費する | S1・S2 に店舗 P の `categories_reassigned` が `direct` で、O1・O2 に店舗 V の同じ事柄が `proxy`（`vacantTarget` は店舗 V）で届く（AC-72） | |
 | カテゴリー J が、移行先を K として先に廃止されている。店舗 P の掲載 L は J を、店舗 Q の `draft` の掲載 N は K を保存している。K が廃止された | `category.retired`（`categoryId` は K）を消費する | 店舗 P と店舗 Q の店舗管理者に、`retiredCategoryId` が K の `categories_reassigned` が1つずつ届く（`CategoryCatalog.predecessorsOf` の集合で、公開状態を問わずに掲載を読む） | |
 | カテゴリー K が廃止された。K と、K に行き着くカテゴリーを保存している掲載が1件もない | `category.retired` を消費する | 通知もメールもなく、消費は成功する | |
 | カテゴリー K が廃止された。店舗 P の掲載 L と掲載 M が、K を保存している | 同じ `category.retired` を2回消費する | S1・S2 の通知は1つずつのまま。メールは送り直さない | |
 | 管理権限の申請の承認で、S3 が店舗 P の店舗管理者に加わった。消費の時点の店舗管理者は S1・S2・S3 | `authority.steward_appointed`（`via: "application"`）を消費する | S1・S2 に `direct` で届く。事柄は `steward_added`（`appointee` は S3）。S3 には届かない（AC-41） | |
-| 管理権限の申請の承認で、S3 が店舗管理者のいなかった店舗 V の店舗管理者に就いた。消費の時点の店舗管理者は S3 だけ | `authority.steward_appointed`（`via: "application"`、`wasVacant: true`）を消費する | 消費は成功する。宛先は0人で、通知もメールもない。サービス運営者にも届かない | |
-| 店舗管理者が不在の店舗 V と、その掲載 LV | 店舗 V の `region.affiliation_dissolved`（`excluded`）、`occasion.participation_dissolved`（`excluded`）、`place.suspended`、`place.unsuspended`、`place.photos_taken_down`、`info_report.confirmation_requested`、掲載 LV の `listing.suspended`、`listing.unsuspended`、`listing.photos_taken_down` をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` は店舗 V）で届く。`pointedContent` は、掲載についての出来事は掲載 LV、ほかは店舗 V | |
+| 管理権限の申請の承認で、S3 が店舗管理者のいなかった店舗 V の店舗管理者に就いた。消費の時点の店舗管理者は S3 だけ | `authority.steward_appointed`（`via: "application"`）を消費する | 消費は成功する。宛先は0人で、通知もメールもない。サービス運営者にも届かない | |
+| 店舗管理者が不在の店舗 V と、その掲載 LV | 店舗 V の `region.affiliation_dissolved`（`excluded`）、`occasion.participation_dissolved`（`excluded`）、`place.suspended`、`place.unsuspended`、`content.photos_taken_down`（`owner` は店舗 V）、`info_report.confirmation_requested`、掲載 LV の `listing.suspended`、`listing.unsuspended`、`content.photos_taken_down`（`owner` は掲載 LV）をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` は店舗 V）で届く。`pointedContent` は、掲載についての出来事は掲載 LV、ほかは店舗 V | |
 
 ## 地域運営者宛て（P-94）
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
 | イベント C が地域 R を開催地域として関連づけた | `occasion.region_linked` を消費する | RS1・RS2 に `direct` で届く。事柄は `occasion_linked`（イベント C）。`pointedContent` は地域 R。イベント運営者には届かない（AC-41） | |
-| 地域 R が運営による非公開になり、その後に解除された。地域 R を紹介する公開中の読みものはない | `region.suspended`、`region.unsuspended` をそれぞれ消費する | RS1・RS2 に `direct` で届く。事柄は `region_suspended`、`region_unsuspended` | |
-| 申立てに基づいて、地域 R の写真が削除された | `region.photos_taken_down` を消費する | RS1・RS2 に `direct` で届く。事柄は `region_photos_taken_down`（AC-79） | |
-| 地域運営者が不在の地域 RV | 地域 RV の `occasion.region_linked`、`region.suspended`、`region.unsuspended`、`region.photos_taken_down` をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` は地域 RV）で届く。`pointedContent` は地域 RV | |
+| 地域運営者が不在の地域 RV | 地域 RV の `occasion.region_linked`、`region.suspended`、`region.unsuspended`、`content.photos_taken_down`（`owner` は地域 RV）をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` は地域 RV）で届く。`pointedContent` は地域 RV | |
 
 ## イベント運営者宛て（P-95）
 
@@ -104,35 +99,46 @@
 | 店舗 P がイベント C への参加を取りやめた | `occasion.participation_dissolved`（`cause: "withdrawn"`）を消費する | CS1・CS2 に `direct` で届く。事柄は `participation_withdrawn`（店舗 P）。`pointedContent` はイベント C。店舗管理者には届かない（AC-41） | |
 | 店舗管理者が、イベント C への参加に添えた掲載と参加日を変更した | `occasion.participation_changed`（`changedBy: "place"`）を消費する | CS1・CS2 に `direct` で届く。事柄は `participation_changed`（店舗 P）（AC-41） | |
 | 地域 R の地域運営者が、イベント C の関連づけを解除した | `occasion.region_link_detached` を消費する | CS1・CS2 に `direct` で届く。事柄は `region_link_detached`（地域 R）。地域運営者には届かない（AC-41） | |
-| イベント C が運営による非公開になり、その後に解除された。イベント C を紹介する公開中の読みものはない | `occasion.suspended`、`occasion.unsuspended` をそれぞれ消費する | CS1・CS2 に `direct` で届く。事柄は `occasion_suspended`、`occasion_unsuspended` | |
-| 申立てに基づいて、イベント C の写真が削除された | `occasion.photos_taken_down` を消費する | CS1・CS2 に `direct` で届く。事柄は `occasion_photos_taken_down`（AC-79） | |
-| イベント運営者が不在のイベント CV | イベント CV の `occasion.participation_dissolved`（`withdrawn`）、`occasion.participation_changed`（`place`）、`occasion.region_link_detached`、`occasion.suspended`、`occasion.unsuspended`、`occasion.photos_taken_down` をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` はイベント CV）で届く。`pointedContent` はイベント CV | |
+| イベント運営者が不在のイベント CV | イベント CV の `occasion.participation_dissolved`（`withdrawn`）、`occasion.participation_changed`（`place`）、`occasion.region_link_detached`、`occasion.suspended`、`occasion.unsuspended`、`content.photos_taken_down`（`owner` はイベント CV）をそれぞれ消費する | どの出来事も、O1・O2 に `proxy`（`vacantTarget` はイベント CV）で届く。`pointedContent` はイベント CV | |
+
+## 対象を管理する人宛て（P-93〜P-96 の、運営による非公開とその解除、申立てによる写真の削除）
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| 店舗 P が運営による非公開になり、その後に解除された。店舗 P とその掲載を紹介する公開中の読みものはない | `place.suspended`、`place.unsuspended` をそれぞれ消費する | S1・S2 に `direct` で届く。出来事は `contentManagers` で、`content` は店舗 P、事柄は `suspended`、`unsuspended`。`pointedContent` は店舗 P（AC-41） | |
+| 掲載 L が運営による非公開になり、その後に解除された。掲載 L を紹介する公開中の読みものはない | `listing.suspended`、`listing.unsuspended` をそれぞれ消費する | 掲載 L の店舗 P の S1・S2 に `direct` で届く。`content` は掲載 L、`placeId` は店舗 P、事柄は `suspended`、`unsuspended`。`pointedContent` は掲載 L | |
+| 地域 R が運営による非公開になり、その後に解除された。地域 R を紹介する公開中の読みものはない | `region.suspended`、`region.unsuspended` をそれぞれ消費する | RS1・RS2 に `direct` で届く。`content` は地域 R、事柄は `suspended`、`unsuspended` | |
+| イベント C が運営による非公開になり、その後に解除された。イベント C を紹介する公開中の読みものはない | `occasion.suspended`、`occasion.unsuspended` をそれぞれ消費する | CS1・CS2 に `direct` で届く。`content` はイベント C、事柄は `suspended`、`unsuspended` | |
+| 申立てに基づいて、店舗 P の写真が削除された | `content.photos_taken_down`（`owner` は店舗 P、`unpublished: false`）を消費する | S1・S2 に `direct` で届く。`content` は店舗 P、事柄は `photos_taken_down`。`pointedContent` は店舗 P（AC-79） | |
+| 申立てに基づいて、掲載 L の最後の写真が削除され、掲載 L が一時非公開になった | `content.photos_taken_down`（`owner` は掲載 L、`unpublished: true`）を消費する | S1・S2 に `direct` で届く。`content` は掲載 L、`placeId` は店舗 P、事柄は `photos_taken_down`。`pointedContent` は掲載 L。事柄は、公開が取り下げられたかどうかを持たない（AC-79） | |
+| 申立てに基づいて、地域 R、イベント C の写真が削除された | `content.photos_taken_down`（`owner` は地域 R）、（`owner` はイベント C）をそれぞれ消費する | 地域 R は RS1・RS2 に、イベント C は CS1・CS2 に `direct` で届く。事柄は `photos_taken_down`（AC-79） | |
+| 申立てに基づいて、読みもの A の写真が削除された | `content.photos_taken_down`（`owner` は読みもの A）を消費する | E1・E2 に `direct` で届く。`content` は読みもの A、事柄は `photos_taken_down`。`pointedContent` は読みもの A（AC-79） | |
 
 ## 編集担当者宛て（P-96）
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended`、`listing.unpublished`、`listing.deleted` をそれぞれ消費する | どれも E1・E2 に `direct` で届く。事柄は `showcase_changed` で、紹介先は掲載 L、変化は順に `suspended`、`unpublished`、`deleted`。`pointedContent` は読みもの A。`listing.suspended` は、S1・S2 への `listing_suspended` の通知とは別の出来事になる（AC-41） | |
-| 公開中の読みもの A が掲載 L を紹介している。掲載 L が期日で提供終了になった | 掲載 L の `listing.offering_ended`（`cause: "schedule"`）を消費する | E1・E2 に `direct` で届く。事柄は `showcase_changed` で、紹介先は掲載 L、変化は `offering_ended`。店舗管理者には届かない（AC-41） | |
-| 公開中の読みもの A が掲載 L を紹介している。店舗管理者が掲載 L を提供終了にした | 掲載 L の `listing.offering_ended`（`cause: "manual"`）を消費する | E1・E2 に `direct` で届く。変化は `offering_ended` | |
+| 公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended`、`listing.unpublished`、`listing.deleted` をそれぞれ消費する | どれも E1・E2 に `direct` で届く。事柄は `showcase_changed` で、紹介先は掲載 L、変化は順に `suspended`、`unpublished`、`deleted`。`pointedContent` は読みもの A。`listing.suspended` は、S1・S2 への `contentManagers` の `suspended` の通知とは別の出来事になる（AC-41） | |
+| 公開中の読みもの A が掲載 L を紹介している。掲載 L が期日で提供終了になった | 掲載 L の `listing.offering_ended` を消費する | E1・E2 に `direct` で届く。事柄は `showcase_changed` で、紹介先は掲載 L、変化は `offering_ended`。店舗管理者には届かない（AC-41） | |
+| 公開中の読みもの A が掲載 L を紹介している。店舗管理者が掲載 L を提供終了にした | 掲載 L の `listing.offering_ended` を消費する | E1・E2 に `direct` で届く。変化は `offering_ended` | |
 | 公開中の読みもの A が掲載 L を紹介している。掲載 L の提供終了を、2つのジョブが同じ `observedOn` で重ねて確かめた | 掲載 L の2つの `listing.offering_ended`（ドメインイベントの ID は別、`observedOn` は同じ）をそれぞれ消費する | E1・E2 の通知は、紹介先の掲載 L の `offering_ended` が1つずつ。メールも1通ずつ | |
 | 公開中の読みもの A が掲載 L を紹介している。掲載 L が提供終了になり、提供中に戻った後、別の日に再び提供終了になった | `observedOn` の違う2つの `listing.offering_ended` をそれぞれ消費する | E1・E2 は、`offering_ended` の通知を2つずつ受ける。メールも2通ずつ | |
-| 公開中の読みもの A が店舗 P と掲載 L を紹介し、公開中の読みもの B が掲載 M（店舗 P）を紹介している | 店舗 P の `place.suspended` を消費する | E1・E2 は、読みものと紹介先の組ごとに1つ、3つの通知を受ける（A と店舗 P の `suspended`、A と掲載 L の `place_suspended`、B と掲載 M の `place_suspended`）。S1・S2 には `place_suspended` が別に届く | |
+| 公開中の読みもの A が店舗 P と掲載 L を紹介し、公開中の読みもの B が掲載 M（店舗 P）を紹介している | 店舗 P の `place.suspended` を消費する | E1・E2 は、読みものと紹介先の組ごとに1つ、3つの通知を受ける（A と店舗 P の `suspended`、A と掲載 L の `place_suspended`、B と掲載 M の `place_suspended`）。S1・S2 には `contentManagers` の `suspended` が別に届く | |
 | 公開中の読みもの A が店舗 P と掲載 L を紹介している。店舗 P が閉店になった | `place.operating_status_changed`（`to` が閉店）を消費する | E1・E2 は、A と店舗 P の `closed`、A と掲載 L の `place_closed` の2つの通知を受ける。店舗管理者には届かない | |
 | 公開中の読みもの A が地域 R を紹介している | 地域 R の `region.suspended`、`region.unpublished` をそれぞれ消費する | どれも E1・E2 に `direct` で届く。変化は `suspended`、`unpublished`。`region.suspended` は、RS1・RS2 にも別の出来事として届く | |
 | 公開中の読みもの A がイベント C を紹介している。イベント C に参加中の店舗はない | イベント C の `occasion.suspended`、`occasion.unpublished`、`occasion.cancelled`、`occasion.ended` をそれぞれ消費する | どれも E1・E2 に `direct` で届く。変化は順に `suspended`、`unpublished`、`cancelled`、`ended`（AC-41） | |
 | 公開中の読みもの A がイベント C を紹介している。イベント C の終了を、2つのジョブが同じ `observedOn` で重ねて確かめた | 2つの `occasion.ended` をそれぞれ消費する | E1・E2 の通知は1つずつ。メールも1通ずつ | |
-| 申立てに基づいて、読みもの A の写真が削除された | `article.photos_taken_down` を消費する | E1・E2 に `direct` で届く。事柄は `article_photos_taken_down`。`pointedContent` は読みもの A（AC-79） | |
+| 公開中の読みもの A が掲載 L を紹介している。申立てに基づいて掲載 L の最後の写真が削除され、掲載 L が一時非公開になった | `content.photos_taken_down`（`owner` は掲載 L、`unpublished: true`）と、`listing.unpublished`（`reason: "photoTakedown"`）をそれぞれ消費する | 前者は S1・S2 にだけ `contentManagers`（掲載 L の `photos_taken_down`）で届き、編集担当者には届かない。後者は E1・E2 に `showcase_changed`（掲載 L の `unpublished`）で届く | |
 | 掲載 L を紹介する読みものが、下書きの読みものと、公開を取り下げた読みものだけ | 掲載 L の `listing.deleted` を消費する | 消費は成功する。編集担当者への通知もメールもない | |
 | 公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.unsuspended` を消費する | 編集担当者には届かない。S1・S2 にだけ届く | |
-| 編集担当者が0人。公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended` を消費する | 消費は成功する。編集担当者宛ての通知は誰にも届かず、サービス運営者にも届かない。S1・S2 への `listing_suspended` は届く | |
+| 編集担当者が0人。公開中の読みもの A が掲載 L を紹介している | 掲載 L の `listing.suspended` を消費する | 消費は成功する。編集担当者宛ての通知は誰にも届かず、サービス運営者にも届かない。S1・S2 への `contentManagers` の `suspended` は届く | |
 
 ## サービス運営者宛て（P-97）
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 地域 R への申請 Ap が、確認中のまま一定の期間を過ぎた | Ap の `application.review_overdue` を消費する | O1・O2 に `direct` で届く。事柄は `application_review_overdue`（Ap）。地域運営者には届かない | |
-| 同じ申請 Ap の期間の超過を、2つのジョブが同じ `pendingSince` で重ねて確かめた | 2つの `application.review_overdue` をそれぞれ消費する | O1・O2 の通知は1つずつ。メールも1通ずつ | |
+| 地域 R への申請 Ap が、確認中のまま一定の期間を過ぎた | Ap の `application.review_period_elapsed` を消費する | O1・O2 に `direct` で届く。事柄は `application_review_period_elapsed`（Ap）。地域運営者には届かない | |
+| 同じ申請 Ap の期間の超過を、2つのジョブが同じ `pendingSince` で重ねて確かめた | 2つの `application.review_period_elapsed` をそれぞれ消費する | O1・O2 の通知は1つずつ。メールも1通ずつ | |
 | 取り下げの申立て Cl が受け付けられた | `takedown_claim.submitted` を消費する | O1・O2 に `direct` で届く。事柄は `takedown_claim_received`（Cl）。`pointedContent` は `null`。対象の管理者には届かない | |
 | 情報の誤り・閉店の連絡 Rp が受け付けられた | `info_report.submitted` を消費する | O1・O2 に `direct` で届く。事柄は `info_report_received`（Rp）。店舗管理者には届かない | |
 
@@ -140,7 +146,7 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| S1 が、アカウントを持つ利用者 U のメールアドレスを、店舗 P の管理メンバーに招待した | `authority.invitation_issued` を消費する | U に `direct` で届く。`occurrence` は `invitee` で、メールアドレス、店舗 P、招待を持つ。`pointedContent` は店舗 P。メールは招待のメールアドレスに送られる（AC-41） | |
+| S1 が、アカウントを持つ利用者 U のメールアドレスを、店舗 P の管理メンバーに招待した | `authority.invitation_issued` を消費する | U に `direct` で届く。`occurrence` は `invitee` で、メールアドレス、店舗 P、招待を持つ。`pointedContent` は店舗 P。メールは招待のメールアドレスに送られる。メールの行き先は、店舗 P と招待の組の `invitation`（AC-41） | |
 | S1 が、アカウントのないメールアドレスを招待した | `authority.invitation_issued` を消費する | 消費は成功する。サービス内の通知は記録されない。そのメールアドレスに、`direct` のメールが1通送られる | |
 | 上の消費の後 | 同じ `authority.invitation_issued` をもう一度消費する | 消費は成功する。そのメールアドレスに届くメールは1通のまま | |
 

@@ -13,7 +13,5 @@
 | a1 の確認中に、p1 がサービス運営者によって非公開になった | O が a1 を承認する | 承認が成立し、A は非公開の店舗 p1 の店舗管理者になる | |
 | 利用者 U はサービス運営者でない | U が a1 を承認する | `ForbiddenError` になる | |
 | a1 は、判断の前に A が取り下げた | O が a1 を承認する | `BusinessRuleError`（`APPLICATION_ALREADY_WITHDRAWN`）になる | |
-| a1 の承認と同時に、p1 の管理体制が別の操作（招待の承諾）で保存された | O が a1 を承認する | `ConflictError` になる。a1 は確認中のまま残る | |
 | a1 の確認中に、A が退会した。`account.withdrawn` の消費による取り下げはまだ届いていない | O が a1 を承認する | `BusinessRuleError`（`APPLICATION_APPLICANT_WITHDRAWN`）になる。a1 は確認中のまま残り、p1 の管理体制は変わらない。その後の `account.withdrawn` の消費で、a1 は取り下げになる | |
-| a1 が確認中 | O の a1 の承認と、A の退会が同時に行われる | 先にコミットした側が有効になり、後の側は `ConflictError` になる。退会した A が店舗管理者として残ることはない | |
 | a1 は、O が確かめた後に、別のサービス運営者が差し戻し、A が内容を直して再提出して確認中に戻った | O が、古い版を添えて a1 を承認する | `ConflictError` になる。a1 は確認中のまま、管理体制は変わらない | |

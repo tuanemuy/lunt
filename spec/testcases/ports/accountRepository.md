@@ -1,12 +1,12 @@
 # AccountRepository
 
-前提条件のアカウントは `Account.register` で作る。A1、A2、A3 は `AccountId` の昇順で、メールアドレスは互いに違う。`save` に渡すアカウントは `Account.markReferenced` で作る。
+リポジトリは `UnitOfWorkContext` から得る。「UnitOfWork の中で」と書かない操作は、1つの操作ごとに1つの `run` の中で行い、コミットする。前提条件のアカウントは `Account.register` で作る。A1、A2、A3 は `AccountId` の昇順で、メールアドレスは互いに違う。`save` に渡すアカウントは `Account.markReferenced` で作る。
 
 ## insert、findById、findByEmail
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 空 | `insert(A1)` の後、`findById(A1.id)` | A1 と同じ `id`・`email`・`registeredAt` のアカウントと、`expectedVersion` を返す | |
+| 空 | `insert(A1)` の後、`findById(A1.id)` | A1 と同じ `id`・`email` のアカウントと、`expectedVersion` を返す | |
 | `insert(A1)` 済み | `findByEmail(A1.email)` | A1 と、`findById` と同じ `expectedVersion` を返す | |
 | 空 | `findById(A1.id)` | `null` | |
 | `insert(A1)` 済み | `findByEmail(A2.email)` | `null` | |
@@ -31,7 +31,7 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| `insert(A1)` 済み。`findById` で `expectedVersion` V を得ている | `Account.markReferenced(A1)` を V で `save` し、`findById(A1.id)` | 成功する。`id`・`email`・`registeredAt` は変わらず、V と違う `expectedVersion` を返す。`findByEmail` も同じ `expectedVersion` を返す | |
+| `insert(A1)` 済み。`findById` で `expectedVersion` V を得ている | `Account.markReferenced(A1)` を V で `save` し、`findById(A1.id)` | 成功する。`id`・`email` は変わらず、V と違う `expectedVersion` を返す。`findByEmail` も同じ `expectedVersion` を返す | |
 | `insert(A1)` 済み。`findByEmail` で `expectedVersion` V を得ている | V で `save` | 成功する。`findByEmail` が返した `expectedVersion` でも保存できる | |
 | `insert(A1)` 済み。`expectedVersion` V を得た後、別の `save` が成功している | V で `save` | `ConflictError` | |
 | `insert(A1)` 済み。`expectedVersion` V を得た後、`save` が成功している | V で `delete(A1.id, V)` | `ConflictError`。A1 は削除されない。`save` の後に得た `expectedVersion` での `delete` は成功する | |
@@ -53,7 +53,7 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| 空 | UnitOfWork の中で `insert(A1)` してコミットし、直後に UnitOfWork の外で `findById`・`findByEmail`・`findByIds` | 3つとも A1 を返す（read-your-writes） | |
+| 空 | UnitOfWork の中で `insert(A1)` してコミットし、直後に別の UnitOfWork で `findById`・`findByEmail`・`findByIds` | 3つとも A1 を返す（read-your-writes） | |
 | 空 | UnitOfWork の中で `insert(A1)` と `insert(A2)` を行い、`fn` が例外を投げる | ロールバックされる。`findById(A1.id)`・`findById(A2.id)` はどちらも `null` | |
 | `insert(A1)` 済み | UnitOfWork の中で `delete(A1.id, ...)` を行い、`fn` が例外を投げる | ロールバックされる。`findById(A1.id)` は A1 を返し、その後の `delete` は同じ `expectedVersion` で成功する | |
 | `insert(A1)` 済み。`expectedVersion` V を得た後、A1 を `delete` 済み | UnitOfWork の中で、`insert(A2)` と、V での A1 の `save` を行う | `NotFoundError` で失敗する。スコープ全体がロールバックされ、`findById(A2.id)` は `null` | |

@@ -1,6 +1,6 @@
 # ParticipationRepository
 
-契約: [../../domains/occasion.md](../../domains/occasion.md) の `ParticipationRepository` と、[../../domains/index.md](../../domains/index.md) の「リポジトリの共通の契約」。集約の ID はイベントと店舗の組（`ParticipationKey`）。書き込みは UnitOfWork の中で行う。参照先のイベント・店舗・掲載があることはポートが確かめないので、前提条件は参加の `insert` だけで組み立てる。
+契約: [../../domains/occasion.md](../../domains/occasion.md) の `ParticipationRepository` と、[../../domains/index.md](../../domains/index.md) の「リポジトリの共通の契約」。集約の ID はイベントと店舗の組（`ParticipationKey`）。書き込みも読み取りも UnitOfWork の中で行う（読み取りは書き込まない UnitOfWork）。参照先のイベント・店舗・掲載があることはポートが確かめないので、前提条件は参加の `insert` だけで組み立てる。
 
 ## insert・findById・save・delete
 
@@ -12,7 +12,7 @@
 | イベント O と店舗 P の組の参加がある | イベント O と店舗 Q の組、イベント N と店舗 P の組の参加を `insert` する | どちらも成立する。一意性は組に対して働く | |
 | イベント O と店舗 P の組に参加がない。2つの要求が同時に同じ組の参加を `insert` する | 両方をコミットする | 一方が成立し、他方は遅くともコミットの時点で `ConflictError` になる。組の参加は1つ | |
 | 参加がない | 参加のない組で `findById` を呼ぶ | `null` が返る | |
-| イベント O と店舗 P の組の参加がある | `findById` が返した `expectedVersion` を使って、参加内容を置き換えた参加を `save` し、`findById` で読む | 置き換えた内容と、進んだ版が返る | |
+| イベント O と店舗 P の組の参加がある | `findById` が返した `expectedVersion` を使って、参加内容を置き換えた参加を `save` し、`findById` で読む | 置き換えた内容と、振る舞いが進めた版が返る | |
 | 2つの要求が、同じ参加を同じ `expectedVersion` で読んでいる | 両方が参加内容を置き換えて `save` する | 先の `save` が成立し、後の `save` は `ConflictError` になる | |
 | 参加がない | 参加のない組の参加を `save` する | `NotFoundError` | |
 | イベント O と店舗 P の組の参加がある | `findById` が返した `expectedVersion` で `delete` し、`findById` で読む | `null` が返る。`findByOccasion`・`findByPlace` にも現れない | |
