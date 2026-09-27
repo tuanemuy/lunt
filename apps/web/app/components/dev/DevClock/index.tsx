@@ -10,6 +10,7 @@ import {
   advanceDevClockFn,
   type DailyJobRunView,
   type DevClockState,
+  resetDevClockFn,
   runDailyJobsFn,
 } from "@/presentation/devClock";
 import { useReconcile } from "@/presentation/reconcile";
@@ -75,6 +76,7 @@ export function DevClock({ clock }: { clock: DevClockState }) {
   );
   const [jobError, setJobError] = useState<string | null>(null);
   const [running, startRun] = useTransition();
+  const [resetting, startReset] = useTransition();
 
   return (
     <>
@@ -88,7 +90,8 @@ export function DevClock({ clock }: { clock: DevClockState }) {
           </time>
         </p>
         <p className="m-field__help">
-          {describeOffset(clock.offsetMs)}。時刻は進めるだけで、戻せません。
+          {describeOffset(clock.offsetMs)}
+          。時刻は進めるか、実際の時刻に戻すことだけができます。
           進めた時刻は、次の画面の読み込み・操作・ジョブから使われます。
         </p>
       </section>
@@ -126,6 +129,18 @@ export function DevClock({ clock }: { clock: DevClockState }) {
           <Alert title={advanceState.error} />
         )}
       </form>
+      <Button
+        variant="secondary"
+        disabled={resetting || clock.offsetMs === 0}
+        onClick={() =>
+          startReset(async () => {
+            await resetDevClockFn();
+            await reconcile();
+          })
+        }
+      >
+        {resetting ? "戻しています…" : "実際の時刻に戻す"}
+      </Button>
 
       <section className="m-section" aria-labelledby="dev-clock-jobs">
         <SectionTitle variant="manage" id="dev-clock-jobs">

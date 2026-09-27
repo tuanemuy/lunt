@@ -68,6 +68,12 @@ describe("LuntStateObject", () => {
       offsetMs: 180_000,
     });
     expect((await client.devAdvanceClock(-1)).kind).toBe("refused");
+    expect(await client.devResetClock()).toEqual({
+      kind: "advanced",
+      offsetMs: 0,
+    });
+    expect(await client.devClockOffset()).toBe(0);
+    await client.devAdvanceClock(180_000);
 
     const refused = await runInDurableObject(stub, async (instance) => {
       const object = instance as unknown as {

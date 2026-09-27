@@ -53,3 +53,13 @@ export function advanceDevClock(sql: SqlExec, ms: number): DevClockAdvance {
   );
   return { kind: "advanced", offsetMs: next };
 }
+
+/**
+ * Puts the development clock back to the wall clock (offset 0) — the
+ * manual tests' 「時刻を初期状態に戻す」. There is no going back to any
+ * other point in time.
+ */
+export function resetDevClock(sql: SqlExec): DevClockAdvance {
+  sql.exec("DELETE FROM dev_clock");
+  return { kind: "advanced", offsetMs: 0 };
+}

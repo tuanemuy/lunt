@@ -54,6 +54,14 @@ export const advanceDevClockFn = createServerFn({ method: "POST" })
     return advanceDevClock({ container, input: { ms: data.ms } });
   });
 
+/** Development tool: put the application's time back to the wall clock. */
+export const resetDevClockFn = createServerFn({ method: "POST" })
+  .middleware([errorResponseMiddleware])
+  .handler(async () => {
+    const { container, resetDevClock } = await load();
+    await resetDevClock({ container, input: {} });
+  });
+
 /** Development tool: run every daily job now, on the application's time. */
 export const runDailyJobsFn = createServerFn({ method: "POST" })
   .middleware([errorResponseMiddleware])

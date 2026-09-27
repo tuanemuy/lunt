@@ -95,6 +95,9 @@ export function createTestContainer(
         if (outcome.kind === "refused") throw new Error(outcome.reason);
         return outcome.offsetMs;
       },
+      reset: async () => {
+        await state.client.devResetClock();
+      },
     },
     ...createTestAreaServices(deps),
     ...createTestMediaServices(deps),

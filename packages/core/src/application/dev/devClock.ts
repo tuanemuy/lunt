@@ -12,6 +12,8 @@ export interface DevClockControl {
   offsetMs(): Promise<number>;
   /** Moves it forward by `ms` (never back); returns the new offset. */
   advance(ms: number): Promise<number>;
+  /** Back to the wall clock (offset 0). */
+  reset(): Promise<void>;
 }
 
 export type DevClockView = Readonly<{
@@ -53,6 +55,16 @@ export async function advanceDevClock({
 > {
   const offsetMs = await requireDevClock(container).advance(input.ms);
   return { offsetMs };
+}
+
+/**
+ * Development tool: puts the application's time back to the wall clock
+ * (「時刻を初期状態に戻す」). Nothing else moves time back.
+ */
+export async function resetDevClock({
+  container,
+}: ServiceArgs<Readonly<Record<never, never>>>): Promise<void> {
+  await requireDevClock(container).reset();
 }
 
 /**

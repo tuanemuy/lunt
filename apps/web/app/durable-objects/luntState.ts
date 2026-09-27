@@ -37,6 +37,7 @@ import {
 import {
   advanceDevClock,
   readDevClockOffset,
+  resetDevClock,
 } from "@repo/core/adapters/do/store/devClock";
 import {
   appendDevMail,
@@ -169,6 +170,13 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
       return { kind: "refused", reason: "DEV_TOOLS is not 1" };
     }
     return advanceDevClock(this.ctx.storage.sql, ms);
+  }
+
+  async devResetClock(): Promise<DevClockAdvance> {
+    if (this.env.DEV_TOOLS !== "1") {
+      return { kind: "refused", reason: "DEV_TOOLS is not 1" };
+    }
+    return resetDevClock(this.ctx.storage.sql);
   }
 
   override async alarm(): Promise<void> {

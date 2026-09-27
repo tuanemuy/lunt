@@ -9,7 +9,12 @@ import { createDevServices } from "@repo/core/application/di/dev";
 import { ForbiddenError } from "@repo/core/application/errors";
 import { SystemClock } from "@repo/core/application/ports/clock";
 import { describe, expect, it, vi } from "vitest";
-import { advanceDevClock, readDevClock, runDailyJobsNow } from "../devClock";
+import {
+  advanceDevClock,
+  readDevClock,
+  resetDevClock,
+  runDailyJobsNow,
+} from "../devClock";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -73,6 +78,10 @@ describe("development clock (F-06)", () => {
       2 * DAY_MS,
     );
 
+    await resetDevClock({ container, input: {} });
+    expect((await readDevClock({ container, input: {} })).offsetMs).toBe(0);
+    await advanceDevClock({ container, input: { ms: 2 * DAY_MS } });
+
     const results = await runDailyJobsNow({ container, input: {} });
     expect(results.map((result) => result.name)).toContain(
       "purgeClosedLoginChallenges",
@@ -97,6 +106,9 @@ describe("development clock (F-06)", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
       runDailyJobsNow({ container: off, input: {} }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      resetDevClock({ container: off, input: {} }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 

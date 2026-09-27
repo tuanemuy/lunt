@@ -14,6 +14,12 @@ export function createDevServices(deps: ServiceDeps): DevServices {
             }
             return outcome.offsetMs;
           },
+          reset: async () => {
+            const outcome = await deps.client.devResetClock();
+            if (outcome.kind === "refused") {
+              throw new ForbiddenError("DEV_CLOCK_REFUSED", outcome.reason);
+            }
+          },
         }
       : null,
   };

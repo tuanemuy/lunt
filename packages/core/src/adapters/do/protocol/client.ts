@@ -83,4 +83,9 @@ export interface LuntStateClient {
    * development tools are on.
    */
   devAdvanceClock(ms: number): Promise<DevClockAdvance>;
+  /**
+   * Development clock: back to the wall clock (offset 0). Refused unless
+   * the development tools are on.
+   */
+  devResetClock(): Promise<DevClockAdvance>;
 }
