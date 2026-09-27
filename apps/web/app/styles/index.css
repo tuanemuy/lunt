@@ -7,8 +7,11 @@
 @import "./base.css";
 @import "./components.css";
 @import "./viewer.css";
+@import "./detail.css";
 @import "./manage.css";
 @import "./pages.css";
+@import "./member-screens.css";
+@import "./manage-screens.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal
    feel slower than the load it follows. */

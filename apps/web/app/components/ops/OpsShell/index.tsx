@@ -8,10 +8,14 @@ import { TextLink } from "@/components/ui/TextButton";
 
 /**
  * The service-operation screens that exist so far, in the nav's order
- * (対応が必要なもの / 対象を探す / カテゴリー / 役割): OM-01, OM-02 and OM-06
- * join as their stages land.
+ * (対応が必要なもの / 対象を探す / カテゴリー / 役割): OM-01 joins with its
+ * stage.
  */
-const OPS_NAV = [{ to: "/ops/roles", label: "役割" }] as const;
+const OPS_NAV = [
+  { to: "/ops/search", label: "対象を探す" },
+  { to: "/ops/categories", label: "カテゴリー" },
+  { to: "/ops/roles", label: "役割" },
+] as const;
 
 /** The home of the service-operation area: OM-01's URL. */
 export const OPS_HOME = "/ops";

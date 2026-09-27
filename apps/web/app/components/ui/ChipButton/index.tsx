@@ -1,3 +1,4 @@
+import { createLink } from "@tanstack/react-router";
 import type { ComponentProps } from "react";
 import { cx } from "../cx";
 
@@ -11,3 +12,10 @@ export function ChipButton({
     <button type={type} className={cx("chip-button", className)} {...rest} />
   );
 }
+
+function ChipAnchor({ className, ...rest }: ComponentProps<"a">) {
+  return <a className={cx("chip-button", className)} {...rest} />;
+}
+
+/** A router link drawn as a chip button (an entry beside a row, e.g. 対象の運営). */
+export const ChipLink = createLink(ChipAnchor);

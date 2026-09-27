@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_manage")({
 
 const AREA_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
   ["/ops", "サービス運営"],
+  ["/manage/places", "お店の管理"],
   ["/editorial", "読みもの編集"],
 ];
 

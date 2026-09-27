@@ -1,8 +1,12 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cx } from "../cx";
 
-/** 必須 / 任意 beside the label; omit when the field is neither (e.g. a sub-field of a group). */
-export type FieldRequirement = "required" | "optional";
+/**
+ * 必須 / 任意 / 公開に必須 beside the label; omit when the field is neither
+ * (e.g. a sub-field of a group). `publish`: a draft may leave it empty,
+ * publishing needs it (CF-08).
+ */
+export type FieldRequirement = "required" | "optional" | "publish";
 
 /** The attributes a `Field` wires onto its control. */
 export type FieldControlProps = {
@@ -23,13 +27,18 @@ type FieldProps = {
 };
 
 function RequirementMark({ requirement }: { requirement: FieldRequirement }) {
-  return requirement === "required" ? (
-    <span className="m-field__req">必須</span>
-  ) : (
-    <span className="m-field__req" data-optional="">
-      任意
-    </span>
-  );
+  switch (requirement) {
+    case "required":
+      return <span className="m-field__req">必須</span>;
+    case "publish":
+      return <span className="m-field__req">公開に必須</span>;
+    case "optional":
+      return (
+        <span className="m-field__req" data-optional="">
+          任意
+        </span>
+      );
+  }
 }
 
 function describedBy(
@@ -84,6 +93,8 @@ export function Field({
 }
 
 type FieldsetProps = {
+  /** The target of in-page links to the field (CS-10's list, CS-16). */
+  id?: string;
   legend: string;
   requirement?: FieldRequirement;
   help?: ReactNode;
@@ -94,6 +105,7 @@ type FieldsetProps = {
 
 /** A field made of several controls (a choice group, an address), labelled by its legend. */
 export function Fieldset({
+  id,
   legend,
   requirement,
   help,
@@ -102,7 +114,7 @@ export function Fieldset({
   children,
 }: FieldsetProps) {
   return (
-    <fieldset className={cx("m-field", className)}>
+    <fieldset id={id} className={cx("m-field", className)}>
       <legend className="m-field__label">
         {legend}
         {requirement === undefined ? null : (
