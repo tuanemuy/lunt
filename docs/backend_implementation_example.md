@@ -705,7 +705,7 @@ export class DoStewardshipRepository implements StewardshipRepository {
 
 - `adapters/mail/`: `MailTransport` (`adapters/mail/transport.ts`) with `SmtpMailTransport` and the development inbox (`DevInboxMailTransport` storing into the object, `DoDevInbox` reading it). Domain-specific senders render and hand over to the transport.
 - `adapters/login/`: `MailLoginMailSender` (renders the login mail; the secrets never reach the outbox or logs), `WebCryptoLoginSecretGenerator`.
-- `adapters/identity/`: `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), `GoogleOidcProvider`, `FakeIdpProvider`.
+- `adapters/identity/`: `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), `GoogleOidcProvider`, `FakeIdpProvider`, and `FakeIdpScreen` (the development provider's side, behind the application port `FakeIdp` in `application/dev/fakeIdp.ts`, so the `/__dev/idp/authorize` screen reaches it through usecases like any other).
 - Domain ports get a conformance suite beside their adapter (`adapters/login/__conformance__/`, `adapters/identity/__conformance__/`); test doubles for external I/O live under `testing/` (`InMemoryMailTransport` in `adapters/mail/testing/inMemoryMailTransport.ts`, `adapters/identity/testing/fakeIdpFlow.ts`).
 
 ## 5. Outbox, relay, consumers, dead letters

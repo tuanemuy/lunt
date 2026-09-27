@@ -1,4 +1,7 @@
-import { FakeIdpProvider } from "@repo/core/adapters/identity/fakeIdp";
+import {
+  FakeIdpProvider,
+  FakeIdpScreen,
+} from "@repo/core/adapters/identity/fakeIdp";
 import { ExternalIdentityProviders } from "@repo/core/adapters/identity/providers";
 import { MailLoginMailSender } from "@repo/core/adapters/login/mailLoginMailSender";
 import { WebCryptoLoginSecretGenerator } from "@repo/core/adapters/login/webCryptoLoginSecretGenerator";
@@ -78,5 +81,9 @@ export function createTestAccountServices(
     externalIdentityVerifier: providers,
     externalLoginStarter: providers,
     devInbox: new DoDevInbox(deps.client),
+    fakeIdp: new FakeIdpScreen({
+      secret: TEST_SECRET_KEY,
+      appUrl: TEST_APP_URL,
+    }),
   };
 }

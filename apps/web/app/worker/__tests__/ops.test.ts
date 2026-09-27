@@ -132,7 +132,7 @@ describe("handleOpsRequest", () => {
         deps,
       );
 
-    const ok = await post(JSON.stringify({ email: "first@example.com" }));
+    const ok = await post(JSON.stringify({ email: " First@Example.com " }));
     const missing = await post(JSON.stringify({ email: "nobody@example.com" }));
     const late = await post(JSON.stringify({ email: "late@example.com" }));
     const malformed = await post("{");
@@ -150,7 +150,7 @@ describe("handleOpsRequest", () => {
     });
     expect([malformed.status, invalid.status]).toEqual([400, 400]);
     expect(establish.mock.calls.map(([email]) => email)).toEqual([
-      "first@example.com",
+      " First@Example.com ",
       "nobody@example.com",
       "late@example.com",
     ]);

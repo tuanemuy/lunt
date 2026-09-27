@@ -1,4 +1,7 @@
-import { FakeIdpProvider } from "@repo/core/adapters/identity/fakeIdp";
+import {
+  FakeIdpProvider,
+  FakeIdpScreen,
+} from "@repo/core/adapters/identity/fakeIdp";
 import { GoogleOidcProvider } from "@repo/core/adapters/identity/googleOidc";
 import {
   type ExternalIdentityProvider,
@@ -132,5 +135,12 @@ export function createAccountServices(
     externalIdentityVerifier: providers,
     externalLoginStarter: providers,
     devInbox: mail.devInbox,
+    fakeIdp:
+      idp.idp === "fake"
+        ? new FakeIdpScreen({
+            secret: deps.runtime.sessionSecret,
+            appUrl: env.APP_URL,
+          })
+        : null,
   };
 }

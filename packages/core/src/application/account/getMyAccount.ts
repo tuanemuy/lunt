@@ -9,7 +9,7 @@ export type MyAccount = Readonly<{ email: EmailAddress }>;
  * ACC-01 / MY-01, MY-02: the logged-in account's email address. Reads only
  * the actor's own account, in a unit of work without writes.
  *
- * Errors: `UnauthorizedError` `ACCOUNT_NOT_FOUND` when the account was
+ * Errors: `UnauthorizedError` `LOGIN_REQUIRED` when the account was
  * withdrawn after the `Actor` was built (`spec/domains/index.md`
  * 「操作する人」).
  */
@@ -24,7 +24,7 @@ export async function getMyAccount({
     ({ accountRepository }) => accountRepository.findById(actor.accountId),
   );
   if (found === null) {
-    throw new UnauthorizedError("ACCOUNT_NOT_FOUND", "Not logged in");
+    throw new UnauthorizedError("LOGIN_REQUIRED", "Login required");
   }
   return { email: found.entity.email };
 }

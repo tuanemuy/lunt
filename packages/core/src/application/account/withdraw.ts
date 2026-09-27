@@ -19,7 +19,7 @@ export type WithdrawInput = Readonly<Record<never, never>>;
  *
  * Errors: `BusinessRuleError` `AUTHORITY_LAST_OPERATOR` (the only
  * operator; nothing changes); `ConflictError` (something changed
- * concurrently — resend); `UnauthorizedError` `ACCOUNT_NOT_FOUND` (the
+ * concurrently — resend); `UnauthorizedError` `LOGIN_REQUIRED` (the
  * account was already withdrawn, e.g. from another device); `NotFoundError`
  * if it is withdrawn between this read and the commit.
  */
@@ -31,7 +31,7 @@ export async function withdraw({
   await container.unitOfWorkProvider.run(async (ctx) => {
     const read = await ctx.accountRepository.findById(actor.accountId);
     if (read === null) {
-      throw new UnauthorizedError("ACCOUNT_NOT_FOUND", "Not logged in");
+      throw new UnauthorizedError("LOGIN_REQUIRED", "Login required");
     }
     const authorityDrafts = await removeAllAuthorityOf(
       ctx,

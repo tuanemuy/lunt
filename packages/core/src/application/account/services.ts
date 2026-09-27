@@ -2,6 +2,7 @@ import type { ExternalIdentityVerifier } from "@repo/core/domain/account/ports/e
 import type { LoginMailSender } from "@repo/core/domain/account/ports/loginMailSender";
 import type { LoginSecretGenerator } from "@repo/core/domain/account/ports/loginSecretGenerator";
 import type { DevInbox } from "../dev/devInbox";
+import type { FakeIdp } from "../dev/fakeIdp";
 import type { ExternalLoginStarter } from "./externalLogin";
 
 /** Login settings (brief A-06): environment-driven, with development defaults. */
@@ -30,4 +31,6 @@ export type AccountServices = Readonly<{
   externalLoginStarter: ExternalLoginStarter;
   /** The development inbox, when mail goes there (`MAIL_TRANSPORT=devInbox`). */
   devInbox: DevInbox | null;
+  /** The development fake provider's screen (`EXTERNAL_IDP=fake`). */
+  fakeIdp: FakeIdp | null;
 }>;

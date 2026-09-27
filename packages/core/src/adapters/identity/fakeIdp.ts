@@ -3,6 +3,11 @@ import type {
   PendingExternalLogin,
 } from "@repo/core/application/account/externalLogin";
 import { pkceChallenge } from "@repo/core/application/account/externalLogin";
+import type {
+  FakeIdp,
+  FakeIdpChoice,
+  FakeIdpRequest,
+} from "@repo/core/application/dev/fakeIdp";
 import type { Clock } from "@repo/core/application/ports/clock";
 import type { ExternalIdentity } from "@repo/core/domain/account/externalIdentity";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
@@ -32,12 +37,7 @@ export const FAKE_IDP_CLIENT_ID = "lunt-development";
 /** How long a fake code stays redeemable. */
 const CODE_TTL_MS = 5 * 60 * 1000;
 
-/** What the developer chose on the fake provider's screen. */
-export type FakeIdpChoice =
-  | Readonly<{ kind: "verified"; email: string }>
-  | Readonly<{ kind: "unverified"; email: string }>
-  | Readonly<{ kind: "no_email" }>
-  | Readonly<{ kind: "cancel" }>;
+export type { FakeIdpChoice };
 
 /** The signed content of a fake authorization code. */
 export type FakeIdpGrant = Readonly<{
@@ -205,5 +205,36 @@ export class FakeIdpProvider implements ExternalIdentityProvider {
     } catch {
       return { outcome: "email_unavailable" };
     }
+  }
+}
+
+/**
+ * The fake provider's screen (`FakeIdp`): accepts an authorization
+ * request only when it returns to `appUrl`'s origin, and signs its
+ * answer with `secret`.
+ */
+export class FakeIdpScreen implements FakeIdp {
+  constructor(
+    private readonly options: Readonly<{ secret: string; appUrl: string }>,
+  ) {}
+
+  open(query: string): FakeIdpRequest | null {
+    const parsed = fakeIdpAuthorizeRequestSchema.safeParse(
+      Object.fromEntries(new URLSearchParams(query)),
+    );
+    if (!parsed.success) return null;
+    const request = parsed.data;
+    const returnsTo = new URL(request.redirect_uri);
+    if (returnsTo.origin !== new URL(this.options.appUrl).origin) return null;
+    return {
+      returnsTo: returnsTo.pathname,
+      answer: (choice, now) =>
+        fakeIdpCallbackUrl({
+          secret: this.options.secret,
+          now,
+          request,
+          choice,
+        }),
+    };
   }
 }

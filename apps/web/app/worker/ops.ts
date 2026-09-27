@@ -1,4 +1,5 @@
 import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { z } from "zod";
 import {
   httpStatusFor,
@@ -141,7 +142,8 @@ export async function handleOpsRequest(
           httpStatusFor(serialized),
         );
       }
-      return json({ established: parsed.data.email });
+      // The address as the account holds it (trimmed, lower-cased).
+      return json({ established: EmailAddress.create(parsed.data.email) });
     }
     default:
       return new Response("Not Found", { status: 404 });
