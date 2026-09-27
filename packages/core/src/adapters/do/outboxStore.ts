@@ -1,4 +1,3 @@
-import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { Clock } from "@repo/core/application/ports/clock";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import type {
@@ -39,6 +38,11 @@ export class DoSqliteOutboxRepository implements OutboxRepository {
     private readonly sql: SqlExec,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,
+    /** Told about each row parked because it is corrupt, for the logs. */
+    private readonly onCorruptRow: (
+      id: string,
+      reason: string,
+    ) => void = () => {},
   ) {}
 
   // The commit path inserts outbox rows inside the unit-of-work
@@ -79,30 +83,61 @@ export class DoSqliteOutboxRepository implements OutboxRepository {
         limit,
       )
       .toArray();
+    const entries: OutboxEntry[] = [];
     for (const row of rows) {
+      const entry = this.toEntry(row);
+      if (entry.kind === "corrupt") {
+        // A row no relay can ever deliver (a malformed id, a payload that
+        // is not JSON) is parked on its own, so it cannot hold back the
+        // rows claimed with it. `kickRelay` puts parked rows back in line
+        // once an operator has repaired them.
+        this.sql.exec(
+          `UPDATE outbox_events
+             SET failed_at = ?, last_error = ?, claimed_at = NULL, claimed_by = NULL
+             WHERE id = ?`,
+          now.getTime(),
+          entry.reason,
+          row.id,
+        );
+        this.onCorruptRow(row.id, entry.reason);
+        continue;
+      }
       this.sql.exec(
         "UPDATE outbox_events SET claimed_at = ?, claimed_by = ? WHERE id = ?",
         now.getTime(),
         workerId,
         row.id,
       );
+      entries.push(entry.value);
     }
-    return rows.map((row) => {
-      if (this.idGenerator.parse(row.id) === null) {
-        throw new SystemError(
-          SystemErrorCode.DataIntegrityError,
-          `Stored outbox event has malformed id: ${row.id}`,
-        );
-      }
-      return {
+    return entries;
+  }
+
+  private toEntry(
+    row: OutboxDbRow,
+  ):
+    | Readonly<{ kind: "valid"; value: OutboxEntry }>
+    | Readonly<{ kind: "corrupt"; reason: string }> {
+    if (this.idGenerator.parse(row.id) === null) {
+      return { kind: "corrupt", reason: `malformed event id: ${row.id}` };
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(row.payload);
+    } catch {
+      return { kind: "corrupt", reason: "payload is not JSON" };
+    }
+    return {
+      kind: "valid",
+      value: {
         id: row.id,
         type: row.event_type,
-        payload: JSON.parse(row.payload) as unknown,
+        payload,
         occurredAt: new Date(Number(row.occurred_at)),
         aggregateId: row.aggregate_id,
         attempts: Number(row.attempts),
-      };
-    });
+      },
+    };
   }
 
   async finalize(args: FinalizeOutboxArgs): Promise<void> {

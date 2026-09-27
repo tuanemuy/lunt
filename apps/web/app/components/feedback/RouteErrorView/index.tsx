@@ -5,12 +5,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useTransition } from "react";
-import {
-  ManageBody,
-  ManageHeading,
-  ManagePage,
-  ManageTitle,
-} from "@/components/layout/ManageShell";
+import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { ViewerShell } from "@/components/layout/ViewerShell";
 import { Button } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
@@ -165,24 +160,24 @@ export function RouteErrorContent({ problem }: { problem: RouteProblem }) {
   const view = viewOf(problem, area);
   const retry = view.retry ? <RetryButton /> : undefined;
   if (area === "manage") {
+    // The design's management states (`m-empty`) sit under the screen's
+    // own title band; a route that failed has no screen title, so the
+    // state's title is the page heading and the sentence its body.
     return (
-      <ManagePage
-        title={
-          <ManageTitle>
-            <ManageHeading>{view.title}</ManageHeading>
-          </ManageTitle>
-        }
-      >
+      <ManagePage title={null}>
         <ManageBody>
           <EmptyPanel
-            title={view.body}
+            title={view.title}
+            headingLevel="h1"
             actions={
               <>
                 {retry}
                 <Onward onward={view.onward} />
               </>
             }
-          />
+          >
+            {view.body}
+          </EmptyPanel>
         </ManageBody>
       </ManagePage>
     );

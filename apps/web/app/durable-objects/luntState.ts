@@ -144,6 +144,14 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
         sql,
         UuidV7Generator,
         SystemClock,
+        (id, reason) =>
+          ConsoleLogger.error(
+            `[outbox] parked corrupt event ${id}: ${reason}`,
+            {
+              eventId: id,
+              reason,
+            },
+          ),
       ),
     };
     const registries = this.relayRegistries();

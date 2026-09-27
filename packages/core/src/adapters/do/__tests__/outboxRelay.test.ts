@@ -200,6 +200,42 @@ describe("outbox alarm relay", () => {
     expect(r.sent).toEqual([]);
   });
 
+  it("parks only a corrupt row and delivers the rows claimed with it", async () => {
+    const r = setup();
+    await r.commit([draft()]);
+    r.state.storage.sql.exec(
+      `INSERT INTO outbox_events
+         (id, event_type, aggregate_id, payload, occurred_at, created_at)
+         VALUES ('not-a-uuid', 'probe.pinged', 'a', '{}', 0, 0),
+                (?, 'probe.pinged', 'a', '{not json', 0, 0)`,
+      "ffffffff-ffff-7fff-8fff-0000000000aa",
+    );
+    await r.commit([draft()]);
+
+    const result = await r.tick();
+
+    expect(result.processed).toBe(2);
+    const rows = r.state.storage.sql
+      .exec<{
+        id: string;
+        processed_at: number | null;
+        failed_at: number | null;
+        last_error: string | null;
+        claimed_at: number | null;
+      }>(
+        "SELECT id, processed_at, failed_at, last_error, claimed_at FROM outbox_events ORDER BY created_at, id",
+      )
+      .toArray();
+    const corrupt = rows.filter((row) => row.failed_at !== null);
+    expect(corrupt.map((row) => row.last_error)).toEqual([
+      "payload is not JSON",
+      "malformed event id: not-a-uuid",
+    ]);
+    expect(corrupt.every((row) => row.claimed_at === null)).toBe(true);
+    expect(rows.filter((row) => row.processed_at !== null)).toHaveLength(2);
+    expect(r.sent).toHaveLength(4);
+  });
+
   it("puts rows an earlier version parked back in line when the relay is kicked", async () => {
     const r = setup();
     await r.commit([draft()]);
