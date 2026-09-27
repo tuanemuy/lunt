@@ -22,6 +22,10 @@
     // secret below. Never set in a deployed configuration.
     "DEV_TOOLS": "1",
     "SESSION_SECRET": "lunt-local-development-session-secret",
+    // Bearer token of the operations endpoints (`/__ops/*`), development
+    // value. A deployed configuration sets its own with `wrangler secret
+    // put OPS_TOKEN`, or leaves it unset to turn the endpoints off.
+    "OPS_TOKEN": "lunt-local-development-operations-token",
     // Alarm relay tuning, read inside the DO by `readRelayTuning` /
     // `readPruneTuning`.
     "OUTBOX_BATCH_SIZE": "100",
@@ -49,11 +53,13 @@
         "dead_letter_queue": "lunt-events-dlq"
       },
       {
-        // No further dead-letter target — a re-failure here would loop.
+        // Keeps each message in the state object for an operator to
+        // re-drive (`/__ops/dead-letters`). A message is acked only once
+        // stored, so storing gets several tries.
         "queue": "lunt-events-dlq",
         "max_batch_size": 25,
         "max_batch_timeout": 5,
-        "max_retries": 1
+        "max_retries": 10
       }
     ]
   },

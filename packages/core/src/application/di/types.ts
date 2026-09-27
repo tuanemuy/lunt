@@ -23,6 +23,11 @@ export type RuntimeSettings = Readonly<{
   devTools: boolean;
   /** HMAC key of the session cookie. */
   sessionSecret: string;
+  /**
+   * Bearer token of the operations endpoints (`/__ops/*`: dead letters,
+   * relay kick). `null` turns the endpoints off.
+   */
+  opsToken: string | null;
 }>;
 
 /**

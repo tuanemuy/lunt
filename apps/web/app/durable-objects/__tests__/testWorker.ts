@@ -41,10 +41,16 @@ const succeeds = {
   handle: async () => {},
 } as unknown as EventConsumer;
 
+/**
+ * Whether `probeFails` succeeds. The pool loads this module into the same
+ * isolate as the tests, so a test can "fix the cause" before a re-drive.
+ */
+export const probeHealth = { failing: true };
+
 const alwaysFails = {
   events: [PROBE_EVENT_TYPE],
   handle: async () => {
-    throw new Error("probe consumer failure");
+    if (probeHealth.failing) throw new Error("probe consumer failure");
   },
 } as unknown as EventConsumer;
 
@@ -82,6 +88,7 @@ export default {
           container,
           receipts: new DoConsumerReceipts(client),
           registry: probeConsumers,
+          recordDeadLetter: (input) => client.recordDeadLetter(input),
           inScope: (fn) => fn(),
         },
       );

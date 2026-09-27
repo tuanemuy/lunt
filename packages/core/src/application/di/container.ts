@@ -14,6 +14,7 @@ export type LuntEnv = Readonly<{
   APP_URL: string;
   DEV_TOOLS?: string | undefined;
   SESSION_SECRET?: string | undefined;
+  OPS_TOKEN?: string | undefined;
 }>;
 
 /**
@@ -22,12 +23,16 @@ export type LuntEnv = Readonly<{
  */
 export const DEV_SESSION_SECRET = "lunt-local-development-session-secret";
 
+/** The public operations token of the local `wrangler.jsonc`, same rule. */
+export const DEV_OPS_TOKEN = "lunt-local-development-operations-token";
+
 const MIN_SECRET_LENGTH = 32;
 
 const runtimeSchema = z
   .object({
     devTools: z.enum(["0", "1"]).default("0"),
     sessionSecret: z.string().min(MIN_SECRET_LENGTH),
+    opsToken: z.string().min(MIN_SECRET_LENGTH).optional(),
   })
   .refine(
     (raw) => raw.devTools === "1" || raw.sessionSecret !== DEV_SESSION_SECRET,
@@ -35,16 +40,21 @@ const runtimeSchema = z
       message:
         "SESSION_SECRET is the public development secret while DEV_TOOLS is off",
     },
-  );
+  )
+  .refine((raw) => raw.devTools === "1" || raw.opsToken !== DEV_OPS_TOKEN, {
+    message: "OPS_TOKEN is the public development token while DEV_TOOLS is off",
+  });
 
 export function readRuntimeSettings(env: LuntEnv): RuntimeSettings {
   const parsed = runtimeSchema.parse({
     devTools: env.DEV_TOOLS,
     sessionSecret: env.SESSION_SECRET,
+    opsToken: env.OPS_TOKEN,
   });
   return {
     devTools: parsed.devTools === "1",
     sessionSecret: parsed.sessionSecret,
+    opsToken: parsed.opsToken ?? null,
   };
 }
 

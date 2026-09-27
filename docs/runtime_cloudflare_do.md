@@ -18,7 +18,8 @@ There is no database setup: the object applies its schema from its constructor, 
 | --- | --- | --- |
 | Fetch (TanStack Start) | `apps/web/app/server.ts` `fetch` | HTTP |
 | Events consumer | `server.ts` `queue` → `app/worker/queue.ts` | Queue `lunt-events` |
-| Dead-letter queue | same handler, `batch.queue === "lunt-events-dlq"` | Queue `lunt-events-dlq` |
+| Dead-letter queue | same handler, `batch.queue === "lunt-events-dlq"`: keeps each message in the state object | Queue `lunt-events-dlq` |
+| Operations | `server.ts` `fetch` → `app/worker/ops.ts` (`/__ops/*`, bearer `OPS_TOKEN`) | HTTP |
 | Daily jobs | `server.ts` `scheduled` → `runDailyJobs` | Cron `5 15 * * *` (00:05 JST) |
 | State, relay, receipts | `app/durable-objects/luntState.ts` (`LuntStateObject`, one instance named `global`) | RPC / its alarm |
 
@@ -51,6 +52,28 @@ The relay never gives up on an event: a failed publish (the queue refused the ba
 
 The dispatcher (`createFanOutDispatcher`) sends one queue message `{ consumer, event }` per subscribed consumer (`application/events/consumers.ts`). Each message is acked or retried on its own: one failing consumer never re-runs the others, and it alone reaches the dead-letter queue. The consumer checks its receipt first and records it only after it succeeded (`consumeEventMessage`); consumers are idempotent on their own, so a lost receipt costs a repeat, never a wrong result.
 
+## Dead letters and re-drive
+
+A message whose consumer keeps failing is retried by the events queue (`max_retries` 3) and then moves to `lunt-events-dlq`. The dead-letter consumer does not drop it: it stores the message in the state object's `dead_letters` table (one row per consumer and event; acked only once stored) and logs it at error level. Re-driving is an operator action (`spec/domains/index.md` 「トランザクションとドメインイベント」). Consumers are idempotent, so a re-drive continues where the consumer stopped.
+
+Procedure, once the cause is fixed and deployed (`$APP_URL` and `$OPS_TOKEN` as configured; locally `http://localhost:3000` and the development token in `wrangler.jsonc`):
+
+```bash
+# 1. See what is waiting (oldest first; each row names the consumer, the event and how often it dead-lettered)
+curl -H "Authorization: Bearer $OPS_TOKEN" "$APP_URL/__ops/dead-letters?limit=100"
+
+# 2. Re-drive the oldest ones…
+curl -X POST -H "Authorization: Bearer $OPS_TOKEN" -d '{"limit":100}' "$APP_URL/__ops/dead-letters/redrive"
+#    …or specific ones
+curl -X POST -H "Authorization: Bearer $OPS_TOKEN" \
+  -d '{"keys":[{"consumer":"purgeBookmarksOnWithdrawal","eventId":"…"}]}' \
+  "$APP_URL/__ops/dead-letters/redrive"
+```
+
+The answer lists `redriven` and `failed` (a letter whose event can no longer be decoded, or a batch the queue refused, stays pending). A re-driven message that fails its retries again comes back to `dead_letters`, pending again, with `deadLetteredCount` counted up. `POST /__ops/relay/kick` re-arms the relay and requeues outbox rows an earlier version parked.
+
+The endpoints exist only when `OPS_TOKEN` is set (at least 32 characters; the public development token is refused unless `DEV_TOOLS=1`).
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.
@@ -62,4 +85,4 @@ The dispatcher (`createFanOutDispatcher`) sends one queue message `{ consumer, e
 
 ## Deployment
 
-Out of scope for now. A deployed configuration drops `DEV_TOOLS`, sets `SESSION_SECRET` with `wrangler secret put`, creates the two queues, and deploys with the `[[migrations]]` entry that makes `LuntStateObject` SQLite-backed.
+Out of scope for now. A deployed configuration drops `DEV_TOOLS`, sets `SESSION_SECRET` and `OPS_TOKEN` with `wrangler secret put`, creates the two queues, and deploys with the `[[migrations]]` entry that makes `LuntStateObject` SQLite-backed.

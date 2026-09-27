@@ -1,5 +1,6 @@
 import type { SqlExec, SqlRow, TransactionRunner } from "../sql";
 import { ACCOUNT_MIGRATION } from "./account";
+import { DEAD_LETTER_MIGRATION } from "./deadLetters";
 
 export type Migration = Readonly<{
   version: number;
@@ -50,6 +51,7 @@ export const MIGRATIONS: readonly Migration[] = [
     ],
   },
   ACCOUNT_MIGRATION,
+  DEAD_LETTER_MIGRATION,
 ];
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

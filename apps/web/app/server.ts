@@ -1,6 +1,6 @@
-// The one Lunt Worker (design.md D-05): TanStack Start's fetch handler,
-// the events queue consumer, the dead-letter queue, and the daily Cron
-// Trigger — all over the single Lunt state Durable Object, which this
+// The one Lunt Worker (design.md D-05): TanStack Start's fetch handler
+// (plus the operator endpoints under /__ops/), the events queue consumer,
+// the dead-letter queue, and the daily Cron Trigger — all over the single Lunt state Durable Object, which this
 // module also exports so wrangler can bind it.
 import { AsyncLocalStorage } from "node:async_hooks";
 import type {
@@ -22,6 +22,7 @@ import { runDailyJobs } from "@repo/core/application/workers/dailyJobs";
 import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
 import { default as defaultEntry } from "@tanstack/react-start/server-entry";
 import { LuntStateObject } from "./durable-objects/luntState";
+import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
 import { handleQueueBatch } from "./worker/queue";
 import { stateClient } from "./worker/stateClient";
 
@@ -57,7 +58,14 @@ export default {
     env: AppEnv,
     _ctx: ExecutionContext,
   ): Promise<Response> {
-    const container = createRequestContainer(env, stateClient(env.LUNT_STATE));
+    const client = stateClient(env.LUNT_STATE);
+    const container = createRequestContainer(env, client);
+    if (new URL(request.url).pathname.startsWith(OPS_PREFIX)) {
+      return handleOpsRequest(request, {
+        opsToken: container.runtime.opsToken,
+        client,
+      });
+    }
     return storage.run(container, async () => defaultEntry.fetch(request));
   },
 
@@ -72,6 +80,7 @@ export default {
       container,
       receipts: new DoConsumerReceipts(client),
       registry: consumers,
+      recordDeadLetter: (input) => client.recordDeadLetter(input),
       inScope: (fn) => storage.run(container, fn),
     });
   },

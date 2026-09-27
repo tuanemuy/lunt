@@ -1,4 +1,5 @@
 import type { Message, MessageBatch } from "@cloudflare/workers-types";
+import type { DeadLetterInput } from "@repo/core/adapters/do/protocol/deadLetters";
 import { FakeLogger } from "@repo/core/application/__tests__/fakes/fakeLogger";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import type {
@@ -57,11 +58,16 @@ const receipts: ConsumerReceipts = {
   markConsumed: async () => {},
 };
 
-function deps(registry: ConsumerRegistry, logger = new FakeLogger()) {
+function deps(
+  registry: ConsumerRegistry,
+  logger = new FakeLogger(),
+  recordDeadLetter: (input: DeadLetterInput) => Promise<void> = async () => {},
+) {
   return {
     container: { logger } as unknown as RequestContainer,
     receipts,
     registry,
+    recordDeadLetter,
     inScope: <T>(fn: () => Promise<T>) => fn(),
   };
 }
@@ -93,16 +99,43 @@ describe("handleQueueBatch", () => {
     ]);
   });
 
-  it("acks every dead letter without running a consumer, logging each", async () => {
+  it("keeps every dead letter for re-drive and acks it only once stored", async () => {
     const logger = new FakeLogger();
+    const dead = message("failing", "e1");
+    const kept: DeadLetterInput[] = [];
+
+    await handleQueueBatch(
+      batch(DEAD_LETTER_QUEUE, [dead.msg]),
+      deps(registry, logger, async (input) => {
+        kept.push(input);
+      }),
+    );
+
+    expect(kept).toEqual([
+      {
+        consumer: "failing",
+        eventId: "e1",
+        eventType: "probe.pinged",
+        aggregateId: "e1",
+        occurredAt: new Date("2026-09-28T00:00:00.000Z"),
+        payload: {},
+        attempts: 1,
+      },
+    ]);
+    expect(dead.state.disposition).toBe("ack");
+    expect(logger.byLevel("error")).toHaveLength(1);
+  });
+
+  it("retries a dead letter it could not store instead of dropping it", async () => {
     const dead = message("failing", "e1");
 
     await handleQueueBatch(
       batch(DEAD_LETTER_QUEUE, [dead.msg]),
-      deps(registry, logger),
+      deps(registry, new FakeLogger(), async () => {
+        throw new Error("state object unavailable");
+      }),
     );
 
-    expect(dead.state.disposition).toBe("ack");
-    expect(logger.byLevel("error")).toHaveLength(1);
+    expect(dead.state.disposition).toBe("retry");
   });
 });

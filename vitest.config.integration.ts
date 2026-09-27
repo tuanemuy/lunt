@@ -36,6 +36,12 @@ export default defineConfig({
             maxBatchSize: 25,
             maxBatchTimeout: 0.05,
             maxRetries: 2,
+            deadLetterQueue: "lunt-events-dlq",
+          },
+          "lunt-events-dlq": {
+            maxBatchSize: 25,
+            maxBatchTimeout: 0.05,
+            maxRetries: 3,
           },
         },
         bindings: {

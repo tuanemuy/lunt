@@ -2,6 +2,10 @@ import { DurableObject } from "cloudflare:workers";
 import type { Queue } from "@cloudflare/workers-types";
 import { runOutboxAlarmTick } from "@repo/core/adapters/do/alarm";
 import {
+  type RedriveTarget,
+  redriveDeadLetters,
+} from "@repo/core/adapters/do/deadLetterRedrive";
+import {
   DoSqliteOutboxRepository,
   nextOutboxWakeUpAt,
   requeueParkedOutboxEvents,
@@ -11,10 +15,19 @@ import type {
   CommitResult,
 } from "@repo/core/adapters/do/protocol/client";
 import type {
+  DeadLetterInput,
+  DeadLetterRecord,
+  RedriveResult,
+} from "@repo/core/adapters/do/protocol/deadLetters";
+import type {
   QueryArgs,
   QueryName,
   QueryResult,
 } from "@repo/core/adapters/do/protocol/queries";
+import {
+  listPendingDeadLetters,
+  recordDeadLetter,
+} from "@repo/core/adapters/do/store/deadLetters";
 import { applyMigrations } from "@repo/core/adapters/do/store/schema";
 import {
   createStateStore,
@@ -57,6 +70,8 @@ export type LuntStateEnv = TuningEnv &
  *   message per subscribed consumer, then prunes; commit arms it
  *   whenever it stores events, and each tick re-arms while rows remain.
  * - **Receipts**: consumers check and record per-consumer receipts here.
+ * - **Dead letters**: messages that exhausted the queue's retries are kept
+ *   here, and re-driven to their consumers on an operator's request.
  */
 export class LuntStateObject extends DurableObject<LuntStateEnv> {
   private readonly store: StateStore;
@@ -97,6 +112,26 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
     await this.armAlarmAsap();
   }
 
+  async recordDeadLetter(input: DeadLetterInput): Promise<void> {
+    recordDeadLetter(this.ctx.storage.sql, input, SystemClock.now());
+  }
+
+  async listDeadLetters(limit: number): Promise<readonly DeadLetterRecord[]> {
+    return listPendingDeadLetters(this.ctx.storage.sql, limit);
+  }
+
+  async redriveDeadLetters(target: RedriveTarget): Promise<RedriveResult> {
+    return redriveDeadLetters(
+      {
+        sql: this.ctx.storage.sql,
+        decoders: this.relayRegistries().decoders,
+        sendBatch: (messages) => this.sendToEventsQueue(messages),
+        now: () => SystemClock.now(),
+      },
+      target,
+    );
+  }
+
   override async alarm(): Promise<void> {
     const sql = this.ctx.storage.sql;
     const relayTuning = readRelayTuning(this.env);
@@ -112,13 +147,8 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
       ),
     };
     const registries = this.relayRegistries();
-    const dispatch = createFanOutDispatcher(
-      registries.consumers,
-      async (messages) => {
-        await this.env.EVENTS_QUEUE.sendBatch(
-          messages.map((body) => ({ body })),
-        );
-      },
+    const dispatch = createFanOutDispatcher(registries.consumers, (messages) =>
+      this.sendToEventsQueue(messages),
     );
     await runOutboxAlarmTick({
       container,
@@ -142,6 +172,12 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
     consumers: ConsumerRegistry;
   }> {
     return { decoders: eventDecoders, consumers };
+  }
+
+  private async sendToEventsQueue(
+    messages: readonly EventMessage[],
+  ): Promise<void> {
+    await this.env.EVENTS_QUEUE.sendBatch(messages.map((body) => ({ body })));
   }
 
   private async armAlarmAsap(): Promise<void> {

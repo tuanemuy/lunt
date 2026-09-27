@@ -1,7 +1,14 @@
+import type { EventDecoderRegistry } from "@repo/core/application/events/registry";
 import type { Clock } from "@repo/core/application/ports/clock";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
-import { DoSqliteOutboxRepository } from "../outboxStore";
+import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
+import { redriveDeadLetters } from "../deadLetterRedrive";
+import {
+  DoSqliteOutboxRepository,
+  requeueParkedOutboxEvents,
+} from "../outboxStore";
 import type { LuntStateClient } from "../protocol/client";
+import { listPendingDeadLetters, recordDeadLetter } from "../store/deadLetters";
 import { applyMigrations } from "../store/schema";
 import { createStateStore, type StateStore } from "../store/stateStore";
 import { createNodeSqlStorage, type NodeSqlStorage } from "./nodeSqlStorage";
@@ -14,6 +21,8 @@ export type InProcessState = Readonly<{
   outboxRepository: DoSqliteOutboxRepository;
   /** How many times commits asked for the relay alarm. */
   relayRequests(): number;
+  /** Messages re-driven dead letters were sent back to the queue as. */
+  redriven: readonly EventMessage[];
 }>;
 
 /**
@@ -23,19 +32,31 @@ export type InProcessState = Readonly<{
  * a value that would not survive the wire fails here too.
  */
 export function createInProcessState(
-  deps: Readonly<{ clock: Clock; idGenerator: IdGenerator }>,
+  deps: Readonly<{
+    clock: Clock;
+    idGenerator: IdGenerator;
+    /** Decoders re-driven dead letters are decoded with. */
+    decoders?: EventDecoderRegistry;
+  }>,
 ): InProcessState {
   const storage = createNodeSqlStorage();
   applyMigrations(storage.sql, storage.transaction, deps.clock.now());
   const store = createStateStore(storage.sql, storage.transaction);
   let relayRequests = 0;
 
+  const redriven: EventMessage[] = [];
   const wire = <T>(value: T): T => structuredClone(value);
-  const call = async <T>(fn: () => T): Promise<T> => {
+  const call = async <T>(fn: () => T | Promise<T>): Promise<T> => {
     // Yield first: an RPC never completes synchronously, and callers
     // racing two scopes must be able to interleave between calls.
     await Promise.resolve();
-    return wire(fn());
+    try {
+      return wire(await fn());
+    } catch (error) {
+      // Workers RPC delivers a thrown error as a plain `Error`: its class
+      // does not survive the wire, so it must not survive here either.
+      throw new Error(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const client: LuntStateClient = {
@@ -54,8 +75,27 @@ export function createInProcessState(
       call(() => store.markConsumed(consumer, eventId, deps.clock.now())),
     kickRelay: () =>
       call(() => {
+        requeueParkedOutboxEvents(storage.sql);
         relayRequests += 1;
       }),
+    recordDeadLetter: (input) =>
+      call(() => recordDeadLetter(storage.sql, wire(input), deps.clock.now())),
+    listDeadLetters: (limit) =>
+      call(() => listPendingDeadLetters(storage.sql, limit)),
+    redriveDeadLetters: (target) =>
+      call(() =>
+        redriveDeadLetters(
+          {
+            sql: storage.sql,
+            decoders: deps.decoders ?? {},
+            sendBatch: async (messages) => {
+              redriven.push(...wire(messages));
+            },
+            now: () => deps.clock.now(),
+          },
+          wire(target),
+        ),
+      ),
   };
 
   return {
@@ -68,5 +108,6 @@ export function createInProcessState(
       deps.clock,
     ),
     relayRequests: () => relayRequests,
+    redriven,
   };
 }

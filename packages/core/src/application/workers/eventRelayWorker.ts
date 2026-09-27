@@ -105,12 +105,20 @@ const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1h ceiling
 const defaultBackoffMs = (attempts: number): number =>
   Math.min(2 ** Math.max(attempts - 1, 0) * 30_000, MAX_BACKOFF_MS);
 
-function decodeEntry(
-  entry: OutboxEntry,
+/**
+ * Rebuilds a typed domain event from its stored form (an outbox row, or a
+ * dead letter being re-driven). Throws when no decoder knows the type or
+ * the payload does not match it.
+ */
+export function decodeStoredEvent(
+  entry: Pick<
+    OutboxEntry,
+    "id" | "type" | "payload" | "occurredAt" | "aggregateId"
+  >,
   registry: EventDecoderRegistry,
 ): DomainEvent {
   // `entry.type` is `string` from the at-rest row; the typed registry is
-  // keyed on `AllDomainEvents["type"]`. Cast at this single lookup point so
+  // keyed on `LuntDomainEvent["type"]`. Cast at this single lookup point so
   // unknown row types fall through to the per-row failure path instead of
   // breaking the strict caller-facing type fence.
   const decoder = (
@@ -221,7 +229,7 @@ async function processOutboxBatch(
   const decoded: DecodedRow[] = [];
   for (const entry of entries) {
     try {
-      const event = decodeEntry(entry, registry);
+      const event = decodeStoredEvent(entry, registry);
       decoded.push({ id: event.id, entry, event });
     } catch (error) {
       logger.error(

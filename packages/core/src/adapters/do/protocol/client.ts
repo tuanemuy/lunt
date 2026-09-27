@@ -1,4 +1,10 @@
 import type { WriteCommand, WriteFailure } from "./commands";
+import type {
+  DeadLetterInput,
+  DeadLetterKey,
+  DeadLetterRecord,
+  RedriveResult,
+} from "./deadLetters";
 import type { QueryArgs, QueryName, QueryResult } from "./queries";
 
 /** Identity-attached domain event bound for the DO-local outbox. */
@@ -38,6 +44,19 @@ export interface LuntStateClient {
   commit(request: CommitRequest): Promise<CommitResult>;
   isConsumed(consumer: string, eventId: string): Promise<boolean>;
   markConsumed(consumer: string, eventId: string): Promise<void>;
-  /** Re-arm the outbox alarm — operator escape hatch after manual row edits. */
+  /** Operator escape hatch: requeue parked outbox rows and relay now. */
   kickRelay(): Promise<void>;
+  /** Dead-letter consumer: keep a message that exhausted its retries. */
+  recordDeadLetter(input: DeadLetterInput): Promise<void>;
+  /** Operator: dead letters not yet re-driven, oldest first. */
+  listDeadLetters(limit: number): Promise<readonly DeadLetterRecord[]>;
+  /**
+   * Operator: send dead letters back to their consumers through the events
+   * queue — the given ones, or up to `limit` of the oldest pending ones.
+   */
+  redriveDeadLetters(
+    target:
+      | Readonly<{ keys: readonly DeadLetterKey[] }>
+      | Readonly<{ limit: number }>,
+  ): Promise<RedriveResult>;
 }

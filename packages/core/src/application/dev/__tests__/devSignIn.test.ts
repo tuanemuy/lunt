@@ -20,7 +20,7 @@ function container(devTools: boolean): RequestContainer {
       defaultDescription: "",
       themeColor: "#fff",
     },
-    runtime: { devTools, sessionSecret: "x".repeat(32) },
+    runtime: { devTools, sessionSecret: "x".repeat(32), opsToken: null },
     unitOfWorkProvider: harness.uow,
   };
 }
