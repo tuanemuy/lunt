@@ -36,6 +36,11 @@ export type AccountQueries = {
     { digest: string },
     LoginChallengeRecord | null
   >;
+  /** Challenges of `email` with `now < expiresAt` (epoch ms), any status. */
+  "account.loginChallenge.countUnexpired": QuerySpec<
+    { email: string; now: number },
+    number
+  >;
 };
 
 export type AccountCommand =

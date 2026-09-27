@@ -17,6 +17,7 @@ export const TEST_SECRET_KEY = "test-login-secret-key-0000000000000000";
 export const TEST_LOGIN_SETTINGS = {
   challengeValidForMs: 15 * 60 * 1000,
   maxCodeAttempts: 3,
+  maxUnexpiredChallenges: 5,
 } as const;
 
 /**

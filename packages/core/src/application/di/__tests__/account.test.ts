@@ -8,6 +8,7 @@ import {
   createAccountServices,
   DEFAULT_LOGIN_CHALLENGE_TTL_MS,
   DEFAULT_LOGIN_MAX_CODE_ATTEMPTS,
+  DEFAULT_LOGIN_MAX_UNEXPIRED_CHALLENGES,
   readExternalIdpSettings,
   readLoginSettings,
 } from "../account";
@@ -41,16 +42,25 @@ describe("Account wiring", () => {
     expect(readLoginSettings({ APP_URL })).toEqual({
       challengeValidForMs: DEFAULT_LOGIN_CHALLENGE_TTL_MS,
       maxCodeAttempts: DEFAULT_LOGIN_MAX_CODE_ATTEMPTS,
+      maxUnexpiredChallenges: DEFAULT_LOGIN_MAX_UNEXPIRED_CHALLENGES,
     });
     expect(
       readLoginSettings({
         APP_URL,
         LOGIN_CHALLENGE_TTL_MS: "600000",
         LOGIN_MAX_CODE_ATTEMPTS: "3",
+        LOGIN_MAX_UNEXPIRED_CHALLENGES: "2",
       }),
-    ).toEqual({ challengeValidForMs: 600000, maxCodeAttempts: 3 });
+    ).toEqual({
+      challengeValidForMs: 600000,
+      maxCodeAttempts: 3,
+      maxUnexpiredChallenges: 2,
+    });
     expect(() =>
       readLoginSettings({ APP_URL, LOGIN_MAX_CODE_ATTEMPTS: "0" }),
+    ).toThrow();
+    expect(() =>
+      readLoginSettings({ APP_URL, LOGIN_MAX_UNEXPIRED_CHALLENGES: "0" }),
     ).toThrow();
   });
 

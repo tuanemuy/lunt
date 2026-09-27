@@ -187,6 +187,25 @@ function redeemByCode(
   };
 }
 
+/**
+ * Refuses a new challenge for an address that already has
+ * `maxUnexpiredChallenges` unexpired ones, whatever their state — so a code
+ * cannot be guessed by reissuing, nor an inbox flooded. The count is taken
+ * when the issue is judged; concurrent issues may overshoot it (a soft cap).
+ */
+function assertIssuable(
+  unexpiredCount: number,
+  maxUnexpiredChallenges: number,
+): void {
+  assertPositiveInteger(maxUnexpiredChallenges, "maxUnexpiredChallenges");
+  if (unexpiredCount >= maxUnexpiredChallenges) {
+    throw new BusinessRuleError(
+      AccountErrorCode.LoginRequestsExceeded,
+      "Too many login mails for this address",
+    );
+  }
+}
+
 /** Whether an issue request for an existing id is a resend of the same one. */
 function isReplayOf(existing: LoginChallenge, email: EmailAddress): boolean {
   return EmailAddress.equals(existing.email, email);
@@ -263,6 +282,7 @@ export const LoginChallenge = {
   issue,
   redeemByLink,
   redeemByCode,
+  assertIssuable,
   isReplayOf,
   reconstruct,
   snapshot,

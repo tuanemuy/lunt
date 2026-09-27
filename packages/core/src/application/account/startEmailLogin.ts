@@ -45,13 +45,18 @@ function judge(
  * Idempotent per `challengeId`: the same id and address again is a no-op
  * success (the mail already went out); the same id with another address
  * is `ConflictError`. The mail is sent between two units of work — a
- * read-only one that settles replays before sending, and a writing one
- * that re-checks the id and stores the challenge — so a failed send stores
- * nothing, and a challenge is stored only for a mail that was accepted.
+ * read-only one that settles replays and then the per-address cap before
+ * sending, and a writing one that re-checks the id and stores the
+ * challenge — so a failed send stores nothing, and a challenge is stored
+ * only for a mail that was accepted. A resend is judged before the cap, so
+ * it always succeeds.
  *
  * Errors: `BusinessRuleError` `COMMON_INVALID_EMAIL_ADDRESS` (nothing
- * sent); `ConflictError` `LOGIN_CHALLENGE_ID_CONFLICT`; `SystemError` from
- * the mail transport or the store.
+ * sent), `ACCOUNT_LOGIN_REQUESTS_EXCEEDED` (the address already has
+ * `maxUnexpiredChallenges` unexpired challenges; nothing sent, the same
+ * whether or not an account exists); `ConflictError`
+ * `LOGIN_CHALLENGE_ID_CONFLICT`; `SystemError` from the mail transport or
+ * the store.
  */
 export async function startEmailLogin({
   container,
@@ -61,10 +66,18 @@ export async function startEmailLogin({
   const id = LoginChallengeId.create(input.challengeId);
   const now = container.clock.now();
 
-  const found = await container.unitOfWorkProvider.run(
-    ({ loginChallengeRepository }) => loginChallengeRepository.findById(id),
+  const verdict = await container.unitOfWorkProvider.run(
+    async ({ loginChallengeRepository }) => {
+      const found = await loginChallengeRepository.findById(id);
+      if (judge(found, email) === "replay") return "replay";
+      LoginChallenge.assertIssuable(
+        await loginChallengeRepository.countUnexpired(email, now),
+        container.loginSettings.maxUnexpiredChallenges,
+      );
+      return "issue";
+    },
   );
-  if (judge(found, email) === "replay") return;
+  if (verdict === "replay") return;
 
   const secrets = container.loginSecretGenerator;
   const { linkToken, code } = await secrets.generate();

@@ -6,6 +6,7 @@ import {
 } from "@repo/core/domain/account/loginChallenge";
 import type { SecretDigest } from "@repo/core/domain/account/loginSecret";
 import type { LoginChallengeRepository } from "@repo/core/domain/account/ports/loginChallengeRepository";
+import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type {
   ExpectedVersion,
   Versioned,
@@ -85,6 +86,15 @@ export class DoLoginChallengeRepository implements LoginChallengeRepository {
       );
       return record === null ? null : this.toVersioned(record);
     });
+  }
+
+  countUnexpired(email: EmailAddress, now: Date): Promise<number> {
+    return mapDoError("Failed to count login challenges", () =>
+      this.client.query("account.loginChallenge.countUnexpired", {
+        email,
+        now: now.getTime(),
+      }),
+    );
   }
 
   async insert(challenge: LoginChallenge): Promise<void> {

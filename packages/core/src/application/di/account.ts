@@ -26,6 +26,8 @@ export type AccountEnv = MailEnv &
     LOGIN_CHALLENGE_TTL_MS?: string | undefined;
     /** Wrong codes that close a login challenge (default 5). */
     LOGIN_MAX_CODE_ATTEMPTS?: string | undefined;
+    /** Unexpired login mails an address may have at once (default 5). */
+    LOGIN_MAX_UNEXPIRED_CHALLENGES?: string | undefined;
   }>;
 
 /** The key the login screen and the callback route use for Google. */
@@ -33,6 +35,7 @@ export const GOOGLE_PROVIDER_KEY = ExternalProviderKey.create("google");
 
 export const DEFAULT_LOGIN_CHALLENGE_TTL_MS = 15 * 60 * 1000;
 export const DEFAULT_LOGIN_MAX_CODE_ATTEMPTS = 5;
+export const DEFAULT_LOGIN_MAX_UNEXPIRED_CHALLENGES = 5;
 
 const loginSettingsSchema = z.object({
   challengeValidForMs: z.coerce
@@ -45,12 +48,18 @@ const loginSettingsSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_LOGIN_MAX_CODE_ATTEMPTS),
+  maxUnexpiredChallenges: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_LOGIN_MAX_UNEXPIRED_CHALLENGES),
 });
 
 export function readLoginSettings(env: AccountEnv): LoginSettings {
   return loginSettingsSchema.parse({
     challengeValidForMs: env.LOGIN_CHALLENGE_TTL_MS,
     maxCodeAttempts: env.LOGIN_MAX_CODE_ATTEMPTS,
+    maxUnexpiredChallenges: env.LOGIN_MAX_UNEXPIRED_CHALLENGES,
   });
 }
 

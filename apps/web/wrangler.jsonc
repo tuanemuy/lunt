@@ -45,10 +45,12 @@
     "MAIL_TRANSPORT": "devInbox",
     "MAIL_FROM": "Lunt <no-reply@lunt.example>",
     "EXTERNAL_IDP": "fake",
-    // Login link and code lifetime (15 minutes) and the wrong codes that
-    // close a login challenge.
+    // Login link and code lifetime (15 minutes), the wrong codes that
+    // close a login challenge, and the unexpired login mails one address
+    // may have at once.
     "LOGIN_CHALLENGE_TTL_MS": "900000",
-    "LOGIN_MAX_CODE_ATTEMPTS": "5"
+    "LOGIN_MAX_CODE_ATTEMPTS": "5",
+    "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5"
   },
   "durable_objects": {
     "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]

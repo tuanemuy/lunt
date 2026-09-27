@@ -7,9 +7,19 @@ import { startEmailLogin } from "../startEmailLogin";
 import {
   createLoginTestContext,
   expectBusinessCode,
+  MAX_CODE_ATTEMPTS,
   VALID_FOR_MS,
+  wrongCode,
 } from "./loginFixtures";
-import { TEST_APP_URL } from "./testServices";
+import { TEST_APP_URL, TEST_LOGIN_SETTINGS } from "./testServices";
+
+/** A login test context with `maxUnexpiredChallenges` = 3. */
+const capped = () =>
+  createLoginTestContext({
+    overrides: () => ({
+      loginSettings: { ...TEST_LOGIN_SETTINGS, maxUnexpiredChallenges: 3 },
+    }),
+  });
 
 const EMAIL = "hanako@example.com";
 
@@ -161,6 +171,79 @@ describe("startEmailLogin", () => {
     expect(await t.challenge(first.challengeId)).toEqual(firstBefore);
     const account = await t.byCode(first.challengeId, first.code);
     expect(account.email).toBe(EMAIL);
+  });
+
+  it("startEmailLogin#8 maxUnexpiredChallenges = 3。あるメールアドレスに、有効期間を過ぎていないログインの確認が3件ある（pending・redeemed・exhausted を1件ずつ） / 同じメールアドレスと、新しい LoginChallengeId で実行する", async () => {
+    const t = capped();
+    await t.start(EMAIL);
+    const redeemed = await t.start(EMAIL);
+    await t.byLink(redeemed.linkToken);
+    const exhausted = await t.start(EMAIL);
+    for (let i = 0; i < MAX_CODE_ATTEMPTS; i++) {
+      await t
+        .byCode(exhausted.challengeId, wrongCode(exhausted.code))
+        .catch(() => {});
+    }
+    expect((await t.challenge(exhausted.challengeId))?.entity.status).toBe(
+      "exhausted",
+    );
+    const mailsBefore = t.transport.sent.length;
+    const challengeId = t.newChallengeId();
+    await expectBusinessCode(
+      startEmailLogin({
+        container: t.container,
+        input: { challengeId, email: EMAIL },
+      }),
+      "ACCOUNT_LOGIN_REQUESTS_EXCEEDED",
+    );
+    expect(t.transport.sent).toHaveLength(mailsBefore);
+    expect(await t.challenge(challengeId)).toBeNull();
+  });
+
+  it("startEmailLogin#9 maxUnexpiredChallenges = 3。あるメールアドレスに、有効期間を過ぎていないログインの確認が2件と、有効期間を過ぎたログインの確認が1件ある / 同じメールアドレスと、新しい LoginChallengeId で実行する", async () => {
+    const t = capped();
+    await t.start(EMAIL);
+    t.clock.advance(VALID_FOR_MS);
+    await t.start(EMAIL);
+    await t.start(EMAIL);
+    const issued = await t.start(EMAIL);
+    expect(t.transport.sentTo(EMAIL)).toHaveLength(4);
+    expect((await t.challenge(issued.challengeId))?.entity.status).toBe(
+      "pending",
+    );
+  });
+
+  it("startEmailLogin#10 maxUnexpiredChallenges = 3。あるメールアドレスに、有効期間を過ぎていないログインの確認が3件あり、そのうち1件は LoginChallengeId X / X・同じメールアドレスで送り直す", async () => {
+    const t = capped();
+    await t.start(EMAIL);
+    const X = await t.start(EMAIL);
+    await t.start(EMAIL);
+    const before = await t.challenge(X.challengeId);
+    await expect(
+      startEmailLogin({
+        container: t.container,
+        input: { challengeId: X.challengeId, email: EMAIL },
+      }),
+    ).resolves.toBeUndefined();
+    expect(t.transport.sentTo(EMAIL)).toHaveLength(3);
+    expect(await t.challenge(X.challengeId)).toEqual(before);
+  });
+
+  it("startEmailLogin#11 maxUnexpiredChallenges = 3。メールアドレス A に有効期間を過ぎていないログインの確認が3件ある / 別のメールアドレス B と、新しい LoginChallengeId で実行する", async () => {
+    const t = capped();
+    for (let i = 0; i < 3; i++) await t.start("a@example.com");
+    const issued = await t.start("b@example.com");
+    expect(t.transport.sentTo("b@example.com")).toHaveLength(1);
+    expect((await t.challenge(issued.challengeId))?.entity.status).toBe(
+      "pending",
+    );
+  });
+
+  it("answers the cap the same whether or not the address has an account", async () => {
+    const t = capped();
+    await t.register(EMAIL);
+    for (let i = 0; i < 3; i++) await t.start(EMAIL);
+    await expectBusinessCode(t.start(EMAIL), "ACCOUNT_LOGIN_REQUESTS_EXCEEDED");
   });
 
   it("succeeds without writing when a concurrent resend of the same request commits between its re-read and its commit", async () => {

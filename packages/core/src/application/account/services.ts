@@ -10,6 +10,11 @@ export type LoginSettings = Readonly<{
   challengeValidForMs: number;
   /** Wrong codes that close a login challenge (`maxCodeAttempts`, I-18). */
   maxCodeAttempts: number;
+  /**
+   * Unexpired challenges (any status) an address may have before a new
+   * login mail is refused (`maxUnexpiredChallenges`).
+   */
+  maxUnexpiredChallenges: number;
 }>;
 
 /**

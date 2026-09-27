@@ -8,6 +8,8 @@ export const AccountErrorCode = {
   LoginChallengeInvalid: "ACCOUNT_LOGIN_CHALLENGE_INVALID",
   /** Wrong code below the attempt limit; the user may enter it again. */
   LoginCodeMismatch: "ACCOUNT_LOGIN_CODE_MISMATCH",
+  /** The address already has `maxUnexpiredChallenges` unexpired challenges. */
+  LoginRequestsExceeded: "ACCOUNT_LOGIN_REQUESTS_EXCEEDED",
   InvalidLoginSecret: "ACCOUNT_INVALID_LOGIN_SECRET",
   InvalidExternalProviderKey: "ACCOUNT_INVALID_EXTERNAL_PROVIDER_KEY",
   UnknownExternalProvider: "ACCOUNT_UNKNOWN_EXTERNAL_PROVIDER",

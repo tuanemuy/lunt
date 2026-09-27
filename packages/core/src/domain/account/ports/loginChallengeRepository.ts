@@ -1,3 +1,4 @@
+import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type {
   TransactionalRepository,
   Versioned,
@@ -13,6 +14,8 @@ import type { SecretDigest } from "../loginSecret";
  *   taken — the port guarantees both are unique.
  * - `findById` / `findByLinkTokenDigest`: any stored challenge, whatever
  *   its status or expiry; `LoginChallenge` decides usability.
+ * - `countUnexpired`: how many of `email`'s challenges have
+ *   `now < expiresAt`, in any status; deleted ones do not count.
  * - `save`: optimistic lock (`ConflictError`); `NotFoundError` when the
  *   challenge is gone, including after `deleteClosedBefore`.
  * - `deleteClosedBefore`: removes every `redeemed` / `exhausted`
@@ -27,5 +30,6 @@ export interface LoginChallengeRepository
   findByLinkTokenDigest(
     digest: SecretDigest,
   ): Promise<Versioned<LoginChallenge> | null>;
+  countUnexpired(email: EmailAddress, now: Date): Promise<number>;
   deleteClosedBefore(threshold: Date): Promise<void>;
 }

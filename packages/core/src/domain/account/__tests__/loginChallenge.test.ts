@@ -135,6 +135,21 @@ describe("LoginChallenge", () => {
     );
   });
 
+  it("assertIssuable refuses once the unexpired count reaches the cap", () => {
+    expect(() => LoginChallenge.assertIssuable(0, 3)).not.toThrow();
+    expect(() => LoginChallenge.assertIssuable(2, 3)).not.toThrow();
+    for (const count of [3, 4]) {
+      expectBusinessError(
+        () => LoginChallenge.assertIssuable(count, 3),
+        "ACCOUNT_LOGIN_REQUESTS_EXCEEDED",
+      );
+    }
+    expectBusinessError(
+      () => LoginChallenge.assertIssuable(0, 0),
+      "COMMON_INVALID_INPUT",
+    );
+  });
+
   it("isReplayOf compares the address", () => {
     expect(
       LoginChallenge.isReplayOf(issue(), EmailAddress.create("A@example.com")),

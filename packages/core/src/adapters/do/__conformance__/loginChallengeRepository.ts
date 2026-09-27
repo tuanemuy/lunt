@@ -243,8 +243,71 @@ export function describeLoginChallengeRepositoryContract(
       });
     });
 
+    describe("countUnexpired", () => {
+      const E = "e@example.com";
+      const F = "f@example.com";
+      const later = new Date(T.getTime() + MINUTE);
+      const count = (h: ConformanceHarness, email: string, now: Date) =>
+        h.uow.run(({ loginChallengeRepository }) =>
+          loginChallengeRepository.countUnexpired(
+            EmailAddress.create(email),
+            now,
+          ),
+        );
+
+      it("loginChallengeRepository#11 空 / countUnexpired(E, now)", async () => {
+        const h = await makeHarness();
+        expect(await count(h, E, T)).toBe(0);
+      });
+
+      it("loginChallengeRepository#12 email が E で expiresAt が now より後のログインの確認が、pending・redeemed・exhausted で1件ずつ / countUnexpired(E, now)", async () => {
+        const h = await makeHarness();
+        const next = challengeFactory();
+        await insert(h, next({ email: E, expiresAt: later }));
+        await store(h, next({ email: E, expiresAt: later }), redeemedByLink);
+        await store(h, next({ email: E, expiresAt: later }), exhausted);
+        expect(await count(h, E, T)).toBe(3);
+      });
+
+      it("loginChallengeRepository#13 email が E で expiresAt が now と等しいログインの確認が1件、now より前のものが1件 / countUnexpired(E, now)", async () => {
+        const h = await makeHarness();
+        const next = challengeFactory();
+        await insert(
+          h,
+          next({ email: E, expiresAt: T }),
+          next({ email: E, expiresAt: new Date(T.getTime() - 1) }),
+        );
+        expect(await count(h, E, T)).toBe(0);
+      });
+
+      it("loginChallengeRepository#14 email が E のものが1件、F のものが2件（どれも expiresAt が now より後） / countUnexpired(E, now)", async () => {
+        const h = await makeHarness();
+        const next = challengeFactory();
+        await insert(
+          h,
+          next({ email: E, expiresAt: later }),
+          next({ email: F, expiresAt: later }),
+          next({ email: F, expiresAt: later }),
+        );
+        expect(await count(h, E, T)).toBe(1);
+        expect(await count(h, F, T)).toBe(2);
+      });
+
+      it("loginChallengeRepository#15 email が E の redeemed のログインの確認が1件（expiresAt が now より後）で、deleteClosedBefore(now) を実行した後 / countUnexpired(E, now)", async () => {
+        const h = await makeHarness();
+        await store(
+          h,
+          challengeFactory()({ email: E, expiresAt: later }),
+          redeemedByLink,
+        );
+        expect(await count(h, E, T)).toBe(1);
+        await deleteClosedBefore(h, T);
+        expect(await count(h, E, T)).toBe(0);
+      });
+    });
+
     describe("save", () => {
-      it("loginChallengeRepository#11 insert(C1) 済み。findById で expectedVersion を得ている / 誤入力を1回数えた C1（pending、failedCodeAttempts: 1）を save し、findById", async () => {
+      it("loginChallengeRepository#16 insert(C1) 済み。findById で expectedVersion を得ている / 誤入力を1回数えた C1（pending、failedCodeAttempts: 1）を save し、findById", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await insert(h, C1);
@@ -260,7 +323,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(after.expectedVersion).not.toBe(v.expectedVersion);
       });
 
-      it("loginChallengeRepository#12 insert(C1) 済み / リンクで使用した C1（redeemed）を save し、findById", async () => {
+      it("loginChallengeRepository#17 insert(C1) 済み / リンクで使用した C1（redeemed）を save し、findById", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         const redeemed = await store(h, C1, redeemedByLink);
@@ -269,7 +332,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(found.entity.status).toBe("redeemed");
       });
 
-      it("loginChallengeRepository#13 insert(C1) 済み / exhausted にした C1 を save し、findById", async () => {
+      it("loginChallengeRepository#18 insert(C1) 済み / exhausted にした C1 を save し、findById", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         const closed = await store(h, C1, exhausted);
@@ -278,7 +341,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(found.entity.status).toBe("exhausted");
       });
 
-      it("loginChallengeRepository#14 insert(C1) 済み。expectedVersion V を得た後、別の save が成功している / V で save", async () => {
+      it("loginChallengeRepository#19 insert(C1) 済み。expectedVersion V を得た後、別の save が成功している / V で save", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await insert(h, C1);
@@ -291,7 +354,7 @@ export function describeLoginChallengeRepositoryContract(
         expect((await get(h, C1)).entity).toEqual(first);
       });
 
-      it("loginChallengeRepository#15 insert(C1) 済み / 同じ expectedVersion で、リンクで使用した C1 の save と、コードで使用した C1 の save を、別々の UnitOfWork で同時に実行する", async () => {
+      it("loginChallengeRepository#20 insert(C1) 済み / 同じ expectedVersion で、リンクで使用した C1 の save と、コードで使用した C1 の save を、別々の UnitOfWork で同時に実行する", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await insert(h, C1);
@@ -318,7 +381,7 @@ export function describeLoginChallengeRepositoryContract(
         expect((await get(h, C1)).entity.status).toBe("redeemed");
       });
 
-      it("loginChallengeRepository#16 insert(C1) 済み / 同じ expectedVersion で、誤入力を1回数えた C1 の save を、別々の UnitOfWork で同時に2つ実行する", async () => {
+      it("loginChallengeRepository#21 insert(C1) 済み / 同じ expectedVersion で、誤入力を1回数えた C1 の save を、別々の UnitOfWork で同時に2つ実行する", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await insert(h, C1);
@@ -345,7 +408,7 @@ export function describeLoginChallengeRepositoryContract(
         });
       });
 
-      it("loginChallengeRepository#17 空 / save(C1, expectedVersion)", async () => {
+      it("loginChallengeRepository#22 空 / save(C1, expectedVersion)", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await expect(
@@ -355,12 +418,12 @@ export function describeLoginChallengeRepositoryContract(
     });
 
     describe("deleteClosedBefore", () => {
-      it("loginChallengeRepository#18 空 / deleteClosedBefore(T)", async () => {
+      it("loginChallengeRepository#23 空 / deleteClosedBefore(T)", async () => {
         const h = await makeHarness();
         await expect(deleteClosedBefore(h, T)).resolves.toBeUndefined();
       });
 
-      it("loginChallengeRepository#19 pending で expiresAt が T より後のログインの確認が1件 / deleteClosedBefore(T)", async () => {
+      it("loginChallengeRepository#24 pending で expiresAt が T より後のログインの確認が1件 / deleteClosedBefore(T)", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()({ expiresAt: new Date(T.getTime() + 1) });
         await insert(h, C1);
@@ -368,7 +431,7 @@ export function describeLoginChallengeRepositoryContract(
         expect((await findById(h, C1))?.entity).toEqual(C1);
       });
 
-      it("loginChallengeRepository#20 pending で expiresAt が T より前のログインの確認が1件 / deleteClosedBefore(T)", async () => {
+      it("loginChallengeRepository#25 pending で expiresAt が T より前のログインの確認が1件 / deleteClosedBefore(T)", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()({ expiresAt: new Date(T.getTime() - 1) });
         await insert(h, C1);
@@ -377,7 +440,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(await findByLink(h, C1.linkTokenDigest)).toBeNull();
       });
 
-      it("loginChallengeRepository#21 pending で expiresAt が T と等しいログインの確認が1件 / deleteClosedBefore(T)", async () => {
+      it("loginChallengeRepository#26 pending で expiresAt が T と等しいログインの確認が1件 / deleteClosedBefore(T)", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()({ expiresAt: T });
         await insert(h, C1);
@@ -385,7 +448,7 @@ export function describeLoginChallengeRepositoryContract(
         expect((await findById(h, C1))?.entity).toEqual(C1);
       });
 
-      it("loginChallengeRepository#22 redeemed で expiresAt が T より後、exhausted で expiresAt が T より後のログインの確認が1件ずつ / deleteClosedBefore(T)", async () => {
+      it("loginChallengeRepository#27 redeemed で expiresAt が T より後、exhausted で expiresAt が T より後のログインの確認が1件ずつ / deleteClosedBefore(T)", async () => {
         const h = await makeHarness();
         const next = challengeFactory();
         const later = new Date(T.getTime() + 60 * MINUTE);
@@ -398,7 +461,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(await findById(h, C2)).toBeNull();
       });
 
-      it("loginChallengeRepository#23 redeemed、exhausted、期限切れの pending、有効期間内の pending が1件ずつ / deleteClosedBefore(T) を2回続けて呼ぶ", async () => {
+      it("loginChallengeRepository#28 redeemed、exhausted、期限切れの pending、有効期間内の pending が1件ずつ / deleteClosedBefore(T) を2回続けて呼ぶ", async () => {
         const h = await makeHarness();
         const next = challengeFactory();
         const redeemed = next();
@@ -422,7 +485,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(await remaining()).toEqual([usable]);
       });
 
-      it("loginChallengeRepository#24 redeemed の C1 がある。findById で expectedVersion V を得ている / deleteClosedBefore(T) の後、V で save(C1, V)", async () => {
+      it("loginChallengeRepository#29 redeemed の C1 がある。findById で expectedVersion V を得ている / deleteClosedBefore(T) の後、V で save(C1, V)", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await store(h, C1, redeemedByLink);
@@ -436,7 +499,7 @@ export function describeLoginChallengeRepositoryContract(
     });
 
     describe("可視性と UnitOfWork", () => {
-      it("loginChallengeRepository#25 insert(C1) 済み / UnitOfWork の中で、使用した C1 を save してコミットし、直後に別の UnitOfWork で findById・findByLinkTokenDigest", async () => {
+      it("loginChallengeRepository#30 insert(C1) 済み / UnitOfWork の中で、使用した C1 を save してコミットし、直後に別の UnitOfWork で findById・findByLinkTokenDigest", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         const redeemed = await store(h, C1, redeemedByLink);
@@ -453,7 +516,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(byLink?.entity).toEqual(redeemed);
       });
 
-      it("loginChallengeRepository#26 insert(C1) 済み / UnitOfWork の中で、使用した C1 を save し、fn が例外を投げる", async () => {
+      it("loginChallengeRepository#31 insert(C1) 済み / UnitOfWork の中で、使用した C1 を save し、fn が例外を投げる", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         await insert(h, C1);
@@ -471,7 +534,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(await get(h, C1)).toEqual(v);
       });
 
-      it("loginChallengeRepository#27 空 / UnitOfWork の中で insert(C1) と insert(C2) を行い、fn が例外を投げる", async () => {
+      it("loginChallengeRepository#32 空 / UnitOfWork の中で insert(C1) と insert(C2) を行い、fn が例外を投げる", async () => {
         const h = await makeHarness();
         const next = challengeFactory();
         const [C1, C2] = [next(), next()];
@@ -487,7 +550,7 @@ export function describeLoginChallengeRepositoryContract(
         expect(await findById(h, C2)).toBeNull();
       });
 
-      it("loginChallengeRepository#28 redeemed の C1 がある / UnitOfWork の中で deleteClosedBefore(T) を行い、fn が例外を投げる", async () => {
+      it("loginChallengeRepository#33 redeemed の C1 がある / UnitOfWork の中で deleteClosedBefore(T) を行い、fn が例外を投げる", async () => {
         const h = await makeHarness();
         const C1 = challengeFactory()();
         const redeemed = await store(h, C1, redeemedByLink);
@@ -501,7 +564,7 @@ export function describeLoginChallengeRepositoryContract(
         expect((await findById(h, C1))?.entity).toEqual(redeemed);
       });
 
-      it("loginChallengeRepository#29 insert(C1) 済み / UnitOfWork の中で、insert(C2) と、古い expectedVersion での C1 の save を行う", async () => {
+      it("loginChallengeRepository#34 insert(C1) 済み / UnitOfWork の中で、insert(C2) と、古い expectedVersion での C1 の save を行う", async () => {
         const h = await makeHarness();
         const next = challengeFactory();
         const [C1, C2] = [next(), next()];

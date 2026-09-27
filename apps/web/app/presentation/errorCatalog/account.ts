@@ -16,6 +16,9 @@ export const accountErrorCatalog = {
   [AccountErrorCode.LoginCodeMismatch]: invalid(
     "コードが正しくありません。メールに届いたコードを入力し直してください",
   ),
+  [AccountErrorCode.LoginRequestsExceeded]: changed(
+    "このメールアドレスへのログイン用メールが上限に達したため、送りませんでした。届いているメールのリンクかコードを使うか、しばらく時間をおいてから送り直してください",
+  ),
   [AccountErrorCode.InvalidLoginSecret]: invalid(
     "メールに届いたコードを入力してください",
   ),

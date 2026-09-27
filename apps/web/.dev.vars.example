@@ -26,3 +26,8 @@
 # EXTERNAL_IDP="google"
 # GOOGLE_CLIENT_ID="1234567890-abc.apps.googleusercontent.com"
 # GOOGLE_CLIENT_SECRET="secret"
+#
+# Login mail cap: unexpired login mails one address may have at once
+# (default 5; set in wrangler.jsonc vars). Lower it to try MY-02's
+# 「送信の上限」 state quickly.
+# LOGIN_MAX_UNEXPIRED_CHALLENGES="2"

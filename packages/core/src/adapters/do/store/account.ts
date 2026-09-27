@@ -160,6 +160,19 @@ export const accountQueryHandlers: QueryHandlersOf<AccountQueries> = {
       .toArray()[0];
     return row ? toChallengeRecord(row) : null;
   },
+  // Served by the `expires_at` index: only unexpired rows are scanned, and
+  // the daily purge keeps those to a few minutes' worth of logins.
+  "account.loginChallenge.countUnexpired": (sql, { email, now }) =>
+    Number(
+      sql
+        .exec<{ n: number } & SqlRow>(
+          `SELECT COUNT(*) AS n FROM login_challenges
+             WHERE expires_at > ? AND email = ?`,
+          now,
+          email,
+        )
+        .toArray()[0]?.n ?? 0,
+    ),
 };
 
 export const accountCommandHandlers: CommandHandlersOf<AccountCommand> = {
