@@ -113,6 +113,7 @@ export function LoginFlow(props: LoginFlowProps) {
           challengeId={step.challengeId}
           next={props.next}
           devTools={props.devTools}
+          providers={props.providers}
           onRestart={() =>
             setStep({ kind: "input", email: step.email, focus: true })
           }
@@ -383,6 +384,7 @@ function CodeStep({
   challengeId,
   next,
   devTools,
+  providers,
   onRestart,
   onInvalid,
   onSuccess,
@@ -391,6 +393,7 @@ function CodeStep({
   challengeId: string;
   next: string | undefined;
   devTools: boolean;
+  providers: readonly string[];
   onRestart: () => void;
   onInvalid: () => void;
   onSuccess: () => void;
@@ -494,9 +497,20 @@ function CodeStep({
         <TextButton onClick={onRestart}>
           メールアドレスを確かめて送り直す
         </TextButton>
-        <TextButton onClick={onRestart}>
-          外部アカウントでログインする
-        </TextButton>
+        {providers.length === 1 && providers[0] !== undefined ? (
+          // One provider: switching goes straight to it (TC-ACC-053);
+          // with several, the input state offers the choice.
+          <a
+            className="text-button"
+            href={externalLoginHref(providers[0], next)}
+          >
+            外部アカウントでログインする
+          </a>
+        ) : providers.length > 1 ? (
+          <TextButton onClick={onRestart}>
+            外部アカウントでログインする
+          </TextButton>
+        ) : null}
         {devTools ? (
           <a
             className="text-button"
