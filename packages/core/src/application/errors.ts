@@ -127,9 +127,11 @@ export function isForbiddenError(error: unknown): error is ForbiddenError {
  * can route them differently — a flood of `DataIntegrityError` means a
  * migration is broken, not the DB itself.
  *
- * `NetworkError` / `ExternalApiError` are template-only placeholders showing
- * the extension shape — no code throws them today. Delete them when you add
- * your first external adapter, or keep as reference.
+ * `NetworkError` is "the external service could not be reached" (a failed
+ * request); `ExternalApiError` is "it answered with a failure or something
+ * unusable" (an outage, a 5xx, an unparsable response). The external
+ * adapters throw them — the SMTP transport and the OpenID Connect provider —
+ * and both are retryable.
  */
 export const SystemErrorCode = {
   DatabaseError: "DATABASE_ERROR",

@@ -2,6 +2,7 @@ import { readLoginMail } from "@repo/core/adapters/login/mailLoginMailSender";
 import { LinkToken, LoginCode } from "@repo/core/domain/account/loginSecret";
 import { describe, expect, it } from "vitest";
 import { ConflictError } from "../../errors";
+import type { UnitOfWorkProvider } from "../../execution/unitOfWork";
 import { startEmailLogin } from "../startEmailLogin";
 import {
   createLoginTestContext,
@@ -160,6 +161,82 @@ describe("startEmailLogin", () => {
     expect(await t.challenge(first.challengeId)).toEqual(firstBefore);
     const account = await t.byCode(first.challengeId, first.code);
     expect(account.email).toBe(EMAIL);
+  });
+
+  it("succeeds without writing when a concurrent resend of the same request commits between its re-read and its commit", async () => {
+    const t = createLoginTestContext();
+    const challengeId = t.newChallengeId();
+    const inner = t.container.unitOfWorkProvider;
+    let runs = 0;
+    // X's second (writing) run has re-read nothing and buffered its insert;
+    // Y runs to completion before X commits.
+    const racing: UnitOfWorkProvider = {
+      run: (fn) => {
+        runs += 1;
+        const mine = runs;
+        return inner.run(async (ctx) => {
+          const result = await fn(ctx);
+          if (mine === 2) {
+            await startEmailLogin({
+              container: t.container,
+              input: { challengeId, email: EMAIL },
+            });
+          }
+          return result;
+        });
+      },
+    };
+    await expect(
+      startEmailLogin({
+        container: { ...t.container, unitOfWorkProvider: racing },
+        input: { challengeId, email: EMAIL },
+      }),
+    ).resolves.toBeUndefined();
+    const [xMail, yMail] = t.transport.sentTo(EMAIL);
+    expect(t.transport.sent).toHaveLength(2);
+    const stored = await t.challenge(challengeId);
+    const digest = (text: string) =>
+      t.container.loginSecretGenerator.digest(
+        LinkToken.create(readLoginMail(text, TEST_APP_URL).linkToken ?? ""),
+      );
+    expect(stored?.entity.linkTokenDigest).toBe(
+      await digest(yMail?.text ?? ""),
+    );
+    expect(stored?.entity.linkTokenDigest).not.toBe(
+      await digest(xMail?.text ?? ""),
+    );
+  });
+
+  it("still answers ConflictError when the concurrent request used another address", async () => {
+    const t = createLoginTestContext();
+    const challengeId = t.newChallengeId();
+    const inner = t.container.unitOfWorkProvider;
+    let runs = 0;
+    const racing: UnitOfWorkProvider = {
+      run: (fn) => {
+        runs += 1;
+        const mine = runs;
+        return inner.run(async (ctx) => {
+          const result = await fn(ctx);
+          if (mine === 2) {
+            await startEmailLogin({
+              container: t.container,
+              input: { challengeId, email: "taro@example.com" },
+            });
+          }
+          return result;
+        });
+      },
+    };
+    await expect(
+      startEmailLogin({
+        container: { ...t.container, unitOfWorkProvider: racing },
+        input: { challengeId, email: EMAIL },
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect((await t.challenge(challengeId))?.entity.email).toBe(
+      "taro@example.com",
+    );
   });
 
   it("stores nothing when the mail cannot be sent", async () => {

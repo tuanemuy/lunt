@@ -4,7 +4,7 @@ import {
   type PendingExternalLogin,
 } from "@repo/core/application/account/externalLogin";
 import { ExternalProviderKey } from "@repo/core/domain/account/externalIdentity";
-import { describe } from "vitest";
+import { describe, expect } from "vitest";
 import { describeExternalIdentityVerifierContract } from "../__conformance__/externalIdentityVerifier";
 import { FakeIdpProvider } from "../fakeIdp";
 import { GoogleOidcProvider } from "../googleOidc";
@@ -63,14 +63,33 @@ describeExternalIdentityVerifierContract(
           proof({ kind: "unverified", email: "unverified@example.com" }),
         cancelled: () => proof({ kind: "cancel" }),
         invalid: async () => {
+          // Each proof below differs from `valid` in one respect only, and
+          // `valid` itself verifies, so every check must hold on its own.
           const valid = await proof({
             kind: "verified",
             email: "a@example.com",
           });
+          expect(await verifier.verify(PROVIDER, valid)).toMatchObject({
+            outcome: "verified",
+          });
+          const decoded = ExternalLoginProof.decode(valid);
+          if (decoded === null) throw new Error("not a proof");
+          const alter = (change: Partial<typeof decoded>) =>
+            ExternalLoginProof.encode(
+              { ...decoded, ...change },
+              change.callbackQuery ?? decoded.callbackQuery,
+            );
           const tampered = withCode(valid, (code) => {
             const [body = "", signature = ""] = code.split(".");
             const flipped = signature.startsWith("A") ? "B" : "A";
             return `${body}.${flipped}${signature.slice(1)}`;
+          });
+          const expired = await fakeIdpProof({
+            starter: verifier,
+            provider: PROVIDER,
+            secret: SECRET,
+            now: new Date(clock.now().getTime() - 10 * 60 * 1000),
+            choice: { kind: "verified", email: "a@example.com" },
           });
           const foreign = await fakeIdpProof({
             starter: providers("another-server-secret-00000000000000"),
@@ -79,20 +98,22 @@ describeExternalIdentityVerifierContract(
             now: clock.now(),
             choice: { kind: "verified", email: "a@example.com" },
           });
-          const replayedElsewhere = (() => {
-            const decoded = ExternalLoginProof.decode(valid);
-            if (decoded === null) throw new Error("not a proof");
-            return ExternalLoginProof.encode(
-              { ...decoded, nonce: "another-attempt-nonce" },
-              decoded.callbackQuery,
-            );
-          })();
-          const expired = await proof({
-            kind: "verified",
-            email: "a@example.com",
+          const otherNonce = alter({ nonce: "another-attempt-nonce" });
+          const otherVerifier = alter({ codeVerifier: "v".repeat(43) });
+          const otherRedirect = alter({
+            redirectUri: "http://localhost:3000/elsewhere/callback",
           });
-          clock.advance(10 * 60 * 1000);
-          return [tampered, foreign, replayedElsewhere, expired, "not-a-proof"];
+          const otherState = alter({ state: "another-attempt-state" });
+          return [
+            tampered,
+            expired,
+            foreign,
+            otherNonce,
+            otherVerifier,
+            otherRedirect,
+            otherState,
+            "not-a-proof",
+          ];
         },
       },
     };

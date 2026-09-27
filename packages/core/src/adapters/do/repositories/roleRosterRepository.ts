@@ -113,6 +113,13 @@ export class DoRoleRosterRepository implements RoleRosterRepository {
       const roles = await this.client.query("authority.findRolesOf", {
         accountId,
       });
+      const unknown = roles.find((role) => !Role.is(role));
+      if (unknown !== undefined) {
+        throw new SystemError(
+          SystemErrorCode.DataIntegrityError,
+          `Stored role holder has unknown role: ${unknown}`,
+        );
+      }
       return new Set(roles.filter(Role.is));
     });
   }

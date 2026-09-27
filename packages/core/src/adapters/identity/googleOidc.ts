@@ -15,12 +15,19 @@ export type GoogleOidcSettings = Readonly<{
   clientSecret: string;
 }>;
 
+/** The HTTP client oauth4webapi uses; injectable for tests. */
+export type OidcFetch = (
+  url: string,
+  init: oauth.CustomFetchOptions<string, unknown>,
+) => Promise<Response>;
+
 // Discovery is fetched once per isolate; a failed fetch is forgotten so
 // the next login tries again.
 const discovery = new Map<string, Promise<oauth.AuthorizationServer>>();
 
 async function authorizationServer(
   issuer: URL,
+  fetchOptions: Readonly<{ [oauth.customFetch]?: OidcFetch }>,
 ): Promise<oauth.AuthorizationServer> {
   const cached = discovery.get(issuer.href);
   if (cached !== undefined) return cached;
@@ -28,6 +35,7 @@ async function authorizationServer(
     try {
       const response = await oauth.discoveryRequest(issuer, {
         algorithm: "oidc",
+        ...fetchOptions,
       });
       return await oauth.processDiscoveryResponse(issuer, response);
     } catch (error) {
@@ -45,12 +53,20 @@ async function authorizationServer(
 
 const NOT_AUTHENTICATED: ExternalIdentity = { outcome: "not_authenticated" };
 
+// Authorization-response errors (RFC 6749 §4.1.2.1) that report the
+// provider's own failure, not the person's or the proof's: an outage is a
+// `SystemError`, never `not_authenticated`.
+const PROVIDER_FAILURES: ReadonlySet<string> = new Set([
+  "server_error",
+  "temporarily_unavailable",
+]);
+
 // Token-endpoint answers that mean "this proof is not valid" — an expired,
 // reused or foreign code, or an ID token whose claims do not match the
 // attempt — as opposed to an outage or a misconfiguration.
 function isInvalidProof(error: unknown): boolean {
   if (error instanceof oauth.ResponseBodyError) {
-    return error.error === "invalid_grant";
+    return error.status < 500 && error.error === "invalid_grant";
   }
   if (error instanceof oauth.OperationProcessingError) {
     return (
@@ -74,20 +90,25 @@ function isInvalidProof(error: unknown): boolean {
 export class GoogleOidcProvider implements ExternalIdentityProvider {
   private readonly client: oauth.Client;
   private readonly clientAuth: oauth.ClientAuth;
+  private readonly issuer: URL;
+  private readonly fetchOptions: Readonly<{ [oauth.customFetch]?: OidcFetch }>;
 
   constructor(
     settings: GoogleOidcSettings,
-    private readonly issuer: URL = GOOGLE_ISSUER,
+    options: Readonly<{ issuer?: URL; fetch?: OidcFetch }> = {},
   ) {
     this.client = { client_id: settings.clientId };
     this.clientAuth = oauth.ClientSecretPost(settings.clientSecret);
+    this.issuer = options.issuer ?? GOOGLE_ISSUER;
+    this.fetchOptions =
+      options.fetch === undefined ? {} : { [oauth.customFetch]: options.fetch };
   }
 
   async authorizationUrl(
     pending: PendingExternalLogin,
     codeChallenge: string,
   ): Promise<string> {
-    const as = await authorizationServer(this.issuer);
+    const as = await authorizationServer(this.issuer, this.fetchOptions);
     if (as.authorization_endpoint === undefined) {
       throw new SystemError(
         SystemErrorCode.ExternalApiError,
@@ -109,7 +130,7 @@ export class GoogleOidcProvider implements ExternalIdentityProvider {
   }
 
   async verify(proof: ExternalLoginProof): Promise<ExternalIdentity> {
-    const as = await authorizationServer(this.issuer);
+    const as = await authorizationServer(this.issuer, this.fetchOptions);
     let callback: URLSearchParams;
     try {
       callback = oauth.validateAuthResponse(
@@ -118,11 +139,21 @@ export class GoogleOidcProvider implements ExternalIdentityProvider {
         new URLSearchParams(proof.callbackQuery),
         proof.state,
       );
-    } catch {
-      // `error=access_denied` (cancelled), a state mismatch, or a callback
-      // without a code: nothing to exchange.
+    } catch (error) {
+      if (
+        error instanceof oauth.AuthorizationResponseError &&
+        PROVIDER_FAILURES.has(error.error)
+      ) {
+        throw new SystemError(
+          SystemErrorCode.ExternalApiError,
+          `The provider could not authenticate: ${error.error}`,
+        );
+      }
+      // `error=access_denied` (cancelled) or another refusal, a state
+      // mismatch, or a callback without a code: nothing to exchange.
       return NOT_AUTHENTICATED;
     }
+    if (!callback.get("code")) return NOT_AUTHENTICATED;
     let response: Response;
     try {
       response = await oauth.authorizationCodeGrantRequest(
@@ -132,6 +163,7 @@ export class GoogleOidcProvider implements ExternalIdentityProvider {
         callback,
         proof.redirectUri,
         proof.codeVerifier,
+        this.fetchOptions,
       );
     } catch (error) {
       throw new SystemError(

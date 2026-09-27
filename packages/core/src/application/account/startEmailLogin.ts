@@ -4,7 +4,7 @@ import {
 } from "@repo/core/domain/account/loginChallenge";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type { Versioned } from "@repo/core/domain/common/transactionalRepository";
-import { ConflictError } from "../errors";
+import { ConflictError, isConflictError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
 import type { ServiceArgs } from "../types";
 
@@ -74,22 +74,33 @@ export async function startEmailLogin({
   ]);
   await container.loginMailSender.send({ to: email, linkToken, code });
 
-  await container.unitOfWorkProvider.run(
-    async ({ loginChallengeRepository }) => {
-      const stored = await loginChallengeRepository.findById(id);
-      if (judge(stored, email) === "replay") return;
-      await loginChallengeRepository.insert(
-        LoginChallenge.issue(
-          {
-            id,
-            email,
-            linkTokenDigest,
-            codeDigest,
-            validForMs: container.loginSettings.challengeValidForMs,
-          },
-          now,
-        ),
-      );
-    },
-  );
+  try {
+    await container.unitOfWorkProvider.run(
+      async ({ loginChallengeRepository }) => {
+        const stored = await loginChallengeRepository.findById(id);
+        if (judge(stored, email) === "replay") return;
+        await loginChallengeRepository.insert(
+          LoginChallenge.issue(
+            {
+              id,
+              email,
+              linkTokenDigest,
+              codeDigest,
+              validForMs: container.loginSettings.challengeValidForMs,
+            },
+            now,
+          ),
+        );
+      },
+    );
+  } catch (error) {
+    // A concurrent request with the same id may have stored its challenge
+    // between our re-read and our commit: judge again on what is stored.
+    if (!isConflictError(error)) throw error;
+    const settled = await container.unitOfWorkProvider.run(
+      ({ loginChallengeRepository }) => loginChallengeRepository.findById(id),
+    );
+    if (settled !== null && judge(settled, email) === "replay") return;
+    throw error;
+  }
 }
