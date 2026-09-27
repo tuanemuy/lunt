@@ -88,6 +88,48 @@ curl -X POST -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application
 
 The answer is `{"established": "<email>"}`. Sending the same address again succeeds without a change. It fails with 404 (`ACCOUNT_NOT_FOUND`) when no account has that address yet, and with 422 (`AUTHORITY_OPERATORS_ALREADY_ESTABLISHED`) once operators exist — from then on, operators grant the role from the role management screen (OM-07). Locally, `OPS_TOKEN` is `lunt-local-development-operations-token` (`apps/web/wrangler.jsonc`).
 
+## Mail and external login
+
+Development uses the development inbox and a fake Google (`.spec-implement/design.md` D-07): mail is kept in the object and read at `/__dev/inbox`, and the "Google" button goes to `/__dev/idp/authorize`, where the tester picks a verified address, an unverified one, no address, or cancel. Both need `DEV_TOOLS=1` and are refused without it, so a deployment must select the real adapters.
+
+| Variable | Kind | Meaning | Default |
+| --- | --- | --- | --- |
+| `MAIL_TRANSPORT` | var | `devInbox` or `smtp` | `devInbox` |
+| `MAIL_FROM` | var | Sender, `Name <address>` | `Lunt <no-reply@lunt.example>` |
+| `SMTP_HOST`, `SMTP_USERNAME` | var | SMTP server and login | — (required for `smtp`) |
+| `SMTP_PASSWORD` | secret | SMTP password | — (required for `smtp`) |
+| `SMTP_PORT` | var | only `465` (implicit TLS) is accepted | `465` |
+| `EXTERNAL_IDP` | var | `fake` or `google` | `fake` |
+| `GOOGLE_CLIENT_ID` | var | OAuth client ID | — (required for `google`) |
+| `GOOGLE_CLIENT_SECRET` | secret | OAuth client secret | — (required for `google`) |
+| `LOGIN_CHALLENGE_TTL_MS` | var | lifetime of a login link and code | `900000` (15 min) |
+| `LOGIN_MAX_CODE_ATTEMPTS` | var | wrong codes that close a challenge | `5` |
+| `LOGIN_MAX_UNEXPIRED_CHALLENGES` | var | unexpired login mails one address may have | `5` |
+
+Locally, put secrets in `apps/web/.dev.vars` (template: `.dev.vars.example`); deployed, use `wrangler secret put`.
+
+### SMTP (port 465)
+
+Use a provider that offers SMTPS on 465 — e.g. SendGrid (`smtp.sendgrid.net`, user `apikey`), Amazon SES (`email-smtp.<region>.amazonaws.com`), Resend (`smtp.resend.com`, user `resend`), or Gmail / Google Workspace with an app password (`smtp.gmail.com`). Verify the sending domain (SPF, DKIM) and the `MAIL_FROM` address with the provider. Port 25 is blocked on Workers and STARTTLS on 587 is not used (`worker-mailer` over `cloudflare:sockets`).
+
+1. Contract run (sends real mail; only runs when the variables are set):
+   `SMTP_HOST=… SMTP_USERNAME=… SMTP_PASSWORD=… MAIL_FROM=… SMTP_TEST_TO=you@example.com pnpm test:integration`
+   The login-mail and Mailer suites send to `SMTP_TEST_TO`; check that the mails arrive with a `…/login/link?token=…` link and `コード: NNNNNN`, and the notification mail's subject and link.
+2. End to end: set `MAIL_TRANSPORT=smtp` and the SMTP variables in `.dev.vars`, run `pnpm dev`, send a login mail from `/login` to your address, and log in with its code and, from a second browser, its link.
+
+### Google (OpenID Connect)
+
+In Google Cloud Console (APIs & Services):
+
+1. OAuth consent screen: user type External, scopes `openid` and `email` only; while the app is in Testing, add the test accounts as test users.
+2. Credentials → Create OAuth client ID → type **Web application**. Authorized redirect URIs: `http://localhost:3000/login/external/google/callback` for local runs and `https://<host>/login/external/google/callback` for each deployment. JavaScript origins are not needed.
+3. Put the client ID and secret in `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and set `EXTERNAL_IDP=google`.
+
+The flow uses the authorization code with PKCE (S256), `state` and `nonce`, and requires `email_verified`. Checks:
+
+- Automated (discovery, authorization URL, a refused callback and a bogus code; runs only with the variables set): `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm vitest run packages/core/src/adapters/identity`.
+- By hand: log in with Google from `/login`; the account for that address is created or reused (a second login lands on the same account), and cancelling on Google's consent screen returns to MY-02 with the external-login failure state. An account without a verified address cannot be produced with Google accounts; that case is covered by the fake provider.
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.
