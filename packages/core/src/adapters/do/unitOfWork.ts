@@ -2,6 +2,7 @@ import { ConflictError, NotFoundError } from "@repo/core/application/errors";
 import type {
   UnitOfWorkContext,
   UnitOfWorkProvider,
+  UnitOfWorkRepositories,
 } from "@repo/core/application/execution/unitOfWork";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import {
@@ -13,6 +14,7 @@ import { mapDoError } from "./helpers";
 import type { CommitRequest, LuntStateClient } from "./protocol/client";
 import type { WriteCommand } from "./protocol/commands";
 import { createRepositories } from "./repositories";
+import type { RepositoryDeps } from "./repositories/deps";
 
 /**
  * Durable Object implementation of `UnitOfWorkProvider`.
@@ -29,6 +31,10 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
   constructor(
     private readonly client: LuntStateClient,
     private readonly idGenerator: IdGenerator,
+    /** Conformance suites swap in repositories bound to test-only models. */
+    private readonly repositories: (
+      deps: RepositoryDeps,
+    ) => UnitOfWorkRepositories = createRepositories,
   ) {}
 
   async run<T>(fn: (ctx: UnitOfWorkContext) => Promise<T>): Promise<T> {
@@ -36,7 +42,7 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
     const collected: DomainEvent[] = [];
 
     const ctx: UnitOfWorkContext = {
-      ...createRepositories({
+      ...this.repositories({
         client: this.client,
         writes,
         idGenerator: this.idGenerator,
