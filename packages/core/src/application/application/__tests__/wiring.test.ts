@@ -1,13 +1,24 @@
-import { DoApplicationRepository } from "@repo/core/adapters/do/repositories/applicationRepository";
+import {
+  applicationHarness,
+  insertApplications,
+} from "@repo/core/adapters/do/__conformance__/applicationFixtures";
+import { DoApplicationReviewDesk } from "@repo/core/adapters/do/applicationReviewDesk";
+import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { SystemError } from "@repo/core/application/errors";
 import {
   applicationIds,
   submitted,
   targets,
 } from "@repo/core/domain/application/__tests__/fixtures";
-import { TestModel } from "@repo/core/domain/application/__tests__/testKinds";
-import { APPLICATION_KINDS } from "@repo/core/domain/application/kinds";
+import { applicationModel } from "@repo/core/domain/application/application";
+import {
+  APPLICATION_KINDS,
+  type ApplicationKindMap,
+} from "@repo/core/domain/application/kinds";
 import { describe, expect, it } from "vitest";
+import { FakeClock } from "../../__tests__/fakes/fakeClock";
+import { FakeIdGenerator } from "../../__tests__/fakes/fakeIdGenerator";
 import { createTestContainer } from "../../__tests__/testContainer";
 import {
   DEFAULT_APPLICATION_PROXY_AFTER_MS,
@@ -39,33 +50,33 @@ describe("Application wiring in stage 1", () => {
   });
 
   it("refuses to read an application of an unregistered kind as corrupt data", async () => {
-    const { container } = createTestContainer();
+    const idGenerator = new FakeIdGenerator();
+    const state = createInProcessState({ clock: new FakeClock(), idGenerator });
     const ids = applicationIds();
     const app = submitted(ids, targets.revision(ids.account(), ids.place()));
-    await container.unitOfWorkProvider.run(
-      async ({ applicationRepository }) => {
-        if (!(applicationRepository instanceof DoApplicationRepository)) {
-          throw new Error("expected the DO repository");
-        }
-        await applicationRepository.withModel(TestModel).insert(app);
-      },
+    // Stored through the test-only kinds, read through the production ones.
+    await insertApplications(
+      applicationHarness(state.client, idGenerator, async () => []),
+      app,
     );
+    const production = new DoUnitOfWorkProvider(state.client, idGenerator);
     const corrupt = { code: "DATA_INTEGRITY_ERROR" };
     await expect(
-      container.unitOfWorkProvider.run(({ applicationRepository }) =>
+      production.run(({ applicationRepository }) =>
         applicationRepository.findById(app.id),
       ),
     ).rejects.toMatchObject(corrupt);
     await expect(
-      container.unitOfWorkProvider.run(({ applicationRepository }) =>
+      production.run(({ applicationRepository }) =>
         applicationRepository.findByIds([app.id]),
       ),
     ).rejects.toBeInstanceOf(SystemError);
     await expect(
-      container.applicationReviewDesk.findPageAwaiting(
-        { section: "asApprover" },
-        { page: 1, limit: 10 },
-      ),
+      new DoApplicationReviewDesk<ApplicationKindMap>(
+        state.client,
+        idGenerator,
+        applicationModel,
+      ).findPageAwaiting({ section: "asApprover" }, { page: 1, limit: 10 }),
     ).rejects.toMatchObject(corrupt);
   });
 });

@@ -46,18 +46,6 @@ export class DoApplicationRepository<M extends KindMap>
     this.records = applicationRecords(model, deps.idGenerator);
   }
 
-  /**
-   * The same repository — same client, same unit-of-work buffer — for the
-   * kinds of another model. The unit of work builds its repositories for
-   * the production kinds; the conformance suites rebind this one to the
-   * test-only kinds through it.
-   */
-  withModel<N extends KindMap>(
-    model: ApplicationModel<N>,
-  ): DoApplicationRepository<N> {
-    return new DoApplicationRepository(this.deps, model);
-  }
-
   private activePage(
     page: ApplicationPage,
   ): PaginationResult<Versioned<Active<ApplicationIn<M>>>> {

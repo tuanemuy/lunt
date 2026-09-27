@@ -1,6 +1,6 @@
 import { NotFoundError } from "@repo/core/application/errors";
 import type { UnitOfWorkContext } from "@repo/core/application/execution/unitOfWork";
-import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
+import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import {
   type ApplicationIds,
   approved,
@@ -38,8 +38,10 @@ import type {
 } from "@repo/core/domain/common/transactionalRepository";
 import { DoApplicationReviewDesk } from "../applicationReviewDesk";
 import type { LuntStateClient } from "../protocol/client";
+import { createRepositories } from "../repositories";
 import { DoApplicationRepository } from "../repositories/applicationRepository";
-import type { ConformanceHarness, SavedEvent } from "./harness";
+import { DoUnitOfWorkProvider } from "../unitOfWork";
+import type { SavedEvent } from "./harness";
 
 /**
  * The unit-of-work context the Application suites use: the real one, with
@@ -62,34 +64,41 @@ export type ApplicationHarness = Readonly<{
 
 export type ApplicationHarnessFactory = () => Promise<ApplicationHarness>;
 
-function withTestKinds(
-  repository: ApplicationRepository,
-): ApplicationRepository<TestKindMap> {
-  if (!(repository instanceof DoApplicationRepository)) {
-    throw new Error("The Application suites run on DoApplicationRepository");
-  }
-  return repository.withModel<TestKindMap>(TestModel);
-}
-
-/** Binds a backend's harness and state client to the test-only kinds. */
+/**
+ * Binds a backend's state client to the test-only kinds: each `run` is the
+ * real unit of work (`DoUnitOfWorkProvider`) whose repository factory
+ * builds the application repository over the test model, on the same
+ * buffer as every other repository of the scope.
+ */
 export function applicationHarness(
-  base: ConformanceHarness,
-  client: Pick<LuntStateClient, "query">,
+  client: LuntStateClient,
+  idGenerator: IdGenerator,
+  savedEvents: () => Promise<readonly SavedEvent[]>,
 ): ApplicationHarness {
   return {
-    run: (fn) =>
-      base.uow.run((ctx) =>
-        fn({
-          ...ctx,
-          applicationRepository: withTestKinds(ctx.applicationRepository),
-        }),
-      ),
+    run: (fn) => {
+      let applicationRepository: ApplicationRepository<TestKindMap> | null =
+        null;
+      const uow = new DoUnitOfWorkProvider(client, idGenerator, (deps) => {
+        applicationRepository = new DoApplicationRepository<TestKindMap>(
+          deps,
+          TestModel,
+        );
+        return createRepositories(deps);
+      });
+      return uow.run((ctx) => {
+        if (applicationRepository === null) {
+          throw new Error("The unit of work built no repositories");
+        }
+        return fn({ ...ctx, applicationRepository });
+      });
+    },
     reviewDesk: new DoApplicationReviewDesk<TestKindMap>(
       client,
-      UuidV7Generator,
+      idGenerator,
       TestModel,
     ),
-    savedEvents: () => base.savedEvents(),
+    savedEvents,
   };
 }
 
