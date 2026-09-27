@@ -1,73 +1,96 @@
+/*
+  Tailwind v4 bridge to tokens.css. Tailwind's default palette, type scale,
+  radii and shadows are cleared so only the design tokens produce utilities.
+  `--spacing: 1px` makes the utility number the pixel value of the matching
+  `--space-*` token (`p-21` = 21px, `gap-16` = 16px); use only token steps.
+
+  Names that tokens.css already defines (`--text-*`, `--leading-*`,
+  `--radius-*`, `--font-display`, …) repeat the token value here instead of
+  referencing it: a theme variable that referenced its own name would be a
+  cycle. Colors map onto differently named tokens, so they are bridged with
+  `@theme inline`.
+*/
 @theme {
-  /* Colors */
-  --color-primary-lighter: var(--color-primary-lighter);
-  --color-primary-light: var(--color-primary-light);
-  --color-primary: var(--color-primary);
-  --color-primary-dark: var(--color-primary-dark);
-  --color-primary-darker: var(--color-primary-darker);
-  --color-accent: var(--color-accent);
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --leading-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
 
-  --color-neutral-50: var(--color-neutral-50);
-  --color-neutral-100: var(--color-neutral-100);
-  --color-neutral-150: var(--color-neutral-150);
-  --color-neutral-200: var(--color-neutral-200);
-  --color-neutral-250: var(--color-neutral-250);
-  --color-neutral-300: var(--color-neutral-300);
-  --color-neutral-350: var(--color-neutral-350);
-  --color-neutral-400: var(--color-neutral-400);
-  --color-neutral-450: var(--color-neutral-450);
-  --color-neutral-500: var(--color-neutral-500);
-  --color-neutral-550: var(--color-neutral-550);
-  --color-neutral-600: var(--color-neutral-600);
-  --color-neutral-650: var(--color-neutral-650);
-  --color-neutral-700: var(--color-neutral-700);
-  --color-neutral-750: var(--color-neutral-750);
-  --color-neutral-800: var(--color-neutral-800);
-  --color-neutral-850: var(--color-neutral-850);
-  --color-neutral-900: var(--color-neutral-900);
+  --spacing: 1px;
 
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-error: var(--color-error);
-  --color-info: var(--color-info);
+  --font-display: "Noto Serif JP", serif;
+  --font-base: "Noto Sans JP", sans-serif;
+  --default-font-family: "Noto Sans JP", sans-serif;
 
-  --color-bg-page: var(--color-bg-page);
-  --color-bg-card: var(--color-bg-card);
-  --color-bg-section: var(--color-bg-section);
+  --text-catch: 29px;
+  --text-catch--line-height: 43px;
+  --text-page: 24px;
+  --text-page--line-height: 36px;
+  --text-title: 22px;
+  --text-title--line-height: 33px;
+  --text-lead: 20px;
+  --text-lead--line-height: 30px;
+  --text-section: 18px;
+  --text-section--line-height: 29px;
+  --text-name: 15px;
+  --text-name--line-height: 24px;
+  --text-body: 14px;
+  --text-body--line-height: 25px;
+  --text-ui: 13px;
+  --text-ui--line-height: 20px;
+  --text-meta: 11px;
+  --text-meta--line-height: 18px;
+  --text-small: 10px;
+  --text-small--line-height: 16px;
 
-  /* Typography */
-  --font-heading: var(--font-heading);
-  --font-body: var(--font-body);
+  --leading-catch: 43px;
+  --leading-page: 36px;
+  --leading-title: 33px;
+  --leading-lead: 30px;
+  --leading-section: 29px;
+  --leading-heading: 27px;
+  --leading-name: 24px;
+  --leading-body: 25px;
+  --leading-ui: 20px;
+  --leading-meta: 18px;
+  --leading-small: 16px;
 
-  --text-xs: var(--text-xs);
-  --text-sm: var(--text-sm);
-  --text-base: var(--text-base);
-  --text-lg: var(--text-lg);
-  --text-xl: var(--text-xl);
-  --text-2xl: var(--text-2xl);
-  --text-3xl: var(--text-3xl);
+  --tracking-display: 0.02em;
+  --tracking-base: 0;
 
-  --leading-tight: var(--leading-tight);
-  --leading-normal: var(--leading-normal);
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
 
-  /* Spacing */
-  --spacing-xs: var(--space-xs);
-  --spacing-sm: var(--space-sm);
-  --spacing-md: var(--space-md);
-  --spacing-lg: var(--space-lg);
-  --spacing-xl: var(--space-xl);
-  --spacing-2xl: var(--space-2xl);
-  --spacing-section: var(--space-section);
+  --radius-0: 0;
+  --radius-2: 2px;
+  --radius-8: 8px;
+  --radius-16: 16px;
+  --radius-999: 999px;
 
-  /* Misc */
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-full: var(--radius-full);
+  --shadow-overlay: 0 8px 24px oklch(33.2% 0.029 167.8 / 0.12);
 
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
+  --color-scrim: oklch(33.2% 0.029 167.8 / 0.4);
+  --color-green-hover: color-mix(in oklch, var(--green), var(--ink) 45%);
+}
 
-  --transition-default: var(--transition-default);
+@theme inline {
+  --color-white: var(--white);
+  --color-ink: var(--ink);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-green: var(--green);
+  --color-light: var(--light);
+  --color-paper: var(--paper);
+  --color-focus: var(--focus);
+
+  --spacing-gutter: var(--space-gutter);
+  --spacing-touch: var(--size-touch);
 }

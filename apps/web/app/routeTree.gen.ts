@@ -9,50 +9,112 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as ViewerRouteImport } from './routes/_viewer'
+import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
+import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
+import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/ui/manage'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ViewerRoute = ViewerRouteImport.update({
+  id: '/_viewer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ViewerIndexRoute = ViewerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const Char91__devChar93UiIndexRoute =
+  Char91__devChar93UiIndexRouteImport.update({
+    id: '/__dev/ui/',
+    path: '/__dev/ui/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91__devChar93UiManageRoute =
+  Char91__devChar93UiManageRouteImport.update({
+    id: '/__dev/ui/manage',
+    path: '/__dev/ui/manage',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof ViewerIndexRoute
+  '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof ViewerIndexRoute
+  '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_viewer': typeof ViewerRouteWithChildren
+  '/_viewer/': typeof ViewerIndexRoute
+  '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/__dev/ui/manage' | '/__dev/ui/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/__dev/ui/manage' | '/__dev/ui'
+  id: '__root__' | '/_viewer' | '/_viewer/' | '/__dev/ui/manage' | '/__dev/ui/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  ViewerRoute: typeof ViewerRouteWithChildren
+  Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
+  Char91__devChar93UiIndexRoute: typeof Char91__devChar93UiIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_viewer': {
+      id: '/_viewer'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ViewerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_viewer/': {
+      id: '/_viewer/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof ViewerIndexRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/__dev/ui/': {
+      id: '/__dev/ui/'
+      path: '/__dev/ui'
+      fullPath: '/__dev/ui/'
+      preLoaderRoute: typeof Char91__devChar93UiIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/ui/manage': {
+      id: '/__dev/ui/manage'
+      path: '/__dev/ui/manage'
+      fullPath: '/__dev/ui/manage'
+      preLoaderRoute: typeof Char91__devChar93UiManageRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+interface ViewerRouteChildren {
+  ViewerIndexRoute: typeof ViewerIndexRoute
+}
+
+const ViewerRouteChildren: ViewerRouteChildren = {
+  ViewerIndexRoute: ViewerIndexRoute,
+}
+
+const ViewerRouteWithChildren =
+  ViewerRoute._addFileChildren(ViewerRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  ViewerRoute: ViewerRouteWithChildren,
+  Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,
+  Char91__devChar93UiIndexRoute: Char91__devChar93UiIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

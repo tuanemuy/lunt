@@ -1,73 +1,93 @@
 :root {
-  /* Colors */
-  --color-primary-lighter: oklch(0.95 0.03 250);
-  --color-primary-light: oklch(0.85 0.08 250);
-  --color-primary: oklch(0.6 0.18 250);
-  --color-primary-dark: oklch(0.45 0.18 250);
-  --color-primary-darker: oklch(0.3 0.15 250);
-  --color-accent: oklch(0.7 0.2 30);
+  /* カラー（Figma Variables: Color → Primitives, Light） */
+  --white: oklch(99.7% 0.005 95.1); /* #FFFEFA */
+  --ink: oklch(33.2% 0.029 167.8); /* #273B33 */
+  --secondary: oklch(45.2% 0.022 142.7); /* #4F594E */
+  --muted: oklch(54.8% 0.02 140); /* #6B7469 */
+  --line: oklch(91% 0.013 126.4); /* #DFE3DA */
+  --green: oklch(43.4% 0.057 163.2); /* #315B48 */
+  --light: oklch(94.8% 0.014 134.9); /* #EAF0E7 */
+  --paper: oklch(95.8% 0.008 91.5); /* #F3F1EB */
+  --focus: oklch(57.7% 0.13 40.7); /* #B85B38 */
 
-  --color-neutral-50: oklch(0.98 0 0);
-  --color-neutral-100: oklch(0.96 0 0);
-  --color-neutral-150: oklch(0.93 0 0);
-  --color-neutral-200: oklch(0.9 0 0);
-  --color-neutral-250: oklch(0.86 0 0);
-  --color-neutral-300: oklch(0.82 0 0);
-  --color-neutral-350: oklch(0.76 0 0);
-  --color-neutral-400: oklch(0.7 0 0);
-  --color-neutral-450: oklch(0.64 0 0);
-  --color-neutral-500: oklch(0.58 0 0);
-  --color-neutral-550: oklch(0.52 0 0);
-  --color-neutral-600: oklch(0.46 0 0);
-  --color-neutral-650: oklch(0.4 0 0);
-  --color-neutral-700: oklch(0.34 0 0);
-  --color-neutral-750: oklch(0.28 0 0);
-  --color-neutral-800: oklch(0.22 0 0);
-  --color-neutral-850: oklch(0.18 0 0);
-  --color-neutral-900: oklch(0.14 0 0);
+  /* 書体 */
+  --font-display: "Noto Serif JP", serif;
+  --font-base: "Noto Sans JP", sans-serif;
 
-  --color-success: oklch(0.7 0.18 150);
-  --color-warning: oklch(0.8 0.17 80);
-  --color-error: oklch(0.62 0.22 25);
-  --color-info: oklch(0.7 0.15 230);
+  /* テキストスタイル（Figma: Lunt/*） */
+  --text-catch: 29px;
+  --leading-catch: 43px;
+  --text-page: 24px;
+  --leading-page: 36px;
+  --text-section: 18px;
+  --leading-section: 29px;
+  --text-name: 15px;
+  --leading-name: 24px;
+  --text-body: 14px;
+  --leading-body: 25px;
+  --text-ui: 13px;
+  --leading-ui: 20px;
+  --text-meta: 11px;
+  --leading-meta: 18px;
+  --text-small: 10px;
+  --leading-small: 16px;
+  --text-title: 22px;
+  --leading-title: 33px;
+  --leading-heading: 27px;
+  --text-lead: 20px;
+  --leading-lead: 30px;
+  --tracking-display: 0.02em;
+  --tracking-base: 0;
+  --weight-regular: 400;
+  --weight-medium: 500;
 
-  --color-bg-page: oklch(0.99 0 0);
-  --color-bg-card: oklch(1 0 0);
-  --color-bg-section: oklch(0.97 0 0);
+  /* スペーシング（Figma Variables: space/*） */
+  --space-0: 0;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-21: 21px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-gutter: var(--space-21); /* 画面の左右の余白。md で上書き */
 
-  /* Typography */
-  --font-heading: "Inter", "Noto Sans JP", serif;
-  --font-body: "Inter", "Noto Sans JP", sans-serif;
+  /* 角丸（Figma Variables: radius/*） */
+  --radius-0: 0;
+  --radius-2: 2px;
+  --radius-8: 8px;
+  --radius-16: 16px;
+  --radius-999: 999px;
 
-  --text-xs: clamp(0.75rem, 0.7rem + 0.2vw, 0.8125rem);
-  --text-sm: clamp(0.875rem, 0.82rem + 0.25vw, 0.9375rem);
-  --text-base: clamp(1rem, 0.95rem + 0.3vw, 1.0625rem);
-  --text-lg: clamp(1.125rem, 1.05rem + 0.4vw, 1.25rem);
-  --text-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
-  --text-2xl: clamp(1.5rem, 1.3rem + 0.8vw, 1.875rem);
-  --text-3xl: clamp(1.875rem, 1.6rem + 1.2vw, 2.5rem);
+  /* サイズ（Figma Variables: size/touch） */
+  --size-touch: 44px;
+  --bottom-nav-height: 77px;
 
-  --leading-tight: 1.2;
-  --leading-normal: 1.6;
+  /* 線 */
+  --border-1: 1px;
+  --border-2: 2px;
 
-  /* Spacing */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2.5rem;
-  --space-2xl: 4rem;
-  --space-section: clamp(3rem, 5vw, 6rem);
+  /* 重なる面の背景（補ったもの） */
+  --color-scrim: oklch(33.2% 0.029 167.8 / 0.4);
+  --color-green-hover: color-mix(in oklch, var(--green), var(--ink) 45%);
 
-  /* Misc */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
-  --radius-full: 9999px;
+  /* 影（Figma: Lunt/Overlay） */
+  --shadow-overlay: 0 8px 24px oklch(33.2% 0.029 167.8 / 0.12);
 
-  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.05);
-  --shadow-md: 0 4px 8px -2px oklch(0 0 0 / 0.1);
-  --shadow-lg: 0 12px 24px -6px oklch(0 0 0 / 0.15);
+  /* トランジション（補ったもの） */
+  --transition-default: 150ms ease-out;
 
-  --transition-default: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* ブレークポイント（参照用） */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --space-gutter: var(--space-32);
+  }
 }
