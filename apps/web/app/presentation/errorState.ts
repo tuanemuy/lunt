@@ -1,4 +1,5 @@
 import type { FieldErrors } from "@repo/core/lib/error";
+import { presentBusinessError } from "./businessErrorCatalog";
 import type { SerializedError } from "./errorResponse";
 import { extractSerializedError } from "./errorResponse";
 
@@ -8,10 +9,12 @@ import { extractSerializedError } from "./errorResponse";
  * presentation (inline alert, empty panel, field messages); this only
  * decides which state it is.
  *
- * - `invalidInput` CS-10: the request was well-formed but a value broke a
- *   rule (value-object codes `*_INVALID_*`) or failed the transport check.
- * - `premiseChanged` CS-08: any other business rule — the state changed
- *   under the operation.
+ * - `invalidInput` CS-10: the transport check failed (`fieldErrors`), or
+ *   a business rule rejected what was entered — the catalog
+ *   (`businessErrorCatalog.ts`) decides per code. `missing` lists the
+ *   unmet publish conditions of `{SUBJECT}_PUBLISH_CONDITION_UNMET`.
+ * - `premiseChanged` CS-08: a business rule says the state changed under
+ *   the operation (per code, in the same catalog).
  * - `conflict` CS-07, `loginRequired` CS-04, `forbidden` CS-05,
  *   `notFound` CS-06 (CS-17 on management screens — the screen decides).
  * - `failed` CS-02: communication or server failure; retrying may help.
@@ -22,6 +25,7 @@ export type ErrorState =
       code: string | null;
       message: string;
       fieldErrors: FieldErrors;
+      missing: readonly string[];
     }>
   | Readonly<{
       kind:
@@ -35,22 +39,8 @@ export type ErrorState =
       message: string;
     }>;
 
-const INVALID_VALUE_CODE = /(^|_)INVALID(_|$)/;
-
-/** User-facing wording of codes shared by every domain. */
-const MESSAGES: Readonly<Record<string, string>> = {
-  COMMON_INVALID_EMAIL_ADDRESS: "メールアドレスの形式が正しくありません",
-  COMMON_INVALID_AREA_CODE: "郵便番号の形式が正しくありません",
-  COMMON_INVALID_DATE_RANGE: "終了日は開始日以降にしてください",
-  COMMON_INVALID_LOCAL_DATE: "日付が正しくありません",
-  COMMON_INVALID_GEO_POINT: "位置が正しくありません",
-  COMMON_INVALID_GEO_BOUNDS: "範囲が正しくありません",
-  COMMON_INVALID_TAGLINE: "キャッチコピーは1〜60文字で入力してください",
-  COMMON_INVALID_SEARCH_KEYWORD: "キーワードは100文字以内で入力してください",
-  COMMON_INVALID_FIELD_PATCH: "変更した項目がありません",
-  COMMON_INVALID_INPUT: "入力内容が正しくありません",
-  COMMON_PUBLICATION_INVALID_TRANSITION:
-    "公開状態が変わっています。最新の状態を確かめてください",
+/** User-facing wording of the application-level codes. */
+const APPLICATION_MESSAGES: Readonly<Record<string, string>> = {
   OPTIMISTIC_LOCK_FAILURE:
     "ほかの人が先に保存しました。最新の内容を読み直してから、もう一度操作してください",
   UNIQUE_VIOLATION: "すでに登録されています",
@@ -58,18 +48,24 @@ const MESSAGES: Readonly<Record<string, string>> = {
   DEV_TOOLS_DISABLED: "この機能は使えません",
 };
 
-const FALLBACK: Readonly<Record<ErrorState["kind"], string>> = {
+const FALLBACK = {
   invalidInput: "入力内容を確かめてください",
-  premiseChanged: "状態が変わったため、操作できませんでした",
-  conflict: MESSAGES.OPTIMISTIC_LOCK_FAILURE ?? "",
+  conflict:
+    "ほかの人が先に保存しました。最新の内容を読み直してから、もう一度操作してください",
   loginRequired: "ログインが必要です",
   forbidden: "この操作を行う権限がありません",
   notFound: "表示できません",
   failed: "通信エラーが発生しました。時間をおいて、もう一度お試しください",
-};
+} as const;
 
-function messageFor(kind: ErrorState["kind"], code: string | null): string {
-  return (code !== null ? MESSAGES[code] : undefined) ?? FALLBACK[kind];
+function applicationMessage(
+  code: string | null,
+  fallback: keyof typeof FALLBACK,
+): string {
+  return (
+    (code === null ? undefined : APPLICATION_MESSAGES[code]) ??
+    FALLBACK[fallback]
+  );
 }
 
 export function classifySerializedError(error: SerializedError): ErrorState {
@@ -81,34 +77,40 @@ export function classifySerializedError(error: SerializedError): ErrorState {
         code,
         message: FALLBACK.invalidInput,
         fieldErrors: error.fieldErrors ?? {},
+        missing: [],
       };
-    case "business":
-      if (code !== null && INVALID_VALUE_CODE.test(code)) {
+    case "business": {
+      const { state, message } = presentBusinessError(code);
+      if (state === "invalidInput") {
         return {
           kind: "invalidInput",
           code,
-          message: messageFor("invalidInput", code),
+          message,
           fieldErrors: {},
+          missing: (error.missing ?? []).filter(
+            (item): item is string => typeof item === "string",
+          ),
         };
       }
-      return {
-        kind: "premiseChanged",
-        code,
-        message: messageFor("premiseChanged", code),
-      };
+      return { kind: "premiseChanged", code, message };
+    }
     case "conflict":
-      return { kind: "conflict", code, message: messageFor("conflict", code) };
+      return {
+        kind: "conflict",
+        code,
+        message: applicationMessage(code, "conflict"),
+      };
     case "unauthorized":
       return {
         kind: "loginRequired",
         code,
-        message: messageFor("loginRequired", code),
+        message: applicationMessage(code, "loginRequired"),
       };
     case "forbidden":
       return {
         kind: "forbidden",
         code,
-        message: messageFor("forbidden", code),
+        message: applicationMessage(code, "forbidden"),
       };
     case "notFound":
       return { kind: "notFound", code, message: FALLBACK.notFound };

@@ -74,7 +74,7 @@ Each of these is enforced in code and documented in library-level JSDoc at the r
 
 - Errors are class hierarchies that each carry their own `kind`-tagged serialized form (`toSerialized()`). The presentation layer serializes structurally — no `instanceof` enumeration of concrete classes.
 - HTTP status mapping is presentation-only, driven by the serialized `kind`. Errors themselves do not carry transport concerns.
-- What the user sees is decided by `classifyError` (`apps/web/app/presentation/errorState.ts`): it maps a serialized error onto a common state of `spec/pages/index.md` (CS-02 failed, CS-04 login required, CS-05 forbidden, CS-06 not found, CS-07 conflict, CS-08 premise changed, CS-10 invalid input with field errors) and its Japanese wording. Domain messages are for logs, never shown; add a code's wording to its catalog when a screen needs a specific sentence.
+- What the user sees is decided by `classifyError` (`apps/web/app/presentation/errorState.ts`): it maps a serialized error onto a common state of `spec/pages/index.md` (CS-02 failed, CS-04 login required, CS-05 forbidden, CS-06 not found, CS-07 conflict, CS-08 premise changed, CS-10 invalid input with field errors) and its Japanese wording. Business error codes are mapped one by one in `presentation/businessErrorCatalog.ts`, a table typed over `BusinessErrorCode` (`packages/core/src/domain/businessErrorCode.ts`): when a domain adds codes to that union, the build fails until each code has a state (CS-08 or CS-10) and a sentence. Domain messages are for logs, never shown.
 - Avoid broad `try / catch` in ordinary application logic. Use it only at explicit boundaries (server-function serialization, per-row tolerance in workers).
 
 ### Cross-layer catch policy
