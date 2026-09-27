@@ -6,7 +6,7 @@ import {
 } from "../workers/eventRelayWorker";
 import { DEFAULT_OUTBOX_RETENTION_MS } from "../workers/outboxPrune";
 
-/** Worker-tuning env variables shared by both runtimes. */
+/** Outbox relay tuning, read by the state Durable Object. */
 export type TuningEnv = Readonly<{
   OUTBOX_BATCH_SIZE?: string | undefined;
   OUTBOX_LEASE_MS?: string | undefined;

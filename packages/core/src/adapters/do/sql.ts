@@ -26,7 +26,7 @@ export interface SqlExec {
  * `ctx.storage.transactionSync` as a structural capability: runs `fn`
  * atomically and rolls back if it throws. The callback must stay
  * synchronous — DO SQLite executes synchronously, which is what makes
- * a real interactive transaction possible here (unlike D1's deferred
+ * a real interactive transaction possible here (unlike a deferred
  * batch).
  */
 export type TransactionRunner = <T>(fn: () => T) => T;

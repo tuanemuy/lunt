@@ -160,7 +160,7 @@ export function describeUnitOfWorkContract(makeHarness: HarnessFactory): void {
         expect(await h.savedEvents()).toEqual([]);
       });
 
-      it("unitOfWork#10 集約 X がない / fn の中で X を insert し、下書きを collectEvents に渡し、その後に例外を投げる", async () => {
+      it("unitOfWork#10 集約 X がない / fn の中で X を insert し、ドメインイベントの下書きを collectEvents に渡し、その後に例外を投げる", async () => {
         const h = await makeHarness();
         const X = accountFactory()();
         await expect(
@@ -488,7 +488,7 @@ export function describeUnitOfWorkContract(makeHarness: HarnessFactory): void {
         expect(latest?.entity).toEqual(Account.markReferenced(X));
       });
 
-      it("unitOfWork#28 集約 X・Y がある / スコープ A の中で X を読み、A が返す前に別の run が Y を save してコミットし、A の中で Y を読む", async () => {
+      it("unitOfWork#28 集約 X・Y がある / スコープ A の fn の中で X を findById し、A が値を返す前に、別の run が Y を save してコミットする。その後に A の中で Y を findById し、値を返す（書き込まない）", async () => {
         const h = await makeHarness();
         const next = accountFactory();
         const X = next();
@@ -653,7 +653,7 @@ export function describeUnitOfWorkContract(makeHarness: HarnessFactory): void {
         ).rejects.toBeInstanceOf(ConflictError);
       });
 
-      it("unitOfWork#34 同じメールアドレスのアカウントは1つ。集約 Y がある / 同じメールアドレスで ID の違うアカウント2件を、別々の run で insert する。後の run は、その前に Y を save し、下書きを collectEvents に渡す", async () => {
+      it("unitOfWork#34 ID のほかの一意性をポートが担保する集約（AccountRepository の「同じメールアドレスのアカウントは1つ」）。集約 Y がある / 同じメールアドレスで ID の違うアカウント2件を、別々の run で insert する。後の run は、その前に Y を save し、下書きを collectEvents に渡す", async () => {
         const h = await makeHarness();
         const next = accountFactory();
         const first = next();
@@ -742,7 +742,7 @@ export function describeUnitOfWorkContract(makeHarness: HarnessFactory): void {
         expect((await findAccount(h, X.id))?.entity).toEqual(X);
       });
 
-      it("unitOfWork#38 X を save した run が解決した / 解決の直後に findById し、返された expectedVersion で次の run の中で save する", async () => {
+      it("unitOfWork#38 X を save した run が解決した / 解決の直後に、新しい run の中で findById し、返された expectedVersion で、次の run の中で save する", async () => {
         const h = await makeHarness();
         const X = accountFactory()();
         await insertAccounts(h, X);
