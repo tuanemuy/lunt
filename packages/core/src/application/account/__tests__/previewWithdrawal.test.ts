@@ -1,10 +1,41 @@
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
+import { Account } from "@repo/core/domain/account/entity";
+import type { StewardedTargetDirectory } from "@repo/core/domain/authority/ports/stewardedTargetDirectory";
+import { StewardedTargetOrder } from "@repo/core/domain/authority/stewardedTarget";
+import { Stewardship } from "@repo/core/domain/authority/stewardship";
+import { OccasionId, PlaceId, RegionId } from "@repo/core/domain/common/ids";
+import { Place } from "@repo/core/domain/place/place";
+import { sampleProfile } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
+import { createTestContainer } from "../../__tests__/testContainer";
 import {
   authorityKit,
   type Kit,
   type Person,
 } from "../../authority/__tests__/kit";
+import { TestStewardedTargets } from "../../authority/__tests__/testServices";
 import { previewWithdrawal } from "../previewWithdrawal";
+
+/**
+ * Places from the production directory (Place's tables), every other kind
+ * from `others` — regions and occasions have no tables before S3A.
+ */
+function placesFromStore(
+  store: StewardedTargetDirectory,
+  others: StewardedTargetDirectory,
+): StewardedTargetDirectory {
+  return {
+    describe: async (targets) =>
+      [
+        ...(await store.describe(
+          targets.filter((target) => target.kind === "place"),
+        )),
+        ...(await others.describe(
+          targets.filter((target) => target.kind !== "place"),
+        )),
+      ].sort((a, b) => StewardedTargetOrder.compare(a.target, b.target)),
+  };
+}
 
 const preview = (k: Kit, who: Person) =>
   previewWithdrawal({ container: k.container, actor: who.actor, input: {} });
@@ -35,18 +66,71 @@ describe("previewWithdrawal", () => {
   });
 
   it("previewWithdrawal#3 A は店舗 P、地域 R、イベント E の唯一の管理者。R は名称が未入力の下書き。P は運営による非公開 / A を Actor として実行する", async () => {
-    // Suspension is not modelled before stage 2 (Place); the preview never
-    // reads publication or suspension, so P is an ordinary target here.
-    const k = authorityKit();
-    const A = await k.person();
-    const E = k.occasion("夏祭り");
-    const R = k.region(null);
-    const P = k.place("喫茶ルント");
-    await k.appoint(E, A);
-    await k.appoint(R, A);
-    await k.appoint(P, A);
-    expect((await preview(k, A)).vacates).toEqual([
-      { target: P, name: "喫茶ルント" },
+    // P is a real place, stored suspended through Place's repository and
+    // named by the production directory; R and E stay test targets until
+    // Region and Occasion land (S3A).
+    const targets = new TestStewardedTargets();
+    const t = createTestContainer({
+      overrides: (deps) => ({
+        stewardedTargetDirectory: placesFromStore(
+          new DoStewardedTargetDirectory(deps.client),
+          targets,
+        ),
+      }),
+    });
+    const { container, idGenerator, clock } = t;
+    const A = Account.register({
+      id: idGenerator.next(),
+      email: "steward@example.com",
+    });
+    const P = Place.suspend(
+      Place.register(
+        {
+          id: PlaceId.create(idGenerator.next()),
+          profile: sampleProfile({ name: "喫茶ルント" }),
+        },
+        clock.now(),
+      ).entity,
+      clock.now(),
+    ).entity;
+    const R = {
+      kind: "region",
+      id: RegionId.create(idGenerator.next()),
+    } as const;
+    const E = {
+      kind: "occasion",
+      id: OccasionId.create(idGenerator.next()),
+    } as const;
+    targets.add(R, null).add(E, "夏祭り");
+    const who = { accountId: A.id, email: A.email };
+    await container.unitOfWorkProvider.run(async (ctx) => {
+      await ctx.accountRepository.insert(A);
+      await ctx.placeRepository.insert(P);
+      await ctx.stewardshipRepository.insert(
+        Stewardship.appointByApproval(
+          Stewardship.vacant(Place.ref(P)),
+          who,
+          clock.now(),
+        ).entity,
+      );
+      for (const target of [R, E]) {
+        await ctx.stewardshipRepository.insert(
+          Stewardship.grant(Stewardship.vacant(target), who, clock.now())
+            .entity,
+        );
+      }
+    });
+    expect(Place.isSuspended(P)).toBe(true);
+    expect(
+      (
+        await previewWithdrawal({
+          container,
+          actor: { accountId: A.id },
+          input: {},
+        })
+      ).vacates,
+    ).toEqual([
+      { target: Place.ref(P), name: "喫茶ルント" },
       { target: R, name: null },
       { target: E, name: "夏祭り" },
     ]);

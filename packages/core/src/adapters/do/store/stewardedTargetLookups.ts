@@ -5,6 +5,7 @@ import type {
   TargetRecord,
 } from "../protocol/authority";
 import type { SqlExec } from "../sql";
+import { placeStewardedTargetLookup } from "./place";
 
 /**
  * Reads the existing targets of one kind among `ids` (at most 100, passed
@@ -26,7 +27,9 @@ export type StewardedTargetLookups = Readonly<
  * add their entry here when their tables land; a kind without an entry
  * reads as having no targets.
  */
-export const STEWARDED_TARGET_LOOKUPS: StewardedTargetLookups = {};
+export const STEWARDED_TARGET_LOOKUPS: StewardedTargetLookups = {
+  place: placeStewardedTargetLookup,
+};
 
 /**
  * The directory's read over any lookup table: groups `targets` by kind,

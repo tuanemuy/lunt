@@ -1,4 +1,9 @@
 import { env, runInDurableObject } from "cloudflare:test";
+import { authorityIds } from "@repo/core/adapters/do/__conformance__/authorityFixtures";
+import {
+  insertPlaces,
+  newPlace,
+} from "@repo/core/adapters/do/__conformance__/placeFixtures";
 import {
   CONFORMANCE_TARGET_LOOKUPS,
   describeStewardedTargetDirectoryContract,
@@ -8,7 +13,8 @@ import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import type { SqlExec } from "@repo/core/adapters/do/sql";
 import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
 import { describeStewardedTargets } from "@repo/core/adapters/do/store/stewardedTargetLookups";
-import { PlaceId } from "@repo/core/domain/common/ids";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import { describe, expect, it } from "vitest";
 
 const freshStub = () =>
@@ -16,9 +22,10 @@ const freshStub = () =>
     env.LUNT_STATE.idFromName(`conformance-${crypto.randomUUID()}`),
   );
 
-// The real object's SQLite with the conformance-only lookups standing in
-// for the target kinds P1 does not have yet: each describe runs the
-// lookup mechanism inside the object.
+// The real object's SQLite: places stored through Place's repository and
+// read by its lookup, regions and occasions through the conformance-only
+// lookups until S3A. Each describe runs the lookup mechanism inside the
+// object.
 describeStewardedTargetDirectoryContract(async () => {
   const stub = freshStub();
   const client = stub as unknown as LuntStateClient;
@@ -41,22 +48,24 @@ describeStewardedTargetDirectoryContract(async () => {
   };
   return {
     directory: new DoStewardedTargetDirectory(viaLookups),
+    uow: new DoUnitOfWorkProvider(client, UuidV7Generator),
     seed: (targets) => inObject((sql) => seedConformanceTargets(sql, targets)),
   };
 });
 
-describe("StewardedTargetDirectory in P1 (real object)", () => {
-  it("registers no target kind yet, so every target reads as absent", async () => {
-    const directory = new DoStewardedTargetDirectory(
-      freshStub() as unknown as LuntStateClient,
+describe("StewardedTargetDirectory in stage 2 (real object)", () => {
+  it("describes a stored place through the object's own lookups", async () => {
+    const client = freshStub() as unknown as LuntStateClient;
+    const P1 = authorityIds().place();
+    await insertPlaces(
+      {
+        uow: new DoUnitOfWorkProvider(client, UuidV7Generator),
+        savedEvents: async () => [],
+      },
+      newPlace(P1.id, { name: "喫茶ルント" }),
     );
-    expect(
-      await directory.describe([
-        {
-          kind: "place",
-          id: PlaceId.create("ffffffff-ffff-7fff-8fff-000000000001"),
-        },
-      ]),
-    ).toEqual([]);
+    expect(await new DoStewardedTargetDirectory(client).describe([P1])).toEqual(
+      [{ target: P1, name: "喫茶ルント" }],
+    );
   });
 });
