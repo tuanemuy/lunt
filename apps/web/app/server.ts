@@ -66,6 +66,11 @@ export default {
     env: AppEnv,
     _ctx: ExecutionContext,
   ): Promise<Response> {
+    const { pathname } = new URL(request.url);
+    // Photos need neither the state object nor a container.
+    if (pathname.startsWith(PHOTO_PATH_PREFIX)) {
+      return handlePhotoRequest(request, env.PHOTOS);
+    }
     const client = stateClient(env.LUNT_STATE);
     const container = createRequestContainer(
       env,
@@ -73,10 +78,6 @@ export default {
       presentationPorts,
       await requestClock(env, client),
     );
-    const { pathname } = new URL(request.url);
-    if (pathname.startsWith(PHOTO_PATH_PREFIX)) {
-      return handlePhotoRequest(request, env.PHOTOS);
-    }
     if (pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,
