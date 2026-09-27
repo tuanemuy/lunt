@@ -11,8 +11,9 @@ import {
   runDailyJobs,
 } from "@repo/core/application/workers/dailyJobs";
 import { Account } from "@repo/core/domain/account/entity";
+import { AuthorityEvents } from "@repo/core/domain/authority/events";
 import type { EventDraft } from "@repo/core/domain/common/event";
-import { AccountId } from "@repo/core/domain/common/ids";
+import { AccountId, PlaceId } from "@repo/core/domain/common/ids";
 import { describe, expect, it, vi } from "vitest";
 import { presentationPorts } from "../../presentation/ports";
 import { stateClient } from "../../worker/stateClient";
@@ -166,6 +167,36 @@ describe("LuntStateObject", () => {
         expect(outbox[0]?.attempts).toBe(1);
         expect(outbox[0]?.next_attempt_at).not.toBeNull();
         expect(String(outbox[0]?.last_error)).toContain(PROBE_EVENT_TYPE);
+      },
+      { timeout: 5_000, interval: 50 },
+    );
+  });
+
+  it("marks processed an event only a later stage's consumer subscribes to", async () => {
+    const name = freshName();
+    const stub = env.LUNT_STATE.get(env.LUNT_STATE.idFromName(name));
+    const provider = new DoUnitOfWorkProvider(asClient(stub), UuidV7Generator);
+    const place = {
+      kind: "place",
+      id: PlaceId.create(UuidV7Generator.next()),
+    } as const;
+
+    await provider.run(async ({ collectEvents }) => {
+      collectEvents([AuthorityEvents.stewardshipVacated(place, new Date())]);
+    });
+
+    await vi.waitFor(
+      async () => {
+        const outbox = await runInDurableObject(stub, (_instance, state) =>
+          state.storage.sql
+            .exec(
+              "SELECT processed_at, attempts, last_error FROM outbox_events",
+            )
+            .toArray(),
+        );
+        expect(outbox).toHaveLength(1);
+        expect(outbox[0]?.processed_at).not.toBeNull();
+        expect(outbox[0]?.last_error).toBeNull();
       },
       { timeout: 5_000, interval: 50 },
     );

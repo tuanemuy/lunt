@@ -49,6 +49,19 @@ export const deferredConsumers = {
 
 type DeferredConsumerName = keyof typeof deferredConsumers;
 
+/**
+ * Event types a later stage's consumer will subscribe to. While no
+ * registered consumer subscribes to one, the relay marks it processed
+ * without a message (`createFanOutDispatcher`): the stage that brings the
+ * consumer starts from the events stored after it lands, the same as
+ * for any consumer added to a running system.
+ */
+export const awaitingLaterStage: ReadonlySet<string> = new Set(
+  Object.values(deferredConsumers).flatMap(
+    (entry): readonly string[] => entry.events,
+  ),
+);
+
 const noConsumerIsBothRegisteredAndDeferred: [
   Extract<ConsumerName, DeferredConsumerName>,
 ] extends [never]

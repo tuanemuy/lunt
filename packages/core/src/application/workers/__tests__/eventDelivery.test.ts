@@ -1,7 +1,10 @@
 import type { RequestContainer } from "@repo/core/application/di/types";
-import type {
-  ConsumerRegistry,
-  EventConsumer,
+import {
+  awaitingLaterStage,
+  type ConsumerRegistry,
+  consumers,
+  type EventConsumer,
+  subscribersOf,
 } from "@repo/core/application/events/consumers";
 import type { ConsumerReceipts } from "@repo/core/application/ports/consumerReceipts";
 import { type DomainEvent, EventId } from "@repo/core/domain/common/event";
@@ -10,6 +13,7 @@ import {
   consumeEventMessage,
   createFanOutDispatcher,
   type EventMessage,
+  MAX_MESSAGES_PER_BATCH,
 } from "../eventDelivery";
 
 function event(n: number, type = "probe.pinged"): DomainEvent {
@@ -118,6 +122,30 @@ describe("createFanOutDispatcher", () => {
     const [outcome] = await dispatch([event(1)]);
 
     expect(outcome?.kind).toBe("failure");
+  });
+
+  it("marks processed, without a message, an event only a later stage's consumer subscribes to", async () => {
+    const sent: EventMessage[][] = [];
+    const dispatch = createFanOutDispatcher(
+      {},
+      async (messages) => {
+        sent.push([...messages]);
+      },
+      MAX_MESSAGES_PER_BATCH,
+      new Set(["probe.pinged"]),
+    );
+
+    const outcomes = await dispatch([event(1)]);
+
+    expect(outcomes).toEqual([{ kind: "success", id: "event-1" }]);
+    expect(sent).toEqual([]);
+  });
+
+  it("lists authority.stewardship_vacated, which no stage-1 consumer subscribes to, as awaiting a later stage", () => {
+    expect(awaitingLaterStage.has("authority.stewardship_vacated")).toBe(true);
+    expect(subscribersOf(consumers, "authority.stewardship_vacated")).toEqual(
+      [],
+    );
   });
 });
 

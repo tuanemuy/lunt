@@ -49,6 +49,7 @@ import {
 } from "@repo/core/application/di/env";
 import type { WorkerContainer } from "@repo/core/application/di/types";
 import {
+  awaitingLaterStage,
   type ConsumerRegistry,
   consumers,
 } from "@repo/core/application/events/consumers";
@@ -62,6 +63,7 @@ import { ConsoleLogger } from "@repo/core/application/ports/logger";
 import {
   createFanOutDispatcher,
   type EventMessage,
+  MAX_MESSAGES_PER_BATCH,
 } from "@repo/core/application/workers/eventDelivery";
 
 export type LuntStateEnv = TuningEnv &
@@ -174,8 +176,11 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
       ),
     };
     const registries = this.relayRegistries();
-    const dispatch = createFanOutDispatcher(registries.consumers, (messages) =>
-      this.sendToEventsQueue(messages),
+    const dispatch = createFanOutDispatcher(
+      registries.consumers,
+      (messages) => this.sendToEventsQueue(messages),
+      MAX_MESSAGES_PER_BATCH,
+      awaitingLaterStage,
     );
     await runOutboxAlarmTick({
       container,
