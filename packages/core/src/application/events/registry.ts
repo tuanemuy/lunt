@@ -1,4 +1,8 @@
+import type { AccountEvent } from "@repo/core/domain/account/events";
+import type { AuthorityEvent } from "@repo/core/domain/authority/events";
 import type { EventDecoder } from "@repo/core/domain/common/event";
+import { accountEventDecoders } from "../account/eventDecoders";
+import { authorityEventDecoders } from "../authority/eventDecoders";
 
 /**
  * Every domain event Lunt persists to the outbox. A type joins this
@@ -7,7 +11,7 @@ import type { EventDecoder } from "@repo/core/domain/common/event";
  * decode, and every event must have at least one consumer
  * (`spec/flows/index.md` 「ドメインイベントと消費者」).
  */
-export type LuntDomainEvent = never;
+export type LuntDomainEvent = AccountEvent | AuthorityEvent;
 
 export type LuntEventType = LuntDomainEvent["type"];
 
@@ -24,4 +28,7 @@ export type DefaultEventDecoderRegistry = {
  */
 export type EventDecoderRegistry = Partial<DefaultEventDecoderRegistry>;
 
-export const eventDecoders = {} satisfies DefaultEventDecoderRegistry;
+export const eventDecoders = {
+  ...accountEventDecoders,
+  ...authorityEventDecoders,
+} satisfies DefaultEventDecoderRegistry;
