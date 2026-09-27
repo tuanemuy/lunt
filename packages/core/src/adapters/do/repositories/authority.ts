@@ -1,9 +1,22 @@
 import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
 import type { RepositoryDeps } from "./deps";
+import { DoRoleRosterRepository } from "./roleRosterRepository";
+import { DoStewardshipRepository } from "./stewardshipRepository";
 
 /** Authority's aggregate repositories of one unit of work. */
 export function createAuthorityRepositories(
-  _deps: RepositoryDeps,
+  deps: RepositoryDeps,
 ): AuthorityRepositories {
-  return {};
+  return {
+    stewardshipRepository: new DoStewardshipRepository(
+      deps.client,
+      deps.writes,
+      deps.idGenerator,
+    ),
+    roleRosterRepository: new DoRoleRosterRepository(
+      deps.client,
+      deps.writes,
+      deps.idGenerator,
+    ),
+  };
 }

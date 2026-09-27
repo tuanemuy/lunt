@@ -1,3 +1,4 @@
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
 import type { AuthorityServices } from "../authority/services";
 import type { ServiceDeps } from "./serviceDeps";
 
@@ -6,7 +7,9 @@ export type AuthorityEnv = Readonly<Record<never, never>>;
 
 export function createAuthorityServices(
   _env: AuthorityEnv,
-  _deps: ServiceDeps,
+  deps: ServiceDeps,
 ): AuthorityServices {
-  return {};
+  return {
+    stewardedTargetDirectory: new DoStewardedTargetDirectory(deps.client),
+  };
 }
