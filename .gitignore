@@ -29,3 +29,5 @@ data/
 *.db
 *.db-shm
 *.db-wal
+
+.spec-implement/.stop-continues.*
