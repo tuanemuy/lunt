@@ -226,7 +226,8 @@ const [state, grant, granting] = useActionState(
 
 - Irreversible or audience-reducing operations confirm first (CS-12) with `ConfirmDialog` (`apps/web/app/components/ui/ConfirmDialog/index.tsx`); the owner holds `open` and runs the operation on confirm.
 - The outcome (CS-13 notice, CS-08 alert) is component state shown above the list; a notice goes in a `role="status"` wrapper.
-- An outcome that removes the viewer's own access (revoking one's own operator role) switches to a local state instead of reconciling — reloading would only reach CS-05.
+- An outcome that removes the viewer's own access (revoking one's own operator role, the withdrawal) switches to a local state instead of reconciling — reloading would re-run the route's guard and reach CS-05 or MY-02 — and calls `router.clearCache()` so cached screens (MY-01) are read afresh on the next visit.
+- Focus follows the state: a state that replaces the focused part of the screen takes the focus (`FocusOnMount`, `apps/web/app/components/ui/FocusOnMount/index.tsx`: MY-02's invalid-code panel, MY-07's completion), a rejected field takes it back so its `aria-describedby` message is read, and after an optimistic removal the list's section takes it instead of the removed row (`RoleBoard`).
 - State copied from props survives a reconcile (the island is not remounted), so derive from props whatever the server can change: `WithdrawalPanel` computes "cannot withdraw" from `view.canWithdraw` on every render and keeps only the attempt's outcome in state (`apps/web/app/components/account/WithdrawalPanel/index.tsx`).
 
 ### In-item changes and single operations

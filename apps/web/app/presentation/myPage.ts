@@ -66,6 +66,18 @@ const ROLE_ENTRIES: Readonly<Record<Role, MyPageEntry>> = {
  * What every logged-in account has (「マイページからの入口」 ログインしている).
  * MY-04 (自分の申請) joins with the application stage.
  */
+/**
+ * 「店舗を登録・管理する」, shown in both states (「マイページからの入口」 常に).
+ * It opens RQ-01, which arrives with the application stage; until then it
+ * is shown without a destination.
+ */
+export const SHOP_ENTRY: MyPageEntry = {
+  key: "shop",
+  title: "店舗を登録・管理する",
+  meta: "お店やスポットを Lunt に載せたいときや、すでに載っているお店を管理したいときは、ここから始めます。",
+  to: null,
+};
+
 const INBOX_SECTION: MyPageSection = {
   id: "my-inbox",
   title: "お知らせと申請",

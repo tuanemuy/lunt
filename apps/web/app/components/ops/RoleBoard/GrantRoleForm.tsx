@@ -3,7 +3,7 @@
 import { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import type { Role } from "@repo/core/domain/authority/role";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
@@ -66,6 +66,15 @@ export function GrantRoleForm({
   );
 
   const fieldError = fieldErrorOf(role, state.email, state.error);
+  const input = useRef<HTMLInputElement>(null);
+  // A rejected address (CS-10, no account, already held) takes the focus
+  // back, so the message wired with `aria-describedby` is read out.
+  useEffect(() => {
+    const { error } = state;
+    if (error?.kind === "invalidInput" || error?.kind === "notFound") {
+      input.current?.focus();
+    }
+  }, [state]);
   const bandError =
     state.error !== null && fieldError === undefined ? state.error : null;
   const inputId = `grant-${role}`;
@@ -89,6 +98,7 @@ export function GrantRoleForm({
           <div className="m-inline">
             <Input
               {...control}
+              ref={input}
               name="email"
               type="email"
               inputMode="email"

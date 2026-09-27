@@ -2,7 +2,14 @@
 
 import { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import type { Role } from "@repo/core/domain/authority/role";
-import { useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "@tanstack/react-router";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { ManageBody } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -10,6 +17,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { ChipButton } from "@/components/ui/ChipButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
@@ -171,6 +179,7 @@ export function RoleBoard({
   holders: RoleHoldersView;
   fromWithdrawal: boolean;
 }) {
+  const router = useRouter();
   const reconcile = useReconcile();
   const [optimistic, applyOptimistic] = useOptimistic<
     Holders,
@@ -180,16 +189,29 @@ export function RoleBoard({
   const [revocation, setRevocation] = useState<Revocation | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [selfRevoked, setSelfRevoked] = useState(false);
+  const sections = useRef<Partial<Record<Role, HTMLElement | null>>>({});
+  // The confirmed revocation removes the chip that opened the dialog, and
+  // the closing dialog hands focus back to it; the role's section takes it
+  // instead, once that commit is done.
+  const focusAfterRevocation = useRef<Role | null>(null);
+  useEffect(() => {
+    const role = focusAfterRevocation.current;
+    if (role === null) return;
+    focusAfterRevocation.current = null;
+    sections.current[role]?.focus();
+  });
 
   if (selfRevoked) {
     return (
       <ManageBody>
-        <EmptyPanel
-          title="サービス運営者の役割を解除しました"
-          actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
-        >
-          あなたはサービス運営者ではなくなったため、サービス運営の画面は操作できません。マイページには、運営の入口が示されなくなります。
-        </EmptyPanel>
+        <FocusOnMount role="status">
+          <EmptyPanel
+            title="サービス運営者の役割を解除しました"
+            actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
+          >
+            あなたはサービス運営者ではなくなったため、サービス運営の画面は操作できません。マイページには、運営の入口が示されなくなります。
+          </EmptyPanel>
+        </FocusOnMount>
       </ManageBody>
     );
   }
@@ -208,11 +230,17 @@ export function RoleBoard({
     if (revocation === null) return;
     const { role, holder } = revocation;
     setRevocation(null);
+    focusAfterRevocation.current = role;
     startRevoke(async () => {
       applyOptimistic({ type: "remove", role, accountId: holder.accountId });
       try {
         await revokeRoleFn({ data: { role, accountId: holder.accountId } });
         if (role === "operator" && holder.isSelf) {
+          // Not `reconcile()`: reloading would re-run the OM area's operator
+          // check and replace this panel with CS-05. Only the cached
+          // matches (MY-01's operator entry among them) go, so the next
+          // visit reads the account as it is now.
+          router.clearCache();
           setSelfRevoked(true);
           return;
         }
@@ -257,7 +285,14 @@ export function RoleBoard({
         return (
           <div key={role} className="contents">
             {index === 0 ? null : <hr className="m-divider" />}
-            <section className="m-section" aria-labelledby={`role-${role}`}>
+            <section
+              ref={(element) => {
+                sections.current[role] = element;
+              }}
+              tabIndex={-1}
+              className="m-section outline-none"
+              aria-labelledby={`role-${role}`}
+            >
               <div className="om-count">
                 <SectionTitle variant="manage" id={`role-${role}`}>
                   {words.name}

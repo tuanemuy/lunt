@@ -4,12 +4,14 @@ import { DevSignOutButton } from "@/components/dev/DevSignOutButton";
 import { ManageBody, ManageSection } from "@/components/layout/ManageShell";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRow, ListRowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   type MyPageData,
   type MyPageEntry,
   myPageSections,
+  SHOP_ENTRY,
 } from "@/presentation/myPage";
 
 function EntryRow({ entry }: { entry: MyPageEntry }) {
@@ -22,6 +24,21 @@ function EntryRow({ entry }: { entry: MyPageEntry }) {
         <ListRowLink to={entry.to} title={entry.title} {...meta} />
       )}
     </li>
+  );
+}
+
+/** The design's notice-shaped entry (`my01-shop`); a link once RQ-01 exists. */
+function ShopEntry({ entry }: { entry: MyPageEntry }) {
+  return (
+    <Notice
+      variant="manage"
+      title={entry.title}
+      {...(entry.to === null
+        ? {}
+        : { actions: <TextLink to={entry.to}>{entry.title}</TextLink> })}
+    >
+      {entry.meta}
+    </Notice>
   );
 }
 
@@ -47,6 +64,7 @@ export function MyPageView({ data }: { data: MyPageData }) {
         >
           ログインすると、通知や申請の状況を確かめられます。この端末で保存した掲載と店舗は、ログインしたアカウントに引き継がれます。パスワードは要りません。
         </EmptyPanel>
+        <ShopEntry entry={SHOP_ENTRY} />
         {data.devTools ? <DevTools /> : null}
       </ManageBody>
     );
@@ -75,6 +93,7 @@ export function MyPageView({ data }: { data: MyPageData }) {
           ))}
         </div>
       )}
+      <ShopEntry entry={SHOP_ENTRY} />
       <ManageSection id="my-account" title="アカウント">
         <LinkList>
           <li>

@@ -2,8 +2,8 @@
 
 import { AccountErrorCode } from "@repo/core/domain/account/errorCode";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
-import { useRouter } from "@tanstack/react-router";
-import { useActionState, useRef, useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { DevSignInForm } from "@/components/dev/DevSignInForm";
 import {
   ManageBackLink,
@@ -18,6 +18,7 @@ import { Button, ButtonLink, buttonClassName } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Field, Input } from "@/components/ui/Field";
+import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { TextButton } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
@@ -29,13 +30,13 @@ import {
 } from "@/presentation/login";
 import { rememberLoginReturn } from "@/presentation/loginReturn";
 import { newId } from "@/presentation/newId";
-import { safeNextPath } from "@/presentation/nextPath";
 
 /** A login mail this browser sent, whose code can still be entered here. */
 type SentMail = Readonly<{ email: string; challengeId: string }>;
 
 type Step =
-  | Readonly<{ kind: "input"; email: string }>
+  /** `focus`: the input replaces another step, so it takes the focus. */
+  | Readonly<{ kind: "input"; email: string; focus: boolean }>
   | Readonly<{ kind: "code"; email: string; challengeId: string }>
   | Readonly<{ kind: "invalid" }>
   | Readonly<{ kind: "success" }>;
@@ -54,15 +55,32 @@ type LoginFlowProps = {
  * the states between them. Returns to `next` once logged in (CS-04).
  */
 export function LoginFlow(props: LoginFlowProps) {
-  const [step, setStep] = useState<Step>({ kind: "input", email: "" });
+  const router = useRouter();
+  const navigate = useNavigate();
+  const [step, setStep] = useState<Step>({
+    kind: "input",
+    email: "",
+    focus: false,
+  });
   const [lastSent, setLastSent] = useState<SentMail | null>(null);
-  const back = safeNextPath(props.next);
+  // Leaving without logging in returns to the screen the login started from
+  // (TC-ACC-030). `next` is where a *finished* login goes — often a screen
+  // that needs the login and would send the visitor straight back here — so
+  // the way back is the browser history, or MY-01's guest state when this
+  // page was opened directly.
+  const leave = (event: { preventDefault: () => void }) => {
+    if (!router.history.canGoBack()) return;
+    event.preventDefault();
+    router.history.back();
+  };
   return (
     <ManagePage
       title={
         <ManageTitle>
           {step.kind === "success" ? null : (
-            <ManageBackLink to={back}>ログインせずに戻る</ManageBackLink>
+            <ManageBackLink to="/me" onClick={leave}>
+              ログインせずに戻る
+            </ManageBackLink>
           )}
           <ManageHeading>ログイン</ManageHeading>
         </ManageTitle>
@@ -72,10 +90,20 @@ export function LoginFlow(props: LoginFlowProps) {
         <InputStep
           {...props}
           initialEmail={step.email}
+          focusOnMount={step.focus}
           lastSent={lastSent}
           onSent={(sent) => {
             setLastSent(sent);
             setStep({ kind: "code", ...sent });
+            // An external login's failure is history once a mail is sent;
+            // drop it from the URL so it does not come back with the input.
+            if (props.external !== undefined) {
+              void navigate({
+                to: "/login",
+                search: props.next === undefined ? {} : { next: props.next },
+                replace: true,
+              });
+            }
           }}
         />
       ) : step.kind === "code" ? (
@@ -85,24 +113,30 @@ export function LoginFlow(props: LoginFlowProps) {
           challengeId={step.challengeId}
           next={props.next}
           devTools={props.devTools}
-          onRestart={() => setStep({ kind: "input", email: step.email })}
+          onRestart={() =>
+            setStep({ kind: "input", email: step.email, focus: true })
+          }
           onInvalid={() => setStep({ kind: "invalid" })}
           onSuccess={() => setStep({ kind: "success" })}
         />
       ) : step.kind === "invalid" ? (
         <ManageBody>
-          <div role="alert">
+          <FocusOnMount role="alert">
             <EmptyPanel
               title="このリンク・コードではログインできません"
               actions={
-                <Button onClick={() => setStep({ kind: "input", email: "" })}>
+                <Button
+                  onClick={() =>
+                    setStep({ kind: "input", email: "", focus: true })
+                  }
+                >
                   メールアドレスを入力し直す
                 </Button>
               }
             >
               有効期間が過ぎたか、もう一方を使って無効になったか、コードの誤入力が上限に達したため、リンクとコードはどちらも使えません。メールアドレスの入力からやり直すと、新しいリンクとコードを送ります。
             </EmptyPanel>
-          </div>
+          </FocusOnMount>
         </ManageBody>
       ) : (
         <LoginSucceeded />
@@ -171,10 +205,12 @@ function InputStep({
   providers,
   devTools,
   initialEmail,
+  focusOnMount,
   lastSent,
   onSent,
 }: LoginFlowProps & {
   initialEmail: string;
+  focusOnMount: boolean;
   lastSent: SentMail | null;
   onSent: (sent: SentMail) => void;
 }) {
@@ -206,6 +242,15 @@ function InputStep({
   );
 
   const fieldError = emailFieldError(state.error);
+  const emailInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focusOnMount) emailInput.current?.focus();
+  }, [focusOnMount]);
+  // A rejected address takes the focus back, so its message (wired with
+  // `aria-describedby`) is read out.
+  useEffect(() => {
+    if (state.error?.kind === "invalidInput") emailInput.current?.focus();
+  }, [state]);
   const failed = state.error?.kind === "failed";
   const capped = state.error?.code === AccountErrorCode.LoginRequestsExceeded;
   const otherError =
@@ -269,6 +314,7 @@ function InputStep({
             {(control) => (
               <Input
                 {...control}
+                ref={emailInput}
                 name="email"
                 type="email"
                 inputMode="email"
@@ -383,6 +429,21 @@ function CodeStep({
   const fieldError = codeFieldError(state.error);
   const failed =
     state.error?.kind === "failed" || state.error?.kind === "conflict";
+  const otherError =
+    state.error !== null &&
+    fieldError === undefined &&
+    !failed &&
+    state.error.code !== AccountErrorCode.LoginChallengeInvalid
+      ? state.error.message
+      : null;
+  const codeInput = useRef<HTMLInputElement>(null);
+  // The code step replaces the address step: the code input takes the
+  // focus, and takes it back after a rejected code.
+  useEffect(() => {
+    if (state.error === null || state.error.kind === "invalidInput") {
+      codeInput.current?.focus();
+    }
+  }, [state]);
 
   return (
     <form action={verify} className="m-body" noValidate>
@@ -395,6 +456,7 @@ function CodeStep({
           通信を確かめて、もう一度「ログインする」を選んでください。入力したコードは残っています。
         </Alert>
       ) : null}
+      {otherError === null ? null : <Alert title={otherError} />}
       <div className="my02-block">
         <Field
           id="login-code"
@@ -406,6 +468,7 @@ function CodeStep({
           {(control) => (
             <Input
               {...control}
+              ref={codeInput}
               name="code"
               className="my02-code"
               inputMode="numeric"

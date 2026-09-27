@@ -2,7 +2,8 @@
 
 import { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import type { StewardedKind } from "@repo/core/domain/common/refs";
-import { useState, useTransition } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { type ReactNode, useState, useTransition } from "react";
 import {
   ManageBackLink,
   ManageBody,
@@ -17,6 +18,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { type WithdrawalView, withdrawFn } from "@/presentation/withdrawal";
 
@@ -57,30 +59,34 @@ function Title({ back }: { back: boolean }) {
 function Finished({ phase }: { phase: "withdrawn" | "sessionLost" }) {
   return (
     <ManagePage title={<Title back={false} />}>
-      {phase === "withdrawn" ? (
-        <DonePanel
-          title="退会しました"
-          actions={<ButtonLink to="/">みつけるへ</ButtonLink>}
-        >
-          アカウントはなくなり、ログインしていない状態になりました。これまでのご利用、ありがとうございました。同じメールアドレスでログインすると、新しいアカウントとして始まります。
-        </DonePanel>
-      ) : (
-        <DonePanel
-          title="ログインしていない状態になっていました"
-          actions={<ButtonLink to="/">みつけるへ</ButtonLink>}
-        >
-          退会の操作は行っていません。別の端末で退会が先に済んでいたか、ログインが切れています。同じメールアドレスでログインすると、新しいアカウントとして始まります。
-        </DonePanel>
-      )}
+      <FocusOnMount>
+        {phase === "withdrawn" ? (
+          <DonePanel
+            title="退会しました"
+            actions={<ButtonLink to="/">みつけるへ</ButtonLink>}
+          >
+            アカウントはなくなり、ログインしていない状態になりました。これまでのご利用、ありがとうございました。同じメールアドレスでログインすると、新しいアカウントとして始まります。
+          </DonePanel>
+        ) : (
+          <DonePanel
+            title="ログインしていない状態になっていました"
+            actions={<ButtonLink to="/">みつけるへ</ButtonLink>}
+          >
+            退会の操作は行っていません。別の端末で退会が先に済んでいたか、ログインが切れています。同じメールアドレスでログインすると、新しいアカウントとして始まります。
+          </DonePanel>
+        )}
+      </FocusOnMount>
     </ManagePage>
   );
 }
 
-function Cannot() {
+/** `focus` when the refusal replaces the confirmation after an attempt. */
+function Cannot({ focus }: { focus: boolean }) {
+  const Frame = focus ? FocusAlert : PlainAlert;
   return (
     <ManagePage title={<Title back />}>
       <ManageBody>
-        <div role="alert">
+        <Frame>
           <EmptyPanel
             title="いまは退会できません"
             actions={
@@ -97,10 +103,18 @@ function Cannot() {
             あなたは Lunt
             のただ1人のサービス運営者です。サービス運営者がいなくなると、申請の判断や申立ての対応を行う人がいなくなるため、退会できません。別の利用者にサービス運営者の役割を付与してから、退会してください。
           </EmptyPanel>
-        </div>
+        </Frame>
       </ManageBody>
     </ManagePage>
   );
+}
+
+function FocusAlert({ children }: { children: ReactNode }) {
+  return <FocusOnMount role="alert">{children}</FocusOnMount>;
+}
+
+function PlainAlert({ children }: { children: ReactNode }) {
+  return <div role="alert">{children}</div>;
 }
 
 function failureMessage(error: ErrorState): string {
@@ -120,16 +134,25 @@ export function WithdrawalPanel({ view }: { view: WithdrawalView }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   if (outcome?.kind === "withdrawn" || outcome?.kind === "sessionLost") {
     return <Finished phase={outcome.kind} />;
   }
-  if (!view.canWithdraw || outcome?.kind === "cannot") return <Cannot />;
+  if (!view.canWithdraw || outcome?.kind === "cannot") {
+    return <Cannot focus={outcome?.kind === "cannot"} />;
+  }
 
   const confirm = () =>
     startTransition(async () => {
       try {
         const { kind } = await withdrawFn();
+        // Either way the browser is logged out now. Not `reconcile()`: it
+        // would re-run this route's login check and send the browser to
+        // MY-02 instead of this completion. Dropping the cached matches
+        // (MY-01's logged-in state among them) makes the next visit read
+        // the session as it is now.
+        router.clearCache();
         setConfirming(false);
         setOutcome({ kind });
       } catch (error) {

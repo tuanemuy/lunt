@@ -1,11 +1,13 @@
 "use client";
 
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { ManageBody } from "@/components/layout/ManageShell";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
+import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
   listNotificationsFn,
   NOTIFICATION_PAGE_SIZE,
@@ -60,7 +62,10 @@ export function NotificationList({ first }: { first: NotificationPage }) {
   const [items, setItems] = useState(first.items);
   const [count, setCount] = useState(first.count);
   const [loadedPages, setLoadedPages] = useState(1);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<ErrorState | null>(null);
+  const failed = failure !== null;
+  const navigate = useNavigate();
+  const here = useLocation({ select: (location) => location.href });
   const [loading, startLoading] = useTransition();
   const sentinel = useRef<HTMLDivElement>(null);
   const now = new Date(first.now);
@@ -75,12 +80,18 @@ export function NotificationList({ first }: { first: NotificationPage }) {
         setItems((current) => appendNew(current, page.items));
         setCount(page.count);
         setLoadedPages((pages) => pages + 1);
-        setFailed(false);
-      } catch {
-        setFailed(true);
+        setFailure(null);
+      } catch (error) {
+        const state = classifyError(error);
+        // The session ended while reading (CS-04): log in and come back.
+        if (state.kind === "loginRequired") {
+          await navigate({ to: "/login", search: { next: here } });
+          return;
+        }
+        setFailure(state);
       }
     });
-  }, [loadedPages]);
+  }, [loadedPages, navigate, here]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -119,18 +130,22 @@ export function NotificationList({ first }: { first: NotificationPage }) {
           <Row key={item.id} item={item} now={now} />
         ))}
       </ul>
-      {failed ? (
-        <Notice
-          variant="manage"
-          title="続きの通知を読み込めませんでした"
-          actions={
-            <Button variant="secondary" onClick={loadMore} disabled={loading}>
-              もう一度読み込む
-            </Button>
-          }
-        >
-          通信を確かめて、もう一度読み込んでください。
-        </Notice>
+      {failure !== null ? (
+        <div role="alert">
+          <Notice
+            variant="manage"
+            title="続きの通知を読み込めませんでした"
+            actions={
+              <Button variant="secondary" onClick={loadMore} disabled={loading}>
+                もう一度読み込む
+              </Button>
+            }
+          >
+            {failure.kind === "failed"
+              ? "通信を確かめて、もう一度読み込んでください。"
+              : failure.message}
+          </Notice>
+        </div>
       ) : hasMore ? (
         <div ref={sentinel}>
           <Button variant="secondary" onClick={loadMore} disabled={loading}>

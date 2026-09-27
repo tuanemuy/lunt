@@ -32,4 +32,22 @@ describe("safeNextPath", () => {
   it("does not return to the login screen itself", () => {
     expect(safeNextPath("/login?next=/me")).toBe(DEFAULT_AFTER_LOGIN);
   });
+
+  it("does not return to any screen under the login path", () => {
+    expect(safeNextPath("/login/")).toBe(DEFAULT_AFTER_LOGIN);
+    expect(safeNextPath("/login/link?token=attacker")).toBe(
+      DEFAULT_AFTER_LOGIN,
+    );
+    expect(safeNextPath("/login/external/google")).toBe(DEFAULT_AFTER_LOGIN);
+    expect(safeNextPath("/LOGIN/link?token=attacker")).toBe(
+      DEFAULT_AFTER_LOGIN,
+    );
+    expect(safeNextPath("/%6Cogin/link?token=attacker")).toBe(
+      DEFAULT_AFTER_LOGIN,
+    );
+  });
+
+  it("keeps paths that only start with the same letters", () => {
+    expect(safeNextPath("/loginhelp")).toBe("/loginhelp");
+  });
 });
