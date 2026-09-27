@@ -4,6 +4,7 @@ import { APPLICATION_MIGRATIONS } from "./application";
 import { AREA_MIGRATIONS } from "./area";
 import { AUTHORITY_MIGRATIONS } from "./authority";
 import { DEAD_LETTER_MIGRATION } from "./deadLetters";
+import { DEV_CLOCK_MIGRATIONS } from "./devClock";
 import { DEV_MAILBOX_MIGRATIONS } from "./devMailbox";
 import { DISCOVERY_MIGRATIONS } from "./discovery";
 import { LISTING_MIGRATIONS } from "./listing";
@@ -75,6 +76,7 @@ export const MIGRATIONS: readonly Migration[] = [
   ...APPLICATION_MIGRATIONS,
   ...NOTIFICATION_MIGRATIONS,
   ...DEV_MAILBOX_MIGRATIONS,
+  ...DEV_CLOCK_MIGRATIONS,
   ...AREA_MIGRATIONS,
   ...MEDIA_MIGRATIONS,
   ...PLACE_MIGRATIONS,

@@ -29,6 +29,7 @@ Run from the repo root — root scripts delegate to `@repo/web` where relevant:
 - `pnpm lint` / `pnpm lint:fix` / `pnpm format` / `pnpm format:check` (Biome, whole repo)
 - `pnpm typecheck` (root `tsc` for the vitest configs + `pnpm -r typecheck` across packages)
 - `pnpm test` / `pnpm test:unit` (Node pool: domain, usecases and port conformance over `node:sqlite`) / `pnpm test:integration` (Workers pool: the same conformance suites and the relay against the real Durable Object)
+- Manual tests (`spec/manual-tests/*.md`): `docs/manual_test.md` — settings example `apps/web/.dev.vars.manual-test.example`, the development clock and manual daily jobs at `/__dev/clock` (`DEV_TOOLS=1` only)
 - Web-only scripts not delegated at the root: `pnpm --filter @repo/web <script>` (or run inside `apps/web`)
 
 After changes: `pnpm typecheck && pnpm lint:fix && pnpm format`.

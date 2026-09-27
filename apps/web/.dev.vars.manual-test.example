@@ -1,0 +1,21 @@
+# Settings for running spec/manual-tests/*.md locally — copy to
+# `apps/web/.dev.vars` (gitignored), then `pnpm dev:reset && pnpm dev`.
+# Procedure: docs/manual_test.md. Entries here override the same-named
+# `vars` of apps/web/wrangler.jsonc.
+
+# The development tools stay on (dev inbox, fake Google, /__dev/clock).
+DEV_TOOLS="1"
+
+# The daily jobs run only when a test says so: from /__dev/clock
+# (「テスト環境で日次のジョブを実行する」), never from the Cron Trigger.
+DAILY_JOBS_AUTO="off"
+
+# account.md: 送信の上限 M ≥ 20 (other cases must not hit the cap);
+# 有効期間 T ≥ 4 minutes (TC-ACC-051); 上限 N ≥ 2 (TC-ACC-023, 049).
+LOGIN_MAX_UNEXPIRED_CHALLENGES="20"
+LOGIN_CHALLENGE_TTL_MS="900000"
+LOGIN_MAX_CODE_ATTEMPTS="5"
+
+# application.md / operation.md: 期間超過の代行の期間 P ≥ 2 days;
+# event.md / region.md: D ≤ 8 days. 7 days satisfies both.
+APPLICATION_PROXY_AFTER_MS="604800000"

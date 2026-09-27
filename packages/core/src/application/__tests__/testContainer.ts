@@ -88,6 +88,14 @@ export function createTestContainer(
     ...createTestApplicationServices(deps),
     ...createTestNotificationServices(deps),
     ...createTestModerationServices(deps),
+    devClock: {
+      offsetMs: () => state.client.devClockOffset(),
+      advance: async (ms) => {
+        const outcome = await state.client.devAdvanceClock(ms);
+        if (outcome.kind === "refused") throw new Error(outcome.reason);
+        return outcome.offsetMs;
+      },
+    },
     ...createTestAreaServices(deps),
     ...createTestMediaServices(deps),
     ...createTestPlaceServices(deps),

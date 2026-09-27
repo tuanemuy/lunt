@@ -2,6 +2,7 @@ import type { AccountServices } from "../account/services";
 import type { ApplicationServices } from "../application/services";
 import type { AreaServices } from "../area/services";
 import type { AuthorityServices } from "../authority/services";
+import type { DevServices } from "../dev/services";
 import type { DiscoveryServices } from "../discovery/services";
 import type { UnitOfWorkProvider } from "../execution/unitOfWork";
 import type { ListingServices } from "../listing/services";
@@ -68,6 +69,7 @@ export type RequestContainer = SharedDeps &
   ApplicationServices &
   NotificationServices &
   ModerationServices &
+  DevServices &
   AreaServices &
   MediaServices &
   PlaceServices &

@@ -6,6 +6,7 @@ import type {
   DeadLetterRecord,
   RedriveResult,
 } from "./deadLetters";
+import type { DevClockAdvance } from "./devClock";
 import type { DevMailInput, DevMailQuery, DevMailRecord } from "./devMailbox";
 import type { QueryArgs, QueryName, QueryResult } from "./queries";
 
@@ -72,4 +73,14 @@ export interface LuntStateClient {
   devMailboxAppend(mail: DevMailInput): Promise<void>;
   /** Development inbox: stored mails, newest first. */
   devMailboxList(query: DevMailQuery): Promise<readonly DevMailRecord[]>;
+  /**
+   * Development clock (F-06): how far the application's time runs ahead
+   * of the wall clock, in ms. 0 until advanced.
+   */
+  devClockOffset(): Promise<number>;
+  /**
+   * Development clock: moves it forward by `ms`. Refused unless the
+   * development tools are on.
+   */
+  devAdvanceClock(ms: number): Promise<DevClockAdvance>;
 }

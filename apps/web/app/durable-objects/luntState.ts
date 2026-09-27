@@ -19,6 +19,7 @@ import type {
   DeadLetterRecord,
   RedriveResult,
 } from "@repo/core/adapters/do/protocol/deadLetters";
+import type { DevClockAdvance } from "@repo/core/adapters/do/protocol/devClock";
 import type {
   DevMailInput,
   DevMailQuery,
@@ -33,6 +34,10 @@ import {
   listPendingDeadLetters,
   recordDeadLetter,
 } from "@repo/core/adapters/do/store/deadLetters";
+import {
+  advanceDevClock,
+  readDevClockOffset,
+} from "@repo/core/adapters/do/store/devClock";
 import {
   appendDevMail,
   listDevMail,
@@ -69,6 +74,8 @@ import {
 export type LuntStateEnv = TuningEnv &
   Readonly<{
     EVENTS_QUEUE: Queue<EventMessage>;
+    /** Gates the development clock (F-06). */
+    DEV_TOOLS?: string | undefined;
   }>;
 
 /**
@@ -151,6 +158,17 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
 
   async devMailboxList(query: DevMailQuery): Promise<readonly DevMailRecord[]> {
     return listDevMail(this.ctx.storage.sql, query);
+  }
+
+  async devClockOffset(): Promise<number> {
+    return readDevClockOffset(this.ctx.storage.sql);
+  }
+
+  async devAdvanceClock(ms: number): Promise<DevClockAdvance> {
+    if (this.env.DEV_TOOLS !== "1") {
+      return { kind: "refused", reason: "DEV_TOOLS is not 1" };
+    }
+    return advanceDevClock(this.ctx.storage.sql, ms);
   }
 
   override async alarm(): Promise<void> {

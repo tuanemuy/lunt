@@ -12,6 +12,10 @@ import type {
 import { DoConsumerReceipts } from "@repo/core/adapters/do/consumerReceipts";
 import { establishFirstOperator } from "@repo/core/application/authority/establishFirstOperator";
 import {
+  dailyJobsRunAutomatically,
+  requestClock,
+} from "@repo/core/application/di/clock";
+import {
   createRequestContainer,
   type LuntEnv,
 } from "@repo/core/application/di/container";
@@ -61,7 +65,12 @@ export default {
     _ctx: ExecutionContext,
   ): Promise<Response> {
     const client = stateClient(env.LUNT_STATE);
-    const container = createRequestContainer(env, client, presentationPorts);
+    const container = createRequestContainer(
+      env,
+      client,
+      presentationPorts,
+      await requestClock(env, client),
+    );
     if (new URL(request.url).pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,
@@ -79,7 +88,12 @@ export default {
     _ctx: ExecutionContext,
   ): Promise<void> {
     const client = stateClient(env.LUNT_STATE);
-    const container = createRequestContainer(env, client, presentationPorts);
+    const container = createRequestContainer(
+      env,
+      client,
+      presentationPorts,
+      await requestClock(env, client),
+    );
     await handleQueueBatch(batch, {
       container,
       receipts: new DoConsumerReceipts(client),
@@ -94,10 +108,18 @@ export default {
     env: AppEnv,
     _ctx: ExecutionContext,
   ): Promise<void> {
+    if (!dailyJobsRunAutomatically(env)) {
+      console.info(
+        "[daily] skipped: DAILY_JOBS_AUTO=off (run them from /__dev/clock)",
+      );
+      return;
+    }
+    const client = stateClient(env.LUNT_STATE);
     const container = createRequestContainer(
       env,
-      stateClient(env.LUNT_STATE),
+      client,
       presentationPorts,
+      await requestClock(env, client),
     );
     await storage.run(container, () => runDailyJobs(container, dailyJobs));
   },

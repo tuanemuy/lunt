@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AccountRouteImport } from './routes/_account'
 import { Route as ManageRouteImport } from './routes/_manage'
 import { Route as ViewerRouteImport } from './routes/_viewer'
+import { Route as Char91__devChar93ClockRouteImport } from './routes/[__dev]/clock'
 import { Route as Char91__devChar93InboxRouteImport } from './routes/[__dev]/inbox'
 import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
 import { Route as ManageOpsRouteImport } from './routes/_manage/ops'
@@ -41,6 +42,11 @@ const ManageRoute = ManageRouteImport.update({
 } as any)
 const ViewerRoute = ViewerRouteImport.update({
   id: '/_viewer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91__devChar93ClockRoute = Char91__devChar93ClockRouteImport.update({
+  id: '/__dev/clock',
+  path: '/__dev/clock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91__devChar93InboxRoute = Char91__devChar93InboxRouteImport.update({
@@ -144,6 +150,7 @@ const AccountLoginExternalProviderCallbackRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ViewerIndexRoute
+  '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/ops': typeof ManageOpsRouteWithChildren
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof ViewerIndexRoute
+  '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/_account': typeof AccountRouteWithChildren
   '/_manage': typeof ManageRouteWithChildren
   '/_viewer': typeof ViewerRouteWithChildren
+  '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/_manage/ops': typeof ManageOpsRouteWithChildren
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
     | '/ops'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
     | '/__dev/errors/$kind'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_account'
     | '/_manage'
     | '/_viewer'
+    | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
     | '/_manage/ops'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRouteWithChildren
   ManageRoute: typeof ManageRouteWithChildren
   ViewerRoute: typeof ViewerRouteWithChildren
+  Char91__devChar93ClockRoute: typeof Char91__devChar93ClockRoute
   Char91__devChar93InboxRoute: typeof Char91__devChar93InboxRoute
   Char91__devChar93SessionRoute: typeof Char91__devChar93SessionRoute
   Char91__devChar93ErrorsKindRoute: typeof Char91__devChar93ErrorsKindRoute
@@ -303,6 +316,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ViewerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/clock': {
+      id: '/__dev/clock'
+      path: '/__dev/clock'
+      fullPath: '/__dev/clock'
+      preLoaderRoute: typeof Char91__devChar93ClockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/__dev/inbox': {
@@ -502,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRouteWithChildren,
   ManageRoute: ManageRouteWithChildren,
   ViewerRoute: ViewerRouteWithChildren,
+  Char91__devChar93ClockRoute: Char91__devChar93ClockRoute,
   Char91__devChar93InboxRoute: Char91__devChar93InboxRoute,
   Char91__devChar93SessionRoute: Char91__devChar93SessionRoute,
   Char91__devChar93ErrorsKindRoute: Char91__devChar93ErrorsKindRoute,

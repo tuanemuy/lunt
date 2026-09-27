@@ -9,6 +9,7 @@ import {
 } from "../outboxStore";
 import type { LuntStateClient } from "../protocol/client";
 import { listPendingDeadLetters, recordDeadLetter } from "../store/deadLetters";
+import { advanceDevClock, readDevClockOffset } from "../store/devClock";
 import { appendDevMail, listDevMail } from "../store/devMailbox";
 import { applyMigrations } from "../store/schema";
 import { createStateStore, type StateStore } from "../store/stateStore";
@@ -101,6 +102,8 @@ export function createInProcessState(
       call(() => appendDevMail(storage.sql, wire(mail))),
     devMailboxList: (query) =>
       call(() => listDevMail(storage.sql, wire(query))),
+    devClockOffset: () => call(() => readDevClockOffset(storage.sql)),
+    devAdvanceClock: (ms) => call(() => advanceDevClock(storage.sql, ms)),
   };
 
   return {

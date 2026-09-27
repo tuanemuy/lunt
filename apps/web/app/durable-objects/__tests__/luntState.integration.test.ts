@@ -55,6 +55,37 @@ describe("LuntStateObject", () => {
     );
   });
 
+  it("keeps the development clock's offset, only moving forward, and refuses it without the development tools", async () => {
+    const stub = env.LUNT_STATE.get(env.LUNT_STATE.idFromName(freshName()));
+    const client = asClient(stub);
+    expect(await client.devClockOffset()).toBe(0);
+    expect(await client.devAdvanceClock(60_000)).toEqual({
+      kind: "advanced",
+      offsetMs: 60_000,
+    });
+    expect(await client.devAdvanceClock(120_000)).toEqual({
+      kind: "advanced",
+      offsetMs: 180_000,
+    });
+    expect((await client.devAdvanceClock(-1)).kind).toBe("refused");
+
+    const refused = await runInDurableObject(stub, async (instance) => {
+      const object = instance as unknown as {
+        env: { DEV_TOOLS?: string | undefined };
+        devAdvanceClock(ms: number): Promise<{ kind: string }>;
+      };
+      const saved = object.env.DEV_TOOLS;
+      object.env.DEV_TOOLS = "0";
+      try {
+        return (await object.devAdvanceClock(60_000)).kind;
+      } finally {
+        object.env.DEV_TOOLS = saved;
+      }
+    });
+    expect(refused).toBe("refused");
+    expect(await client.devClockOffset()).toBe(180_000);
+  });
+
   it("records consumer receipts per consumer", async () => {
     const client = asClient(
       env.LUNT_STATE.get(env.LUNT_STATE.idFromName(freshName())),
