@@ -1,0 +1,102 @@
+/*
+  Page-specific rules of RQ-01, CM-02, MY-06 and MY-01's store entry, after
+  the 「画面固有」 / 「CM-02 固有」 / 「MY-06 固有」 blocks of spec/design/pages.
+*/
+@layer components {
+  /* MY-01: 「店舗を登録・管理する」 as a link-shaped notice */
+  .my01-shop {
+    display: flex;
+    flex-direction: column;
+  }
+  .my01-shop .notice__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+  }
+
+  /* RQ-01 */
+  .rq01-guide__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+  .rq01-guide__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .rq01-guide__title,
+  .rq01-ask {
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+  .rq01-end {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .rq01-row-state[data-tone="quiet"] {
+    color: var(--muted);
+  }
+  .rq01-skel-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+  }
+  .rq01-skel-photo {
+    width: 88px;
+    height: 88px;
+    flex: none;
+  }
+  .rq01-skel-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  /* CM-02 */
+  .cm02-who {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    overflow-wrap: anywhere;
+  }
+  .cm02-members .m-list__item {
+    flex-wrap: wrap;
+  }
+  .cm02-members .m-list__text {
+    flex: 1 1 180px;
+  }
+  .cm02-members .chip-button {
+    flex: none;
+  }
+  .cm02-back {
+    align-self: flex-start;
+  }
+
+  /* MY-06 */
+  .my06-target {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .my06-kind {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--green);
+  }
+  .my06-name {
+    font-family: var(--font-display);
+    font-size: var(--text-name);
+    line-height: var(--leading-name);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+}

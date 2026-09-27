@@ -63,21 +63,35 @@ const ROLE_ENTRIES: Readonly<Record<Role, MyPageEntry>> = {
 };
 
 /**
- * What every logged-in account has (「マイページからの入口」 ログインしている).
- * MY-04 (自分の申請) joins with the application stage.
- */
-/**
- * 「店舗を登録・管理する」, shown in both states (「マイページからの入口」 常に).
- * It opens RQ-01, which arrives with the application stage; until then it
- * is shown without a destination.
+ * 「店舗を登録・管理する」, shown in both states (「マイページからの入口」 常に):
+ * RQ-01, the guide for stores and the search of existing ones.
  */
 export const SHOP_ENTRY: MyPageEntry = {
   key: "shop",
   title: "店舗を登録・管理する",
   meta: "お店やスポットを Lunt に載せたいときや、すでに載っているお店を管理したいときは、ここから始めます。",
-  to: null,
+  to: "/apply/find-place",
 };
 
+/**
+ * The management home a stewarded target's entry opens: SM-01 for a
+ * store. RM-01 / EM-01 arrive with regions and events (S3A); until then
+ * those entries have no destination.
+ */
+function targetHome(target: MyPageTarget): string | null {
+  switch (target.kind) {
+    case "place":
+      return `/manage/places/${encodeURIComponent(target.id)}`;
+    case "region":
+    case "occasion":
+      return null;
+  }
+}
+
+/**
+ * What every logged-in account has (「マイページからの入口」 ログインしている).
+ * MY-04 (自分の申請) joins with the application stage.
+ */
 const INBOX_SECTION: MyPageSection = {
   id: "my-inbox",
   title: "お知らせと申請",
@@ -109,7 +123,7 @@ export function myPageSections(
         (target): MyPageEntry => ({
           key: `${target.kind}:${target.id}`,
           title: target.name ?? "名称未設定",
-          to: null,
+          to: targetHome(target),
         }),
       ),
   }));

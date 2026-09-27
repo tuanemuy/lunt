@@ -1,0 +1,333 @@
+/*
+  Viewer detail screens (DT-01, DT-02), after the 「詳細（DT-01〜DT-04）の共通」,
+  DiscoverCard and 「DT-02 店舗詳細（画面固有）」 blocks of spec/design/pages.
+*/
+@layer components {
+  /* A photo in its design box; `Photo` places the image by its framing. */
+  .photo {
+    position: relative;
+    overflow: hidden;
+  }
+  .photo > img {
+    display: block;
+  }
+  .photo--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .photo__empty {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+
+  .detail-page {
+    padding-block: var(--space-21);
+  }
+  .detail,
+  .detail__main,
+  .detail__media,
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    min-width: 0;
+  }
+  .detail--split {
+    gap: var(--space-12);
+  }
+
+  /* DetailHero (30:6) */
+  .hero__media {
+    position: relative;
+  }
+  .hero__photo {
+    aspect-ratio: 348 / 290;
+    width: 100%;
+    border-radius: var(--radius-2);
+    background: var(--paper);
+  }
+  .hero__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .hero__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    min-width: 0;
+  }
+  .hero__kind {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .hero__name {
+    font-family: var(--font-display);
+    font-size: var(--text-page);
+    line-height: var(--leading-page);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .hero__place {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .hero__description {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  /* The photos after the cover, in registration order (補った). */
+  .detail-gallery {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-8);
+  }
+  .detail-gallery__photo {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    border-radius: var(--radius-2);
+    background: var(--paper);
+  }
+  .detail-gallery__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .detail-text {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+  }
+
+  .divider {
+    height: var(--border-1);
+    margin: 0;
+    border: 0;
+    background: var(--line);
+  }
+
+  /* 手続きの入口 (29:1289) */
+  .procedures {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+
+  /* 続きの読み込み (CF-05) */
+  .more-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-height: var(--size-touch);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+
+  /* 読み込み中 (36 読み込み 29:2478) and the DetailHero-shaped skeleton */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-24);
+    width: 100%;
+  }
+  .loading__text {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .skeleton--hero {
+    width: 100%;
+    aspect-ratio: 348 / 290;
+  }
+  .skeleton--kind {
+    width: 96px;
+    height: 18px;
+  }
+  .skeleton--name {
+    width: 220px;
+    height: 36px;
+  }
+  .skeleton--place {
+    width: 180px;
+    height: 18px;
+  }
+  .skeleton--line {
+    width: 100%;
+    height: 18px;
+  }
+  .skeleton--line-short {
+    width: 60%;
+    height: 18px;
+  }
+  .skeleton--button {
+    width: 100%;
+    height: 44px;
+    border-radius: var(--radius-8);
+  }
+
+  /* DiscoverCard (20:28) */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-16);
+    row-gap: var(--space-24);
+  }
+  .card {
+    position: relative;
+    min-width: 0;
+  }
+  .card__link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    border-radius: var(--radius-2);
+  }
+  .card__photo {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    border-radius: var(--radius-2);
+    background: var(--paper);
+  }
+  .card__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter var(--transition-default);
+  }
+  .card__name {
+    font-family: var(--font-display);
+    font-size: var(--text-name);
+    line-height: var(--leading-name);
+    letter-spacing: var(--tracking-display);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .card__shop {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .card__area,
+  .card__state {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+
+  /* DT-02: the map in the screen (MapCanvas 32:2 + MapPin 22:22 Selected=true) */
+  .dt02-map {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 348 / 232;
+    border-radius: var(--radius-2);
+    overflow: hidden;
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--line) var(--border-1), transparent var(--border-1)),
+      linear-gradient(
+        90deg,
+        var(--line) var(--border-1),
+        transparent var(--border-1)
+      );
+    background-size: 48px 48px;
+    background-position: center;
+    scroll-margin-top: calc(60px + var(--space-24));
+  }
+  .dt02-map .map-pin {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-touch);
+    min-height: var(--size-touch);
+    padding: var(--space-8);
+    border: var(--border-1) solid var(--line);
+    border-radius: var(--radius-999);
+    background: var(--green);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--white);
+    text-align: center;
+  }
+  .dt02-facts > div {
+    display: flex;
+    gap: 1em;
+  }
+  .dt02-facts dt {
+    flex: none;
+  }
+  .dt02-facts dd {
+    min-width: 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .dt02-more__photo {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  @media (hover: hover) {
+    .card__link:hover .card__photo img {
+      filter: brightness(0.92);
+    }
+    .card__link:hover .card__name {
+      text-decoration: underline;
+      text-underline-offset: var(--space-4);
+      text-decoration-thickness: var(--border-1);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .card-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .detail-page {
+      padding-block: var(--space-32) var(--space-0);
+    }
+    .detail--split {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      column-gap: var(--space-48);
+      align-items: start;
+    }
+    .detail--split:not(:has(> .detail__media)) {
+      grid-template-columns: minmax(0, 720px);
+    }
+    .detail--split > .detail__media {
+      position: sticky;
+      top: calc(122px + var(--space-24));
+    }
+    .card-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .detail--split .card-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .procedures .button {
+      max-width: 348px;
+    }
+    .dt02-map {
+      scroll-margin-top: calc(122px + var(--space-24));
+    }
+  }
+}

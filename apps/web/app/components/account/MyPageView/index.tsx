@@ -1,9 +1,11 @@
 "use client";
 
+import { Link } from "@tanstack/react-router";
 import { DevSignOutButton } from "@/components/dev/DevSignOutButton";
 import { ManageBody, ManageSection } from "@/components/layout/ManageShell";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRow, ListRowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
@@ -27,18 +29,23 @@ function EntryRow({ entry }: { entry: MyPageEntry }) {
   );
 }
 
-/** The design's notice-shaped entry (`my01-shop`); a link once RQ-01 exists. */
+/** The design's notice-shaped entry (`a.m-notice.my01-shop`), opening RQ-01. */
 function ShopEntry({ entry }: { entry: MyPageEntry }) {
+  if (entry.to === null) {
+    return (
+      <Notice variant="manage" title={entry.title}>
+        {entry.meta}
+      </Notice>
+    );
+  }
   return (
-    <Notice
-      variant="manage"
-      title={entry.title}
-      {...(entry.to === null
-        ? {}
-        : { actions: <TextLink to={entry.to}>{entry.title}</TextLink> })}
-    >
-      {entry.meta}
-    </Notice>
+    <Link className="notice notice--manage my01-shop" to={entry.to}>
+      <span className="notice__title">
+        {entry.title}
+        <Icon name="chevron" />
+      </span>
+      <span className="notice__text">{entry.meta}</span>
+    </Link>
   );
 }
 

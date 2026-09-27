@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { myPageSections } from "../myPage";
+import { myPageSections, SHOP_ENTRY } from "../myPage";
 
 const titles = (sections: ReturnType<typeof myPageSections>) =>
   sections.map((section) => section.title);
@@ -44,5 +44,27 @@ describe("myPageSections", () => {
       "役割",
     ]);
     expect(sections[1]?.entries[0]?.title).toBe("名称未設定");
+  });
+
+  it("opens SM-01 from a stewarded store; regions and events have no destination before their stage", () => {
+    const sections = myPageSections(
+      [],
+      [
+        { kind: "place", id: "p 1", name: "喫茶 日々" },
+        { kind: "region", id: "r1", name: "こもれび商店街" },
+        { kind: "occasion", id: "o1", name: "秋のよりみち市" },
+      ],
+    );
+    expect(sections.slice(1).map((section) => section.entries[0]?.to)).toEqual([
+      "/manage/places/p%201",
+      null,
+      null,
+    ]);
+  });
+});
+
+describe("SHOP_ENTRY", () => {
+  it("opens RQ-01", () => {
+    expect(SHOP_ENTRY.to).toBe("/apply/find-place");
   });
 });
