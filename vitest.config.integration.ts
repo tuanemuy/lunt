@@ -7,6 +7,7 @@ const SMTP_CONTRACT_VARS = [
   "SMTP_PASSWORD",
   "MAIL_FROM",
   "SMTP_TEST_TO",
+  "SMTP_TEST_TO_2",
 ] as const;
 
 // Integration tests run inside a Workers isolate (Miniflare) against the

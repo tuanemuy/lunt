@@ -114,7 +114,7 @@ Use a provider that offers SMTPS on 465 — e.g. SendGrid (`smtp.sendgrid.net`, 
 
 1. Contract run (sends real mail; only runs when the variables are set):
    `SMTP_HOST=… SMTP_USERNAME=… SMTP_PASSWORD=… MAIL_FROM=… SMTP_TEST_TO=you@example.com pnpm test:integration`
-   The login-mail and Mailer suites send to `SMTP_TEST_TO`; check that the mails arrive with a `…/login/link?token=…` link and `コード: NNNNNN`, and the notification mail's subject and link.
+   The login-mail and Mailer suites send to `SMTP_TEST_TO` (the Mailer suite also to `SMTP_TEST_TO_2`, or to `SMTP_TEST_TO` with a `+lunt2` tag when unset); check that the mails arrive with a `…/login/link?token=…` link and `コード: NNNNNN`, and the notification mail's subject and link.
 2. End to end: set `MAIL_TRANSPORT=smtp` and the SMTP variables in `.dev.vars`, run `pnpm dev`, send a login mail from `/login` to your address, and log in with its code and, from a second browser, its link.
 
 ### Google (OpenID Connect)
