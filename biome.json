@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -10,12 +10,10 @@
     "includes": [
       "apps/**",
       "packages/**",
-      "infra/**",
       "*.ts",
       "*.mjs",
       "*.json",
-      "!**/routeTree.gen.ts",
-      "!**/migrations"
+      "!**/routeTree.gen.ts"
     ]
   },
   "formatter": {
@@ -25,16 +23,9 @@
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
-    "includes": [
-      "apps/**",
-      "packages/**",
-      "infra/**",
-      "!**/components/ui/**",
-      "!**/styles/**",
-      "!**/templates/**"
-    ],
+    "includes": ["apps/**", "packages/**", "!**/styles/**", "!**/templates/**"],
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "nursery": {},
       "style": {
         "noParameterAssign": "error",

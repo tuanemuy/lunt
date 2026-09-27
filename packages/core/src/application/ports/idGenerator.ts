@@ -17,7 +17,7 @@ export type GeneratedId = string & { readonly [generatedIdBrand]: true };
 /**
  * Generator + format parser for opaque, stable, unique identifiers.
  *
- * Domain value objects (`TodoId`, `EventId`) treat the produced strings as
+ * Domain value objects (`AccountId`, `EventId`) treat the produced strings as
  * opaque non-empty values — they deliberately do not validate the
  * generator's format. The *format* (UUIDv7 in this template) is a
  * deployment-level decision owned by the implementation chosen here, and

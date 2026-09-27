@@ -1,6 +1,5 @@
 import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { Clock } from "@repo/core/application/ports/clock";
-import type { IdempotencyStore } from "@repo/core/application/ports/idempotencyStore";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import type {
   ClaimPendingArgs,
@@ -8,7 +7,7 @@ import type {
   OutboxEntry,
   OutboxRepository,
 } from "@repo/core/application/ports/outboxRepository";
-import type { DomainEvent, EventId } from "@repo/core/domain/common/event";
+import type { DomainEvent } from "@repo/core/domain/common/event";
 import type { SqlExec, SqlRow } from "./sql";
 
 type OutboxDbRow = Readonly<{
@@ -42,10 +41,9 @@ export class DoSqliteOutboxRepository implements OutboxRepository {
     private readonly clock: Clock,
   ) {}
 
-  // The commit path inserts outbox rows inside `applyCommit`'s
-  // transaction; this method exists to satisfy the port for callers
-  // that persist events outside a todo unit of work (none in this
-  // template, but the contract requires it to work).
+  // The commit path inserts outbox rows inside the unit-of-work
+  // transaction (`StateStore.commit`); this method exists to satisfy the
+  // port for callers that persist events outside a unit of work.
   async save(events: readonly DomainEvent[]): Promise<void> {
     const now = this.clock.now();
     for (const event of events) {
@@ -168,28 +166,4 @@ export function nextOutboxWakeUpAt(sql: SqlExec, leaseMs: number): Date | null {
     .toArray();
   const wake = rows[0]?.wake;
   return wake === null || wake === undefined ? null : new Date(Number(wake));
-}
-
-/**
- * DO-local `processed_events`. The queue consumer Worker reaches this
- * via the DO's `markEventProcessed` RPC — the store lives with the
- * data it guards instead of in a shared database.
- */
-export class DoSqliteIdempotencyStore implements IdempotencyStore {
-  constructor(
-    private readonly sql: SqlExec,
-    private readonly clock: Clock,
-  ) {}
-
-  async markProcessed(id: EventId): Promise<{ alreadyProcessed: boolean }> {
-    const rows = this.sql
-      .exec(
-        `INSERT INTO processed_events (id, processed_at) VALUES (?, ?)
-           ON CONFLICT (id) DO NOTHING RETURNING id`,
-        id,
-        this.clock.now().getTime(),
-      )
-      .toArray();
-    return { alreadyProcessed: rows.length === 0 };
-  }
 }

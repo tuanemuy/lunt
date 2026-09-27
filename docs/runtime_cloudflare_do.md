@@ -1,104 +1,63 @@
-# Runtime: Cloudflare Workers (Durable Objects + Queues)
+# Runtime: Cloudflare Workers + Durable Object + Queues
 
-Durable-Object variant of the Cloudflare runtime. A SQLite-backed Durable Object (`TodoStateObject`) owns the todo aggregate **and** its outbox in the same private SQLite database; the DO's Alarm relays the outbox to a Queue. Compared to the [D1 topology](./runtime_cloudflare.md), three infrastructure pieces disappear — the relay Worker, its safety-net cron, and the pruner Worker — because the platform's guaranteed, auto-retried Alarm plays all of those roles.
-
-The inward layers are untouched: the same usecases, the same `processOutboxEvents` drain policy, the same consumer/DLQ handlers pattern. What swaps is the adapter group (`packages/core/src/adapters/do/`) and the entry wiring (`serverCloudflareDo.ts`).
-
-## Table of contents
-
-- [Quick start](#quick-start)
-- [Worker matrix](#worker-matrix)
-- [How a unit of work commits](#how-a-unit-of-work-commits)
-- [Alarm relay model](#alarm-relay-model)
-- [RPC protocol and error boundary](#rpc-protocol-and-error-boundary)
-- [Schema and migrations](#schema-and-migrations)
-- [Scaling to multiple tenants](#scaling-to-multiple-tenants)
-- [Deployment](#deployment)
-- [Differences vs the D1 topology](#differences-vs-the-d1-topology)
+Lunt runs as one Worker and one SQLite-backed Durable Object. The object holds every aggregate, the outbox and the per-consumer receipts in its private SQLite database, so a unit of work that writes several aggregates of different domains commits in one real transaction, and reads that span domains run as one query (`.spec-implement/design.md` D-02).
 
 ## Quick start
 
 ```bash
 pnpm install
-pnpm --filter @repo/web dev:do        # vite dev backed by workerd, wrangler.do.toml
+pnpm dev          # vite dev: the Worker runs in workerd with the bindings of apps/web/wrangler.jsonc
+pnpm dev:reset    # delete the local state under apps/web/.wrangler/state
 ```
 
-No database setup: there is no D1 database and no migration step. The DO applies its schema idempotently in its constructor (`applyDoSchema`), so the first request creates everything.
+There is no database setup: the object applies its schema from its constructor, so the first request creates everything. Local state persists across restarts under `apps/web/.wrangler/state`.
 
-## Worker matrix
+## Topology
 
-Two Worker roles instead of five, plus the Durable Object class hosted by the app Worker:
+| Piece | Where | Trigger |
+| --- | --- | --- |
+| Fetch (TanStack Start) | `apps/web/app/server.ts` `fetch` | HTTP |
+| Events consumer | `server.ts` `queue` → `app/worker/queue.ts` | Queue `lunt-events` |
+| Dead-letter queue | same handler, `batch.queue === "lunt-events-dlq"` | Queue `lunt-events-dlq` |
+| Daily jobs | `server.ts` `scheduled` → `runDailyJobs` | Cron `5 15 * * *` (00:05 JST) |
+| State, relay, receipts | `app/durable-objects/luntState.ts` (`LuntStateObject`, one instance named `global`) | RPC / its alarm |
 
-| Role        | Responsibility                                                          | Wrangler env     | Trigger                          |
-| ----------- | ----------------------------------------------------------------------- | ---------------- | -------------------------------- |
-| App (fetch) | TanStack Start HTTP + hosts `TodoStateObject` (state, relay, idempotency) | _(top level)_    | HTTP / DO Alarm                  |
-| Consumer    | Consume the Queue (projections / notifications)                          | `--env consumer` | Queue consumer (`do-events`)     |
-| DLQ         | Surface events that exhausted the consumer's retry budget                | `--env dlq`      | Queue consumer (`do-events-dlq`) |
+Everything is one Worker, so `pnpm dev` runs the consumer and the scheduled handler too. Trigger the daily jobs locally with:
 
-There is deliberately **no relay Worker, no relay cron, and no pruner Worker**. The DO's `alarm()` is the relay and the pruner; commit arms it, and the platform retries a failed `alarm()` with backoff, so no external safety net is required. The trigger invariant is: *the alarm is armed whenever a pending outbox row exists* — `commit` arms it when it inserts events, each tick re-arms while rows remain, and `kickRelay()` (an RPC on the DO) is the operator escape hatch after manual row edits.
+```bash
+curl "http://localhost:3000/cdn-cgi/local/scheduled?cron=5+15+*+*+*"
+```
 
-## How a unit of work commits
+## RPC protocol
 
-`DoUnitOfWorkProvider` (request Worker) buffers writes as plain commands and reads through the DO stub immediately — the same deferred-write/read-through split as the D1 adapter, with a different flush:
+The object's RPC surface (`packages/core/src/adapters/do/protocol/client.ts`, `LuntStateClient`):
 
-1. The usecase callback runs in the request Worker. `findById` / `findPage` RPC to the DO; `insert` / `save` / `delete` push `TodoWriteCommand`s onto a local buffer; `collectEvents` mints `EventId`s and buffers events.
-2. One `commit` RPC ships the buffer. The DO applies every command plus the outbox inserts inside a single `transactionSync` — a **real interactive transaction**, so there is no `_occ_guard` CHECK trick.
-3. OCC is a per-statement conditional write (`UPDATE … WHERE id = ? AND version = ? RETURNING 1`). A zero-row result aborts the transaction and the conflict comes back **as data** naming the exact losing command; the provider rethrows it as `ConflictError("OPTIMISTIC_LOCK_FAILURE")`. Misattribution across multiple OCC writes is structurally impossible here.
-4. If the commit inserted events, the DO arms its alarm before the RPC returns. There is no relay trigger port in this runtime.
+- `query(name, args)` — a named read. `protocol/queries.ts` is the typed catalog (name → args, result); `store/queries.ts` holds the handler of every name, and `satisfies` makes a missing handler a type error.
+- `commit({ writes, events })` — applies a unit of work. `protocol/commands.ts` is the typed union of write commands; `store/commands.ts` holds one handler per `kind`. The object runs every command and inserts the outbox rows inside one `transactionSync`.
+- `isConsumed` / `markConsumed` — per-consumer receipts.
+- `kickRelay` — re-arms the relay alarm after manual outbox edits.
 
-Read-your-write within one UoW is unsupported by design, matching every other adapter in the template.
+Workers RPC turns thrown errors into plain `Error`s, so every outcome a port contract names travels as data: `commit` returns `rejected` with a `WriteFailure` (`conflict` for a version mismatch or a taken unique key, `notFound` for a `save` / `delete` of a missing aggregate), and `DoUnitOfWorkProvider` rethrows it as `ConflictError` / `NotFoundError`. Anything else that throws becomes `SystemError(DATABASE_ERROR)` (`mapDoError`).
 
-## Alarm relay model
+Request-side repositories run `query` for reads (immediately, inside the unit of work) and append write commands to the unit of work's buffer. Commands carry the aggregate snapshot; the object's handler derives index columns from it, so indexes cannot drift from their aggregate.
 
-`alarm()` runs `runOutboxAlarmTick` (`packages/core/src/adapters/do/alarm.ts`): relay → prune → re-arm.
+Durable Object SQLite limits to design around: at most 100 bound parameters per statement (pass id sets as one JSON parameter to `json_each(?)`), short `LIKE` patterns (match strings with the domain's own functions), and no `BEGIN` / `SAVEPOINT` (use `transactionSync`).
 
-- **Relay** is the shared `processOutboxEvents` worker over `DoSqliteOutboxRepository` — same batching, backoff, quarantine, and lease semantics as every other runtime. The lease is not fighting concurrent workers (a DO is single-threaded); it covers an alarm invocation that crashes between claim and finalize, whose rows become reclaimable once the lease lapses and the platform-retried alarm comes back.
-- **Prune** runs on every tick instead of a daily cron — it is an indexed `DELETE` that usually matches nothing. Quarantined rows (`failed_at IS NOT NULL`) are preserved for operator inspection, as everywhere else.
-- **Re-arm** computes the earliest actionable instant (`nextOutboxWakeUpAt`): unclaimed rows are due at `next_attempt_at` (or immediately), crash-orphaned claims at `claimed_at + leaseMs`. Drained outbox → no alarm.
+## Relay and consumers
 
-Tuning comes from the same `OUTBOX_*` vars (`[vars]` in `wrangler.do.toml`), read by the shared `readRelayTuning` / `readPruneTuning` at the DO boundary.
+Committing events arms the alarm. `alarm()` runs the shared `processOutboxEvents` over the object's outbox, then prunes processed rows and old receipts, then re-arms while rows remain (`adapters/do/alarm.ts`). The platform retries a throwing alarm, so no cron safety net is needed.
 
-## RPC protocol and error boundary
+The dispatcher (`createFanOutDispatcher`) sends one queue message `{ consumer, event }` per subscribed consumer (`application/events/consumers.ts`). Each message is acked or retried on its own: one failing consumer never re-runs the others, and it alone reaches the dead-letter queue. The consumer checks its receipt first and records it only after it succeeded (`consumeEventMessage`); consumers are idempotent on their own, so a lost receipt costs a repeat, never a wrong result.
 
-The request/consumer Workers hold the DO stub behind the structural `TodoStateClient` interface (`packages/core/src/adapters/do/protocol.ts`), so only the entry files touch platform stub types.
+## Schema
 
-Workers RPC serializes thrown errors into plain `Error`s — class identity does not survive the wire. The protocol therefore carries every expected outcome **as data** (`CommitResult` is `committed | conflict`), and `mapDoError` translates anything that still throws into `SystemError(DATABASE_ERROR)`. This is the DO-runtime analogue of the D1 adapter's driver-error translation.
+`adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.
 
-The consumer's idempotency stamps also travel over RPC: `processed_events` lives in the DO next to the data it guards (`markEventProcessed`), not in a shared database. The consumer container (`DoConsumerContainer`) is intentionally narrower than the shared `WorkerContainer` — worker-side code has no outbox access in this topology, and the type makes that unrepresentable.
+## Tests
 
-## Schema and migrations
-
-`applyDoSchema` runs `CREATE TABLE IF NOT EXISTS` DDL synchronously in the DO constructor, before any request is delivered. Additive changes extend the DDL list; destructive changes need a versioned migration ledger (a `_meta` table), which the template intentionally leaves out. There is no drizzle-kit step and no `wrangler d1 migrations` equivalent.
-
-## Scaling to multiple tenants
-
-The template pins a single instance via `DEFAULT_TODO_SCOPE` (`"default"`) because its domain is one global todo list. The pattern is built for per-tenant sharding: derive the scope from the authenticated principal (`user:{id}`, `workspace:{id}`), and each tenant gets its own DO — its own SQLite file, its own outbox, its own alarm. Tenant isolation becomes structural (there is no cross-tenant table to mis-query), and outbox throughput scales with the number of active tenants instead of contending on one database. Keep per-object storage limits in mind: quarantined outbox rows are never auto-deleted, so a long-lived poison source needs operator attention before it accumulates.
+- `pnpm test:unit` runs the object's store code on `node:sqlite` (`adapters/do/testing/`), which reproduces the platform's statement restrictions.
+- `pnpm test:integration` runs the same port conformance suites and the relay end to end against the real object in the Workers pool (`apps/web/app/durable-objects/__tests__/`).
 
 ## Deployment
 
-`wrangler.do.toml` is **local-dev shaped** (unsuffixed resource names), mirroring `wrangler.toml`'s role in the D1 topology. To deploy, copy it into stage-suffixed variants (rename the Workers, the queues, and the consumer/DLQ `script_name` references), create the two queues once per stage, then:
-
-```bash
-pnpm --filter @repo/web build:do
-wrangler deploy --config apps/web/wrangler.do.<stage>.toml               # app + DO
-wrangler deploy --config apps/web/wrangler.do.<stage>.toml --env consumer
-wrangler deploy --config apps/web/wrangler.do.<stage>.toml --env dlq
-```
-
-The `[[migrations]]` block (`new_sqlite_classes = ["TodoStateObject"]`) must accompany the first deploy of the app Worker — it is what makes the DO SQLite-backed.
-
-## Differences vs the D1 topology
-
-| Axis            | D1 + sibling Workers                                        | Durable Object                                          |
-| --------------- | ----------------------------------------------------------- | ------------------------------------------------------- |
-| Store           | Shared D1 database                                          | Per-scope DO SQLite                                     |
-| UoW atomicity   | Deferred `db.batch()` + `_occ_guard` CHECK abort            | Real `transactionSync`                                  |
-| OCC attribution | Post-abort probe re-evaluation                              | Per-statement `RETURNING` check (exact by construction) |
-| Relay trigger   | Service Binding kick + 5-min safety-net cron                | DO Alarm (guaranteed, platform-retried); no cron        |
-| Pruning         | Dedicated Worker + daily cron                               | Tail of every alarm tick                                |
-| Idempotency     | `processed_events` in shared D1                             | `processed_events` in the DO, reached via RPC           |
-| Workers         | 5 (app / relay / consumer / pruner / dlq)                   | 2 (app+DO / consumer) + dlq                             |
-| Migrations      | drizzle-kit + `wrangler d1 migrations`                      | Idempotent DDL in the DO constructor                    |
-| Lock-in         | D1-flavoured but adapter-swappable to any SQLite            | Deeper: state, relay, and scheduling live on DO APIs    |
-
-The trade: the DO topology is materially simpler to operate and strictly stronger on transactional semantics, in exchange for coupling the storage layer to Durable Objects. The hexagonal seams are what keep that coupling priced correctly — swapping back (or out to Node/AWS/GCP) is still an adapter + entry change.
+Out of scope for now. A deployed configuration drops `DEV_TOOLS`, sets `SESSION_SECRET` with `wrangler secret put`, creates the two queues, and deploys with the `[[migrations]]` entry that makes `LuntStateObject` SQLite-backed.

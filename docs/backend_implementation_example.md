@@ -1,5 +1,7 @@
 # Backend Implementation Guide
 
+> **注意**: この文書は、削除済みのテンプレートの Todo の例を題材にしている。引用しているファイル（`todo` を含むパス）はリポジトリにない。パターンの説明として読むこと。Lunt の実装を参照先にした書き直しは、アカウント・管理権限の縦の実装ができた時点で行う。
+
 The Todo domain implementation is the canonical example. When adding a new domain, just follow the same structure.
 
 > For principles and abstract concepts, see `AGENTS.md`. This document is a collection of copy-and-adapt patterns for "how to actually write the code".

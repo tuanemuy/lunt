@@ -1,0 +1,65 @@
+// Local development configuration of the Lunt Worker (`pnpm dev`,
+// `pnpm build`, `pnpm start`). One Worker hosts everything
+// (design.md D-05): the TanStack Start fetch handler, the events queue
+// consumer and its dead-letter queue, the daily Cron Trigger, and the
+// single SQLite-backed Durable Object that holds every aggregate, the
+// outbox and the consumer receipts. The DO applies its schema itself —
+// there is no migration step. A deployed configuration drops DEV_TOOLS
+// and takes SESSION_SECRET from `wrangler secret put`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lunt",
+  "main": "app/server.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    // Development tools (`/__dev/*`) and the development-only session
+    // secret below. Never set in a deployed configuration.
+    "DEV_TOOLS": "1",
+    "SESSION_SECRET": "lunt-local-development-session-secret",
+    // Alarm relay tuning, read inside the DO by `readRelayTuning` /
+    // `readPruneTuning`.
+    "OUTBOX_BATCH_SIZE": "100",
+    // Crash-recovery window for an alarm that died mid-claim.
+    "OUTBOX_LEASE_MS": "300000",
+    // Multiplied by the consumer's `max_retries` — keep low.
+    "OUTBOX_MAX_ATTEMPTS": "2",
+    // Processed outbox rows and consumer receipts: 7 days.
+    "OUTBOX_RETENTION_MS": "604800000"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LuntStateObject"] }],
+  "queues": {
+    // The DO's alarm publishes through this binding.
+    "producers": [{ "binding": "EVENTS_QUEUE", "queue": "lunt-events" }],
+    "consumers": [
+      {
+        "queue": "lunt-events",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        // Total delivery budget: OUTBOX_MAX_ATTEMPTS × (1 + max_retries).
+        "max_retries": 3,
+        "dead_letter_queue": "lunt-events-dlq"
+      },
+      {
+        // No further dead-letter target — a re-failure here would loop.
+        "queue": "lunt-events-dlq",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 1
+      }
+    ]
+  },
+  "triggers": {
+    // 15:05 UTC = 00:05 JST, just after the JST calendar day turns
+    // (`LocalDate` is the Japan calendar date).
+    "crons": ["5 15 * * *"]
+  }
+}

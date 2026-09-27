@@ -6,12 +6,8 @@
 # put` for production. Never commit the real `.dev.vars` — it is listed
 # in `.gitignore`.
 #
-# Non-secret config (e.g. `APP_URL`) belongs in the matching
-# `wrangler*.toml` `[vars]`, not here — `wrangler.toml` for local dev,
-# `wrangler.staging.toml` / `wrangler.production.toml` for remote
-# deploys. Reserve this file for credentials and tokens that must not
-# be checked in.
+# Non-secret config (e.g. `APP_URL`) belongs in `wrangler.jsonc` `vars`,
+# not here. Reserve this file for credentials that must not be checked
+# in; an entry here overrides the same-named `vars` entry.
 #
-# Example (uncomment and replace when you add a secret-backed feature):
-# AUTH_SECRET="replace-me"
-# SOME_THIRD_PARTY_API_KEY="replace-me"
+# SESSION_SECRET="at-least-32-random-characters"

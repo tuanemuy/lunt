@@ -1,5 +1,7 @@
 # Frontend Implementation Example
 
+> **注意**: この文書は、削除済みのテンプレートの Todo の例を題材にしている。引用しているファイル（`todo` を含むパス）はリポジトリにない。パターンの説明として読むこと。Lunt の実装を参照先にした書き直しは、アカウント・管理権限の縦の実装ができた時点で行う。
+
 Implementation example assuming TanStack Start (with React Server Components enabled).
 
 Basic design principles:

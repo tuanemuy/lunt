@@ -1,4 +1,4 @@
-import { ConflictError } from "@repo/core/application/errors";
+import { ConflictError, NotFoundError } from "@repo/core/application/errors";
 import type {
   UnitOfWorkContext,
   UnitOfWorkProvider,
@@ -10,48 +10,37 @@ import {
   EventId,
 } from "@repo/core/domain/common/event";
 import { mapDoError } from "./helpers";
-import type {
-  CommitRequest,
-  TodoStateClient,
-  TodoWriteCommand,
-} from "./protocol";
-import { DoTodoRepository } from "./todoRepository";
+import type { CommitRequest, LuntStateClient } from "./protocol/client";
+import type { WriteCommand } from "./protocol/commands";
+import { createRepositories } from "./repositories";
 
 /**
  * Durable Object implementation of `UnitOfWorkProvider`.
  *
- * The callback runs in the request Worker; reads RPC to the DO
- * immediately while writes (and outbox events) buffer locally as plain
- * commands. After `fn` returns, one `commit` RPC ships the buffer and
- * the DO applies it inside a real `transactionSync` — aggregate writes
- * and outbox rows commit atomically, and OCC is checked per statement
- * so a conflict is attributed to the exact write that lost.
- *
- * There is no relay trigger here: committing events arms the DO's own
- * alarm inside the same RPC, which replaces the Service-Binding kick
- * and the safety-net cron of the sibling-Worker topology.
+ * The callback runs in the calling Worker; repository reads go to the
+ * DO immediately (`query`), while writes and outbox events buffer
+ * locally as plain commands. After `fn` resolves, one `commit` RPC ships
+ * the buffer and the DO applies it inside a single `transactionSync` —
+ * aggregate writes and outbox rows commit atomically, and every failure
+ * the port contracts name comes back as data naming the command that
+ * lost. Committing events arms the DO's own relay alarm.
  */
 export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
   constructor(
-    private readonly client: TodoStateClient,
+    private readonly client: LuntStateClient,
     private readonly idGenerator: IdGenerator,
   ) {}
 
   async run<T>(fn: (ctx: UnitOfWorkContext) => Promise<T>): Promise<T> {
-    const writes: TodoWriteCommand[] = [];
+    const writes: WriteCommand[] = [];
     const collected: DomainEvent[] = [];
 
-    const todoRepository = new DoTodoRepository(
-      this.client,
-      writes,
-      this.idGenerator,
-    );
-
     const ctx: UnitOfWorkContext = {
-      todoRepository,
-      // `EventId` is minted here, matching the other providers: domain
-      // factories return identity-less drafts and usecases never see
-      // `idGenerator`.
+      ...createRepositories({
+        client: this.client,
+        writes,
+        idGenerator: this.idGenerator,
+      }),
       collectEvents: (drafts) => {
         collected.push(
           ...attachEventIds(drafts, () =>
@@ -81,18 +70,12 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
     const outcome = await mapDoError("Failed to commit unit of work", () =>
       this.client.commit(request),
     );
-    if (outcome.kind === "conflict") {
-      if (outcome.command === "insert") {
-        throw new ConflictError(
-          "UNIQUE_VIOLATION",
-          `Todo already exists: ${outcome.todoId}`,
-        );
+    if (outcome.kind === "rejected") {
+      const { failure } = outcome;
+      if (failure.kind === "notFound") {
+        throw new NotFoundError(failure.code, failure.message);
       }
-      const verb = outcome.command === "save" ? "saving" : "deleting";
-      throw new ConflictError(
-        "OPTIMISTIC_LOCK_FAILURE",
-        `Optimistic lock failure while ${verb} todo ${outcome.todoId}: expected version ${outcome.expectedVersion}`,
-      );
+      throw new ConflictError(failure.code, failure.message);
     }
     return result;
   }

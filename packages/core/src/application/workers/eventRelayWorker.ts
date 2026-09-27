@@ -3,10 +3,9 @@ import {
   type EventDecoder,
   EventId,
 } from "@repo/core/domain/common/event";
-import type { TodoEvent } from "@repo/core/domain/todo/events";
 import type { WorkerContainer } from "../di/types";
+import { type EventDecoderRegistry, eventDecoders } from "../events/registry";
 import type { OutboxEntry, OutboxFailure } from "../ports/outboxRepository";
-import { todoEventDecoders } from "../todo/eventDecoders";
 
 // Delivery is at-least-once with NO ordering guarantee. Per-row failures
 // bump `attempts` and schedule a backed-off retry; once a row exceeds
@@ -40,24 +39,6 @@ export type EventDispatcher = (
   events: readonly DomainEvent[],
 ) => Promise<readonly EventDispatchOutcome[]>;
 
-type AllDomainEvents = TodoEvent;
-
-export type DefaultEventDecoderRegistry = {
-  readonly [K in AllDomainEvents["type"]]: EventDecoder<
-    Extract<AllDomainEvents, { type: K }>
-  >;
-};
-
-// Caller-supplied registries are scoped to the closed `AllDomainEvents` set
-// so an unknown key (e.g. a typo or a stale event name) cannot slip past the
-// type fence. Add a new event type to `AllDomainEvents` before registering
-// its decoder.
-export type EventDecoderRegistry = Partial<DefaultEventDecoderRegistry>;
-
-export const defaultEventDecoderRegistry = {
-  ...todoEventDecoders,
-} satisfies DefaultEventDecoderRegistry;
-
 export type ProcessOutboxEventsOptions = {
   batchSize?: number;
   decoderRegistry?: EventDecoderRegistry;
@@ -79,10 +60,9 @@ export type ProcessOutboxEventsOptions = {
   // Maximum number of consecutive batches to drain in a single call.
   // The loop terminates as soon as a batch yields zero successful
   // dispatches (no more ready rows, or every claimed row failed) or
-  // this cap is reached. Set to 1 to preserve single-batch semantics.
-  // The cap exists so a Service-Binding-triggered run cannot exceed
-  // Workers CPU budgets when the outbox has a large backlog — the
-  // safety-net cron picks up the rest on the next tick.
+  // this cap is reached. The cap keeps one alarm tick within Workers
+  // CPU budgets on a large backlog — the re-armed alarm picks up the
+  // rest.
   maxIterations?: number;
 };
 
@@ -95,7 +75,7 @@ const RELAY_WORKER_ID = crypto.randomUUID();
 
 export const DEFAULT_BATCH_SIZE = 100;
 // Quarantine after 2 publish attempts. The consumer-side queue then
-// owns redelivery (`max_retries` in wrangler.toml [env.consumer]), so
+// owns redelivery (`max_retries` of the queue consumer), so
 // the total user-visible retry count is the product of the two — keep
 // this low to avoid the multiplication producing surprising attempt
 // counts.
@@ -177,7 +157,7 @@ export async function processOutboxEvents(
     total += processed;
     // Stop on an empty success count: either the outbox is drained,
     // or every claimed row failed (in which case retrying immediately
-    // would just re-claim the same rows). Backoff + cron handle that.
+    // would just re-claim the same rows). Backoff + the re-armed alarm handle that.
     if (processed === 0) break;
   }
   return { processed: total };
@@ -189,7 +169,7 @@ async function processOutboxBatch(
   options: ProcessOutboxEventsOptions,
 ): Promise<{ processed: number }> {
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
-  const registry = options.decoderRegistry ?? defaultEventDecoderRegistry;
+  const registry = options.decoderRegistry ?? eventDecoders;
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const backoffMs = options.backoffMs ?? defaultBackoffMs;
   const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
