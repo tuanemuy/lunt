@@ -1,25 +1,20 @@
 import type { UnitOfWorkRepositories } from "@repo/core/application/execution/unitOfWork";
-import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
-import type { LuntStateClient } from "../protocol/client";
-import type { WriteCommand } from "../protocol/commands";
-import { DoAccountRepository } from "./accountRepository";
+import { createAccountRepositories } from "./account";
+import { createApplicationRepositories } from "./application";
+import { createAuthorityRepositories } from "./authority";
+import type { RepositoryDeps } from "./deps";
+import { createNotificationRepositories } from "./notification";
 
-export type RepositoryDeps = Readonly<{
-  client: LuntStateClient;
-  /** The unit of work's write buffer; repositories only append to it. */
-  writes: WriteCommand[];
-  idGenerator: IdGenerator;
-}>;
+export type { RepositoryDeps } from "./deps";
 
 /** Every aggregate repository of one unit of work, sharing its buffer. */
 export function createRepositories(
   deps: RepositoryDeps,
 ): UnitOfWorkRepositories {
   return {
-    accountRepository: new DoAccountRepository(
-      deps.client,
-      deps.writes,
-      deps.idGenerator,
-    ),
+    ...createAccountRepositories(deps),
+    ...createAuthorityRepositories(deps),
+    ...createApplicationRepositories(deps),
+    ...createNotificationRepositories(deps),
   };
 }

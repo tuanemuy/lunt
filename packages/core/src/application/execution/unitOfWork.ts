@@ -1,14 +1,18 @@
-import type { AccountRepository } from "@repo/core/domain/account/ports/accountRepository";
+import type { AccountRepositories } from "@repo/core/domain/account/ports/unitOfWork";
+import type { ApplicationRepositories } from "@repo/core/domain/application/ports/unitOfWork";
+import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
 import type { EventDraft } from "@repo/core/domain/common/event";
+import type { NotificationRepositories } from "@repo/core/domain/notification/ports/unitOfWork";
 
 /**
  * Aggregate repositories reachable inside a unit of work. Each domain
  * adds its repositories here (`spec/domains/index.md` 「UnitOfWork ポート」):
  * they are obtained only from the context, never from the container.
  */
-export type UnitOfWorkRepositories = Readonly<{
-  accountRepository: AccountRepository;
-}>;
+export type UnitOfWorkRepositories = AccountRepositories &
+  AuthorityRepositories &
+  ApplicationRepositories &
+  NotificationRepositories;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{

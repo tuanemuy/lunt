@@ -22,6 +22,7 @@ import { runDailyJobs } from "@repo/core/application/workers/dailyJobs";
 import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
 import { default as defaultEntry } from "@tanstack/react-start/server-entry";
 import { LuntStateObject } from "./durable-objects/luntState";
+import { presentationPorts } from "./presentation/ports";
 import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
 import { handleQueueBatch } from "./worker/queue";
 import { stateClient } from "./worker/stateClient";
@@ -59,7 +60,7 @@ export default {
     _ctx: ExecutionContext,
   ): Promise<Response> {
     const client = stateClient(env.LUNT_STATE);
-    const container = createRequestContainer(env, client);
+    const container = createRequestContainer(env, client, presentationPorts);
     if (new URL(request.url).pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,
@@ -75,7 +76,7 @@ export default {
     _ctx: ExecutionContext,
   ): Promise<void> {
     const client = stateClient(env.LUNT_STATE);
-    const container = createRequestContainer(env, client);
+    const container = createRequestContainer(env, client, presentationPorts);
     await handleQueueBatch(batch, {
       container,
       receipts: new DoConsumerReceipts(client),
@@ -90,7 +91,11 @@ export default {
     env: AppEnv,
     _ctx: ExecutionContext,
   ): Promise<void> {
-    const container = createRequestContainer(env, stateClient(env.LUNT_STATE));
+    const container = createRequestContainer(
+      env,
+      stateClient(env.LUNT_STATE),
+      presentationPorts,
+    );
     await storage.run(container, () => runDailyJobs(container, dailyJobs));
   },
 };

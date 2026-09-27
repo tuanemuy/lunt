@@ -1,4 +1,8 @@
+import type { AccountServices } from "../account/services";
+import type { ApplicationServices } from "../application/services";
+import type { AuthorityServices } from "../authority/services";
 import type { UnitOfWorkProvider } from "../execution/unitOfWork";
+import type { NotificationServices } from "../notification/services";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/idGenerator";
 import type { Logger } from "../ports/logger";
@@ -52,7 +56,11 @@ export type RequestContainer = SharedDeps &
     config: AppConfig;
     runtime: RuntimeSettings;
     unitOfWorkProvider: UnitOfWorkProvider;
-  }>;
+  }> &
+  AccountServices &
+  AuthorityServices &
+  ApplicationServices &
+  NotificationServices;
 
 /**
  * Container of the outbox relay, which runs inside the state Durable

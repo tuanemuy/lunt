@@ -1,6 +1,9 @@
 import type { CommandOutcome, WriteCommand } from "../protocol/commands";
 import type { SqlExec } from "../sql";
 import { accountCommandHandlers } from "./account";
+import { applicationCommandHandlers } from "./application";
+import { authorityCommandHandlers } from "./authority";
+import { notificationCommandHandlers } from "./notification";
 
 /** Handler table of one command union: one synchronous writer per kind. */
 export type CommandHandlersOf<C extends { kind: string }> = {
@@ -14,6 +17,9 @@ export type CommandHandlers = CommandHandlersOf<WriteCommand>;
 
 export const commandHandlers = {
   ...accountCommandHandlers,
+  ...authorityCommandHandlers,
+  ...applicationCommandHandlers,
+  ...notificationCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

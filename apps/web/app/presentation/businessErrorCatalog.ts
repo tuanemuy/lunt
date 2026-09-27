@@ -4,20 +4,17 @@ import {
   ExposureSubject,
   PublishableSubject,
 } from "@repo/core/domain/common/exposureSubject";
+import { accountErrorCatalog } from "./errorCatalog/account";
+import { applicationErrorCatalog } from "./errorCatalog/application";
+import { authorityErrorCatalog } from "./errorCatalog/authority";
+import { notificationErrorCatalog } from "./errorCatalog/notification";
+import {
+  type BusinessErrorPresentation,
+  changed,
+  invalid,
+} from "./errorCatalog/presentation";
 
-/**
- * How a business rule violation is shown (`spec/pages/index.md`):
- * - `invalidInput` CS-10 — what the user entered or chose cannot be saved
- *   as it is; the screen points at the items (`missing` for an unmet
- *   publish condition).
- * - `premiseChanged` CS-08 — the target's state changed under the
- *   operation (someone else acted first, or time passed); the screen shows
- *   the current state.
- */
-export type BusinessErrorPresentation = Readonly<{
-  state: "invalidInput" | "premiseChanged";
-  message: string;
-}>;
+export type { BusinessErrorPresentation } from "./errorCatalog/presentation";
 
 const SUBJECT_LABEL = {
   LISTING: "掲載",
@@ -41,15 +38,6 @@ function perSubject<S extends ExposureSubject, Suffix extends string>(
     ]),
   ) as Record<`${S}_${Suffix}`, BusinessErrorPresentation>;
 }
-
-const invalid = (message: string): BusinessErrorPresentation => ({
-  state: "invalidInput",
-  message,
-});
-const changed = (message: string): BusinessErrorPresentation => ({
-  state: "premiseChanged",
-  message,
-});
 
 const INVALID_ID = invalid("指定された対象が正しくありません");
 
@@ -115,6 +103,10 @@ export const businessErrorCatalog = {
   ...perSubject(ExposureSubject.all, "PHOTO_NOT_FOUND", (label) =>
     changed(`指定した写真は、すでにこの${label}にありません`),
   ),
+  ...accountErrorCatalog,
+  ...authorityErrorCatalog,
+  ...applicationErrorCatalog,
+  ...notificationErrorCatalog,
 } satisfies Record<BusinessErrorCode, BusinessErrorPresentation>;
 
 type StaleCode = Exclude<keyof typeof businessErrorCatalog, BusinessErrorCode>;

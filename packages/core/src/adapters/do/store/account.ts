@@ -9,7 +9,7 @@ import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
 import { deleteVersioned, insertUnique, updateVersioned } from "./versioned";
 
-export const ACCOUNT_MIGRATION: Migration = {
+const ACCOUNT_TABLE_MIGRATION: Migration = {
   version: 2,
   name: "accounts",
   statements: [
@@ -22,6 +22,14 @@ export const ACCOUNT_MIGRATION: Migration = {
     )`,
   ],
 };
+
+/**
+ * Account's tables. Migration versions are allocated globally
+ * (`store/schema.ts`): take the next free number across all domains.
+ */
+export const ACCOUNT_MIGRATIONS: readonly Migration[] = [
+  ACCOUNT_TABLE_MIGRATION,
+];
 
 type AccountRow = Readonly<{ id: string; email: string; version: number }> &
   SqlRow;

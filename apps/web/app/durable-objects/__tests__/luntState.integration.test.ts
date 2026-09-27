@@ -155,7 +155,7 @@ describe("LuntStateObject", () => {
       env.LUNT_STATE as unknown as DurableObjectNamespace,
       freshName(),
     );
-    const container = createRequestContainer(env, client);
+    const container = createRequestContainer(env, client, {});
     const targets = ["a", "b", "c"].map((n, i) =>
       Account.register({
         id: `ffffffff-ffff-7fff-8fff-00000000000${i + 1}`,

@@ -8,6 +8,15 @@ import { z } from "zod";
 import { SystemClock } from "../ports/clock";
 import { UuidV7Generator } from "../ports/idGenerator";
 import { ConsoleLogger } from "../ports/logger";
+import { type AccountEnv, createAccountServices } from "./account";
+import { type ApplicationEnv, createApplicationServices } from "./application";
+import { type AuthorityEnv, createAuthorityServices } from "./authority";
+import {
+  createNotificationServices,
+  type NotificationEnv,
+} from "./notification";
+import type { PresentationPorts } from "./presentationPorts";
+import type { ServiceDeps } from "./serviceDeps";
 import type { RequestContainer, RuntimeSettings, SharedDeps } from "./types";
 
 export type LuntEnv = Readonly<{
@@ -15,7 +24,11 @@ export type LuntEnv = Readonly<{
   DEV_TOOLS?: string | undefined;
   SESSION_SECRET?: string | undefined;
   OPS_TOKEN?: string | undefined;
-}>;
+}> &
+  AccountEnv &
+  AuthorityEnv &
+  ApplicationEnv &
+  NotificationEnv;
 
 /**
  * The session secret the local `wrangler.jsonc` ships with. It is public,
@@ -66,15 +79,26 @@ export function buildSharedDeps(): SharedDeps {
   };
 }
 
+/**
+ * The container of one request, queue message or scheduled run. Each
+ * domain contributes its container ports through `create…Services`.
+ */
 export function createRequestContainer(
   env: LuntEnv,
   client: LuntStateClient,
+  presentation: PresentationPorts,
 ): RequestContainer {
   const shared = buildSharedDeps();
+  const runtime = readRuntimeSettings(env);
+  const deps: ServiceDeps = { client, shared, runtime, presentation };
   return {
     ...shared,
     config: { ...content, appUrl: env.APP_URL },
-    runtime: readRuntimeSettings(env),
+    runtime,
     unitOfWorkProvider: new DoUnitOfWorkProvider(client, shared.idGenerator),
+    ...createAccountServices(env, deps),
+    ...createAuthorityServices(env, deps),
+    ...createApplicationServices(env, deps),
+    ...createNotificationServices(env, deps),
   };
 }

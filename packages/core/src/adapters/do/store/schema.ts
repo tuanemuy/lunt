@@ -1,6 +1,9 @@
 import type { SqlExec, SqlRow, TransactionRunner } from "../sql";
-import { ACCOUNT_MIGRATION } from "./account";
+import { ACCOUNT_MIGRATIONS } from "./account";
+import { APPLICATION_MIGRATIONS } from "./application";
+import { AUTHORITY_MIGRATIONS } from "./authority";
 import { DEAD_LETTER_MIGRATION } from "./deadLetters";
+import { NOTIFICATION_MIGRATIONS } from "./notification";
 
 export type Migration = Readonly<{
   version: number;
@@ -8,18 +11,11 @@ export type Migration = Readonly<{
   statements: readonly string[];
 }>;
 
-/**
- * Versioned DDL for the Lunt state Durable Object. Each entry is applied
- * exactly once, in order, inside its own transaction, and recorded in
- * `_schema_migrations`. Append new entries; never edit an applied one —
- * local and deployed objects keep their data across code changes.
- */
-export const MIGRATIONS: readonly Migration[] = [
-  {
-    version: 1,
-    name: "outbox and consumer receipts",
-    statements: [
-      `CREATE TABLE outbox_events (
+const CORE_MIGRATION: Migration = {
+  version: 1,
+  name: "outbox and consumer receipts",
+  statements: [
+    `CREATE TABLE outbox_events (
         id TEXT PRIMARY KEY,
         event_type TEXT NOT NULL,
         aggregate_id TEXT NOT NULL,
@@ -34,25 +30,43 @@ export const MIGRATIONS: readonly Migration[] = [
         claimed_at INTEGER,
         claimed_by TEXT
       )`,
-      // Pending slice for the alarm relay. `failed_at` is no longer set
-      // (the relay never gives up on a row); `kickRelay` requeues any row
-      // an earlier version parked.
-      `CREATE INDEX idx_outbox_pending
+    // Pending slice for the alarm relay. `failed_at` is no longer set
+    // (the relay never gives up on a row); `kickRelay` requeues any row
+    // an earlier version parked.
+    `CREATE INDEX idx_outbox_pending
          ON outbox_events (next_attempt_at, created_at, id)
          WHERE processed_at IS NULL AND failed_at IS NULL`,
-      `CREATE TABLE consumer_receipts (
+    `CREATE TABLE consumer_receipts (
         consumer TEXT NOT NULL,
         event_id TEXT NOT NULL,
         consumed_at INTEGER NOT NULL,
         PRIMARY KEY (consumer, event_id)
       )`,
-      `CREATE INDEX idx_consumer_receipts_consumed_at
+    `CREATE INDEX idx_consumer_receipts_consumed_at
          ON consumer_receipts (consumed_at)`,
-    ],
-  },
-  ACCOUNT_MIGRATION,
+  ],
+};
+
+/**
+ * Versioned DDL for the Lunt state Durable Object, ordered by version.
+ * Each entry is applied exactly once, in order, inside its own
+ * transaction, and recorded in `_schema_migrations`; an object applies
+ * only versions above the highest it has recorded. Versions are allocated
+ * globally: a new migration takes the next number above every existing
+ * one, whichever domain it belongs to. Never edit an applied one — local
+ * and deployed objects keep their data across code changes.
+ *
+ * Allocated: 1 core, 2 accounts, 3 dead letters, 4 login challenges,
+ * 5 authority, 6 application, 7 notification, 8 development mailbox.
+ */
+export const MIGRATIONS: readonly Migration[] = [
+  CORE_MIGRATION,
+  ...ACCOUNT_MIGRATIONS,
   DEAD_LETTER_MIGRATION,
-];
+  ...AUTHORITY_MIGRATIONS,
+  ...APPLICATION_MIGRATIONS,
+  ...NOTIFICATION_MIGRATIONS,
+].sort((a, b) => a.version - b.version);
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (
   version INTEGER PRIMARY KEY,

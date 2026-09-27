@@ -81,7 +81,7 @@ export default {
         env.RELAY_PROBE_STATE,
         message.body.event.aggregateId,
       );
-      const container = createRequestContainer(env, client);
+      const container = createRequestContainer(env, client, {});
       await handleQueueBatch(
         { ...batch, messages: [message] },
         {

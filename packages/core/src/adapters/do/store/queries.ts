@@ -6,6 +6,9 @@ import type {
 } from "../protocol/queries";
 import type { SqlExec } from "../sql";
 import { accountQueryHandlers } from "./account";
+import { applicationQueryHandlers } from "./application";
+import { authorityQueryHandlers } from "./authority";
+import { notificationQueryHandlers } from "./notification";
 
 /** Handler table of one catalog fragment: one synchronous reader per name. */
 export type QueryHandlersOf<Q> = {
@@ -18,6 +21,9 @@ export type QueryHandlers = QueryHandlersOf<QueryCatalog>;
 
 export const queryHandlers = {
   ...accountQueryHandlers,
+  ...authorityQueryHandlers,
+  ...applicationQueryHandlers,
+  ...notificationQueryHandlers,
 } satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(

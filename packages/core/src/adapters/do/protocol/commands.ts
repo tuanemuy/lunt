@@ -1,4 +1,7 @@
 import type { AccountCommand } from "./account";
+import type { ApplicationCommand } from "./application";
+import type { AuthorityCommand } from "./authority";
+import type { NotificationCommand } from "./notification";
 
 /**
  * Buffered writes of one unit of work. Each domain contributes a union
@@ -10,7 +13,11 @@ import type { AccountCommand } from "./account";
  * indexes) are computed by the DO-side handler from that snapshot, so an
  * index can never drift from the aggregate it was derived from.
  */
-export type WriteCommand = AccountCommand;
+export type WriteCommand =
+  | AccountCommand
+  | AuthorityCommand
+  | ApplicationCommand
+  | NotificationCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

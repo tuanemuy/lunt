@@ -1,4 +1,7 @@
 import type { AccountQueries } from "./account";
+import type { ApplicationQueries } from "./application";
+import type { AuthorityQueries } from "./authority";
+import type { NotificationQueries } from "./notification";
 
 /**
  * Named reads the request side can run against the Lunt state Durable
@@ -17,7 +20,10 @@ export type QuerySpec<TArgs, TResult> = Readonly<{
   result: TResult;
 }>;
 
-export type QueryCatalog = AccountQueries;
+export type QueryCatalog = AccountQueries &
+  AuthorityQueries &
+  ApplicationQueries &
+  NotificationQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 
