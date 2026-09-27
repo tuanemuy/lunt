@@ -9,41 +9,10 @@ const { SubmissionScope, Premise } = TestModel;
 const ids = applicationIds();
 const a = ids.account();
 const p = ids.place();
-const x = ids.region();
-const e = ids.occasion();
-const l = ids.listing();
 const place = { kind: "place", id: p } as const;
-const region = { kind: "region", id: x } as const;
 
-describe("SubmissionScope.targets", () => {
-  it.each([
-    ["registration", targets.registration(a), []],
-    [
-      "companion stewardship claim",
-      targets.stewardship(a, p, ids.application()),
-      [],
-    ],
-    ["revision", targets.revision(a, p), [place]],
-    ["stewardship claim", targets.stewardship(a, p), [place]],
-    ["listing", targets.listing(a, p), [place]],
-    ["individual affiliation", targets.affiliation(p, x, a), [place, region]],
-    [
-      "listing revision",
-      targets.listingRevision(a, l),
-      [{ kind: "listing", id: l }],
-    ],
-    ["individual leave", targets.leave(p, x, a), [place, region]],
-    ["affiliation as a steward", targets.affiliation(p, x), [region]],
-    ["leave as a steward", targets.leave(p, x), []],
-    [
-      "participation",
-      targets.participation(p, e),
-      [{ kind: "occasion", id: e }],
-    ],
-  ] as const)("%s must be able to view %j", (_label, target, expected) => {
-    expect(SubmissionScope.targets(target)).toEqual(expected);
-  });
-});
+// Each kind's viewable targets are in the kind contract
+// (`testKinds.contract.test.ts`).
 
 describe("SubmissionScope.accepts / admit", () => {
   const target = targets.revision(a, p);

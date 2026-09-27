@@ -7,6 +7,7 @@ import type { ApproverSeat, ApproverSeatKind } from "./approverSeat";
 import type { PremiseKey, PremiseResultOf, PremiseRule } from "./premise";
 import type {
   ActiveStatus,
+  AnyApplicationStatus,
   ApplicationStatusKind,
   LapsedStatus,
   OperatorSeatDecision,
@@ -57,6 +58,9 @@ export type SlotBase = Readonly<{ kind: string; applicant: Applicant }>;
  * - `seat`: where the approver sits; `steward` kinds carry `reviewAs`.
  * - `awaitsRegistration`: the decision waits on a companion registration
  *   (the stewardship claim filed with a registration).
+ * - `appointsApplicant`: approval appoints the applicant as the place's
+ *   steward (the stewardship claim); only such a kind reaches
+ *   `Application.requireApplicantAccount`.
  * - `slot`: the slot shape, or `null` for a kind that creates its target
  *   and may be filed repeatedly.
  * - `request`: the `SubmissionRequest` an idempotent resend is compared by.
@@ -70,6 +74,7 @@ export type KindSpec = Readonly<{
   facts: object;
   seat: ApproverSeatKind;
   awaitsRegistration: boolean;
+  appointsApplicant: boolean;
   slot: SlotBase | null;
   request: Readonly<{ target: TargetBase }>;
 }>;
@@ -106,6 +111,15 @@ export type FactsFor<S extends KindSpec> = S extends KindSpec
   : never;
 export type SlotFor<S extends KindSpec> = S extends KindSpec
   ? Exclude<S["slot"], null>
+  : never;
+
+/**
+ * The part of a case fixed at submission: the target and the reserved
+ * fields. Subjects and the reflected ref read only this, so the subject
+ * index stored on insert can never go stale.
+ */
+export type FixedCaseFor<S extends KindSpec> = S extends KindSpec
+  ? Readonly<{ target: S["target"] }> & S["reserved"]
   : never;
 
 /** `CaseOf<K>`: the target and the kind's fields. */
@@ -214,6 +228,21 @@ export type SeatFor<S extends KindSpec> = S extends KindSpec
   ? Extract<ApproverSeat, Readonly<{ kind: S["seat"] }>>
   : never;
 
+/**
+ * Any application, whatever its kind — what kind-agnostic code (consumers,
+ * label readers, the adapters) reads. Every registered kind's application
+ * is assignable to it.
+ */
+export type AnyApplication = ApplicationBase &
+  Readonly<{
+    target: TargetBase;
+    content: unknown;
+    status: AnyApplicationStatus;
+  }>;
+
+/** A name a kind takes from its own content (「申請の対象の名称」). */
+export type ContentName = Readonly<{ ref: ContentRef; name: string | null }>;
+
 /** What a kind definition snapshots its case to and rebuilds it from. */
 export type JsonValue =
   | null
@@ -232,6 +261,7 @@ export type KindDefinition<S extends KindSpec> = Readonly<{
   kind: S["target"]["kind"];
   seat: S["seat"];
   awaitsRegistration: S["awaitsRegistration"];
+  appointsApplicant: S["appointsApplicant"];
   premises: readonly PremiseRule<S["target"], S["facts"], S["premiseKey"]>[];
   /** `ApproverPolicy.seatOf` (P-70). */
   seatOf(target: S["target"]): SeatFor<S>;
@@ -239,10 +269,23 @@ export type KindDefinition<S extends KindSpec> = Readonly<{
   slotOf(target: S["target"]): S["slot"];
   /** `SubmissionScope.targets`: the targets that must be viewable. */
   submissionTargets(target: S["target"]): readonly SubmissionTarget[];
-  /** `Application.subjects`. */
-  subjects(c: CaseFor<S>): readonly ApplicationSubject[];
+  /** `Application.subjects`, from the fields fixed at submission. */
+  subjects(c: FixedCaseFor<S>): readonly ApplicationSubject[];
   /** `Application.reflectedRef`: where an approval lands. */
-  reflectedRef(c: CaseFor<S>): ContentRef;
+  reflectedRef(c: FixedCaseFor<S>): ContentRef;
+  /**
+   * The registration the application was filed with (a companion
+   * stewardship claim's `registrationId`), or `null`. Readers load it to
+   * name the not-yet-existing place and for the claim's premise and
+   * approver facts.
+   */
+  registrationOf(target: S["target"]): ApplicationId | null;
+  /**
+   * Names the kind takes from its own content for content that may not
+   * exist yet (「申請の対象の名称」): a registration's reserved place, a
+   * listing application's reserved listing. Empty for other kinds.
+   */
+  contentNames(c: CaseFor<S>): readonly ContentName[];
   /** `ApplicationCase.ownedPhotoIds`: the photos the application owns. */
   ownedPhotoIds(c: CaseFor<S>): readonly PhotoId[];
   /**
@@ -301,6 +344,13 @@ export type ApplicationCaseIn<M extends KindMap> = {
 /** `ApplicationSlot`. */
 export type SlotIn<M extends KindMap> = {
   [K in KindName<M>]: SlotFor<M[K]>;
+}[KindName<M>];
+
+/** Applications of the kinds whose approval appoints the applicant. */
+export type AppointingIn<M extends KindMap> = {
+  [K in KindName<M>]: M[K]["appointsApplicant"] extends true
+    ? ApplicationFor<M[K]>
+    : never;
 }[KindName<M>];
 
 /** `SubmissionRequest`. */

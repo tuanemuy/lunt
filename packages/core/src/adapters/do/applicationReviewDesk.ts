@@ -1,3 +1,4 @@
+import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import type {
   ApplicationIn,
   KindMap,
@@ -28,9 +29,10 @@ export class DoApplicationReviewDesk<M extends KindMap>
 
   constructor(
     private readonly client: Pick<LuntStateClient, "query">,
-    private readonly model: ApplicationModel<M>,
+    idGenerator: Pick<IdGenerator, "parse">,
+    model: ApplicationModel<M>,
   ) {
-    this.records = applicationRecords(model);
+    this.records = applicationRecords(model, idGenerator);
   }
 
   findPageAwaiting(
@@ -52,11 +54,7 @@ export class DoApplicationReviewDesk<M extends KindMap>
           limit: pagination.limit,
         });
         return {
-          items: page.items.map((record) =>
-            this.model.Application.requireUnderReview(
-              this.records.toApplication(record),
-            ),
-          ),
+          items: page.items.map((record) => this.records.toUnderReview(record)),
           count: page.count,
         };
       },

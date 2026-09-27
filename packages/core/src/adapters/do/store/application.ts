@@ -45,7 +45,10 @@ const APPLICATION_TABLES_MIGRATION: Migration = {
     `CREATE INDEX idx_applications_awaiting
        ON applications (since, id)
        WHERE status = 'underReview'`,
-    // Reverse index of `Application.subjects`, written on insert.
+    // Reverse index of `Application.subjects`, written on insert only: a
+    // kind's subjects read just the fields fixed at submission
+    // (`FixedCaseFor`: the target and reserved ids), which a save never
+    // changes.
     `CREATE TABLE application_subjects (
       subject_kind TEXT NOT NULL,
       subject_id TEXT NOT NULL,

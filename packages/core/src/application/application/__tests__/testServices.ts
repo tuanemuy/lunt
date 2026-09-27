@@ -21,6 +21,7 @@ export function createTestApplicationServices(
   return {
     applicationReviewDesk: new DoApplicationReviewDesk<ApplicationKindMap>(
       deps.client,
+      deps.idGenerator,
       applicationModel,
     ),
     reviewPolicy: TEST_REVIEW_POLICY,

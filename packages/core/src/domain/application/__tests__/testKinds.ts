@@ -13,7 +13,12 @@ import type {
   PlaceApplicant,
 } from "../applicant";
 import { sameData } from "../canonical";
-import { defineKind, type JsonValue, type KindRegistry } from "../kind";
+import {
+  type ApplicationFor,
+  defineKind,
+  type JsonValue,
+  type KindRegistry,
+} from "../kind";
 import { createApplicationModel } from "../model";
 import type { PremiseRule } from "../premise";
 import type { ApplicationStatusKind } from "../status";
@@ -118,6 +123,7 @@ export type TestKindMap = {
     facts: None;
     seat: "operator";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: null;
     request: Readonly<{ target: RegistrationTarget; content: StandInContent }>;
   };
@@ -130,6 +136,7 @@ export type TestKindMap = {
     facts: PlaceFacts;
     seat: "operator";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: RevisionTarget;
     request: Readonly<{ target: RevisionTarget; desired: StandInDesired }>;
   };
@@ -145,6 +152,7 @@ export type TestKindMap = {
     }>;
     seat: "operator";
     awaitsRegistration: true;
+    appointsApplicant: true;
     slot: Readonly<{
       kind: "stewardship";
       applicant: IndividualApplicant;
@@ -161,6 +169,7 @@ export type TestKindMap = {
     facts: AffiliationFacts;
     seat: "steward";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: AffiliationTarget;
     request: Readonly<{ target: AffiliationTarget }>;
   };
@@ -173,6 +182,7 @@ export type TestKindMap = {
     facts: AffiliationFacts;
     seat: "steward";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: LeaveTarget;
     request: Readonly<{ target: LeaveTarget }>;
   };
@@ -189,6 +199,7 @@ export type TestKindMap = {
     }>;
     seat: "steward";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: ParticipationTarget;
     request: Readonly<{
       target: ParticipationTarget;
@@ -205,6 +216,7 @@ export type TestKindMap = {
     facts: PlaceFacts;
     seat: "operator";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: null;
     request: Readonly<{ target: ListingTarget; content: StandInContent }>;
   };
@@ -217,6 +229,7 @@ export type TestKindMap = {
     facts: Readonly<{ listing: PlaceFacts | null }>;
     seat: "operator";
     awaitsRegistration: false;
+    appointsApplicant: false;
     slot: ListingRevisionTarget;
     request: Readonly<{
       target: ListingRevisionTarget;
@@ -335,6 +348,7 @@ const registration = defineKind<TestKindMap["registration"]>({
   kind: "registration",
   seat: "operator",
   awaitsRegistration: false,
+  appointsApplicant: false,
   premises: [],
   seatOf: () => ({ kind: "operator" }),
   slotOf: () => null,
@@ -342,6 +356,10 @@ const registration = defineKind<TestKindMap["registration"]>({
   subjects: (c) => [{ kind: "place", id: c.reservedPlaceId }],
   reflectedRef: (c) => ({ kind: "place", id: c.reservedPlaceId }),
   ownedPhotoIds: (c) => c.content.photos,
+  registrationOf: () => null,
+  contentNames: (c) => [
+    { ref: { kind: "place", id: c.reservedPlaceId }, name: c.content.name },
+  ],
   matchesSubmission: (c, request) =>
     sameData(c.target, request.target) && sameData(c.content, request.content),
   snapshot: (c) => json(c),
@@ -364,6 +382,7 @@ const revision = defineKind<TestKindMap["revision"]>({
   kind: "revision",
   seat: "operator",
   awaitsRegistration: false,
+  appointsApplicant: false,
   premises: [
     { key: "placeHasNoSteward", holds: (facts) => !facts.placeHasSteward },
   ],
@@ -373,6 +392,8 @@ const revision = defineKind<TestKindMap["revision"]>({
   subjects: (c) => [{ kind: "place", id: c.target.placeId }],
   reflectedRef: (c) => ({ kind: "place", id: c.target.placeId }),
   ownedPhotoIds: (c) => c.content.addedPhotos,
+  registrationOf: () => null,
+  contentNames: () => [],
   matchesSubmission: (c, request) =>
     sameData(c.target, request.target) && sameData(c.desired, request.desired),
   snapshot: (c) => json(c),
@@ -396,6 +417,7 @@ const stewardship = defineKind<TestKindMap["stewardship"]>({
   kind: "stewardship",
   seat: "operator",
   awaitsRegistration: true,
+  appointsApplicant: true,
   premises: [
     { key: "applicantNotSteward", holds: (facts) => !facts.applicantIsSteward },
     {
@@ -426,6 +448,8 @@ const stewardship = defineKind<TestKindMap["stewardship"]>({
         ],
   reflectedRef: (c) => ({ kind: "place", id: c.target.placeId }),
   ownedPhotoIds: () => [],
+  registrationOf: (target) => target.registrationId,
+  contentNames: () => [],
   matchesSubmission: (c, request) =>
     sameData(c.target.applicant, request.target.applicant) &&
     c.target.placeId === request.target.placeId &&
@@ -470,6 +494,7 @@ function affiliationLike<
     kind,
     seat: "steward" as const,
     awaitsRegistration: false as const,
+    appointsApplicant: false as const,
     premises: [
       {
         key: "placeHasNoSteward",
@@ -505,6 +530,8 @@ function affiliationLike<
       id: c.target.regionId,
     }),
     ownedPhotoIds: () => [],
+    registrationOf: () => null,
+    contentNames: () => [],
     matchesSubmission: (
       c: Readonly<{ target: Target }>,
       request: Readonly<{ target: Target }>,
@@ -555,6 +582,7 @@ const participation = defineKind<TestKindMap["participation"]>({
   kind: "participation",
   seat: "steward",
   awaitsRegistration: false,
+  appointsApplicant: false,
   premises: [
     { key: "placeHasSteward", holds: (facts) => facts.placeHasSteward },
     {
@@ -576,6 +604,8 @@ const participation = defineKind<TestKindMap["participation"]>({
   ],
   reflectedRef: (c) => ({ kind: "occasion", id: c.target.occasionId }),
   ownedPhotoIds: () => [],
+  registrationOf: () => null,
+  contentNames: () => [],
   matchesSubmission: (c, request) =>
     sameData(c.target, request.target) &&
     sameData(c.content.listingIds, unique(request.listingIds)) &&
@@ -608,6 +638,7 @@ const listing = defineKind<TestKindMap["listing"]>({
   kind: "listing",
   seat: "operator",
   awaitsRegistration: false,
+  appointsApplicant: false,
   premises: [
     { key: "placeHasNoSteward", holds: (facts) => !facts.placeHasSteward },
   ],
@@ -617,6 +648,10 @@ const listing = defineKind<TestKindMap["listing"]>({
   subjects: (c) => [{ kind: "place", id: c.target.placeId }],
   reflectedRef: (c) => ({ kind: "listing", id: c.reservedListingId }),
   ownedPhotoIds: (c) => c.content.photos,
+  registrationOf: () => null,
+  contentNames: (c) => [
+    { ref: { kind: "listing", id: c.reservedListingId }, name: c.content.name },
+  ],
   matchesSubmission: (c, request) =>
     sameData(c.target, request.target) && sameData(c.content, request.content),
   snapshot: (c) => json(c),
@@ -640,6 +675,7 @@ const listingRevision = defineKind<TestKindMap["listingRevision"]>({
   kind: "listingRevision",
   seat: "operator",
   awaitsRegistration: false,
+  appointsApplicant: false,
   premises: [
     {
       key: "placeHasNoSteward",
@@ -657,6 +693,8 @@ const listingRevision = defineKind<TestKindMap["listingRevision"]>({
   ],
   reflectedRef: (c) => ({ kind: "listing", id: c.target.listingId }),
   ownedPhotoIds: (c) => c.content.addedPhotos,
+  registrationOf: () => null,
+  contentNames: () => [],
   matchesSubmission: (c, request) =>
     sameData(c.target, request.target) && sameData(c.desired, request.desired),
   snapshot: (c) => json(c),
@@ -689,6 +727,28 @@ export const TEST_KINDS: KindRegistry<TestKindMap> = {
   listing,
   listingRevision,
 };
+
+/**
+ * `ApplicationTarget.companion` as a stewardship kind module provides it:
+ * the claim filed with (or referring to) `registration` — its reserved
+ * place, and the registration while it is not approved. `null` when the
+ * registration is not `accountId`'s. It reads only the two kinds' own
+ * types, so the core needs nothing for it.
+ */
+export function companionTarget(
+  registration: ApplicationFor<TestKindMap["registration"]>,
+  accountId: AccountId,
+): StewardshipTarget | null {
+  const { applicant } = registration.target;
+  if (applicant.accountId !== accountId) return null;
+  return {
+    kind: "stewardship",
+    applicant,
+    placeId: registration.reservedPlaceId,
+    registrationId:
+      registration.status.kind === "approved" ? null : registration.id,
+  };
+}
 
 /** The Application domain bound to the test-only kinds. */
 export const TestModel = createApplicationModel(TEST_KINDS);

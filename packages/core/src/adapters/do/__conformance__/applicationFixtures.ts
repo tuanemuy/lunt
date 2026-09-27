@@ -1,6 +1,8 @@
 import { NotFoundError } from "@repo/core/application/errors";
 import type { UnitOfWorkContext } from "@repo/core/application/execution/unitOfWork";
+import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import {
+  type ApplicationIds,
   approved,
   lapsed,
   rejected,
@@ -82,7 +84,11 @@ export function applicationHarness(
           applicationRepository: withTestKinds(ctx.applicationRepository),
         }),
       ),
-    reviewDesk: new DoApplicationReviewDesk<TestKindMap>(client, TestModel),
+    reviewDesk: new DoApplicationReviewDesk<TestKindMap>(
+      client,
+      UuidV7Generator,
+      TestModel,
+    ),
     savedEvents: () => base.savedEvents(),
   };
 }
@@ -177,6 +183,27 @@ export const steps = {
     (app) =>
       lapsed(Application.requireActive(app), at, broken),
 };
+
+/**
+ * `n` application ids in an order that is neither ascending nor
+ * descending (reversed, the first two swapped; just reversed for n < 3).
+ * Given to applications submitted in turn, they keep id order, submission
+ * order and insertion order apart, so a suite notices a dropped sort key.
+ */
+export function scrambledIds(
+  ids: ApplicationIds,
+  n: number,
+): readonly ApplicationId[] {
+  const reversed = Array.from({ length: n }, () => ids.application()).reverse();
+  return n < 3
+    ? reversed
+    : [...reversed.slice(1, 2), ...reversed.slice(0, 1), ...reversed.slice(2)];
+}
+
+/** In id order (code point order, as the ports sort ties). */
+export const inIdOrder = <T extends { id: ApplicationId }>(
+  apps: readonly T[],
+): readonly T[] => [...apps].sort((x, y) => (x.id < y.id ? -1 : 1));
 
 export const idsOf = (apps: readonly { id: ApplicationId }[]) =>
   apps.map((app) => app.id);

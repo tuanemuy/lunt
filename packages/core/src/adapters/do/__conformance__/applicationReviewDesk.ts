@@ -18,9 +18,11 @@ import {
   appointee,
   getApplication,
   idsOf,
+  inIdOrder,
   insertApplications,
   insertStewardshipsOf,
   saveApplication,
+  scrambledIds,
   steps,
   stewarded,
   storeThrough,
@@ -68,13 +70,29 @@ async function seats(h: ApplicationHarness, ids: ApplicationIds) {
 function operatorSeatApplications(ids: ApplicationIds) {
   const a = ids.account();
   const p = ids.place();
+  const [i1, i2, i3, i4, i5] = scrambledIds(ids, 5);
   return [
-    submitted(ids, targets.registration(a), ids.tick()),
-    submitted(ids, targets.revision(a, p), ids.tick()),
-    submitted(ids, targets.stewardship(a, p), ids.tick()),
-    submitted(ids, targets.listing(a, p), ids.tick()),
-    submitted(ids, targets.listingRevision(a, ids.listing()), ids.tick()),
+    submitted(ids, targets.registration(a), ids.tick(), {}, i1),
+    submitted(ids, targets.revision(a, p), ids.tick(), {}, i2),
+    submitted(ids, targets.stewardship(a, p), ids.tick(), {}, i3),
+    submitted(ids, targets.listing(a, p), ids.tick(), {}, i4),
+    submitted(
+      ids,
+      targets.listingRevision(a, ids.listing()),
+      ids.tick(),
+      {},
+      i5,
+    ),
   ];
+}
+
+/** Neither the id order nor the insertion order is the `since` order. */
+function expectSinceOrderIsDistinct(
+  bySince: readonly TestApplication[],
+  inserted: readonly TestApplication[],
+): void {
+  expect(idsOf(inIdOrder(bySince))).not.toEqual(idsOf(bySince));
+  expect(idsOf(inserted)).not.toEqual(idsOf(bySince));
 }
 
 /** `spec/testcases/ports/applicationReviewDesk.md`. */
@@ -87,7 +105,9 @@ export function describeApplicationReviewDeskContract(
         const h = await makeHarness();
         const ids = applicationIds();
         const five = operatorSeatApplications(ids);
-        await insertApplications(h, ...[...five].reverse());
+        const inserted = [...five].reverse();
+        expectSinceOrderIsDistinct(five, inserted);
+        await insertApplications(h, ...inserted);
         expect(await awaiting(h, AS_APPROVER)).toEqual({
           items: five,
           count: 5,
@@ -214,10 +234,33 @@ export function describeApplicationReviewDeskContract(
           ids.tick(),
           ids.tick(),
         ];
-        const a1 = submitted(ids, targets.affiliation(ids.place(), x), t1);
-        const p1 = submitted(ids, targets.participation(ids.place(), e), t2);
-        const a2 = submitted(ids, targets.leave(ids.place(), x), t4);
-        await insertApplications(h, a2, p1, a1);
+        const [largest, middle, smallest] = scrambledIds(ids, 3)
+          .slice()
+          .sort()
+          .reverse();
+        const a1 = submitted(
+          ids,
+          targets.affiliation(ids.place(), x),
+          t1,
+          {},
+          largest,
+        );
+        const p1 = submitted(
+          ids,
+          targets.participation(ids.place(), e),
+          t2,
+          {},
+          smallest,
+        );
+        const a2 = submitted(
+          ids,
+          targets.leave(ids.place(), x),
+          t4,
+          {},
+          middle,
+        );
+        expectSinceOrderIsDistinct([a1, p1], [p1, a1]);
+        await insertApplications(h, p1, a2, a1);
         expect(await awaiting(h, overdue(t3))).toEqual({
           items: [a1, p1],
           count: 2,
@@ -367,14 +410,18 @@ export function describeApplicationReviewDeskContract(
       async function approverWith(n: number) {
         const h = await makeHarness();
         const ids = applicationIds();
-        const apps = Array.from({ length: n }, () =>
+        const apps = scrambledIds(ids, n).map((id) =>
           submitted(
             ids,
             targets.revision(ids.account(), ids.place()),
             ids.tick(),
+            {},
+            id,
           ),
         );
-        await insertApplications(h, ...[...apps].reverse());
+        const inserted = [...apps].reverse();
+        if (n >= 3) expectSinceOrderIsDistinct(apps, inserted);
+        await insertApplications(h, ...inserted);
         return { h, apps };
       }
 
@@ -418,10 +465,19 @@ export function describeApplicationReviewDeskContract(
         const h = await makeHarness();
         const ids = applicationIds();
         const { x } = await seats(h, ids);
-        const apps: TestApplication[] = Array.from({ length: 5 }, () =>
-          submitted(ids, targets.affiliation(ids.place(), x), ids.tick()),
+        const apps: readonly TestApplication[] = scrambledIds(ids, 5).map(
+          (id) =>
+            submitted(
+              ids,
+              targets.affiliation(ids.place(), x),
+              ids.tick(),
+              {},
+              id,
+            ),
         );
-        await insertApplications(h, ...[...apps].reverse());
+        const inserted = [...apps].reverse();
+        expectSinceOrderIsDistinct(apps, inserted);
+        await insertApplications(h, ...inserted);
         const cutoff = ids.tick();
         expect(await awaiting(h, overdue(cutoff), page(1, 3))).toEqual({
           items: apps.slice(0, 3),

@@ -41,6 +41,7 @@ export function createApplicationServices(
   return {
     applicationReviewDesk: new DoApplicationReviewDesk<ApplicationKindMap>(
       deps.client,
+      deps.shared.idGenerator,
       applicationModel,
     ),
     reviewPolicy: readReviewPolicy(env),

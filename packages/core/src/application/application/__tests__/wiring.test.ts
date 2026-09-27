@@ -50,11 +50,23 @@ describe("Application wiring in stage 1", () => {
         await applicationRepository.withModel(TestModel).insert(app);
       },
     );
+    const corrupt = { code: "DATA_INTEGRITY_ERROR" };
     await expect(
       container.unitOfWorkProvider.run(({ applicationRepository }) =>
         applicationRepository.findById(app.id),
       ),
+    ).rejects.toMatchObject(corrupt);
+    await expect(
+      container.unitOfWorkProvider.run(({ applicationRepository }) =>
+        applicationRepository.findByIds([app.id]),
+      ),
     ).rejects.toBeInstanceOf(SystemError);
+    await expect(
+      container.applicationReviewDesk.findPageAwaiting(
+        { section: "asApprover" },
+        { page: 1, limit: 10 },
+      ),
+    ).rejects.toMatchObject(corrupt);
   });
 });
 

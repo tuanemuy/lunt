@@ -4,8 +4,8 @@ import type { OverdueNoticeLedger } from "@repo/core/domain/application/ports/ov
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import { ApplicationId } from "@repo/core/domain/common/ids";
 import { mapDoError } from "../helpers";
-import type { LuntStateClient } from "../protocol/client";
-import type { WriteCommand } from "../protocol/commands";
+import type { OverdueNoticeRecord } from "../protocol/application";
+import type { RepositoryDeps } from "./deps";
 
 /**
  * `OverdueNoticeLedger` over the Lunt state object. `record` is an upsert
@@ -13,10 +13,24 @@ import type { WriteCommand } from "../protocol/commands";
  * events and never touches the application row or its version.
  */
 export class DoOverdueNoticeLedger implements OverdueNoticeLedger {
-  constructor(
-    private readonly client: LuntStateClient,
-    private readonly writes: WriteCommand[],
-  ) {}
+  constructor(private readonly deps: RepositoryDeps) {}
+
+  private toNotice(record: OverdueNoticeRecord): OverdueNotice {
+    const pendingSince = new Date(record.pendingSince);
+    if (
+      this.deps.idGenerator.parse(record.applicationId) === null ||
+      Number.isNaN(pendingSince.getTime())
+    ) {
+      throw new SystemError(
+        SystemErrorCode.DataIntegrityError,
+        `Stored overdue notice of ${record.applicationId} is malformed`,
+      );
+    }
+    return {
+      applicationId: ApplicationId.create(record.applicationId),
+      pendingSince,
+    };
+  }
 
   async findByApplicationIds(
     ids: readonly ApplicationId[],
@@ -24,28 +38,16 @@ export class DoOverdueNoticeLedger implements OverdueNoticeLedger {
     IdBatch.assertWithinLimit(ids);
     if (ids.length === 0) return [];
     return mapDoError("Failed to find overdue notices", async () => {
-      const records = await this.client.query(
+      const records = await this.deps.client.query(
         "application.findOverdueNotices",
         { applicationIds: ids },
       );
-      return records.map((record) => {
-        const pendingSince = new Date(record.pendingSince);
-        if (Number.isNaN(pendingSince.getTime())) {
-          throw new SystemError(
-            SystemErrorCode.DataIntegrityError,
-            `Stored overdue notice of ${record.applicationId} has no valid date`,
-          );
-        }
-        return {
-          applicationId: ApplicationId.create(record.applicationId),
-          pendingSince,
-        };
-      });
+      return records.map((record) => this.toNotice(record));
     });
   }
 
   async record(notice: OverdueNotice): Promise<void> {
-    this.writes.push({
+    this.deps.writes.push({
       kind: "application.recordOverdueNotice",
       notice: {
         applicationId: notice.applicationId,

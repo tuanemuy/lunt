@@ -2,6 +2,8 @@ import {
   Application,
   type ApplicationKind,
 } from "@repo/core/domain/application/application";
+import type { AnyApplication } from "@repo/core/domain/application/kind";
+import type { SubjectName } from "@repo/core/domain/application/subject";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
@@ -10,68 +12,71 @@ import type { UnitOfWorkContext } from "../execution/unitOfWork";
 
 type SubjectKind = ApplicationLabel["subjects"][number]["kind"];
 
-// What every kind's application has. Read through this shape because
-// `Application` is the union of the registered kinds — empty in stage 1.
-type ApplicationHead = Readonly<{
-  id: ApplicationId;
-  target: Readonly<{ kind: ApplicationKind }>;
-}>;
-
 /**
  * An application's label before content names are known. A subject that
- * does not exist yet takes its name from the application's content
+ * does not exist yet takes its name from an application's content
  * (`from: "content"`); any other is named by `ContentDirectory` at display
- * time (`from: "directory"`) — Application's 「申請の対象の名称」.
+ * time (`from: "directory"`) — Application's 「申請の対象の名称」, as
+ * `Application.namedSubjects` applies it.
  */
 export type PendingApplicationLabel = Readonly<{
   applicationKind: ApplicationKind;
   subjects: readonly Readonly<{
     kind: SubjectKind;
     ref: ContentRef;
-    name:
-      | Readonly<{ from: "content"; value: string | null }>
-      | Readonly<{ from: "directory" }>;
+    name: SubjectName;
   }>[];
 }>;
 
-// Every subject is named by the directory for now. The kinds whose subjects
-// may not exist yet (a registration's reserved place, a listing
-// application's listing, a companion claim's place) register in S2B, and
-// with them Application's per-kind rule naming such a subject from the
-// content; it plugs in here.
-function pendingLabelOf(app: Application): PendingApplicationLabel {
-  return {
-    applicationKind: (app as ApplicationHead).target.kind,
-    subjects: Application.subjects(app).flatMap((subject) =>
-      subject.kind === "registration"
-        ? []
-        : [
-            {
-              kind: subject.kind,
-              ref: subject as ContentRef,
-              name: { from: "directory" } as const,
-            },
-          ],
-    ),
-  };
+async function readApplications(
+  ctx: UnitOfWorkContext,
+  ids: readonly ApplicationId[],
+): Promise<ReadonlyMap<ApplicationId, AnyApplication>> {
+  const unique = [...new Set(ids)];
+  const found = new Map<ApplicationId, AnyApplication>();
+  for (let start = 0; start < unique.length; start += IdBatch.maxSize) {
+    const batch = unique.slice(start, start + IdBatch.maxSize);
+    const apps: readonly AnyApplication[] =
+      await ctx.applicationRepository.findByIds(batch);
+    for (const app of apps) found.set(app.id, app);
+  }
+  return found;
 }
 
 /**
  * Applications' kinds and subjects, read inside `run` through
- * `ApplicationRepository.findByIds` (100 at a time). An application that
- * does not exist is left out; its label reads as `null`.
+ * `ApplicationRepository.findByIds` (100 at a time), together with the
+ * registrations companion claims were filed with, whose content names
+ * their place. An application that does not exist is left out; its label
+ * reads as `null`.
  */
 export async function readApplicationLabels(
   ctx: UnitOfWorkContext,
   ids: readonly ApplicationId[],
 ): Promise<ReadonlyMap<ApplicationId, PendingApplicationLabel>> {
-  const unique = [...new Set(ids)];
+  const applications = await readApplications(ctx, ids);
+  const registrationIds = [...applications.values()].flatMap((app) => {
+    const registrationId = Application.registrationOf(app);
+    return registrationId === null || applications.has(registrationId)
+      ? []
+      : [registrationId];
+  });
+  const registrations = await readApplications(ctx, registrationIds);
   const labels = new Map<ApplicationId, PendingApplicationLabel>();
-  for (let start = 0; start < unique.length; start += IdBatch.maxSize) {
-    const batch = unique.slice(start, start + IdBatch.maxSize);
-    for (const app of await ctx.applicationRepository.findByIds(batch)) {
-      labels.set((app as ApplicationHead).id, pendingLabelOf(app));
-    }
+  for (const [id, app] of applications) {
+    const registrationId = Application.registrationOf(app);
+    const registration =
+      registrationId === null
+        ? null
+        : (applications.get(registrationId) ??
+          registrations.get(registrationId) ??
+          null);
+    labels.set(id, {
+      applicationKind: Application.kindOf(app),
+      subjects: Application.namedSubjects(app, registration).map(
+        ({ subject, name }) => ({ kind: subject.kind, ref: subject, name }),
+      ),
+    });
   }
   return labels;
 }

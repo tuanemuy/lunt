@@ -50,7 +50,10 @@
     // may have at once.
     "LOGIN_CHALLENGE_TTL_MS": "900000",
     "LOGIN_MAX_CODE_ATTEMPTS": "5",
-    "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5"
+    "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5",
+    // Application: an operator may stand in for a region's or occasion's
+    // stewards this long after an application went under review (7 days).
+    "APPLICATION_PROXY_AFTER_MS": "604800000"
   },
   "durable_objects": {
     "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]

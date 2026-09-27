@@ -20,39 +20,8 @@ const policy = ReviewPolicy.create({ proxyAfterMs: 24 * HOUR });
 const ALLOW_ROLE: AccessDecision = { allowed: true, basis: "role" };
 const DENY: AccessDecision = { allowed: false };
 
-describe("ApproverPolicy.seatOf", () => {
-  it("seats the operators for registration, revision, stewardship, listing and listing revision (P-70)", () => {
-    const ids = applicationIds();
-    const a = ids.account();
-    const p = ids.place();
-    for (const target of [
-      targets.registration(a),
-      targets.revision(a, p),
-      targets.stewardship(a, p),
-      targets.stewardship(a, p, ids.application()),
-      targets.listing(a, p),
-      targets.listingRevision(a, ids.listing()),
-    ]) {
-      expect(ApproverPolicy.seatOf(target)).toEqual({ kind: "operator" });
-    }
-  });
-
-  it("seats the region's stewards for affiliation and leave, the occasion's for participation", () => {
-    const ids = applicationIds();
-    const p = ids.place();
-    const x = ids.region();
-    const e = ids.occasion();
-    const region = { kind: "steward", target: { kind: "region", id: x } };
-    expect(ApproverPolicy.seatOf(targets.affiliation(p, x))).toEqual(region);
-    expect(ApproverPolicy.seatOf(targets.leave(p, x, ids.account()))).toEqual(
-      region,
-    );
-    expect(ApproverPolicy.seatOf(targets.participation(p, e))).toEqual({
-      kind: "steward",
-      target: { kind: "occasion", id: e },
-    });
-  });
-});
+// Each kind's seat (`seatOf`, P-70) is in the kind contract
+// (`testKinds.contract.test.ts`).
 
 describe("ApproverPolicy.decide on an operator seat", () => {
   const ids = applicationIds();
@@ -254,7 +223,7 @@ describe("ApproverPolicy.decide on a steward seat", () => {
         policy,
         since,
       ),
-    ).toThrow();
+    ).toThrow("Approver facts for a operator seat");
   });
 });
 

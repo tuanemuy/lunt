@@ -1,10 +1,11 @@
 import { expectBusinessError } from "@repo/core/domain/common/__tests__/expectBusinessError";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
-import { isRehydrationError } from "@repo/core/domain/error";
+import { BusinessRuleError, isRehydrationError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import type { ApplicationSnapshot } from "../model";
 import type { AnyApplicationStatus } from "../status";
 import {
+  admitted,
   applicationIds,
   approved,
   asPlace,
@@ -18,6 +19,7 @@ import {
   resubmitted,
   returned,
   returnRequest,
+  standInContent,
   standInDesired,
   standInPatch,
   submitted,
@@ -25,7 +27,7 @@ import {
   targets,
   withdrawn,
 } from "./fixtures";
-import { TestModel } from "./testKinds";
+import { companionTarget, TestModel } from "./testKinds";
 
 const { Application, ApplicationCase, ApplicationSlot } = TestModel;
 
@@ -398,7 +400,7 @@ describe("Application.approve / reject", () => {
         holds(k.revision.target),
         k.ids.tick(),
       ),
-    ).toThrow();
+    ).toThrow("An operator-seat kind has no overdue proxy");
   });
 
   it("types the decision by the kind's seat", () => {
@@ -545,8 +547,10 @@ describe("status guards", () => {
       "lapsed",
     ] as const) {
       const app = byStatus[status];
-      expect(() => Application.requireActive(app)).toThrow();
-      expect(() => Application.requireUnderReview(app)).toThrow();
+      expect(() => Application.requireActive(app)).toThrow(BusinessRuleError);
+      expect(() => Application.requireUnderReview(app)).toThrow(
+        BusinessRuleError,
+      );
     }
   });
 });
@@ -616,7 +620,7 @@ describe("Application.requireApplicantAccount", () => {
         accountId: k.ids.account(),
         email,
       }),
-    ).toThrow();
+    ).toThrow("The account read is not the applicant's");
   });
 });
 
@@ -669,191 +673,166 @@ describe("slots", () => {
   });
 });
 
-describe("subjects, seat and reflected ref", () => {
-  it("follows the subject table", () => {
-    const k = everyKind();
-    const place = { kind: "place", id: k.p };
-    expect(Application.subjects(k.registration)).toEqual([
-      { kind: "place", id: k.registration.reservedPlaceId },
-    ]);
-    expect(Application.subjects(k.revision)).toEqual([place]);
-    expect(Application.subjects(k.listing)).toEqual([place]);
-    expect(Application.subjects(k.stewardship)).toEqual([place]);
-    expect(Application.subjects(k.companion)).toEqual([
-      { kind: "place", id: k.registration.reservedPlaceId },
-      { kind: "registration", id: k.registration.id },
-    ]);
-    expect(Application.subjects(k.affiliation)).toEqual([
-      place,
-      { kind: "region", id: k.affiliation.target.regionId },
-    ]);
-    expect(Application.subjects(k.leave)).toEqual([
-      place,
-      { kind: "region", id: k.leave.target.regionId },
-    ]);
-    expect(Application.subjects(k.participation)).toEqual([
-      place,
-      { kind: "occasion", id: k.participation.target.occasionId },
-    ]);
-    expect(Application.subjects(k.listingRevision)).toEqual([
-      place,
-      { kind: "listing", id: k.listingRevision.target.listingId },
-    ]);
+// Each kind's subjects, seat, reflected ref, owned photos and resend
+// comparison are in the kind contract (`testKinds.contract.test.ts`).
+
+describe("Application.submit validates the case against its kind", () => {
+  it("refuses a steward's application naming another place", () => {
+    const ids = applicationIds();
+    const [p, q] = [ids.place(), ids.place()];
+    const target = {
+      kind: "affiliation",
+      applicant: asPlace(q),
+      placeId: p,
+      regionId: ids.region(),
+    } as const;
+    expect(() =>
+      Application.submit(
+        {
+          id: ids.application(),
+          admission: admitted(target),
+          reserved: {},
+          content: null,
+        },
+        ids.tick(),
+      ),
+    ).toThrow("A affiliation case violates its kind");
   });
 
-  it("seats the operators for five kinds and the stewards for affiliation, leave and participation", () => {
-    const k = everyKind();
-    for (const app of [
-      k.registration,
-      k.revision,
-      k.stewardship,
-      k.listing,
-      k.listingRevision,
-    ]) {
-      expect(Application.approverSeat(app)).toEqual({ kind: "operator" });
-    }
-    expect(Application.approverSeat(k.leave)).toEqual({
-      kind: "steward",
-      target: { kind: "region", id: k.leave.target.regionId },
-    });
-    expect(Application.approverSeat(k.participation)).toEqual({
-      kind: "steward",
-      target: { kind: "occasion", id: k.participation.target.occasionId },
-    });
-  });
-
-  it("reflects an approval onto the reserved or targeted content", () => {
-    const k = everyKind();
-    expect(Application.reflectedRef(k.registration)).toEqual({
-      kind: "place",
-      id: k.registration.reservedPlaceId,
-    });
-    expect(Application.reflectedRef(k.revision)).toEqual({
-      kind: "place",
-      id: k.p,
-    });
-    expect(Application.reflectedRef(k.stewardship)).toEqual({
-      kind: "place",
-      id: k.p,
-    });
-    expect(Application.reflectedRef(k.listing)).toEqual({
-      kind: "listing",
-      id: k.listing.reservedListingId,
-    });
-    expect(Application.reflectedRef(k.listingRevision)).toEqual({
-      kind: "listing",
-      id: k.listingRevision.target.listingId,
-    });
-    expect(Application.reflectedRef(k.affiliation)).toEqual({
-      kind: "region",
-      id: k.affiliation.target.regionId,
-    });
-    expect(Application.reflectedRef(k.participation)).toEqual({
-      kind: "occasion",
-      id: k.participation.target.occasionId,
-    });
-  });
-
-  it("owns the content's photos, a revision's added photos, and none otherwise", () => {
-    const k = everyKind();
-    expect(ApplicationCase.ownedPhotoIds(k.registration)).toEqual(
-      k.registration.content.photos,
-    );
-    expect(ApplicationCase.ownedPhotoIds(k.revision)).toEqual(
-      k.revision.content.addedPhotos,
-    );
-    expect(ApplicationCase.ownedPhotoIds(k.stewardship)).toEqual([]);
-    expect(ApplicationCase.ownedPhotoIds(k.affiliation)).toEqual([]);
+  it("refuses fields the kind does not have", () => {
+    const ids = applicationIds();
+    const target = targets.registration(ids.account());
+    const stray = { reservedPlaceId: ids.place(), stray: 1 };
+    expect(() =>
+      Application.submit(
+        {
+          id: ids.application(),
+          admission: admitted(target),
+          reserved: stray,
+          content: standInContent("店"),
+        },
+        ids.tick(),
+      ),
+    ).toThrow("A registration case carries fields its kind does not have");
   });
 });
 
-describe("Application.matchesSubmission", () => {
-  it("compares the target and the content, or the desired content of a revision", () => {
+describe("Application.reassess refuses a result judged for another target", () => {
+  it("lapses only on the application's own premises", () => {
     const k = everyKind();
+    const foreign = TestModel.Premise.evaluate(k.affiliation.target, {
+      placeHasSteward: false,
+      affiliated: true,
+    });
+    expect(() =>
+      // A misuse the types refuse: a result for another kind's target.
+      Application.reassess(k.revision, foreign as never, k.ids.tick()),
+    ).toThrow(
+      "Broken premises placeHasSteward, notAffiliated are not the premises of this revision",
+    );
+  });
+});
+
+describe("Application.kindOf", () => {
+  it("names the kind of any application, and refuses one not registered", () => {
+    const k = everyKind();
+    expect(Application.kindOf(k.leave)).toBe("leave");
+    const stranger = { ...k.leave, target: { ...k.leave.target, kind: "x" } };
+    expect(() => Application.kindOf(stranger)).toThrow(
+      "Unknown application kind: x",
+    );
+  });
+});
+
+describe("Application.namedSubjects", () => {
+  it("names a registration's place from its content, not yet existing until approved", () => {
+    const k = everyKind();
+    const place = { kind: "place", id: k.registration.reservedPlaceId };
+    const content = { from: "content", value: "喫茶ルント" } as const;
+    expect(Application.namedSubjects(k.registration, null)).toEqual([
+      { subject: place, name: content, notYet: true },
+    ]);
     expect(
-      Application.matchesSubmission(k.revision, {
-        target: k.revision.target,
-        desired: k.revision.desired,
-      }),
-    ).toBe(true);
-    expect(
-      Application.matchesSubmission(k.revision, {
-        target: k.revision.target,
-        desired: standInDesired("別の名前"),
-      }),
-    ).toBe(false);
-    expect(
-      Application.matchesSubmission(k.revision, {
-        target: targets.revision(k.ids.account(), k.p),
-        desired: k.revision.desired,
-      }),
-    ).toBe(false);
-    expect(
-      Application.matchesSubmission(k.registration, {
-        target: k.registration.target,
-        content: k.registration.content,
-      }),
-    ).toBe(true);
-    expect(
-      Application.matchesSubmission(k.registration, {
-        target: k.registration.target,
-        content: { ...k.registration.content, name: "別" },
-      }),
-    ).toBe(false);
+      Application.namedSubjects(approved(k.registration, k.ids.tick()), null),
+    ).toEqual([{ subject: place, name: content, notYet: false }]);
   });
 
-  it("ignores a stewardship claim's registration and compares the claim", () => {
+  it("names a companion claim's place from its registration's content", () => {
     const k = everyKind();
-    const target = targets.stewardship(k.a, k.registration.reservedPlaceId);
+    const place = { kind: "place", id: k.registration.reservedPlaceId };
+    const content = { from: "content", value: "喫茶ルント" } as const;
+    expect(Application.registrationOf(k.companion)).toBe(k.registration.id);
+    expect(Application.namedSubjects(k.companion, k.registration)).toEqual([
+      { subject: place, name: content, notYet: true },
+    ]);
     expect(
-      Application.matchesSubmission(k.companion, {
-        target,
-        content: claim(),
-      }),
-    ).toBe(true);
-    expect(
-      Application.matchesSubmission(k.companion, {
-        target,
-        content: claim("常連です"),
-      }),
-    ).toBe(false);
+      Application.namedSubjects(
+        k.companion,
+        approved(k.registration, k.ids.tick()),
+      ),
+    ).toEqual([{ subject: place, name: content, notYet: false }]);
+    expect(Application.namedSubjects(k.companion, null)).toEqual([
+      { subject: place, name: { from: "directory" }, notYet: false },
+    ]);
+    expect(() => Application.namedSubjects(k.companion, k.listing)).toThrow(
+      "The registration read is not the one filed with",
+    );
   });
 
-  it("compares affiliation by target alone and participation by deduplicated listings and sorted dates", () => {
-    const ids = applicationIds();
-    const p = ids.place();
-    const [l1, l2] = [ids.listing(), ids.listing()];
-    const participation = submitted(
-      ids,
-      targets.participation(p, ids.occasion()),
-      ids.tick(),
-      { listingIds: [l2, l1], dates: ["2026-10-01", "2026-10-02"] },
+  it("names every other subject through the directory", () => {
+    const k = everyKind();
+    const directory = { from: "directory" } as const;
+    expect(Application.namedSubjects(k.affiliation, null)).toEqual([
+      { subject: { kind: "place", id: k.p }, name: directory, notYet: false },
+      {
+        subject: { kind: "region", id: k.affiliation.target.regionId },
+        name: directory,
+        notYet: false,
+      },
+    ]);
+    expect(Application.namedSubjects(k.listing, null)).toEqual([
+      { subject: { kind: "place", id: k.p }, name: directory, notYet: false },
+    ]);
+    expect(ApplicationCase.contentNames(k.listing)).toEqual([
+      {
+        ref: { kind: "listing", id: k.listing.reservedListingId },
+        name: "喫茶ルント",
+      },
+    ]);
+  });
+});
+
+describe("ApplicationTarget.companion in a kind module", () => {
+  it("refers to the registration until it is approved, then only to its place", () => {
+    const k = everyKind();
+    expect(companionTarget(k.registration, k.a)).toEqual(
+      targets.stewardship(
+        k.a,
+        k.registration.reservedPlaceId,
+        k.registration.id,
+      ),
     );
     expect(
-      Application.matchesSubmission(participation, {
-        target: participation.target,
-        listingIds: [l2, l1, l2],
-        dates: ["2026-10-02", "2026-10-01", "2026-10-02"],
-      }),
+      companionTarget(approved(k.registration, k.ids.tick()), k.a),
+    ).toEqual(targets.stewardship(k.a, k.registration.reservedPlaceId));
+    expect(companionTarget(k.registration, k.ids.account())).toBeNull();
+    const target = companionTarget(k.registration, k.a);
+    if (target === null) throw new Error("expected a target");
+    expect(
+      Application.matchesSubmission(k.companion, { target, content: claim() }),
     ).toBe(true);
-    expect(
-      Application.matchesSubmission(participation, {
-        target: participation.target,
-        listingIds: [l1, l2],
-        dates: ["2026-10-01", "2026-10-02"],
-      }),
-    ).toBe(false);
-    const affiliation = submitted(ids, targets.affiliation(p, ids.region()));
-    expect(
-      Application.matchesSubmission(affiliation, {
-        target: affiliation.target,
-      }),
-    ).toBe(true);
-    expect(
-      Application.matchesSubmission(affiliation, {
-        target: targets.leave(p, affiliation.target.regionId),
-      }),
-    ).toBe(false);
+  });
+});
+
+describe("Application.requireApplicantAccount on other kinds", () => {
+  it("is typed and checked for kinds whose approval appoints the applicant", () => {
+    const k = everyKind();
+    const email = EmailAddress.create("a@example.com");
+    const account = { accountId: k.a, email };
+    const call = () =>
+      // @ts-expect-error a revision's approval appoints nobody
+      Application.requireApplicantAccount(k.revision, account);
+    expect(call).toThrow("A revision does not appoint its applicant");
   });
 });
 
@@ -878,7 +857,11 @@ describe("Application.snapshot / reconstruct", () => {
     rejected(k.individualLeave, at()),
     rejected(k.listingRevision, at()),
     withdrawn(k.companion, at()),
-    lapsed(k.participation, at(), ["occasionOpen", "notParticipating"]),
+    lapsed(k.participation, at(), {
+      placeHasSteward: true,
+      holdingStatus: "cancelled",
+      participating: true,
+    }),
   ];
 
   it.each(

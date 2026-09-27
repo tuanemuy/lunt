@@ -4,6 +4,7 @@ import {
   applicationIds,
   approved,
   holds,
+  ofKind,
   rejected,
   reply,
   returned,
@@ -30,8 +31,10 @@ import {
   findApplication,
   getApplication,
   idsOf,
+  inIdOrder,
   insertApplications,
   saveApplication,
+  scrambledIds,
   sortedIds,
   steps,
   storeThrough,
@@ -103,8 +106,8 @@ async function expectOneWinner(
 
 /** Five applications about place P from different applicants, all active. */
 function fiveActiveAbout(ids: ApplicationIds, p = ids.place()) {
-  return Array.from({ length: 5 }, () =>
-    submitted(ids, targets.revision(ids.account(), p)),
+  return scrambledIds(ids, 5).map((id) =>
+    submitted(ids, targets.revision(ids.account(), p), ids.tick(), {}, id),
   );
 }
 
@@ -268,24 +271,22 @@ export function describeApplicationRepositoryContract(
         const at = ids.tick();
         const answer = reply("営業時間の写真を添えました");
         const again = Application.resubmit(
-          Application.requireReturned(read.entity),
+          Application.requireReturned(ofKind(read.entity, "revision")),
           {
             content: standInPatch([ids.photo()], ["name", "status"]),
             reply: answer,
             desired: standInDesired("新しい名前"),
-          } as never,
+          },
           holds(app.target),
           at,
         ).entity;
         await saveApplication(h, again, read.expectedVersion);
         const found = (await getApplication(h, app.id)).entity;
         expect(found).toEqual(again);
-        expect(found.content).toEqual(
-          standInPatch(
-            (again.content as ReturnType<typeof standInPatch>).addedPhotos,
-            ["name", "status"],
-          ),
-        );
+        expect(ofKind(found, "revision").content.fields).toEqual([
+          "name",
+          "status",
+        ]);
         expect(found.status).toMatchObject({
           kind: "underReview",
           since: at,
@@ -378,12 +379,18 @@ export function describeApplicationRepositoryContract(
       it("applicationRepository#10 申請が保存されていない / その ID の申請を save する", async () => {
         const h = await makeHarness();
         const ids = applicationIds();
-        const app = submitted(
+        const stored = submitted(
+          ids,
+          targets.listing(ids.account(), ids.place()),
+        );
+        await insertApplications(h, stored);
+        const { expectedVersion } = await getApplication(h, stored.id);
+        const missing = submitted(
           ids,
           targets.revision(ids.account(), ids.place()),
         );
         await expect(
-          saveApplication(h, withdrawn(app, ids.tick()), app.version as never),
+          saveApplication(h, withdrawn(missing, ids.tick()), expectedVersion),
         ).rejects.toBeInstanceOf(NotFoundError);
       });
 
@@ -711,16 +718,26 @@ export function describeApplicationRepositoryContract(
         const ids = applicationIds();
         const [a, b] = [ids.account(), ids.account()];
         const [p, q] = [ids.place(), ids.place()];
-        const revision = submitted(ids, targets.revision(a, p));
+        const [i1, i2, i3] = scrambledIds(ids, 3);
+        const revision = submitted(
+          ids,
+          targets.revision(a, p),
+          ids.tick(),
+          {},
+          i1,
+        );
         await insertApplications(h, revision);
         const claimOfB = await storeThrough(
           h,
-          submitted(ids, targets.stewardship(b, p)),
+          submitted(ids, targets.stewardship(b, p), ids.tick(), {}, i2),
           steps.returned(ids.tick()),
         );
         const participation = submitted(
           ids,
           targets.participation(p, ids.occasion()),
+          ids.tick(),
+          {},
+          i3,
         );
         await insertApplications(h, participation);
         await storeThrough(
@@ -732,14 +749,14 @@ export function describeApplicationRepositoryContract(
         const result = await query(h, (r) =>
           r.findActiveBySubject({ kind: "place", id: p }, page(1, 10)),
         );
-        expect(entities(result.items)).toEqual([
-          revision,
-          claimOfB,
-          participation,
-        ]);
-        expect(result.items.map((item) => item.expectedVersion)).toEqual([
-          0, 1, 0,
-        ]);
+        const expected = inIdOrder([revision, claimOfB, participation]);
+        expect(idsOf(expected)).not.toEqual(
+          idsOf([revision, claimOfB, participation]),
+        );
+        expect(entities(result.items)).toEqual(expected);
+        expect(result.items.map((item) => item.expectedVersion)).toEqual(
+          expected.map((app) => app.version),
+        );
         expect(result.count).toBe(3);
       });
 
@@ -853,8 +870,9 @@ export function describeApplicationRepositoryContract(
         const h = await makeHarness();
         const ids = applicationIds();
         const p = ids.place();
-        const five = fiveActiveAbout(ids, p);
-        await insertApplications(h, ...five);
+        const submittedInTurn = fiveActiveAbout(ids, p);
+        await insertApplications(h, ...submittedInTurn);
+        const five = inIdOrder(submittedInTurn);
         const [first, second] = await Promise.all(
           [1, 2].map((n) =>
             query(h, (r) =>
@@ -874,11 +892,20 @@ export function describeApplicationRepositoryContract(
         const ids = applicationIds();
         const [a, b] = [ids.account(), ids.account()];
         const p = ids.place();
-        const revision = submitted(ids, targets.revision(a, p));
+        const [smaller, larger] = scrambledIds(ids, 2).slice().reverse();
+        if (smaller === undefined || larger === undefined) throw new Error();
+        // Submitted first but with the larger id.
+        const revision = submitted(
+          ids,
+          targets.revision(a, p),
+          ids.tick(),
+          {},
+          larger,
+        );
         await insertApplications(h, revision);
         const back = await storeThrough(
           h,
-          submitted(ids, targets.stewardship(a, p)),
+          submitted(ids, targets.stewardship(a, p), ids.tick(), {}, smaller),
           steps.returned(ids.tick()),
         );
         await storeThrough(
@@ -894,9 +921,9 @@ export function describeApplicationRepositoryContract(
         const result = await query(h, (r) =>
           r.findActiveByIndividual(a, page(1, 10)),
         );
-        expect(entities(result.items)).toEqual([revision, back]);
+        expect(entities(result.items)).toEqual([back, revision]);
         expect(result.items.map((item) => item.expectedVersion)).toEqual([
-          0, 1,
+          1, 0,
         ]);
         expect(result.count).toBe(2);
       });
@@ -919,10 +946,11 @@ export function describeApplicationRepositoryContract(
         const h = await makeHarness();
         const ids = applicationIds();
         const a = ids.account();
-        const five = Array.from({ length: 5 }, () =>
-          submitted(ids, targets.revision(a, ids.place())),
+        const submittedInTurn = scrambledIds(ids, 5).map((id) =>
+          submitted(ids, targets.revision(a, ids.place()), ids.tick(), {}, id),
         );
-        await insertApplications(h, ...five);
+        await insertApplications(h, ...submittedInTurn);
+        const five = inIdOrder(submittedInTurn);
         const first = await query(h, (r) =>
           r.findActiveByIndividual(a, page(1, 3)),
         );

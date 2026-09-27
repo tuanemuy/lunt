@@ -16,7 +16,6 @@ import type {
   SpecOfTarget,
   TargetIn,
 } from "../kind";
-import type { PremiseKey } from "../premise";
 import type { Active, Returned, ReviewAs, UnderReview } from "../status";
 import { StewardshipClaim } from "../stewardshipClaim";
 import { RejectionReason, ReturnReply, ReturnRequest } from "../texts";
@@ -332,19 +331,71 @@ export function withdrawn<A extends Active<TestApplication>>(app: A, at: Date) {
   return Application.withdraw(app, at).entity;
 }
 
+/**
+ * Facts under which `target`'s first premise breaks (the lapse a test
+ * needs by default); a registration has none.
+ */
+export function breakingFacts<T extends TestTarget>(
+  target: T,
+): FactsFor<SpecOfTarget<TestKindMap, T>> {
+  const byPlace = target.applicant.kind === "place";
+  const facts = ((): object => {
+    switch (target.kind) {
+      case "registration":
+        throw new Error("A registration has no premise to break");
+      case "revision":
+      case "listing":
+        return { placeHasSteward: true };
+      case "stewardship":
+        return {
+          applicantIsSteward: true,
+          registration: target.registrationId === null ? null : "underReview",
+        };
+      case "affiliation":
+        return { placeHasSteward: !byPlace, affiliated: false };
+      case "leave":
+        return { placeHasSteward: !byPlace, affiliated: true };
+      case "participation":
+        return {
+          placeHasSteward: true,
+          holdingStatus: "ended",
+          participating: false,
+        };
+      case "listingRevision":
+        return { listing: null };
+    }
+  })();
+  return facts as FactsFor<SpecOfTarget<TestKindMap, T>>;
+}
+
+/** Lapses `app` on `facts` (its first premise broken by default). */
 export function lapsed<A extends Active<TestApplication>>(
   app: A,
   at: Date,
-  broken?: readonly [PremiseKey, ...PremiseKey[]],
+  facts?: object,
 ) {
-  const [first] = Premise.required(app.target);
-  const keys = broken ?? (first === undefined ? undefined : [first]);
-  if (keys === undefined) throw new Error("The kind has no premise to break");
+  const target: TestTarget = app.target;
+  const result = Premise.evaluate(
+    target,
+    (facts ?? breakingFacts(target)) as FactsFor<
+      SpecOfTarget<TestKindMap, TestTarget>
+    >,
+  );
+  if (result.holds) throw new Error("The facts hold every premise");
   return Application.reassess(
     app,
-    { holds: false, broken: keys } as Parameters<
-      typeof Application.reassess<A>
-    >[1],
+    result as Parameters<typeof Application.reassess<A>>[1],
     at,
   ).entity;
+}
+
+/** Narrows a read application to kind `K`, failing the test otherwise. */
+export function ofKind<K extends keyof TestKindMap>(
+  app: TestApplication,
+  kind: K,
+): TestApplicationOf<K> {
+  if (app.target.kind !== kind) {
+    throw new Error(`Expected a ${kind}, read a ${app.target.kind}`);
+  }
+  return app as TestApplicationOf<K>;
 }

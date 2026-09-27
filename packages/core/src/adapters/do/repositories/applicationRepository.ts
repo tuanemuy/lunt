@@ -1,5 +1,3 @@
-import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
-import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import type {
   ApplicationIn,
   KindMap,
@@ -25,12 +23,8 @@ import type {
 } from "@repo/core/domain/common/transactionalRepository";
 import { applicationRecords } from "../applicationRecords";
 import { mapDoError } from "../helpers";
-import type {
-  ApplicationPage,
-  ApplicationRecord,
-} from "../protocol/application";
-import type { LuntStateClient } from "../protocol/client";
-import type { WriteCommand } from "../protocol/commands";
+import type { ApplicationPage } from "../protocol/application";
+import type { RepositoryDeps } from "./deps";
 
 /**
  * `ApplicationRepository` over the Lunt state object, for the kinds of
@@ -46,73 +40,50 @@ export class DoApplicationRepository<M extends KindMap>
   private readonly records: ReturnType<typeof applicationRecords<M>>;
 
   constructor(
-    private readonly client: LuntStateClient,
-    private readonly writes: WriteCommand[],
-    private readonly idGenerator: IdGenerator,
-    private readonly model: ApplicationModel<M>,
+    private readonly deps: RepositoryDeps,
+    model: ApplicationModel<M>,
   ) {
-    this.records = applicationRecords(model);
+    this.records = applicationRecords(model, deps.idGenerator);
   }
 
   /**
    * The same repository — same client, same unit-of-work buffer — for the
-   * kinds of another model. Conformance suites bind the test-only kinds
-   * this way.
+   * kinds of another model. The unit of work builds its repositories for
+   * the production kinds; the conformance suites rebind this one to the
+   * test-only kinds through it.
    */
   withModel<N extends KindMap>(
     model: ApplicationModel<N>,
   ): DoApplicationRepository<N> {
-    return new DoApplicationRepository(
-      this.client,
-      this.writes,
-      this.idGenerator,
-      model,
-    );
+    return new DoApplicationRepository(this.deps, model);
   }
 
-  private toApplication(record: ApplicationRecord): ApplicationIn<M> {
-    if (this.idGenerator.parse(record.id) === null) {
-      throw new SystemError(
-        SystemErrorCode.DataIntegrityError,
-        `Stored application has malformed id: ${record.id}`,
-      );
-    }
-    return this.records.toApplication(record);
-  }
-
-  private toVersioned<A extends ApplicationIn<M>>(
-    record: ApplicationRecord,
-  ): Versioned<A> {
-    return {
-      entity: this.toApplication(record) as A,
-      expectedVersion: record.version as ExpectedVersion<A>,
-    };
-  }
-
-  private toActivePage(
+  private activePage(
     page: ApplicationPage,
   ): PaginationResult<Versioned<Active<ApplicationIn<M>>>> {
     return {
-      items: page.items.map((record) => {
-        const versioned = this.toVersioned<Active<ApplicationIn<M>>>(record);
-        this.model.Application.requireActive(versioned.entity);
-        return versioned;
-      }),
+      items: page.items.map((record) =>
+        this.records.versioned(record, this.records.toActive(record)),
+      ),
       count: page.count,
     };
   }
 
-  private toPage(page: ApplicationPage): PaginationResult<ApplicationIn<M>> {
+  private page(page: ApplicationPage): PaginationResult<ApplicationIn<M>> {
     return {
-      items: page.items.map((record) => this.toApplication(record)),
+      items: page.items.map((record) => this.records.toApplication(record)),
       count: page.count,
     };
   }
 
   findById(id: ApplicationId): Promise<Versioned<ApplicationIn<M>> | null> {
     return mapDoError("Failed to find application", async () => {
-      const record = await this.client.query("application.findById", { id });
-      return record === null ? null : this.toVersioned(record);
+      const record = await this.deps.client.query("application.findById", {
+        id,
+      });
+      return record === null
+        ? null
+        : this.records.versioned(record, this.records.toApplication(record));
     });
   }
 
@@ -122,20 +93,20 @@ export class DoApplicationRepository<M extends KindMap>
     IdBatch.assertWithinLimit(ids);
     if (ids.length === 0) return [];
     return mapDoError("Failed to find applications", async () => {
-      const records = await this.client.query("application.findByIds", {
+      const records = await this.deps.client.query("application.findByIds", {
         ids,
       });
-      return records.map((record) => this.toApplication(record));
+      return records.map((record) => this.records.toApplication(record));
     });
   }
 
   findActiveBySlot(slot: SlotIn<M>): Promise<Active<ApplicationIn<M>> | null> {
     return mapDoError("Failed to find application by slot", async () => {
-      const record = await this.client.query("application.findActiveBySlot", {
-        slotKey: this.model.ApplicationSlot.key(slot),
-      });
-      if (record === null) return null;
-      return this.model.Application.requireActive(this.toApplication(record));
+      const record = await this.deps.client.query(
+        "application.findActiveBySlot",
+        { slotKey: this.records.slotKey(slot) },
+      );
+      return record === null ? null : this.records.toActive(record);
     });
   }
 
@@ -144,8 +115,8 @@ export class DoApplicationRepository<M extends KindMap>
     pagination: Pagination,
   ): Promise<PaginationResult<Versioned<Active<ApplicationIn<M>>>>> {
     return mapDoError("Failed to list applications by subject", async () =>
-      this.toActivePage(
-        await this.client.query("application.findActiveBySubject", {
+      this.activePage(
+        await this.deps.client.query("application.findActiveBySubject", {
           subject: { kind: subject.kind, id: subject.id },
           page: pagination.page,
           limit: pagination.limit,
@@ -159,8 +130,8 @@ export class DoApplicationRepository<M extends KindMap>
     pagination: Pagination,
   ): Promise<PaginationResult<Versioned<Active<ApplicationIn<M>>>>> {
     return mapDoError("Failed to list applications of an account", async () =>
-      this.toActivePage(
-        await this.client.query("application.findActiveByIndividual", {
+      this.activePage(
+        await this.deps.client.query("application.findActiveByIndividual", {
           accountId,
           page: pagination.page,
           limit: pagination.limit,
@@ -174,8 +145,8 @@ export class DoApplicationRepository<M extends KindMap>
     pagination: Pagination,
   ): Promise<PaginationResult<ApplicationIn<M>>> {
     return mapDoError("Failed to list applications by applicant", async () =>
-      this.toPage(
-        await this.client.query("application.findPageByApplicants", {
+      this.page(
+        await this.deps.client.query("application.findPageByApplicants", {
           individual: criteria.individual,
           places: criteria.places,
           page: pagination.page,
@@ -191,8 +162,8 @@ export class DoApplicationRepository<M extends KindMap>
     pagination: Pagination,
   ): Promise<PaginationResult<ApplicationIn<M>>> {
     return mapDoError("Failed to list applications by subject", async () =>
-      this.toPage(
-        await this.client.query("application.findPageBySubject", {
+      this.page(
+        await this.deps.client.query("application.findPageBySubject", {
           subject: { kind: subject.kind, id: subject.id },
           kinds: filter.kinds ?? null,
           statuses: filter.statuses ?? null,
@@ -205,7 +176,7 @@ export class DoApplicationRepository<M extends KindMap>
   }
 
   async insert(app: ApplicationIn<M>): Promise<void> {
-    this.writes.push({
+    this.deps.writes.push({
       kind: "application.insert",
       record: this.records.toRecord(app),
       index: this.records.toIndex(app),
@@ -216,7 +187,7 @@ export class DoApplicationRepository<M extends KindMap>
     app: ApplicationIn<M>,
     expectedVersion: ExpectedVersion<ApplicationIn<M>>,
   ): Promise<void> {
-    this.writes.push({
+    this.deps.writes.push({
       kind: "application.save",
       record: this.records.toRecord(app),
       expectedVersion,

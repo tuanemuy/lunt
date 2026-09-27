@@ -11,11 +11,9 @@ export function createApplicationRepositories(
 ): ApplicationRepositories {
   return {
     applicationRepository: new DoApplicationRepository<ApplicationKindMap>(
-      deps.client,
-      deps.writes,
-      deps.idGenerator,
+      deps,
       applicationModel,
     ),
-    overdueNoticeLedger: new DoOverdueNoticeLedger(deps.client, deps.writes),
+    overdueNoticeLedger: new DoOverdueNoticeLedger(deps),
   };
 }

@@ -21,6 +21,33 @@ export type ApplicationSubject =
 
 export type ApplicationSubjectKind = ApplicationSubject["kind"];
 
+/** A subject that is content: every subject but a registration. */
+export type ContentSubject = Exclude<
+  ApplicationSubject,
+  Readonly<{ kind: "registration" }>
+>;
+
+/**
+ * How a subject is named (「申請の対象の名称」): from an application's
+ * content (a registration's place, before and after it is created), or by
+ * `ContentDirectory` at the time of reading.
+ */
+export type SubjectName =
+  | Readonly<{ from: "content"; value: string | null }>
+  | Readonly<{ from: "directory" }>;
+
+/**
+ * A content subject with its naming rule, and whether it does not exist
+ * yet (「まだない対象」: the reserved place of a registration, or of a
+ * companion claim's registration, while that registration is not
+ * approved).
+ */
+export type NamedSubject = Readonly<{
+  subject: ContentSubject;
+  name: SubjectName;
+  notYet: boolean;
+}>;
+
 /** A target that must be viewable for a new application to be accepted. */
 export type SubmissionTarget = Extract<
   ContentRef,

@@ -32,10 +32,18 @@ export type PremiseHolds = Readonly<{
   readonly [premiseHoldsBrand]: true;
 }>;
 
+declare const premiseBrokenBrand: unique symbol;
+
+/**
+ * The premises that no longer hold. Like `PremiseHolds`, only
+ * `Premise.evaluate` makes one, so `reassess` lapses an application only on
+ * premises judged for a target.
+ */
 export type PremiseBroken<P extends PremiseKey> = Readonly<{
   holds: false;
   /** In `Premise.required` order. */
   broken: readonly [P, ...P[]];
+  readonly [premiseBrokenBrand]: true;
 }>;
 
 /** A kind without premises (`P = never`) can only hold. */
@@ -99,11 +107,11 @@ function evaluate<T, F, P extends PremiseKey>(
   });
   const [first, ...rest] = broken;
   if (first === undefined) return HOLDS as PremiseResultOf<P>;
-  const brokenResult: PremiseBroken<P> = {
+  // The only place a `PremiseBroken` is minted.
+  return {
     holds: false,
     broken: [first, ...rest],
-  };
-  return brokenResult as unknown as PremiseResultOf<P>;
+  } as unknown as PremiseResultOf<P>;
 }
 
 /** Throws the first broken premise's code when `result` does not hold. */

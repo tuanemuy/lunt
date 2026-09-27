@@ -4,19 +4,15 @@ import type {
   WithEventDrafts,
 } from "@repo/core/domain/common/event";
 import {
-  AccountId,
+  type AccountId,
   ApplicationId,
   type PhotoId,
 } from "@repo/core/domain/common/ids";
 import { PhotosReleasedEvent } from "@repo/core/domain/common/photoEvents";
-import type { ContentRef, PhotoOwnerRef } from "@repo/core/domain/common/refs";
+import { ContentRef } from "@repo/core/domain/common/refs";
 import { Version } from "@repo/core/domain/common/version";
 import { BusinessRuleError, RehydrationError } from "@repo/core/domain/error";
-import {
-  type ActingApplicant,
-  Applicant,
-  type IndividualApplicant,
-} from "./applicant";
+import { type ActingApplicant, Applicant } from "./applicant";
 import type { ApproverSeat } from "./approverSeat";
 import { canonicalKey } from "./canonical";
 import { ApplicationErrorCode } from "./errorCode";
@@ -32,17 +28,20 @@ import {
   type ApplicationWithdrawnEvent,
 } from "./events";
 import type {
-  ApplicationBase,
+  AnyApplication,
   ApplicationCaseIn,
   ApplicationFor,
   ApplicationIn,
+  AppointingIn,
   ApproverFactsFor,
   ContentFor,
+  ContentName,
   DesiredFor,
   FactsFor,
   JsonValue,
   KindDefinition,
   KindMap,
+  KindName,
   KindRegistry,
   KindSpec,
   OpenPermissionFor,
@@ -62,6 +61,8 @@ import type {
 } from "./kind";
 import type { OverdueNotice } from "./overdueNotice";
 import {
+  PREMISE_KEYS,
+  type PremiseCode,
   type PremiseHolds,
   type PremiseKey,
   type PremiseResult,
@@ -77,7 +78,12 @@ import {
   type ReviewAs,
   type UnderReview,
 } from "./status";
-import type { ApplicationSubject, SubmissionTarget } from "./subject";
+import type {
+  ApplicationSubject,
+  ContentSubject,
+  NamedSubject,
+  SubmissionTarget,
+} from "./subject";
 import { RejectionReason, ReturnReply, ReturnRequest } from "./texts";
 
 declare const admissionBrand: unique symbol;
@@ -123,7 +129,7 @@ export type ApplicationSnapshot = Readonly<{
   version: number;
 }>;
 
-type SubmitParams<S extends KindSpec, T extends TargetBase> = Readonly<{
+export type SubmitParams<S extends KindSpec, T extends TargetBase> = Readonly<{
   id: ApplicationId;
   admission: Admission<T>;
   reserved: ReservedFor<S>;
@@ -131,23 +137,236 @@ type SubmitParams<S extends KindSpec, T extends TargetBase> = Readonly<{
 }> &
   DesiredFor<S>;
 
-type Amendment<S extends KindSpec> = Readonly<{
+export type Amendment<S extends KindSpec> = Readonly<{
   content: ContentFor<S>;
   reply: ReturnReply | null;
 }> &
   DesiredFor<S>;
 
-type WithClaimedPhotos = Readonly<{ claimedPhotoIds: readonly PhotoId[] }>;
+export type WithClaimedPhotos = Readonly<{
+  claimedPhotoIds: readonly PhotoId[];
+}>;
 
-// The erased view the implementation works on: generics cannot be
-// correlated with a runtime kind string, so each function goes through
-// it and the exported signatures carry the precise types.
+/** The appointee of an approved stewardship claim. */
+export type ApplicantAccount = Readonly<{
+  accountId: AccountId;
+  email: EmailAddress;
+}>;
+
+/** A case of any registered kind, or an application of any kind. */
+type AnyCaseIn<M extends KindMap> = ApplicationCaseIn<M> | AnyApplication;
+
+type OverdueDetection = Readonly<{
+  notice: OverdueNotice;
+  eventDrafts: readonly EventDraft<ApplicationReviewPeriodElapsedEvent>[];
+}>;
+
+/**
+ * The Application domain bound to the kinds of `M`
+ * (`spec/domains/application.md`). Kind-agnostic readers (`isHandledBy`,
+ * `subjects`, `approverSeat`, `namedSubjects`, …) take `AnyApplication`,
+ * so code that works on every kind type-checks against a real shape even
+ * while no kind is registered; behaviours that depend on a kind's types
+ * take the precise application.
+ */
+export type ApplicationModel<M extends KindMap> = Readonly<{
+  /**
+   * The aggregate's behaviours (「Application（集約）」). All pure; every
+   * change advances the version by one. Behaviours limited to a status
+   * take the application narrowed by the matching `require…` guard.
+   */
+  Application: Readonly<{
+    /** Validates the built case against its kind before creating it. */
+    submit<T extends TargetIn<M>>(
+      params: SubmitParams<SpecOfTarget<M, T>, T>,
+      now: Date,
+    ): WithEventDrafts<
+      UnderReview<ApplicationFor<SpecOfTarget<M, T>>>,
+      ApplicationSubmittedEvent
+    > &
+      WithClaimedPhotos;
+    matchesSubmission(app: ApplicationIn<M>, request: RequestIn<M>): boolean;
+    requireUnderReview: typeof ApplicationStatus.requireUnderReview;
+    requireReturned: typeof ApplicationStatus.requireReturned;
+    requireActive: typeof ApplicationStatus.requireActive;
+    requireClosed: typeof ApplicationStatus.requireClosed;
+    sendBack<A extends UnderReview<ApplicationIn<M>>>(
+      app: A,
+      as: "approver",
+      request: ReturnRequest,
+      now: Date,
+    ): WithEventDrafts<
+      Returned<ApplicationFor<SpecOfApp<M, A>>>,
+      ApplicationReturnedEvent
+    >;
+    resubmit<A extends Returned<ApplicationIn<M>>>(
+      app: A,
+      amended: Amendment<SpecOfApp<M, A>>,
+      premise: PremiseHolds,
+      now: Date,
+    ): WithEventDrafts<
+      UnderReview<ApplicationFor<SpecOfApp<M, A>>>,
+      ApplicationResubmittedEvent | PhotosReleasedEvent
+    > &
+      WithClaimedPhotos;
+    approve<A extends UnderReview<ApplicationIn<M>>>(
+      app: A,
+      as: ReviewAsFor<SpecOfApp<M, A>>,
+      premise: PremiseHolds,
+      now: Date,
+    ): WithEventDrafts<
+      ApplicationFor<SpecOfApp<M, A>>,
+      ApplicationApprovedEvent
+    >;
+    reject<A extends UnderReview<ApplicationIn<M>>>(
+      app: A,
+      as: ReviewAsFor<SpecOfApp<M, A>>,
+      reason: RejectionReason,
+      now: Date,
+    ): WithEventDrafts<
+      ApplicationFor<SpecOfApp<M, A>>,
+      ApplicationRejectedEvent
+    >;
+    withdraw<A extends Active<ApplicationIn<M>>>(
+      app: A,
+      now: Date,
+    ): WithEventDrafts<
+      ApplicationFor<SpecOfApp<M, A>>,
+      ApplicationWithdrawnEvent
+    >;
+    /** `result` must be `Premise.evaluate` of the application's own target. */
+    reassess<A extends Active<ApplicationIn<M>>>(
+      app: A,
+      result: PremiseResultFor<SpecOfApp<M, A>>,
+      now: Date,
+    ): WithEventDrafts<ApplicationFor<SpecOfApp<M, A>>, ApplicationLapsedEvent>;
+    isHandledBy(app: AnyApplication, acting: ActingApplicant): boolean;
+    /**
+     * The appointee of an approved stewardship claim: the applicant's
+     * account as a usecase read it. `null` (the applicant withdrew) refuses
+     * with `APPLICATION_APPLICANT_WITHDRAWN`; the claim stays under review
+     * until the withdrawal's consumer withdraws it. Only kinds whose
+     * approval appoints the applicant.
+     */
+    requireApplicantAccount(
+      app: AppointingIn<M>,
+      account: ApplicantAccount | null,
+    ): ApplicantAccount;
+    /** The kind of any application; throws for a kind not registered here. */
+    kindOf(app: AnyApplication): KindName<M>;
+    slotOf(app: ApplicationIn<M>): SlotIn<M> | null;
+    subjects(c: AnyCaseIn<M>): readonly ApplicationSubject[];
+    approverSeat(app: AnyApplication): ApproverSeat;
+    reflectedRef(c: AnyCaseIn<M>): ContentRef;
+    /** The companion registration to read for `namedSubjects`, or `null`. */
+    registrationOf(app: AnyApplication): ApplicationId | null;
+    /**
+     * The content subjects with how each is named and whether it does not
+     * exist yet (「申請の対象の名称」「まだない対象」). `registration` is the
+     * application `registrationOf` names, as read (`null` if not read or
+     * not found: its place is then named by the directory).
+     */
+    namedSubjects(
+      app: AnyApplication,
+      registration: AnyApplication | null,
+    ): readonly NamedSubject[];
+    snapshot(app: ApplicationIn<M>): ApplicationSnapshot;
+    /** Throws `RehydrationError` on anything invalid. */
+    reconstruct(stored: ApplicationSnapshot): ApplicationIn<M>;
+  }>;
+  ApplicationCase: Readonly<{
+    ownedPhotoIds(c: AnyCaseIn<M>): readonly PhotoId[];
+    contentNames(c: AnyCaseIn<M>): readonly ContentName[];
+  }>;
+  ApplicationSlot: Readonly<{
+    /** `null` for a kind that creates its target (registration, listing). */
+    of(target: TargetIn<M>): SlotIn<M> | null;
+    /** One string per slot; equal keys are equal slots. */
+    key(slot: SlotIn<M> | SlotBase): string;
+    equals(a: SlotIn<M>, b: SlotIn<M>): boolean;
+  }>;
+  /**
+   * The premises of `spec/scenario/index.md` 「申請の前提」 — the one place
+   * submission, resubmission, approval, reassessment and the eligibility
+   * check judge them.
+   */
+  Premise: Readonly<{
+    /** The applying premises, in table order. */
+    required<T extends TargetIn<M>>(
+      target: T,
+    ): readonly PremiseKeyFor<SpecOfTarget<M, T>>[];
+    evaluate<T extends TargetIn<M>>(
+      target: T,
+      facts: FactsFor<SpecOfTarget<M, T>>,
+    ): PremiseResultFor<SpecOfTarget<M, T>>;
+    /** Throws the first broken premise's code. */
+    require(result: PremiseResult): PremiseHolds;
+    codeOf(key: PremiseKey): PremiseCode;
+  }>;
+  /**
+   * What a new application (reapplications included) must satisfy: its
+   * premises, viewable targets, and no active application in its slot —
+   * judged from the target alone, before the content is built.
+   */
+  SubmissionScope: Readonly<{
+    targets(target: TargetIn<M>): readonly SubmissionTarget[];
+    accepts(findings: SubmissionFindings): boolean;
+    /** Judged in order: premises, viewable targets, duplicates. */
+    admit<T extends TargetIn<M>>(
+      target: T,
+      findings: SubmissionFindings,
+    ): Admission<T>;
+  }>;
+  /**
+   * Who may decide an application and how (`spec/domains/index.md`
+   * 「申請の判断」). `decide` never throws: usecases throw `ForbiddenError` on
+   * `notApprover`. Only the approver returns an application; an overdue
+   * proxy approves or rejects (I-13).
+   */
+  ApproverPolicy: Readonly<{
+    seatOf(target: TargetIn<M>): ApproverSeat;
+    decide<A extends ApplicationIn<M>>(
+      app: A,
+      facts: ApproverFactsFor<SpecOfApp<M, A>>,
+      policy: ReviewPolicy,
+      now: Date,
+    ): ReviewPermissionFor<SpecOfApp<M, A>>;
+    reviewAs<A extends UnderReview<ApplicationIn<M>>>(
+      app: A,
+      permission: OpenPermissionFor<SpecOfApp<M, A>>,
+    ): ReviewAsFor<SpecOfApp<M, A>>;
+    returnAs<A extends UnderReview<ApplicationIn<M>>>(
+      app: A,
+      permission: OpenPermissionFor<SpecOfApp<M, A>>,
+    ): "approver";
+  }>;
+  /**
+   * Picks the applications whose overdue-review notice is due, once per
+   * under-review spell: a steward-seat application under review whose
+   * period has elapsed and whose recorded notice (if any) is for an
+   * earlier spell. Whether the seat has a steward is the review desk's
+   * `asOverdueProxy` filter.
+   */
+  OverdueReviewWatch: Readonly<{
+    detect(
+      app: AnyApplication,
+      recorded: OverdueNotice | null,
+      policy: ReviewPolicy,
+      now: Date,
+    ): OverdueDetection | null;
+  }>;
+}>;
+
+// --- The type-erased implementation --------------------------------------
+//
+// Kind generics cannot be correlated with a runtime kind string, so the
+// implementation works on the erased shapes below and `ApplicationModel`
+// carries the precise types; `createApplicationModel` joins the two once.
+
 type LooseDefinition = KindDefinition<KindSpec>;
 type LooseCase = Readonly<{ target: TargetBase; content: unknown }> &
   Readonly<Record<string, unknown>>;
-type LooseApp = ApplicationBase &
-  LooseCase &
-  Readonly<{ status: AnyApplicationStatus }>;
+type LooseApp = AnyApplication & LooseCase;
 type LooseFacts =
   | Readonly<{
       seat: "steward";
@@ -159,13 +378,25 @@ type LooseFacts =
       serviceOperation: Readonly<{ allowed: boolean }>;
       registration?: AnyApplicationStatus["kind"] | null;
     }>;
+type LooseBroken = Readonly<{ holds: false; broken: readonly PremiseKey[] }>;
+type Changed<E extends ApplicationEventDraftType> = Readonly<{
+  entity: LooseApp;
+  eventDrafts: readonly EventDraft<E>[];
+}>;
+type ApplicationEventDraftType =
+  | ApplicationSubmittedEvent
+  | ApplicationResubmittedEvent
+  | PhotosReleasedEvent
+  | ApplicationReturnedEvent
+  | ApplicationApprovedEvent
+  | ApplicationRejectedEvent
+  | ApplicationWithdrawnEvent
+  | ApplicationLapsedEvent;
 
-const loose = <T>(value: unknown): T => value as T;
+const BASE_FIELDS = ["id", "status", "submittedAt", "version"] as const;
 
 function assertHolds(premise: PremiseHolds): void {
-  if (premise.holds !== true) {
-    throw new Error("A premise proof must hold");
-  }
+  if (premise.holds !== true) throw new Error("A premise proof must hold");
 }
 
 function storedDate(value: Date): Date {
@@ -183,34 +414,22 @@ function normalized<T extends string>(
   return value;
 }
 
-/**
- * Binds the kind-agnostic core to a registry of kind definitions.
- * `domain/application/application.ts` binds it to the production kinds;
- * tests bind it to test-only kinds. The result carries the domain objects
- * of `spec/domains/application.md` — `Application`, `ApplicationSlot`,
- * `ApplicationCase`, `Premise`, `SubmissionScope`, `ApproverPolicy`,
- * `OverdueReviewWatch` — typed over the registry's kinds.
- */
-export function createApplicationModel<M extends KindMap>(
-  registry: KindRegistry<M>,
-) {
-  type App = ApplicationIn<M>;
-  type Target = TargetIn<M>;
+const isPremiseKey = (key: string): key is PremiseKey =>
+  (PREMISE_KEYS as readonly string[]).includes(key);
 
-  const definitions = new Map<string, LooseDefinition>();
-  for (const [name, definition] of Object.entries(
-    loose<Readonly<Record<string, LooseDefinition>>>(registry),
-  )) {
-    if (definition.kind !== name) {
-      throw new Error(`Kind ${definition.kind} is registered as ${name}`);
-    }
-    const keys = definition.premises.map((rule) => rule.key);
-    if (new Set(keys).size !== keys.length) {
-      throw new Error(`Kind ${name} declares a premise twice`);
-    }
-    definitions.set(name, definition);
-  }
+/** The case part of an application: everything but the core's fields. */
+function caseOf(app: LooseApp): LooseCase {
+  const c: Record<string, unknown> = { ...app };
+  for (const field of BASE_FIELDS) delete c[field];
+  return c as LooseCase;
+}
 
+const NOT_APPROVER: ReviewPermission = {
+  allowed: false,
+  reason: "notApprover",
+};
+
+function looseModel(definitions: ReadonlyMap<string, LooseDefinition>) {
   const definitionOf = (kind: string): LooseDefinition => {
     const definition = definitions.get(kind);
     if (definition === undefined) {
@@ -219,153 +438,86 @@ export function createApplicationModel<M extends KindMap>(
     return definition;
   };
 
-  // --- Premise ---------------------------------------------------------
-
-  function required<T extends Target>(
-    target: T,
-  ): readonly PremiseKeyFor<SpecOfTarget<M, T>>[] {
-    return loose(
-      PremiseRules.required(definitionOf(target.kind).premises, target),
-    );
-  }
-
-  function evaluate<T extends Target>(
-    target: T,
-    facts: FactsFor<SpecOfTarget<M, T>>,
-  ): PremiseResultFor<SpecOfTarget<M, T>> {
-    return loose(
-      PremiseRules.evaluate(definitionOf(target.kind).premises, target, facts),
-    );
-  }
-
   /**
-   * The premises of `spec/scenario/index.md` 「申請の前提」 — the one place
-   * submission, resubmission, approval, reassessment and the eligibility
-   * check judge them. `required` lists the applying ones in table order,
-   * `evaluate` checks them against the facts a usecase read, and `require`
-   * throws the first broken one's code.
+   * The case exactly as its kind stores it: round-trips through the kind's
+   * snapshot and reconstruct, so value objects and invariants (a steward's
+   * application names its own place, …) are checked on write, and refuses
+   * fields the kind does not have.
    */
-  const Premise = {
-    required,
-    evaluate,
-    require: PremiseRules.require,
-    codeOf: PremiseRules.codeOf,
-  };
-
-  // --- SubmissionScope -------------------------------------------------
-
-  function admit<T extends Target>(
-    target: T,
-    findings: SubmissionFindings,
-  ): Admission<T> {
-    const premise = PremiseRules.require(findings.premise);
-    if (findings.unviewable.length > 0) {
-      throw new BusinessRuleError(
-        ApplicationErrorCode.TargetNotViewable,
-        "A target of the application is not viewable",
+  function checkedCase(built: LooseCase): LooseCase {
+    const definition = definitionOf(built.target.kind);
+    let rebuilt: LooseCase;
+    try {
+      rebuilt = definition.reconstruct(definition.snapshot(built)) as LooseCase;
+    } catch (error) {
+      throw new Error(`A ${built.target.kind} case violates its kind`, {
+        cause: error,
+      });
+    }
+    const fields = (c: LooseCase) => Object.keys(c).sort().join(",");
+    if (
+      fields(rebuilt) !== fields(built) ||
+      canonicalKey(definition.snapshot(rebuilt)) !==
+        canonicalKey(definition.snapshot(built))
+    ) {
+      throw new Error(
+        `A ${built.target.kind} case carries fields its kind does not have`,
       );
     }
-    if (findings.activeDuplicate !== null) {
-      throw new BusinessRuleError(
-        ApplicationErrorCode.AlreadyActive,
-        "An active application of the same slot exists",
-      );
-    }
-    return loose<Admission<T>>({ target, premise });
+    return rebuilt;
   }
 
-  /**
-   * What a new application (reapplications included) must satisfy: its
-   * premises, viewable targets, and no active application in its slot —
-   * all judged from the target alone, before the content is built.
-   */
-  const SubmissionScope = {
-    targets: (target: Target): readonly SubmissionTarget[] =>
-      definitionOf(target.kind).submissionTargets(target),
-    accepts: (findings: SubmissionFindings): boolean =>
-      findings.premise.holds &&
-      findings.unviewable.length === 0 &&
-      findings.activeDuplicate === null,
-    /** Judged in order: premises, viewable targets, duplicates. */
-    admit,
-  };
+  const required = (target: TargetBase): readonly PremiseKey[] =>
+    PremiseRules.required(definitionOf(target.kind).premises, target);
 
-  // --- ApplicationSlot -------------------------------------------------
-
-  const ApplicationSlot = {
-    /** `null` for a kind that creates its target (registration, listing). */
-    of: (target: Target): SlotIn<M> | null =>
-      loose(definitionOf(target.kind).slotOf(target)),
-    /** One string per slot; equal keys are equal slots. */
-    key: (slot: SlotIn<M> | SlotBase): string => canonicalKey(slot),
-    equals: (a: SlotIn<M>, b: SlotIn<M>): boolean =>
-      canonicalKey(a) === canonicalKey(b),
-  };
-
-  // --- ApproverPolicy --------------------------------------------------
-
-  const seatOf = (target: Target): ApproverSeat =>
+  const seatOf = (target: TargetBase): ApproverSeat =>
     definitionOf(target.kind).seatOf(target);
 
-  const NOT_APPROVER: ReviewPermission = {
-    allowed: false,
-    reason: "notApprover",
-  };
+  const photoOwner = (id: ApplicationId) =>
+    ({ kind: "application", id }) as const;
 
-  function decide<A extends App>(
-    app: A,
-    facts: ApproverFactsFor<SpecOfApp<M, A>>,
+  function decide(
+    app: LooseApp,
+    facts: LooseFacts,
     policy: ReviewPolicy,
     now: Date,
-  ): ReviewPermissionFor<SpecOfApp<M, A>> {
-    const subject = loose<LooseApp>(app);
-    const given = loose<LooseFacts>(facts);
-    if (definitionOf(subject.target.kind).seat !== given.seat) {
-      throw new Error(`Approver facts for a ${given.seat} seat`);
+  ): ReviewPermission {
+    if (definitionOf(app.target.kind).seat !== facts.seat) {
+      throw new Error(`Approver facts for a ${facts.seat} seat`);
     }
-    const decision = ((): ReviewPermission => {
-      if (given.seat === "operator") {
-        if (!given.serviceOperation.allowed) return NOT_APPROVER;
-        if (
-          given.registration === "underReview" ||
-          given.registration === "returned"
-        ) {
-          return { allowed: false, reason: "registrationPending" };
-        }
-        return { allowed: true, reviewAs: "approver" };
+    if (facts.seat === "operator") {
+      if (!facts.serviceOperation.allowed) return NOT_APPROVER;
+      if (
+        facts.registration === "underReview" ||
+        facts.registration === "returned"
+      ) {
+        return { allowed: false, reason: "registrationPending" };
       }
-      if (given.targetManagement.allowed) {
-        return { allowed: true, reviewAs: "approver" };
-      }
-      if (given.serviceOperation.allowed) {
-        const status = subject.status;
-        return status.kind === "underReview" &&
-          ReviewPolicy.proxyableAt({ status }, policy).getTime() <=
-            now.getTime()
-          ? { allowed: true, reviewAs: "overdue_proxy" }
-          : { allowed: false, reason: "awaitingStewards" };
-      }
-      return NOT_APPROVER;
-    })();
-    return loose(decision);
+      return { allowed: true, reviewAs: "approver" };
+    }
+    if (facts.targetManagement.allowed) {
+      return { allowed: true, reviewAs: "approver" };
+    }
+    if (!facts.serviceOperation.allowed) return NOT_APPROVER;
+    const { status } = app;
+    return status.kind === "underReview" &&
+      ReviewPolicy.proxyableAt({ status }, policy).getTime() <= now.getTime()
+      ? { allowed: true, reviewAs: "overdue_proxy" }
+      : { allowed: false, reason: "awaitingStewards" };
   }
 
-  function reviewAs<A extends UnderReview<App>>(
-    app: A,
-    permission: OpenPermissionFor<SpecOfApp<M, A>>,
-  ): ReviewAsFor<SpecOfApp<M, A>> {
-    if (loose<LooseApp>(app).status.kind !== "underReview") {
+  function reviewAs(app: LooseApp, permission: ReviewPermission): ReviewAs {
+    if (app.status.kind !== "underReview") {
       throw new Error("Only an under-review application is decided");
     }
-    const given = loose<ReviewPermission>(permission);
-    if (given.allowed) return loose(given.reviewAs);
-    if (given.reason === "awaitingStewards") {
+    if (permission.allowed) return permission.reviewAs;
+    if (permission.reason === "awaitingStewards") {
       throw new BusinessRuleError(
         ApplicationErrorCode.AwaitingStewards,
         "The stewards' review period has not elapsed",
       );
     }
-    if (given.reason === "registrationPending") {
+    if (permission.reason === "registrationPending") {
       throw new BusinessRuleError(
         ApplicationErrorCode.RegistrationPending,
         "The companion registration is not decided yet",
@@ -374,92 +526,47 @@ export function createApplicationModel<M extends KindMap>(
     throw new Error("A notApprover permission cannot decide");
   }
 
-  /**
-   * Who may decide an application and how (`spec/domains/index.md`
-   * 「操作の可否」「申請の判断」). `decide` never throws: usecases throw
-   * `ForbiddenError` on `notApprover`. Only the approver returns an
-   * application; an overdue proxy approves or rejects (I-13).
-   */
-  const ApproverPolicy = {
-    seatOf,
-    decide,
-    reviewAs,
-    returnAs: <A extends UnderReview<App>>(
-      app: A,
-      permission: OpenPermissionFor<SpecOfApp<M, A>>,
-    ): "approver" => {
-      const as: ReviewAs = reviewAs(app, permission);
-      if (as === "overdue_proxy") {
-        throw new BusinessRuleError(
-          ApplicationErrorCode.OverdueProxyCannotReturn,
-          "An overdue proxy cannot return an application",
-        );
-      }
-      return as;
-    },
-  };
-
-  // --- Application -----------------------------------------------------
-
-  const ownedPhotoIds = (c: ApplicationCaseIn<M>): readonly PhotoId[] =>
-    definitionOf(loose<LooseCase>(c).target.kind).ownedPhotoIds(loose(c));
-
-  const photoOwner = (id: ApplicationId): PhotoOwnerRef => ({
-    kind: "application",
-    id,
-  });
-
-  function submit<T extends Target>(
-    params: SubmitParams<SpecOfTarget<M, T>, T>,
+  function submit(
+    params: Readonly<{
+      id: ApplicationId;
+      admission: Readonly<{ target: TargetBase; premise: PremiseHolds }>;
+      reserved: object;
+      content: unknown;
+    }>,
     now: Date,
-  ): WithEventDrafts<
-    UnderReview<ApplicationFor<SpecOfTarget<M, T>>>,
-    ApplicationSubmittedEvent
-  > &
-    WithClaimedPhotos {
-    const { id, admission, reserved, content, ...desired } =
-      loose<
-        Readonly<{
-          id: ApplicationId;
-          admission: Admission<TargetBase>;
-          reserved: object;
-          content: unknown;
-        }>
-      >(params);
+  ): Changed<ApplicationSubmittedEvent> & WithClaimedPhotos {
+    const { id, admission, reserved, content, ...desired } = params;
     assertHolds(admission.premise);
     const definition = definitionOf(admission.target.kind);
     const entity: LooseApp = {
       id,
-      target: admission.target,
-      ...reserved,
-      content,
-      ...desired,
+      ...checkedCase({
+        target: admission.target,
+        ...reserved,
+        content,
+        ...desired,
+      }),
       status: { kind: "underReview", since: now, answering: null },
       submittedAt: now,
       version: Version.initial(),
     };
-    return loose({
+    return {
       entity,
       eventDrafts: [
         ApplicationEvents.submitted(id, definition.seatOf(entity.target), now),
       ],
       claimedPhotoIds: definition.ownedPhotoIds(entity),
-    });
+    };
   }
 
-  function sendBack<A extends UnderReview<App>>(
-    app: A,
+  function sendBack(
+    app: LooseApp,
     _as: "approver",
     request: ReturnRequest,
     now: Date,
-  ): WithEventDrafts<
-    Returned<ApplicationFor<SpecOfApp<M, A>>>,
-    ApplicationReturnedEvent
-  > {
-    const current = loose<LooseApp>(
-      ApplicationStatus.requireUnderReview(loose<LooseApp>(app)),
-    );
-    return loose({
+  ): Changed<ApplicationReturnedEvent> {
+    const current = ApplicationStatus.requireUnderReview(app);
+    return {
       entity: {
         ...current,
         status: { kind: "returned", request },
@@ -468,29 +575,24 @@ export function createApplicationModel<M extends KindMap>(
       eventDrafts: [
         ApplicationEvents.returned(current.id, current.target.applicant, now),
       ],
-    });
+    };
   }
 
-  function resubmit<A extends Returned<App>>(
-    app: A,
-    amended: Amendment<SpecOfApp<M, A>>,
+  function resubmit(
+    app: LooseApp,
+    amended: Readonly<{ content: unknown; reply: ReturnReply | null }>,
     premise: PremiseHolds,
     now: Date,
-  ): WithEventDrafts<
-    UnderReview<ApplicationFor<SpecOfApp<M, A>>>,
-    ApplicationResubmittedEvent | PhotosReleasedEvent
-  > &
+  ): Changed<ApplicationResubmittedEvent | PhotosReleasedEvent> &
     WithClaimedPhotos {
     assertHolds(premise);
-    const current = ApplicationStatus.requireReturned(loose<LooseApp>(app));
+    const current = ApplicationStatus.requireReturned(app);
     const { request } = current.status;
-    const { content, reply, ...desired } =
-      loose<Readonly<{ content: unknown; reply: ReturnReply | null }>>(amended);
+    const { content, reply, ...desired } = amended;
     const definition = definitionOf(current.target.kind);
     const entity: LooseApp = {
       ...current,
-      content,
-      ...desired,
+      ...checkedCase({ ...caseOf(current), content, ...desired }),
       status: {
         kind: "underReview",
         since: now,
@@ -511,11 +613,11 @@ export function createApplicationModel<M extends KindMap>(
       ),
       ...PhotosReleasedEvent.draftsFor(photoOwner(current.id), released, now),
     ];
-    return loose({
+    return {
       entity,
       eventDrafts,
       claimedPhotoIds: after.filter((photo) => !before.includes(photo)),
-    });
+    };
   }
 
   function decisionStatus(
@@ -525,28 +627,24 @@ export function createApplicationModel<M extends KindMap>(
       | Readonly<{ kind: "approved" }>
       | Readonly<{ kind: "rejected"; reason: RejectionReason }>,
   ): AnyApplicationStatus {
-    const { seat } = definitionOf(app.target.kind);
-    if (seat === "steward") return { ...outcome, reviewAs: as };
+    if (definitionOf(app.target.kind).seat === "steward") {
+      return { ...outcome, reviewAs: as };
+    }
     if (as !== "approver") {
       throw new Error("An operator-seat kind has no overdue proxy");
     }
     return outcome;
   }
 
-  function approve<A extends UnderReview<App>>(
-    app: A,
-    as: ReviewAsFor<SpecOfApp<M, A>>,
+  function approve(
+    app: LooseApp,
+    as: ReviewAs,
     premise: PremiseHolds,
     now: Date,
-  ): WithEventDrafts<
-    ApplicationFor<SpecOfApp<M, A>>,
-    ApplicationApprovedEvent
-  > {
+  ): Changed<ApplicationApprovedEvent> {
     assertHolds(premise);
-    const current = loose<LooseApp>(
-      ApplicationStatus.requireUnderReview(loose<LooseApp>(app)),
-    );
-    return loose({
+    const current = ApplicationStatus.requireUnderReview(app);
+    return {
       entity: {
         ...current,
         status: decisionStatus(current, as, { kind: "approved" }),
@@ -555,22 +653,17 @@ export function createApplicationModel<M extends KindMap>(
       eventDrafts: [
         ApplicationEvents.approved(current.id, current.target.applicant, now),
       ],
-    });
+    };
   }
 
-  function reject<A extends UnderReview<App>>(
-    app: A,
-    as: ReviewAsFor<SpecOfApp<M, A>>,
+  function reject(
+    app: LooseApp,
+    as: ReviewAs,
     reason: RejectionReason,
     now: Date,
-  ): WithEventDrafts<
-    ApplicationFor<SpecOfApp<M, A>>,
-    ApplicationRejectedEvent
-  > {
-    const current = loose<LooseApp>(
-      ApplicationStatus.requireUnderReview(loose<LooseApp>(app)),
-    );
-    return loose({
+  ): Changed<ApplicationRejectedEvent> {
+    const current = ApplicationStatus.requireUnderReview(app);
+    return {
       entity: {
         ...current,
         status: decisionStatus(current, as, { kind: "rejected", reason }),
@@ -579,84 +672,113 @@ export function createApplicationModel<M extends KindMap>(
       eventDrafts: [
         ApplicationEvents.rejected(current.id, current.target.applicant, now),
       ],
-    });
+    };
   }
 
-  function withdraw<A extends Active<App>>(
-    app: A,
+  function withdraw(
+    app: LooseApp,
     now: Date,
-  ): WithEventDrafts<
-    ApplicationFor<SpecOfApp<M, A>>,
-    ApplicationWithdrawnEvent
-  > {
-    const current = loose<LooseApp>(
-      ApplicationStatus.requireActive(loose<LooseApp>(app)),
-    );
-    return loose({
+  ): Changed<ApplicationWithdrawnEvent> {
+    const current = ApplicationStatus.requireActive(app);
+    return {
       entity: {
         ...current,
         status: { kind: "withdrawn" },
         version: Version.next(current.version),
       },
       eventDrafts: [
-        ApplicationEvents.withdrawn(
-          current.id,
-          seatOf(loose(current.target)),
-          now,
-        ),
+        ApplicationEvents.withdrawn(current.id, seatOf(current.target), now),
       ],
-    });
+    };
   }
 
-  function reassess<A extends Active<App>>(
-    app: A,
-    result: PremiseResultFor<SpecOfApp<M, A>>,
+  function reassess(
+    app: LooseApp,
+    result: PremiseHolds | LooseBroken,
     now: Date,
-  ): WithEventDrafts<ApplicationFor<SpecOfApp<M, A>>, ApplicationLapsedEvent> {
-    const current = loose<LooseApp>(
-      ApplicationStatus.requireActive(loose<LooseApp>(app)),
-    );
-    const given = loose<PremiseResult>(result);
-    if (given.holds) return loose({ entity: current, eventDrafts: [] });
-    return loose({
+  ): Changed<ApplicationLapsedEvent> {
+    const current = ApplicationStatus.requireActive(app);
+    if (result.holds) return { entity: current, eventDrafts: [] };
+    const allowed = required(current.target);
+    const [first, ...rest] = result.broken;
+    if (
+      first === undefined ||
+      new Set(result.broken).size !== result.broken.length ||
+      result.broken.some((key) => !allowed.includes(key))
+    ) {
+      throw new Error(
+        `Broken premises ${result.broken.join(", ")} are not the premises of this ${current.target.kind}`,
+      );
+    }
+    return {
       entity: {
         ...current,
-        status: { kind: "lapsed", brokenPremises: given.broken },
+        status: { kind: "lapsed", brokenPremises: [first, ...rest] },
         version: Version.next(current.version),
       },
       eventDrafts: [
         ApplicationEvents.lapsed(current.id, current.target.applicant, now),
       ],
-    });
+    };
   }
 
-  function matchesSubmission(app: App, request: RequestIn<M>): boolean {
-    const stored = loose<LooseApp>(app);
-    const given = loose<Readonly<{ target: TargetBase }>>(request);
-    if (stored.target.kind !== given.target.kind) return false;
-    return definitionOf(stored.target.kind).matchesSubmission(stored, given);
-  }
-
-  /**
-   * The appointee of an approved stewardship claim: the applicant's
-   * account as a usecase read it. `null` (the applicant withdrew) refuses
-   * with `APPLICATION_APPLICANT_WITHDRAWN`; the claim stays under review
-   * until the withdrawal's consumer withdraws it.
-   */
   function requireApplicantAccount(
-    app: Readonly<{ target: Readonly<{ applicant: IndividualApplicant }> }>,
-    account: Readonly<{ accountId: AccountId; email: EmailAddress }> | null,
-  ): Readonly<{ accountId: AccountId; email: EmailAddress }> {
+    app: LooseApp,
+    account: ApplicantAccount | null,
+  ): ApplicantAccount {
+    const { applicant, kind } = app.target;
+    if (!definitionOf(kind).appointsApplicant) {
+      throw new Error(`A ${kind} does not appoint its applicant`);
+    }
     if (account === null) {
       throw new BusinessRuleError(
         ApplicationErrorCode.ApplicantWithdrawn,
         "The applicant has withdrawn",
       );
     }
-    if (account.accountId !== app.target.applicant.accountId) {
+    if (
+      applicant.kind !== "individual" ||
+      account.accountId !== applicant.accountId
+    ) {
       throw new Error("The account read is not the applicant's");
     }
     return { accountId: account.accountId, email: account.email };
+  }
+
+  function namedSubjects(
+    app: LooseApp,
+    registration: LooseApp | null,
+  ): readonly NamedSubject[] {
+    const registrationId = definitionOf(app.target.kind).registrationOf(
+      app.target,
+    );
+    if (registration !== null && registration.id !== registrationId) {
+      throw new Error("The registration read is not the one filed with");
+    }
+    const sources = registration === null ? [app] : [app, registration];
+    const nameOf = (subject: ContentSubject): NamedSubject => {
+      for (const source of sources) {
+        const definition = definitionOf(source.target.kind);
+        const named = definition
+          .contentNames(source)
+          .find((entry) => ContentRef.equals(entry.ref, subject));
+        if (named !== undefined) {
+          return {
+            subject,
+            name: { from: "content", value: named.name },
+            notYet:
+              source.status.kind !== "approved" &&
+              ContentRef.equals(definition.reflectedRef(source), subject),
+          };
+        }
+      }
+      return { subject, name: { from: "directory" }, notYet: false };
+    };
+    return definitionOf(app.target.kind)
+      .subjects(app)
+      .flatMap((subject) =>
+        subject.kind === "registration" ? [] : [nameOf(subject)],
+      );
   }
 
   function snapshotStatus(status: AnyApplicationStatus): StatusSnapshot {
@@ -692,15 +814,14 @@ export function createApplicationModel<M extends KindMap>(
     }
   }
 
-  function snapshot(app: App): ApplicationSnapshot {
-    const current = loose<LooseApp>(app);
+  function snapshot(app: LooseApp): ApplicationSnapshot {
     return {
-      id: current.id,
-      kind: current.target.kind,
-      case: definitionOf(current.target.kind).snapshot(current),
-      status: snapshotStatus(current.status),
-      submittedAt: current.submittedAt,
-      version: current.version,
+      id: app.id,
+      kind: app.target.kind,
+      case: definitionOf(app.target.kind).snapshot(caseOf(app)),
+      status: snapshotStatus(app.status),
+      submittedAt: app.submittedAt,
+      version: app.version,
     };
   }
 
@@ -785,47 +906,38 @@ export function createApplicationModel<M extends KindMap>(
         return { kind: "withdrawn" };
       case "lapsed": {
         only("brokenPremises");
-        const allowed: readonly string[] = PremiseRules.required(
-          definition.premises,
-          target,
-        );
-        const broken = stored.brokenPremises ?? [];
+        const allowed = PremiseRules.required(definition.premises, target);
+        const broken = (stored.brokenPremises ?? []).filter(isPremiseKey);
         const [first, ...rest] = broken;
-        if (first === undefined) throw new Error("No broken premise");
         if (
+          first === undefined ||
+          broken.length !== stored.brokenPremises?.length ||
           new Set(broken).size !== broken.length ||
           broken.some((key) => !allowed.includes(key))
         ) {
           throw new Error("Broken premises outside the kind's premises");
         }
-        return {
-          kind: "lapsed",
-          brokenPremises: [first as PremiseKey, ...(rest as PremiseKey[])],
-        };
+        return { kind: "lapsed", brokenPremises: [first, ...rest] };
       }
       default:
         throw new Error(`Unknown status: ${stored.kind}`);
     }
   }
 
-  function reconstruct(stored: ApplicationSnapshot): App {
+  function reconstruct(stored: ApplicationSnapshot): LooseApp {
     try {
       const definition = definitionOf(stored.kind);
-      const c = loose<LooseCase>(definition.reconstruct(stored.case));
+      const c = definition.reconstruct(stored.case) as LooseCase;
       if (c.target.kind !== stored.kind) {
         throw new Error(`A ${stored.kind} holds a ${c.target.kind} target`);
       }
-      if (c.target.applicant.kind === "individual") {
-        AccountId.create(c.target.applicant.accountId);
-      }
-      const app: LooseApp = {
+      return {
         ...c,
         id: ApplicationId.create(stored.id),
         status: reconstructStatus(stored.status, definition, c.target),
         submittedAt: storedDate(stored.submittedAt),
         version: Version.create(stored.version),
       };
-      return loose(app);
     } catch (error) {
       throw new RehydrationError(
         "Stored application violates invariants",
@@ -834,94 +946,163 @@ export function createApplicationModel<M extends KindMap>(
     }
   }
 
-  /**
-   * The aggregate's behaviours (`spec/domains/application.md`
-   * 「Application（集約）」). All pure; the version advances by one on every
-   * change. Behaviours limited to a status take the application narrowed by
-   * the matching `require…` guard.
-   */
-  const Application = {
-    submit,
-    matchesSubmission,
-    requireUnderReview: ApplicationStatus.requireUnderReview,
-    requireReturned: ApplicationStatus.requireReturned,
-    requireActive: ApplicationStatus.requireActive,
-    requireClosed: ApplicationStatus.requireClosed,
-    sendBack,
-    resubmit,
-    approve,
-    reject,
-    withdraw,
-    reassess,
-    isHandledBy: (app: App, acting: ActingApplicant): boolean =>
-      Applicant.isHandledBy(loose<LooseApp>(app).target.applicant, acting),
-    requireApplicantAccount,
-    slotOf: (app: App): SlotIn<M> | null =>
-      ApplicationSlot.of(loose<LooseApp>(app).target as Target),
-    subjects: (c: ApplicationCaseIn<M>): readonly ApplicationSubject[] =>
-      definitionOf(loose<LooseCase>(c).target.kind).subjects(loose(c)),
-    approverSeat: (app: App): ApproverSeat =>
-      seatOf(loose<LooseApp>(app).target as Target),
-    reflectedRef: (c: ApplicationCaseIn<M>): ContentRef =>
-      definitionOf(loose<LooseCase>(c).target.kind).reflectedRef(loose(c)),
-    snapshot,
-    reconstruct,
-  };
-
-  const ApplicationCase = { ownedPhotoIds };
-
-  /**
-   * Picks the applications whose overdue-review notice is due, once per
-   * under-review spell: a steward-seat application under review whose
-   * review period has elapsed and whose recorded notice (if any) is for an
-   * earlier spell. Whether the seat has a steward is the review desk's
-   * `asOverdueProxy` filter, not this function's.
-   */
   function detect(
-    app: App,
+    app: LooseApp,
     recorded: OverdueNotice | null,
     policy: ReviewPolicy,
     now: Date,
-  ): Readonly<{
-    notice: OverdueNotice;
-    eventDrafts: readonly EventDraft<ApplicationReviewPeriodElapsedEvent>[];
-  }> | null {
-    const current = loose<LooseApp>(app);
-    const { status } = current;
+  ): OverdueDetection | null {
+    const { status } = app;
     if (status.kind !== "underReview") return null;
-    if (definitionOf(current.target.kind).seat !== "steward") return null;
+    if (definitionOf(app.target.kind).seat !== "steward") return null;
     if (
       ReviewPolicy.proxyableAt({ status }, policy).getTime() > now.getTime()
     ) {
       return null;
     }
-    if (
-      recorded !== null &&
-      recorded.pendingSince.getTime() === status.since.getTime()
-    ) {
+    if (recorded?.pendingSince.getTime() === status.since.getTime()) {
       return null;
     }
     return {
-      notice: { applicationId: current.id, pendingSince: status.since },
+      notice: { applicationId: app.id, pendingSince: status.since },
       eventDrafts: [
-        ApplicationEvents.reviewPeriodElapsed(current.id, status.since, now),
+        ApplicationEvents.reviewPeriodElapsed(app.id, status.since, now),
       ],
     };
   }
 
-  const OverdueReviewWatch = { detect };
-
   return {
-    Application,
-    ApplicationCase,
-    ApplicationSlot,
-    Premise,
-    SubmissionScope,
-    ApproverPolicy,
-    OverdueReviewWatch,
+    Application: {
+      submit,
+      matchesSubmission: (
+        app: LooseApp,
+        request: Readonly<{ target: TargetBase }>,
+      ): boolean =>
+        app.target.kind === request.target.kind &&
+        definitionOf(app.target.kind).matchesSubmission(app, request),
+      requireUnderReview: ApplicationStatus.requireUnderReview,
+      requireReturned: ApplicationStatus.requireReturned,
+      requireActive: ApplicationStatus.requireActive,
+      requireClosed: ApplicationStatus.requireClosed,
+      sendBack,
+      resubmit,
+      approve,
+      reject,
+      withdraw,
+      reassess,
+      isHandledBy: (app: LooseApp, acting: ActingApplicant): boolean =>
+        Applicant.isHandledBy(app.target.applicant, acting),
+      requireApplicantAccount,
+      kindOf: (app: LooseApp): string => definitionOf(app.target.kind).kind,
+      slotOf: (app: LooseApp): SlotBase | null =>
+        definitionOf(app.target.kind).slotOf(app.target),
+      subjects: (c: LooseCase): readonly ApplicationSubject[] =>
+        definitionOf(c.target.kind).subjects(c),
+      approverSeat: (app: LooseApp): ApproverSeat => seatOf(app.target),
+      reflectedRef: (c: LooseCase): ContentRef =>
+        definitionOf(c.target.kind).reflectedRef(c),
+      registrationOf: (app: LooseApp): ApplicationId | null =>
+        definitionOf(app.target.kind).registrationOf(app.target),
+      namedSubjects,
+      snapshot,
+      reconstruct,
+    },
+    ApplicationCase: {
+      ownedPhotoIds: (c: LooseCase): readonly PhotoId[] =>
+        definitionOf(c.target.kind).ownedPhotoIds(c),
+      contentNames: (c: LooseCase): readonly ContentName[] =>
+        definitionOf(c.target.kind).contentNames(c),
+    },
+    ApplicationSlot: {
+      of: (target: TargetBase): SlotBase | null =>
+        definitionOf(target.kind).slotOf(target),
+      key: (slot: SlotBase): string => canonicalKey(slot),
+      equals: (a: SlotBase, b: SlotBase): boolean =>
+        canonicalKey(a) === canonicalKey(b),
+    },
+    Premise: {
+      required,
+      evaluate: (target: TargetBase, facts: object): PremiseResult =>
+        PremiseRules.evaluate(
+          definitionOf(target.kind).premises,
+          target,
+          facts,
+        ),
+      require: PremiseRules.require,
+      codeOf: PremiseRules.codeOf,
+    },
+    SubmissionScope: {
+      targets: (target: TargetBase): readonly SubmissionTarget[] =>
+        definitionOf(target.kind).submissionTargets(target),
+      accepts: (findings: SubmissionFindings): boolean =>
+        findings.premise.holds &&
+        findings.unviewable.length === 0 &&
+        findings.activeDuplicate === null,
+      admit: (target: TargetBase, findings: SubmissionFindings) => {
+        const premise = PremiseRules.require(findings.premise);
+        if (findings.unviewable.length > 0) {
+          throw new BusinessRuleError(
+            ApplicationErrorCode.TargetNotViewable,
+            "A target of the application is not viewable",
+          );
+        }
+        if (findings.activeDuplicate !== null) {
+          throw new BusinessRuleError(
+            ApplicationErrorCode.AlreadyActive,
+            "An active application of the same slot exists",
+          );
+        }
+        return { target, premise };
+      },
+    },
+    ApproverPolicy: {
+      seatOf,
+      decide,
+      reviewAs,
+      returnAs: (app: LooseApp, permission: ReviewPermission): "approver" => {
+        if (reviewAs(app, permission) === "overdue_proxy") {
+          throw new BusinessRuleError(
+            ApplicationErrorCode.OverdueProxyCannotReturn,
+            "An overdue proxy cannot return an application",
+          );
+        }
+        return "approver";
+      },
+    },
+    OverdueReviewWatch: { detect },
   };
 }
 
-export type ApplicationModel<M extends KindMap> = ReturnType<
-  typeof createApplicationModel<M>
->;
+/** The model with its kind types erased: what kind-generic tooling drives. */
+export type ErasedApplicationModel = ReturnType<typeof looseModel>;
+
+/** The same model, typed for code generic over every kind (contract suites). */
+export function eraseKinds<M extends KindMap>(
+  model: ApplicationModel<M>,
+): ErasedApplicationModel {
+  return model as unknown as ErasedApplicationModel;
+}
+
+/**
+ * Binds the kind-agnostic core to a registry of kind definitions.
+ * `domain/application/application.ts` binds it to the production kinds;
+ * tests bind it to test-only kinds.
+ */
+export function createApplicationModel<M extends KindMap>(
+  registry: KindRegistry<M>,
+): ApplicationModel<M> {
+  const definitions = new Map<string, LooseDefinition>();
+  for (const [name, definition] of Object.entries(
+    registry as Readonly<Record<string, LooseDefinition>>,
+  )) {
+    if (definition.kind !== name) {
+      throw new Error(`Kind ${definition.kind} is registered as ${name}`);
+    }
+    const keys = definition.premises.map((rule) => rule.key);
+    if (new Set(keys).size !== keys.length) {
+      throw new Error(`Kind ${name} declares a premise twice`);
+    }
+    definitions.set(name, definition);
+  }
+  return looseModel(definitions) as unknown as ApplicationModel<M>;
+}
