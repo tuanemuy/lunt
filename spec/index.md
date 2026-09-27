@@ -44,6 +44,15 @@ Lunt の設計ドキュメントのインデックス。上流から順に、シ
 - [サービス運営（OM）](pages/operation.md)
 - [読みもの編集（AM）](pages/editorial.md)
 
+## デザイン
+
+画面のデザイン。Figma から取り込み、以後は `spec/design/` を正本とする。
+
+- [デザイン方針と取り込み元](design/index.md)
+- [デザイントークン](design/tokens.md)
+- 画面ごとのデザイン: `design/pages/{画面 ID}_{画面名}.html`（56 画面。状態は各 HTML の中で切り替える）
+- 画像・アイコン: `design/assets/`
+
 ## ドメイン
 
 ドメインの境界と依存方向、共有カーネル、ドメインごとのモデルとポートの契約。

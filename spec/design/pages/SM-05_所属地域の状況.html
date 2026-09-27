@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SM-05 所属地域の状況 — Lunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   Lunt 管理側の共通シェル（figma-import）
+   出どころ: Figma 40 Merchant Screens — 72:3309 M02 店舗ホーム、72:3369 M06 店舗情報、
+   75:3390 状態/店舗情報を保存しました。
+   各画面の <style> に、この全文をそのまま写してから画面固有の規則を足す。
+   ===================================================================== */
+
+:root {
+  /* カラー（Figma Variables: Color → Primitives, Light） */
+  --white: oklch(99.7% 0.005 95.1);   /* #FFFEFA */
+  --ink: oklch(33.2% 0.029 167.8);      /* #273B33 */
+  --secondary: oklch(45.2% 0.022 142.7); /* #4F594E */
+  --muted: oklch(54.8% 0.02 140);       /* #6B7469 */
+  --line: oklch(91% 0.013 126.4);       /* #DFE3DA */
+  --green: oklch(43.4% 0.057 163.2);   /* #315B48 */
+  --light: oklch(94.8% 0.014 134.9);   /* #EAF0E7 */
+  --paper: oklch(95.8% 0.008 91.5);     /* #F3F1EB */
+  --focus: oklch(57.7% 0.13 40.7);      /* #B85B38 */
+
+  /* 書体 */
+  --font-display: 'Noto Serif JP', serif;
+  --font-base: 'Noto Sans JP', sans-serif;
+
+  /* テキストスタイル（Figma: Lunt/*） */
+  --text-catch: 29px;   --leading-catch: 43px;
+  --text-page: 24px;    --leading-page: 36px;
+  --text-section: 18px; --leading-section: 29px;
+  --text-name: 15px;    --leading-name: 24px;
+  --text-body: 14px;    --leading-body: 25px;
+  --text-ui: 13px;      --leading-ui: 20px;
+  --text-meta: 11px;    --leading-meta: 18px;
+  --text-small: 10px;   --leading-small: 16px;
+  --text-title: 22px;   --leading-title: 33px;
+  --leading-heading: 27px;
+  --text-lead: 20px;    --leading-lead: 30px;
+  --tracking-display: 0.02em;
+  --tracking-base: 0;
+  --weight-regular: 400;
+  --weight-medium: 500;
+
+  /* スペーシング（Figma Variables: space/*） */
+  --space-0: 0;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-21: 21px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-gutter: var(--space-21); /* 画面の左右の余白。md で上書き */
+
+  /* 角丸（Figma Variables: radius/*） */
+  --radius-0: 0;
+  --radius-2: 2px;
+  --radius-8: 8px;
+  --radius-16: 16px;
+  --radius-999: 999px;
+
+  /* サイズ（Figma Variables: size/touch） */
+  --size-touch: 44px;
+  --bottom-nav-height: 77px;
+
+  /* 線 */
+  --border-1: 1px;
+  --border-2: 2px;
+
+  /* 重なる面の背景（補ったもの） */
+  --color-scrim: oklch(33.2% 0.029 167.8 / 0.4);
+  --color-green-hover: color-mix(in oklch, var(--green), var(--ink) 45%);
+
+  /* 影（Figma: Lunt/Overlay） */
+  --shadow-overlay: 0 8px 24px oklch(33.2% 0.029 167.8 / 0.12);
+
+  /* トランジション（補ったもの） */
+  --transition-default: 150ms ease-out;
+
+  /* ブレークポイント（参照用） */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}
+
+@media (min-width: 768px) {
+  :root { --space-gutter: var(--space-32); }
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-base);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-base);
+  font-weight: var(--weight-regular);
+}
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: var(--border-2) solid var(--focus); outline-offset: var(--border-2); }
+.m-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 文字の型 */
+.m-t-ui { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); }
+.m-t-body { font-size: var(--text-body); line-height: var(--leading-body); }
+.m-t-meta { font-size: var(--text-meta); line-height: var(--leading-meta); }
+.m-t-small { font-size: var(--text-small); line-height: var(--leading-small); }
+
+/* ---------- アプリの枠 ----------
+   モバイル: Brand bar → Title bar → Viewport(Body) → Actions（下端に固定。Actions の帯の中に操作とナビゲーション）
+   lg: Brand bar を上に横断、左に縦のナビゲーション、本文を最大幅 720px。Actions は本文の末尾 */
+.m-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+}
+
+/* Brand bar（72:3310） */
+.m-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-21) var(--space-gutter);
+  background: var(--white);
+}
+.m-brand__home { position: relative; display: flex; align-items: center; gap: var(--space-16); border-radius: var(--radius-2); }
+/* 見た目の高さ 26 のまま、触れる範囲を 44 にする（Brand bar の上下の余白 21 の中に収まる） */
+.m-brand__home::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--size-touch); transform: translateY(-50%); }
+.m-brand__logo { position: relative; width: 75px; height: 26.087px; flex: none; overflow: hidden; }
+.m-brand__logo img { position: absolute; left: 2.9%; top: 9.38%; width: 92.75%; height: 79.16%; max-width: none; }
+.m-brand__label { width: 120px; font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+/* 補った: アカウント（MY-01）への入口 */
+.m-brand__account {
+  margin-left: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-12);
+  margin-block: calc(-1 * var(--space-12));
+  margin-right: calc(-1 * var(--space-12));
+  border-radius: var(--radius-8);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--secondary);
+  transition: background-color var(--transition-default), color var(--transition-default);
+  white-space: nowrap;
+}
+.m-brand__account:active { background: var(--light); }
+@media (hover: hover) {
+  .m-brand__account:hover { background: var(--paper); color: var(--ink); }
+}
+
+/* 本文の列 */
+.m-main { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+
+/* Title bar（72:3319）: 見出しと、管理する対象（名称・状態・切り替え） */
+.m-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-gutter) var(--space-16);
+}
+.m-title__heading {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* 管理する対象の状態の行（73:3342 の「店舗ページ公開中 · …」。Lunt/Meta、accent） */
+.m-status { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--green); }
+.m-status[data-tone="neutral"] { color: var(--secondary); }
+.m-status[data-tone="alert"] { color: var(--focus); }
+
+/* 対象の切り替え（補った。<details> で開閉。複数の対象を管理する人だけに切り替えの一覧を出す） */
+.m-target { position: relative; align-self: flex-start; max-width: 100%; }
+.m-target > summary {
+  list-style: none;
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  min-height: var(--size-touch);
+  max-width: 100%;
+  cursor: pointer;
+  border-radius: var(--radius-8);
+  transition: background-color var(--transition-default);
+}
+.m-target > summary::-webkit-details-marker { display: none; }
+.m-target__name { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-target__state { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-target__icon { width: 24px; height: 24px; flex: none; transition: transform var(--transition-default); }
+.m-target[open] .m-target__icon { transform: rotate(180deg); }
+/* 切り替えを持たない型（管理する対象が1つだけ、不在の代行中） */
+.m-target--static { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-4); min-height: var(--size-touch); }
+/* 見出しとして使う型（店舗ホーム: 対象の名称そのものが Title bar の見出し） */
+.m-target--heading > summary { min-height: var(--leading-title); }
+.m-target--heading > summary .m-target__name { font-size: var(--text-title); line-height: var(--leading-title); }
+@media (hover: hover) {
+  .m-target > summary:hover { background: var(--paper); }
+}
+.m-target__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  width: 300px;
+  max-width: calc(100vw - 2 * var(--space-21));
+  padding: var(--space-8);
+  background: var(--white);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-overlay);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.m-target__caption { padding: var(--space-4) var(--space-8); font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+.m-target__item {
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: var(--size-touch);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-8);
+  transition: background-color var(--transition-default);
+}
+.m-target__item[aria-current] { background: var(--light); }
+.m-target__item:active { background: var(--light); }
+.m-target__rule { height: var(--border-1); background: var(--line); margin: var(--space-4) 0; }
+@media (hover: hover) {
+  .m-target__item:not([aria-current]):hover { background: var(--paper); }
+}
+
+/* Viewport > Body（72:3322）: 縦の並び、gap 24、padding 21 */
+.m-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  padding: var(--space-21) var(--space-gutter);
+  min-width: 0;
+}
+.m-body > * { min-width: 0; }
+
+/* 区分の見出し（73:3349「掲載」。Noto Sans JP Medium 18/27） */
+.m-heading {
+  font-size: var(--text-section);
+  line-height: var(--leading-heading);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+/* 区分（見出しと中身を 16 でまとめる。補った） */
+.m-section { display: flex; flex-direction: column; gap: var(--space-16); }
+.m-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-16); }
+.m-divider { height: var(--border-1); background: var(--line); border: 0; margin: 0; }
+
+/* 写真（74:3417。348×150、角丸 2） */
+.m-photo { width: 100%; height: auto; aspect-ratio: 348 / 150; max-height: 280px; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- Button（13:18 Lunt/Button） ---------- */
+.m-btn {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-8);
+  width: 100%;
+  min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: 0;
+  border-radius: var(--radius-8);
+  font-family: var(--font-base);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  text-align: center;
+  transition: background-color var(--transition-default), border-color var(--transition-default), color var(--transition-default);
+}
+.m-btn--primary { background: var(--green); color: var(--white); }
+.m-btn--primary:active { background: var(--ink); }                         /* State=Pressed */
+.m-btn--secondary { background: var(--white); color: var(--ink); border: var(--border-1) solid var(--line); }
+.m-btn--secondary:active { background: var(--light); border-color: var(--green); } /* State=Pressed */
+.m-btn:disabled, .m-btn[aria-disabled="true"] { cursor: not-allowed; background: var(--light); color: var(--muted); } /* State=Disabled */
+.m-btn--secondary:disabled, .m-btn--secondary[aria-disabled="true"] { border-color: var(--line); }
+@media (hover: hover) {
+  .m-btn--primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-green-hover); }
+  .m-btn--secondary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--paper); }
+}
+/* 文字だけの操作（補った。本文中の入口） */
+.m-link {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  min-height: var(--size-touch);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--green);
+  text-decoration: underline; text-underline-offset: var(--space-4); text-decoration-thickness: var(--border-1);
+  border-radius: var(--radius-2);
+  transition: color var(--transition-default);
+}
+.m-link:active { color: var(--ink); }
+@media (hover: hover) { .m-link:hover { color: var(--ink); } }
+
+/* ---------- Tab（24:155 Lunt/Tab）: 区分の切り替え・件数の入口 ---------- */
+.m-tabs { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.m-tab {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 64px;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-2) solid transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color var(--transition-default), border-color var(--transition-default);
+}
+.m-tab[aria-current], .m-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--green); }
+.m-tab:active { color: var(--ink); border-bottom-color: var(--line); }
+@media (hover: hover) { .m-tab:not([aria-current]):not([aria-selected="true"]):hover { color: var(--ink); border-bottom-color: var(--line); } }
+
+/* ---------- 一覧の行（73:3357 Row = Lunt/ContentRow の管理側の型） ---------- */
+.m-rows { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-row { display: flex; align-items: center; gap: var(--space-16); border-radius: var(--radius-2); }
+.m-row__photo { width: 88px; height: 88px; flex: none; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-row__photo img { width: 100%; height: 100%; object-fit: cover; transition: filter var(--transition-default); }
+.m-row__content { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; flex: 1; }
+.m-row__name { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-row__meta { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-row__sub { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+@media (hover: hover) { a.m-row:hover .m-row__photo img { filter: brightness(0.92); } a.m-row:hover .m-row__name { text-decoration: underline; } }
+
+/* 文字だけの行（補った。写真を持たない入口の一覧。罫線で区切る） */
+.m-list { display: flex; flex-direction: column; border-top: var(--border-1) solid var(--line); }
+.m-list__item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-16);
+  min-height: var(--size-touch);
+  padding: var(--space-12) 0;
+  border-bottom: var(--border-1) solid var(--line);
+  transition: background-color var(--transition-default);
+}
+.m-list__text { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.m-list__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-list__meta { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-list__end { flex: none; font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+.m-list__chev { width: 24px; height: 24px; flex: none; }
+.m-notice .m-list { border-top-color: var(--line); }
+a.m-list__item:active { background: var(--light); }
+@media (hover: hover) { a.m-list__item:hover { background: var(--paper); } }
+
+/* Notice（73:3377）: subtle の地、padding 16、gap 8 */
+.m-notice {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  padding: var(--space-16);
+  background: var(--light);
+  color: var(--ink);
+  transition: background-color var(--transition-default);
+}
+.m-notice__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); }
+.m-notice__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+.m-notice[data-tone="paper"] { background: var(--paper); }
+a.m-notice:active { background: var(--line); }
+@media (hover: hover) { a.m-notice:hover .m-notice__title { text-decoration: underline; } }
+
+/* 状態のバッジ（補った。色だけに頼らず文言で示す） */
+.m-badge {
+  display: inline-flex; align-items: center;
+  min-height: 20px;
+  padding: 0 var(--space-8);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  font-size: var(--text-small); line-height: var(--leading-small);
+  color: var(--secondary);
+  background: var(--white);
+  white-space: nowrap;
+}
+.m-badge[data-tone="accent"] { background: var(--light); border-color: var(--light); color: var(--green); }
+.m-badge[data-tone="muted"] { background: var(--paper); border-color: var(--paper); color: var(--muted); }
+.m-badge[data-tone="alert"] { border-color: var(--focus); color: var(--focus); }
+/* 件数の札（対応を待つものの数など）。--focus はフォーカスとエラーに取っておく */
+.m-badge[data-tone="count"] { border-color: var(--green); color: var(--green); }
+
+/* ---------- 入力（74:3420 Field + Value box。状態は 17:28 Lunt/Input） ---------- */
+.m-form { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-field { display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; border: 0; padding: 0; margin: 0; }
+.m-field__label {
+  display: flex; align-items: baseline; gap: var(--space-8);
+  padding: 0;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+fieldset.m-field > legend.m-field__label { margin-bottom: var(--space-8); }
+.m-field__req { font-weight: var(--weight-medium); color: var(--ink); }
+.m-field__req[data-optional] { font-weight: var(--weight-regular); color: var(--secondary); }
+.m-field__help { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-field__error { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--focus); font-weight: var(--weight-medium); }
+.m-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-12);
+  background: var(--white);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-8);
+  font-size: var(--text-body); line-height: var(--leading-body);
+  color: var(--ink);                 /* State=Filled */
+  outline: none;
+  transition: border-color var(--transition-default), background-color var(--transition-default);
+  appearance: none;
+}
+.m-input::placeholder { color: var(--muted); opacity: 1; } /* State=Empty */
+textarea.m-input { min-height: 96px; resize: vertical; }
+select.m-input { padding-right: var(--space-48); background-image: url("../assets/icon-down.svg"); background-repeat: no-repeat; background-position: right var(--space-12) center; background-size: 24px 24px; }
+/* State=Focus: 2px の color/focus の枠 */
+.m-input:focus, .m-input:focus-visible { border-color: var(--focus); outline: var(--border-1) solid var(--focus); outline-offset: 0; }
+/* 補った: エラーと無効 */
+.m-input[aria-invalid="true"] { border-color: var(--focus); }
+.m-input:disabled, .m-input[aria-disabled="true"], .m-input[readonly] { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+@media (hover: hover) { .m-input:not(:disabled):not([readonly]):not(:focus):hover { border-color: var(--muted); } }
+/* 入力欄と操作を1行に置く型 */
+.m-inline { display: flex; gap: var(--space-8); align-items: stretch; }
+.m-inline > .m-input { flex: 1 1 auto; min-width: 0; }
+.m-inline > .m-btn { width: auto; flex: none; padding-inline: var(--space-16); }
+
+/* 選択（Lunt/Chip 15:25 の見た目の単一選択。営業状況など） */
+.m-choices { display: flex; flex-wrap: wrap; gap: var(--space-8); border: 0; padding: 0; margin: 0; min-width: 0; }
+.m-choice { position: relative; }
+.m-choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.m-choice span {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 76px; min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.m-choice input:checked + span { background: var(--light); border-color: var(--light); }  /* Selected=true */
+.m-choice input:focus-visible + span { outline: var(--border-2) solid var(--focus); outline-offset: var(--border-2); }
+.m-choice input:disabled + span { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+/* 補った: エラー（入力欄の State=Error と同じく、枠を --focus にする） */
+.m-choice input[aria-invalid="true"] + span { border-color: var(--focus); }
+@media (hover: hover) { .m-choice input:not(:checked):not(:disabled):hover + span { background: var(--paper); } }
+
+/* ---------- Actions（72:3323 / 72:3383）+ 管理ナビゲーション（77:3396） ---------- */
+.m-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex; flex-direction: column; gap: var(--space-8);
+  background: var(--white);
+  border-top: var(--border-1) solid var(--line);
+}
+.m-actions { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-21) var(--space-gutter); }
+.m-actions + .m-nav { margin-top: calc(-1 * var(--space-8)); border-top: var(--border-1) solid var(--line); }
+.m-actions__note { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+
+/* 管理ナビゲーション: モバイルは Figma M02 の形（4項目、各 1/4 幅、高さ 72、選択中は accent の下線） */
+.m-nav { display: flex; flex-direction: column; background: var(--white); }
+.m-nav__items { display: flex; min-height: 72px; }
+.m-nav__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  height: 72px;
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-2) solid transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--muted);
+  text-align: center;
+  transition: color var(--transition-default), background-color var(--transition-default);
+}
+.m-nav__item[aria-current="page"] { color: var(--ink); border-bottom-color: var(--green); }
+.m-nav__item:active { background: var(--light); }
+.m-nav__item:focus-visible { outline-offset: calc(-1 * var(--border-2)); }
+@media (hover: hover) { .m-nav__item:not([aria-current="page"]):hover { color: var(--ink); background: var(--paper); } }
+/* 補った: lg で縦のナビゲーションの下に置く入口（MY-01、閲覧者に見える詳細） */
+.m-nav__links { display: none; }
+
+/* 補った: 不在の代行中（CS-14）。ナビゲーションの先頭に出す */
+.m-proxy {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-8);
+  min-height: var(--size-touch);
+  padding: 0 var(--space-gutter);
+  background: var(--paper);
+  border-bottom: var(--border-1) solid var(--line);
+}
+.m-proxy__label { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--ink); font-weight: var(--weight-medium); }
+.m-proxy .m-link { min-height: var(--size-touch); font-size: var(--text-meta); line-height: var(--leading-meta); white-space: nowrap; }
+
+/* ---------- 知らせの帯（補った。CS-02 通信エラー・CS-10 入力エラー・CS-07 競合 など） ---------- */
+.m-alert {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  padding: var(--space-16);
+  border: var(--border-1) solid var(--focus);
+  border-radius: var(--radius-8);
+  background: var(--white);
+}
+.m-alert__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--focus); }
+.m-alert__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--ink); }
+.m-alert ul { display: flex; flex-direction: column; gap: var(--space-4); padding-left: var(--space-16); list-style: disc; font-size: var(--text-body); line-height: var(--leading-body); }
+.m-alert .m-btn { margin-top: var(--space-8); }
+
+/* ---------- 読み込み中（CS-01。補った） ---------- */
+.m-skeleton { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-skeleton__block { background: var(--paper); border-radius: var(--radius-2); }
+.m-skeleton__line { height: var(--leading-meta); width: 60%; background: var(--paper); border-radius: var(--radius-2); }
+@media (prefers-reduced-motion: no-preference) {
+  .m-skeleton__block, .m-skeleton__line { animation: m-pulse 1.2s ease-in-out infinite alternate; }
+}
+@keyframes m-pulse { from { opacity: 1; } to { opacity: 0.55; } }
+
+/* ---------- 完了（CS-13。75:3390 の形: 縦の中央、gap 24、見出し 22/33、本文 Body の ink、主要な操作） ---------- */
+.m-done {
+  flex: 1 0 auto;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--space-24);
+  padding: var(--space-21) var(--space-gutter);
+  min-height: 60vh;
+}
+.m-done__title { font-size: var(--text-title); line-height: var(--leading-title); font-weight: var(--weight-medium); color: var(--ink); }
+.m-done__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--ink); }
+.m-done__actions { display: flex; flex-direction: column; gap: var(--space-8); }
+/* 画面全体の完了（「状態/…」フレーム 75:95・75:3384・75:3390・75:3396・75:3402）: Brand bar・Title bar・
+   管理ナビゲーション・Actions を持たず、フレーム全体が padding 21・縦 gap 24・縦の中央揃え。
+   <main class="m-screen"> を .m-app の直下に置き、同じ状態で .m-brand・.m-main・.m-dock を隠す。
+   lg では同じ塊を画面の中央に置く（補った） */
+.m-screen { flex: 1 0 auto; display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.m-screen > .m-done { min-height: 0; }
+
+/* 状態の案内（補った。CS-04・CS-05・CS-09・CS-15 など、本文の代わりに出す。完了と同じ型を左上から） */
+.m-empty { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-24) 0; }
+.m-empty__title { font-size: var(--text-section); line-height: var(--leading-heading); font-weight: var(--weight-medium); color: var(--ink); }
+.m-empty__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+
+/* ---------- 確定の確認（CS-12。補った: トークンと Overlay の影から） ---------- */
+.m-dialog {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: var(--space-16);
+  background: var(--color-scrim);
+}
+.m-dialog__panel {
+  width: 100%; max-width: 480px;
+  max-height: calc(100dvh - 2 * var(--space-16));
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-16);
+  padding: var(--space-24) var(--space-21);
+  background: var(--white);
+  border-radius: var(--radius-16);
+  box-shadow: var(--shadow-overlay);
+}
+.m-dialog__title { font-size: var(--text-section); line-height: var(--leading-heading); font-weight: var(--weight-medium); color: var(--ink); }
+.m-dialog__body { display: flex; flex-direction: column; gap: var(--space-8); font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+.m-dialog__body ul { display: flex; flex-direction: column; gap: var(--space-4); padding-left: var(--space-16); list-style: disc; }
+.m-dialog__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-8); }
+@media (min-width: 768px) { .m-dialog { align-items: center; } }
+
+/* 見出しの型の切り替えは、行の高さ 33 のまま触れる範囲を 44 にする */
+.m-target--heading > summary { position: relative; }
+.m-target--heading > summary::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--size-touch); transform: translateY(-50%); }
+
+/* ---------- 写真の登録（CF-01。補った: Lunt/ContentRow の写真 88 と Chip の形の小さな操作） ---------- */
+.m-photos { display: flex; flex-direction: column; gap: var(--space-12); }
+.m-photos__item { display: flex; align-items: center; gap: var(--space-12); }
+.m-photos__thumb { width: 88px; height: 88px; flex: none; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-photos__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.m-photos__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.m-photos__ops { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.m-chipbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--size-touch); min-height: var(--size-touch);
+  padding: 0 var(--space-12);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.m-chipbtn:active { background: var(--light); border-color: var(--green); }
+.m-chipbtn:disabled { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+@media (hover: hover) { .m-chipbtn:not(:disabled):hover { background: var(--paper); } }
+
+/* ---------- 位置の指定（CF-09。Lunt/MapCanvas 32:2 + Lunt/MapPin 22:22 Selected=true） ---------- */
+.m-map { position: relative; width: 100%; height: 200px; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-map > img { width: 100%; height: 100%; object-fit: cover; }
+.m-map[aria-invalid="true"] { outline: var(--border-1) solid var(--focus); }
+.m-pin {
+  position: absolute; left: var(--pin-x, 50%); top: var(--pin-y, 50%);
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-8);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--green);
+  color: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+}
+
+/* ---------- lg（1024px〜）: 左の縦のナビゲーション、本文 最大 720px、Actions は本文の末尾 ---------- */
+@media (min-width: 1024px) {
+  .m-app {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "brand brand" "nav main" "nav actions";
+  }
+  .m-brand { grid-area: brand; position: sticky; top: 0; z-index: 25; border-bottom: var(--border-1) solid var(--line); }
+  .m-main { grid-area: main; width: 100%; max-width: calc(720px + 2 * var(--space-gutter)); justify-self: center; padding-top: var(--space-32); }
+  .m-dock { display: contents; }
+  .m-actions {
+    grid-area: actions; align-self: start;
+    width: 100%; max-width: calc(720px + 2 * var(--space-gutter)); justify-self: center;
+    flex-direction: row; flex-wrap: wrap;
+    padding-bottom: var(--space-48);
+  }
+  .m-actions::before { content: ""; flex: 0 0 100%; height: var(--border-1); background: var(--line); margin-bottom: var(--space-12); }
+  .m-actions .m-btn { width: auto; min-width: 200px; padding-inline: var(--space-24); }
+  .m-actions__note { flex: 0 0 100%; }
+  .m-actions + .m-nav { margin-top: 0; border-top: 0; }
+  .m-nav {
+    grid-area: nav; align-self: start;
+    position: sticky; top: 69px;
+    height: calc(100vh - 69px);
+    overflow-y: auto;
+    border-right: var(--border-1) solid var(--line);
+    padding: var(--space-16) 0;
+    gap: var(--space-16);
+  }
+  .m-nav__items { flex-direction: column; min-height: 0; }
+  .m-nav__item {
+    flex: none; height: auto; min-height: var(--size-touch);
+    justify-content: flex-start;
+    padding: 0 var(--space-21);
+    border-bottom: 0;
+    border-left: var(--border-2) solid transparent;
+    text-align: left;
+  }
+  .m-nav__item[aria-current="page"] { border-left-color: var(--green); background: var(--light); }
+  .m-nav__links { display: flex; flex-direction: column; padding: var(--space-16) var(--space-21) 0; border-top: var(--border-1) solid var(--line); margin: 0 var(--space-0); }
+  .m-nav__links .m-link { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+  .m-proxy { flex-direction: column; align-items: flex-start; gap: 0; padding: var(--space-12) var(--space-21); margin-top: calc(-1 * var(--space-16)); }
+  .m-done { min-height: 50vh; }
+  .m-screen { grid-column: 1 / -1; grid-row: 1 / -1; align-items: center; }
+  .m-screen > .m-done { width: 100%; max-width: calc(480px + 2 * var(--space-gutter)); min-height: 0; }
+  .m-dialog__panel { padding: var(--space-32); }
+}
+
+/* ---------- デザイン確認用の状態切り替え（画面の外。実装の対象ではない） ---------- */
+nav[data-design-states] {
+  position: static; z-index: 100;
+  font-family: var(--font-base);
+}
+nav[data-design-states] > details {
+  background: var(--ink); color: var(--white);
+}
+nav[data-design-states] summary {
+  list-style: none; cursor: pointer;
+  min-height: var(--size-touch); padding: 0 var(--space-12);
+  display: flex; align-items: center; justify-content: flex-start;
+  font-size: var(--text-small); line-height: var(--leading-small);
+}
+nav[data-design-states] summary::-webkit-details-marker { display: none; }
+nav[data-design-states] ul {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: 0 var(--space-8) var(--space-8);
+  max-height: 70vh; overflow-y: auto;
+}
+nav[data-design-states] button {
+  width: 100%; min-height: 32px;
+  padding: var(--space-4) var(--space-8);
+  border: var(--border-1) solid var(--muted);
+  border-radius: var(--radius-8);
+  background: transparent; color: var(--white);
+  font-size: var(--text-small); line-height: var(--leading-small);
+  text-align: left;
+}
+nav[data-design-states] button[aria-pressed="true"] { background: var(--white); color: var(--ink); }
+
+
+/* ---------- SM-05 固有 ---------- */
+/* 行と、行に付く操作（補った: 73:3357 Row の管理側の型の下に、Chip の形の小さな操作 .m-chipbtn を並べる。行の文字の列（写真 88 + gap 16 の右）に揃える） */
+.p-items { display: flex; flex-direction: column; gap: var(--space-24); }
+.p-item { display: grid; grid-template-columns: 88px minmax(0, 1fr); column-gap: var(--space-16); row-gap: var(--space-8); min-width: 0; }
+.p-item > .m-row { grid-column: 1 / -1; }
+.p-item > :not(.m-row) { grid-column: 2; }
+.p-item__ops { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.p-item__sub { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); min-width: 0; }
+.p-item__sub .m-link { min-height: var(--size-touch); }
+.p-item__label { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+.p-item__text { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); overflow-wrap: anywhere; }
+.p-item__text[data-tone="alert"] { color: var(--focus); }
+.p-badges { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.m-row__content .p-badges { margin-top: var(--space-4); }
+a.m-chipbtn { text-decoration: none; }
+/* 見出しと件数を1行に */
+.p-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); }
+/* 内容の並び（依頼・申請の内容） */
+.p-dl { display: flex; flex-direction: column; gap: var(--space-16); }
+.p-dl__row { display: flex; flex-direction: column; gap: var(--space-4); }
+.p-dl dt { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.p-dl dd { font-size: var(--text-body); line-height: var(--leading-body); color: var(--ink); overflow-wrap: anywhere; }
+/* 一覧の終わり（CF-05） */
+.p-end { padding-top: var(--space-8); font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); text-align: center; }
+/* 文字だけの行の右端のバッジ */
+.m-list__item .m-badge { flex: none; }
+.p-list__end { display: flex; align-items: center; gap: var(--space-4); flex: none; }
+/* 読み込み中（CS-01） */
+.p-skel-row { height: 88px; }
+.p-skel-field { height: 48px; border-radius: var(--radius-8); }
+.p-skel-photo { height: 150px; }
+.p-rep { display: flex; flex-direction: column; gap: var(--space-4); }
+.p-rep__name { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); }
+</style>
+</head>
+<body data-state="one">
+<nav data-design-states aria-label="デザイン確認用の状態切り替え">
+  <details>
+    <summary>状態</summary>
+    <ul>
+      <li><button type="button" data-state="one">所属が1つ（既定）</button></li>
+      <li><button type="button" data-state="multi">所属が複数（代表地域を選んでいる）</button></li>
+      <li><button type="button" data-state="multi-none">所属が複数（選んだ代表地域がない）</button></li>
+      <li><button type="button" data-state="blocked-left">選べない · 所属が解除されていた（CS-08）</button></li>
+      <li><button type="button" data-state="blocked-already">選べない · すでに代表地域（CS-08）</button></li>
+      <li><button type="button" data-state="none">所属がない（CS-09）</button></li>
+      <li><button type="button" data-state="cs13">CS-13 完了 · 代表地域を選んだ</button></li>
+      <li><button type="button" data-state="cs01">CS-01 読み込み中</button></li>
+      <li><button type="button" data-state="cs02">CS-02 通信エラー</button></li>
+      <li><button type="button" data-state="cs04">CS-04 ログインが必要</button></li>
+      <li><button type="button" data-state="cs05">CS-05 権限なし</button></li>
+    </ul>
+  </details>
+</nav>
+<div class="m-app">
+
+  <header class="m-brand">
+    <a class="m-brand__home" href="SM-01_店舗ホーム.html">
+      <span class="m-brand__logo"><img src="../assets/logo.svg" alt="Lunt"></span>
+      <span class="m-brand__label">お店の管理</span>
+    </a>
+    <a class="m-brand__account" href="MY-01_マイページ.html">マイページ</a>
+  </header>
+
+  <main class="m-main" id="main">
+    <div class="m-title">
+      <details class="m-target" data-unless="cs04 cs05">
+        <summary>
+          <span class="m-target__name">喫茶 日々</span>
+          <span class="m-target__state">営業中 · 公開中</span>
+          <img class="m-target__icon" src="../assets/icon-down.svg" alt="" width="24" height="24">
+          <span class="m-visually-hidden">管理する店舗を切り替える</span>
+        </summary>
+        <div class="m-target__menu">
+          <p class="m-target__caption">管理する店舗</p>
+          <a class="m-target__item" href="SM-01_店舗ホーム.html" aria-current="true"><span class="m-target__name">喫茶 日々</span><span class="m-target__state">営業中 · 公開中</span></a>
+          <a class="m-target__item" href="SM-01_店舗ホーム.html"><span class="m-target__name">うつわ 凪</span><span class="m-target__state">休業 · 公開中</span></a>
+          <div class="m-target__rule" role="presentation"></div>
+          <a class="m-target__item" href="DT-02_店舗詳細.html"><span class="m-target__name">閲覧者に見える店舗ページ</span></a>
+        </div>
+      </details>
+      <h1 class="m-title__heading">所属地域の状況</h1>
+    </div>
+
+    <div class="m-body" data-unless="cs01 cs02 cs04 cs05 cs13">
+
+      <!-- CS-08 選べない -->
+      <div class="m-alert" role="alert" data-when="blocked-left">
+        <p class="m-alert__title">緑野 駅前通りを代表地域にできませんでした</p>
+        <p class="m-alert__body">緑野 駅前通りとの所属は、離脱の承認で解除されていました。代表地域は変えていません。最新の所属と代表地域を示しています。</p>
+      </div>
+      <div class="m-alert" role="alert" data-when="blocked-already">
+        <p class="m-alert__title">白波横丁は、すでに代表地域です</p>
+        <p class="m-alert__body">別の店舗管理者が、先に白波横丁を代表地域に選んでいました。何も変えていません。</p>
+      </div>
+
+      <!-- 代表地域 -->
+      <section class="m-section" aria-labelledby="h-rep" data-unless="none">
+        <h2 class="m-heading" id="h-rep">代表地域</h2>
+        <div class="p-rep" data-when="one">
+          <p class="p-rep__name">こもれび商店街</p>
+          <p class="m-field__help">所属している地域が1つのため、この地域が代表地域です。一覧で店舗と掲載に示す地域名になります。</p>
+        </div>
+        <div class="p-rep" data-when="multi blocked-already">
+          <p class="p-rep__name">白波横丁（選んだ代表地域）</p>
+          <p class="m-field__help">一覧で店舗と掲載に示す地域名です。白波横丁は公開を取り下げているため、閲覧者には、代わりにこもれび商店街を示しています。</p>
+        </div>
+        <div class="p-rep" data-when="multi-none blocked-left">
+          <p class="p-rep__name">こもれび商店街（最初に所属した地域）</p>
+          <p class="m-field__help" data-when="multi-none">代表地域を選んでいないため、最初に所属したこもれび商店街が代表地域になっています。所属中の地域から選べます。</p>
+          <p class="m-field__help" data-when="blocked-left">選んだ代表地域がないため、最初に所属したこもれび商店街が代表地域になっています。所属中の地域から選べます。</p>
+        </div>
+      </section>
+
+      <!-- 所属中の地域 -->
+      <section class="m-section" aria-labelledby="h-member">
+        <div class="p-head"><h2 class="m-heading" id="h-member">所属中の地域</h2></div>
+
+        <div class="m-empty" data-when="none">
+          <p class="m-empty__title">所属している地域はありません</p>
+          <p class="m-empty__body">地域に所属すると、店舗と掲載が地域の一覧に表示されます。所属は、地域の運営者の承認で決まります。</p>
+          <a class="m-btn m-btn--secondary" href="RQ-05_所属・離脱の申請.html">地域への所属を申請</a>
+        </div>
+
+        <!-- 所属が1つ -->
+        <ul class="p-items" data-when="one">
+          <li class="p-item">
+            <a class="m-row" href="DT-03_地域詳細.html">
+              <span class="m-row__photo"><img src="../assets/photo-street.jpg" alt=""></span>
+              <span class="m-row__content">
+                <span class="m-row__name">こもれび商店街</span>
+                <span class="m-row__meta">緑野市・旧市街 · 3月から所属</span>
+                <span class="p-badges"><span class="m-badge" data-tone="accent">代表地域</span><span class="m-badge">公開中</span></span>
+              </span>
+            </a>
+            <div class="p-item__ops"><a class="m-chipbtn" href="RQ-05_所属・離脱の申請.html">離脱を申請</a></div>
+          </li>
+        </ul>
+
+        <!-- 所属が複数 -->
+        <ul class="p-items" data-when="multi multi-none blocked-left blocked-already">
+          <li class="p-item">
+            <a class="m-row" href="DT-03_地域詳細.html">
+              <span class="m-row__photo"><img src="../assets/photo-street.jpg" alt=""></span>
+              <span class="m-row__content">
+                <span class="m-row__name">こもれび商店街</span>
+                <span class="m-row__meta">緑野市・旧市街 · 3月から所属</span>
+                <span class="p-badges">
+                  <span class="m-badge" data-tone="accent" data-when="multi-none blocked-left">代表地域</span>
+                  <span class="m-badge">公開中</span>
+                  <span class="m-badge" data-when="multi blocked-already">閲覧者には代わりにこの地域を表示</span>
+                </span>
+              </span>
+            </a>
+            <div class="p-item__ops">
+              <button class="m-chipbtn" type="button" data-unless="multi-none blocked-left">代表地域にする</button>
+              <button class="m-chipbtn" type="button" disabled data-when="multi-none blocked-left">代表地域です</button>
+              <a class="m-chipbtn" href="RQ-05_所属・離脱の申請.html">離脱を申請</a>
+            </div>
+          </li>
+          <li class="p-item">
+            <div class="m-row">
+              <span class="m-row__photo"><img src="../assets/photo-cafe.jpg" alt=""></span>
+              <span class="m-row__content">
+                <span class="m-row__name">白波横丁</span>
+                <span class="m-row__meta">緑野市・港エリア · 6月から所属</span>
+                <span class="p-badges">
+                  <span class="m-badge" data-tone="accent" data-when="multi blocked-already">代表地域（選択済み）</span>
+                  <span class="m-badge" data-tone="muted">公開の取り下げ</span>
+                </span>
+              </span>
+            </div>
+            <p class="p-item__sub p-item__text">公開を取り下げているため、閲覧者には所属地域として表示されていません。</p>
+            <div class="p-item__ops">
+              <button class="m-chipbtn" type="button" data-unless="multi blocked-already">代表地域にする</button>
+              <button class="m-chipbtn" type="button" disabled data-when="multi blocked-already">代表地域です</button>
+              <a class="m-chipbtn" href="RQ-05_所属・離脱の申請.html">離脱を申請</a>
+            </div>
+          </li>
+          <li class="p-item" data-unless="blocked-left">
+            <div class="m-row">
+              <span class="m-row__photo"></span>
+              <span class="m-row__content">
+                <span class="m-row__name">緑野 駅前通り</span>
+                <span class="m-row__meta">緑野市・駅前エリア · 8月から所属（店舗管理者のいなかった時期）</span>
+                <span class="p-badges"><span class="m-badge" data-tone="alert">運営による非公開</span><span class="m-badge">公開</span></span>
+              </span>
+            </div>
+            <p class="p-item__sub p-item__text">運営による非公開のため、閲覧者には所属地域として表示されていません。</p>
+            <div class="p-item__ops">
+              <button class="m-chipbtn" type="button">代表地域にする</button>
+              <a class="m-chipbtn" href="RQ-05_所属・離脱の申請.html">離脱を申請</a>
+            </div>
+          </li>
+        </ul>
+        <p class="m-field__help" data-when="multi multi-none blocked-left blocked-already">代表地域は、承認なしで、選んだ時点で変わります。公開を取り下げた地域と、運営による非公開の地域も選べます。</p>
+      </section>
+
+      <!-- 申請中の地域 -->
+      <section class="m-section" aria-labelledby="h-apply">
+        <div class="p-head"><h2 class="m-heading" id="h-apply">申請中の地域</h2></div>
+        <ul class="m-list" data-when="one none">
+          <li><a class="m-list__item" href="MY-05_申請の詳細.html">
+            <span class="m-list__text"><span class="m-list__title">所属の申請 · 白波横丁</span><span class="m-list__meta">申請者 喫茶 日々 · 9月18日</span></span>
+            <span class="p-list__end"><span class="m-badge" data-tone="alert">差し戻し</span><img class="m-list__chev" src="../assets/icon-chevron.svg" alt="" width="24" height="24"></span>
+          </a></li>
+        </ul>
+        <p class="m-field__help" data-when="blocked-left">申請中の地域はありません。緑野 駅前通りからの離脱の申請は、承認されました。</p>
+        <ul class="m-list" data-when="multi multi-none blocked-already">
+          <li><a class="m-list__item" href="MY-05_申請の詳細.html">
+            <span class="m-list__text"><span class="m-list__title">離脱の申請 · 緑野 駅前通り</span><span class="m-list__meta">申請者 喫茶 日々（別の管理者が提出） · 9月22日</span></span>
+            <span class="p-list__end"><span class="m-badge">確認中</span><img class="m-list__chev" src="../assets/icon-chevron.svg" alt="" width="24" height="24"></span>
+          </a></li>
+        </ul>
+        <a class="m-link" href="MY-04_自分の申請の一覧.html">この店舗の申請をすべて見る</a>
+      </section>
+    </div>
+
+    <!-- CS-13 完了 -->
+    <div class="m-done" role="status" data-when="cs13">
+      <h2 class="m-done__title">代表地域を白波横丁にしました</h2>
+      <p class="m-done__body">一覧で店舗と掲載に示す地域名が、白波横丁になりました。白波横丁が公開を取り下げている間は、閲覧者には代わりにこもれび商店街を示します。</p>
+      <div class="m-done__actions">
+        <a class="m-btn m-btn--primary" href="SM-05_所属地域の状況.html">所属地域の状況に戻る</a>
+        <a class="m-btn m-btn--secondary" href="DT-02_店舗詳細.html">店舗ページを見る</a>
+      </div>
+    </div>
+
+    <!-- CS-01 読み込み中 -->
+    <div class="m-body" data-when="cs01" aria-busy="true">
+      <div class="m-skeleton">
+        <div class="m-skeleton__line"></div>
+        <div class="m-skeleton__block p-skel-row"></div>
+        <div class="m-skeleton__line"></div>
+        <div class="m-skeleton__block p-skel-field"></div>
+      </div>
+      <p class="m-visually-hidden" role="status">所属地域の状況を読み込んでいます</p>
+    </div>
+
+    <!-- CS-02 通信エラー -->
+    <div class="m-body" data-when="cs02">
+      <div class="m-alert" role="alert">
+        <p class="m-alert__title">所属地域の状況を読み込めませんでした</p>
+        <p class="m-alert__body">通信を確かめて、もう一度読み込んでください。代表地域の変更が届かなかったときは、代表地域は変わっていません。</p>
+        <button class="m-btn m-btn--secondary" type="button">もう一度読み込む</button>
+      </div>
+    </div>
+
+    <!-- CS-04 ログインが必要 -->
+    <div class="m-body" data-when="cs04">
+      <div class="m-empty">
+        <h2 class="m-empty__title">ログインが必要です</h2>
+        <p class="m-empty__body">所属地域の状況を見るには、ログインが必要です。ログインすると、この画面に戻ります。</p>
+        <a class="m-btn m-btn--primary" href="MY-02_ログイン.html">ログインする</a>
+      </div>
+    </div>
+
+    <!-- CS-05 権限なし -->
+    <div class="m-body" data-when="cs05">
+      <div class="m-empty">
+        <h2 class="m-empty__title">この店舗を管理する権限がありません</h2>
+        <p class="m-empty__body">店舗の管理権限を持つ店舗だけを開けます。管理する店舗は、マイページから選べます。</p>
+        <a class="m-btn m-btn--primary" href="MY-01_マイページ.html">マイページへ戻る</a>
+      </div>
+    </div>
+  </main>
+
+  <div class="m-dock" data-unless="cs04 cs05">
+    <div class="m-actions" data-unless="cs01 cs02 cs13 none">
+      <a class="m-btn m-btn--primary" href="RQ-05_所属・離脱の申請.html">地域への所属を申請</a>
+    </div>
+    <nav class="m-nav" aria-label="店舗の管理">
+      <div class="m-nav__items">
+        <a class="m-nav__item" href="SM-01_店舗ホーム.html">ホーム</a>
+        <a class="m-nav__item" href="SM-03_掲載の一覧.html">掲載</a>
+        <a class="m-nav__item" href="SM-06_イベントの状況.html">イベント</a>
+        <a class="m-nav__item" href="SM-02_店舗情報.html">店舗情報</a>
+      </div>
+      <div class="m-nav__links">
+        <a class="m-link" href="DT-02_店舗詳細.html">閲覧者に見える店舗ページ</a>
+        <a class="m-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </nav>
+  </div>
+
+</div>
+
+
+<script>
+(() => {
+  const nav = document.querySelector('nav[data-design-states]');
+  const words = (v) => v.trim().split(/\s+/);
+  const apply = () => {
+    const s = document.body.dataset.state;
+    document.querySelectorAll('[data-when]').forEach((el) => { el.hidden = !words(el.dataset.when).includes(s); });
+    document.querySelectorAll('[data-unless]').forEach((el) => { el.hidden = words(el.dataset.unless).includes(s); });
+    document.querySelectorAll('[data-checked-when]').forEach((el) => { el.checked = words(el.dataset.checkedWhen).includes(s); });
+    document.querySelectorAll('[data-checked-unless]').forEach((el) => { el.checked = !words(el.dataset.checkedUnless).includes(s); });
+    document.querySelectorAll('[data-selected-when]').forEach((el) => { el.selected = words(el.dataset.selectedWhen).includes(s); });
+    document.querySelectorAll('[data-selected-unless]').forEach((el) => { el.selected = !words(el.dataset.selectedUnless).includes(s); });
+    document.querySelectorAll('[data-disabled-when]').forEach((el) => { el.disabled = words(el.dataset.disabledWhen).includes(s); });
+    document.querySelectorAll('[data-disabled-unless]').forEach((el) => { el.disabled = !words(el.dataset.disabledUnless).includes(s); });
+    nav.querySelectorAll('button[data-state]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === s)));
+  };
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-state]');
+    if (b) document.body.dataset.state = b.dataset.state;
+  });
+  new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['data-state'] });
+  apply();
+})();
+</script>
+</body>
+</html>

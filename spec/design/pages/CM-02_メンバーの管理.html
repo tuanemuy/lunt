@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CM-02 メンバーの管理 — Lunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   Lunt 管理側の共通シェル（figma-import）
+   出どころ: Figma 40 Merchant Screens — 72:3309 M02 店舗ホーム、72:3369 M06 店舗情報、
+   75:3390 状態/店舗情報を保存しました。
+   各画面の <style> に、この全文をそのまま写してから画面固有の規則を足す。
+   ===================================================================== */
+
+:root {
+  /* カラー（Figma Variables: Color → Primitives, Light） */
+  --white: oklch(99.7% 0.005 95.1);   /* #FFFEFA */
+  --ink: oklch(33.2% 0.029 167.8);      /* #273B33 */
+  --secondary: oklch(45.2% 0.022 142.7); /* #4F594E */
+  --muted: oklch(54.8% 0.02 140);       /* #6B7469 */
+  --line: oklch(91% 0.013 126.4);       /* #DFE3DA */
+  --green: oklch(43.4% 0.057 163.2);   /* #315B48 */
+  --light: oklch(94.8% 0.014 134.9);   /* #EAF0E7 */
+  --paper: oklch(95.8% 0.008 91.5);     /* #F3F1EB */
+  --focus: oklch(57.7% 0.13 40.7);      /* #B85B38 */
+
+  /* 書体 */
+  --font-display: 'Noto Serif JP', serif;
+  --font-base: 'Noto Sans JP', sans-serif;
+
+  /* テキストスタイル（Figma: Lunt/*） */
+  --text-catch: 29px;   --leading-catch: 43px;
+  --text-page: 24px;    --leading-page: 36px;
+  --text-section: 18px; --leading-section: 29px;
+  --text-name: 15px;    --leading-name: 24px;
+  --text-body: 14px;    --leading-body: 25px;
+  --text-ui: 13px;      --leading-ui: 20px;
+  --text-meta: 11px;    --leading-meta: 18px;
+  --text-small: 10px;   --leading-small: 16px;
+  --text-title: 22px;   --leading-title: 33px;
+  --leading-heading: 27px;
+  --text-lead: 20px;    --leading-lead: 30px;
+  --tracking-display: 0.02em;
+  --tracking-base: 0;
+  --weight-regular: 400;
+  --weight-medium: 500;
+
+  /* スペーシング（Figma Variables: space/*） */
+  --space-0: 0;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-21: 21px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-gutter: var(--space-21); /* 画面の左右の余白。md で上書き */
+
+  /* 角丸（Figma Variables: radius/*） */
+  --radius-0: 0;
+  --radius-2: 2px;
+  --radius-8: 8px;
+  --radius-16: 16px;
+  --radius-999: 999px;
+
+  /* サイズ（Figma Variables: size/touch） */
+  --size-touch: 44px;
+  --bottom-nav-height: 77px;
+
+  /* 線 */
+  --border-1: 1px;
+  --border-2: 2px;
+
+  /* 重なる面の背景（補ったもの） */
+  --color-scrim: oklch(33.2% 0.029 167.8 / 0.4);
+  --color-green-hover: color-mix(in oklch, var(--green), var(--ink) 45%);
+
+  /* 影（Figma: Lunt/Overlay） */
+  --shadow-overlay: 0 8px 24px oklch(33.2% 0.029 167.8 / 0.12);
+
+  /* トランジション（補ったもの） */
+  --transition-default: 150ms ease-out;
+
+  /* ブレークポイント（参照用） */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}
+
+@media (min-width: 768px) {
+  :root { --space-gutter: var(--space-32); }
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-base);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-base);
+  font-weight: var(--weight-regular);
+}
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: var(--border-2) solid var(--focus); outline-offset: var(--border-2); }
+.m-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 文字の型 */
+.m-t-ui { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); }
+.m-t-body { font-size: var(--text-body); line-height: var(--leading-body); }
+.m-t-meta { font-size: var(--text-meta); line-height: var(--leading-meta); }
+.m-t-small { font-size: var(--text-small); line-height: var(--leading-small); }
+
+/* ---------- アプリの枠 ----------
+   モバイル: Brand bar → Title bar → Viewport(Body) → Actions（下端に固定。Actions の帯の中に操作とナビゲーション）
+   lg: Brand bar を上に横断、左に縦のナビゲーション、本文を最大幅 720px。Actions は本文の末尾 */
+.m-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+}
+
+/* Brand bar（72:3310） */
+.m-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-21) var(--space-gutter);
+  background: var(--white);
+}
+.m-brand__home { position: relative; display: flex; align-items: center; gap: var(--space-16); border-radius: var(--radius-2); }
+/* 見た目の高さ 26 のまま、触れる範囲を 44 にする（Brand bar の上下の余白 21 の中に収まる） */
+.m-brand__home::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--size-touch); transform: translateY(-50%); }
+.m-brand__logo { position: relative; width: 75px; height: 26.087px; flex: none; overflow: hidden; }
+.m-brand__logo img { position: absolute; left: 2.9%; top: 9.38%; width: 92.75%; height: 79.16%; max-width: none; }
+.m-brand__label { width: 120px; font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+/* 補った: アカウント（MY-01）への入口 */
+.m-brand__account {
+  margin-left: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-12);
+  margin-block: calc(-1 * var(--space-12));
+  margin-right: calc(-1 * var(--space-12));
+  border-radius: var(--radius-8);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--secondary);
+  transition: background-color var(--transition-default), color var(--transition-default);
+  white-space: nowrap;
+}
+.m-brand__account:active { background: var(--light); }
+@media (hover: hover) {
+  .m-brand__account:hover { background: var(--paper); color: var(--ink); }
+}
+
+/* 本文の列 */
+.m-main { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
+
+/* Title bar（72:3319）: 見出しと、管理する対象（名称・状態・切り替え） */
+.m-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-gutter) var(--space-16);
+}
+.m-title__heading {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* 管理する対象の状態の行（73:3342 の「店舗ページ公開中 · …」。Lunt/Meta、accent） */
+.m-status { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--green); }
+.m-status[data-tone="neutral"] { color: var(--secondary); }
+.m-status[data-tone="alert"] { color: var(--focus); }
+
+/* 対象の切り替え（補った。<details> で開閉。複数の対象を管理する人だけに切り替えの一覧を出す） */
+.m-target { position: relative; align-self: flex-start; max-width: 100%; }
+.m-target > summary {
+  list-style: none;
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  min-height: var(--size-touch);
+  max-width: 100%;
+  cursor: pointer;
+  border-radius: var(--radius-8);
+  transition: background-color var(--transition-default);
+}
+.m-target > summary::-webkit-details-marker { display: none; }
+.m-target__name { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-target__state { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-target__icon { width: 24px; height: 24px; flex: none; transition: transform var(--transition-default); }
+.m-target[open] .m-target__icon { transform: rotate(180deg); }
+/* 切り替えを持たない型（管理する対象が1つだけ、不在の代行中） */
+.m-target--static { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-4); min-height: var(--size-touch); }
+/* 見出しとして使う型（店舗ホーム: 対象の名称そのものが Title bar の見出し） */
+.m-target--heading > summary { min-height: var(--leading-title); }
+.m-target--heading > summary .m-target__name { font-size: var(--text-title); line-height: var(--leading-title); }
+@media (hover: hover) {
+  .m-target > summary:hover { background: var(--paper); }
+}
+.m-target__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  width: 300px;
+  max-width: calc(100vw - 2 * var(--space-21));
+  padding: var(--space-8);
+  background: var(--white);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-overlay);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.m-target__caption { padding: var(--space-4) var(--space-8); font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+.m-target__item {
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: var(--size-touch);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-8);
+  transition: background-color var(--transition-default);
+}
+.m-target__item[aria-current] { background: var(--light); }
+.m-target__item:active { background: var(--light); }
+.m-target__rule { height: var(--border-1); background: var(--line); margin: var(--space-4) 0; }
+@media (hover: hover) {
+  .m-target__item:not([aria-current]):hover { background: var(--paper); }
+}
+
+/* Viewport > Body（72:3322）: 縦の並び、gap 24、padding 21 */
+.m-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  padding: var(--space-21) var(--space-gutter);
+  min-width: 0;
+}
+.m-body > * { min-width: 0; }
+
+/* 区分の見出し（73:3349「掲載」。Noto Sans JP Medium 18/27） */
+.m-heading {
+  font-size: var(--text-section);
+  line-height: var(--leading-heading);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+/* 区分（見出しと中身を 16 でまとめる。補った） */
+.m-section { display: flex; flex-direction: column; gap: var(--space-16); }
+.m-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-16); }
+.m-divider { height: var(--border-1); background: var(--line); border: 0; margin: 0; }
+
+/* 写真（74:3417。348×150、角丸 2） */
+.m-photo { width: 100%; height: auto; aspect-ratio: 348 / 150; max-height: 280px; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- Button（13:18 Lunt/Button） ---------- */
+.m-btn {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-8);
+  width: 100%;
+  min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: 0;
+  border-radius: var(--radius-8);
+  font-family: var(--font-base);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  text-align: center;
+  transition: background-color var(--transition-default), border-color var(--transition-default), color var(--transition-default);
+}
+.m-btn--primary { background: var(--green); color: var(--white); }
+.m-btn--primary:active { background: var(--ink); }                         /* State=Pressed */
+.m-btn--secondary { background: var(--white); color: var(--ink); border: var(--border-1) solid var(--line); }
+.m-btn--secondary:active { background: var(--light); border-color: var(--green); } /* State=Pressed */
+.m-btn:disabled, .m-btn[aria-disabled="true"] { cursor: not-allowed; background: var(--light); color: var(--muted); } /* State=Disabled */
+.m-btn--secondary:disabled, .m-btn--secondary[aria-disabled="true"] { border-color: var(--line); }
+@media (hover: hover) {
+  .m-btn--primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-green-hover); }
+  .m-btn--secondary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--paper); }
+}
+/* 文字だけの操作（補った。本文中の入口） */
+.m-link {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  min-height: var(--size-touch);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--green);
+  text-decoration: underline; text-underline-offset: var(--space-4); text-decoration-thickness: var(--border-1);
+  border-radius: var(--radius-2);
+  transition: color var(--transition-default);
+}
+.m-link:active { color: var(--ink); }
+@media (hover: hover) { .m-link:hover { color: var(--ink); } }
+
+/* ---------- Tab（24:155 Lunt/Tab）: 区分の切り替え・件数の入口 ---------- */
+.m-tabs { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.m-tab {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 64px;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-2) solid transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color var(--transition-default), border-color var(--transition-default);
+}
+.m-tab[aria-current], .m-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--green); }
+.m-tab:active { color: var(--ink); border-bottom-color: var(--line); }
+@media (hover: hover) { .m-tab:not([aria-current]):not([aria-selected="true"]):hover { color: var(--ink); border-bottom-color: var(--line); } }
+
+/* ---------- 一覧の行（73:3357 Row = Lunt/ContentRow の管理側の型） ---------- */
+.m-rows { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-row { display: flex; align-items: center; gap: var(--space-16); border-radius: var(--radius-2); }
+.m-row__photo { width: 88px; height: 88px; flex: none; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-row__photo img { width: 100%; height: 100%; object-fit: cover; transition: filter var(--transition-default); }
+.m-row__content { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; flex: 1; }
+.m-row__name { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-row__meta { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-row__sub { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+@media (hover: hover) { a.m-row:hover .m-row__photo img { filter: brightness(0.92); } a.m-row:hover .m-row__name { text-decoration: underline; } }
+
+/* 文字だけの行（補った。写真を持たない入口の一覧。罫線で区切る） */
+.m-list { display: flex; flex-direction: column; border-top: var(--border-1) solid var(--line); }
+.m-list__item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-16);
+  min-height: var(--size-touch);
+  padding: var(--space-12) 0;
+  border-bottom: var(--border-1) solid var(--line);
+  transition: background-color var(--transition-default);
+}
+.m-list__text { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.m-list__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); overflow-wrap: anywhere; }
+.m-list__meta { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-list__end { flex: none; font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+.m-list__chev { width: 24px; height: 24px; flex: none; }
+.m-notice .m-list { border-top-color: var(--line); }
+a.m-list__item:active { background: var(--light); }
+@media (hover: hover) { a.m-list__item:hover { background: var(--paper); } }
+
+/* Notice（73:3377）: subtle の地、padding 16、gap 8 */
+.m-notice {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  padding: var(--space-16);
+  background: var(--light);
+  color: var(--ink);
+  transition: background-color var(--transition-default);
+}
+.m-notice__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); }
+.m-notice__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+.m-notice[data-tone="paper"] { background: var(--paper); }
+a.m-notice:active { background: var(--line); }
+@media (hover: hover) { a.m-notice:hover .m-notice__title { text-decoration: underline; } }
+
+/* 状態のバッジ（補った。色だけに頼らず文言で示す） */
+.m-badge {
+  display: inline-flex; align-items: center;
+  min-height: 20px;
+  padding: 0 var(--space-8);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  font-size: var(--text-small); line-height: var(--leading-small);
+  color: var(--secondary);
+  background: var(--white);
+  white-space: nowrap;
+}
+.m-badge[data-tone="accent"] { background: var(--light); border-color: var(--light); color: var(--green); }
+.m-badge[data-tone="muted"] { background: var(--paper); border-color: var(--paper); color: var(--muted); }
+.m-badge[data-tone="alert"] { border-color: var(--focus); color: var(--focus); }
+/* 件数の札（対応を待つものの数など）。--focus はフォーカスとエラーに取っておく */
+.m-badge[data-tone="count"] { border-color: var(--green); color: var(--green); }
+
+/* ---------- 入力（74:3420 Field + Value box。状態は 17:28 Lunt/Input） ---------- */
+.m-form { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-field { display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; border: 0; padding: 0; margin: 0; }
+.m-field__label {
+  display: flex; align-items: baseline; gap: var(--space-8);
+  padding: 0;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+fieldset.m-field > legend.m-field__label { margin-bottom: var(--space-8); }
+.m-field__req { font-weight: var(--weight-medium); color: var(--ink); }
+.m-field__req[data-optional] { font-weight: var(--weight-regular); color: var(--secondary); }
+.m-field__help { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.m-field__error { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--focus); font-weight: var(--weight-medium); }
+.m-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-12);
+  background: var(--white);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-8);
+  font-size: var(--text-body); line-height: var(--leading-body);
+  color: var(--ink);                 /* State=Filled */
+  outline: none;
+  transition: border-color var(--transition-default), background-color var(--transition-default);
+  appearance: none;
+}
+.m-input::placeholder { color: var(--muted); opacity: 1; } /* State=Empty */
+textarea.m-input { min-height: 96px; resize: vertical; }
+select.m-input { padding-right: var(--space-48); background-image: url("../assets/icon-down.svg"); background-repeat: no-repeat; background-position: right var(--space-12) center; background-size: 24px 24px; }
+/* State=Focus: 2px の color/focus の枠 */
+.m-input:focus, .m-input:focus-visible { border-color: var(--focus); outline: var(--border-1) solid var(--focus); outline-offset: 0; }
+/* 補った: エラーと無効 */
+.m-input[aria-invalid="true"] { border-color: var(--focus); }
+.m-input:disabled, .m-input[aria-disabled="true"], .m-input[readonly] { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+@media (hover: hover) { .m-input:not(:disabled):not([readonly]):not(:focus):hover { border-color: var(--muted); } }
+/* 入力欄と操作を1行に置く型 */
+.m-inline { display: flex; gap: var(--space-8); align-items: stretch; }
+.m-inline > .m-input { flex: 1 1 auto; min-width: 0; }
+.m-inline > .m-btn { width: auto; flex: none; padding-inline: var(--space-16); }
+
+/* 選択（Lunt/Chip 15:25 の見た目の単一選択。営業状況など） */
+.m-choices { display: flex; flex-wrap: wrap; gap: var(--space-8); border: 0; padding: 0; margin: 0; min-width: 0; }
+.m-choice { position: relative; }
+.m-choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.m-choice span {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 76px; min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.m-choice input:checked + span { background: var(--light); border-color: var(--light); }  /* Selected=true */
+.m-choice input:focus-visible + span { outline: var(--border-2) solid var(--focus); outline-offset: var(--border-2); }
+.m-choice input:disabled + span { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+/* 補った: エラー（入力欄の State=Error と同じく、枠を --focus にする） */
+.m-choice input[aria-invalid="true"] + span { border-color: var(--focus); }
+@media (hover: hover) { .m-choice input:not(:checked):not(:disabled):hover + span { background: var(--paper); } }
+
+/* ---------- Actions（72:3323 / 72:3383）+ 管理ナビゲーション（77:3396） ---------- */
+.m-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex; flex-direction: column; gap: var(--space-8);
+  background: var(--white);
+  border-top: var(--border-1) solid var(--line);
+}
+.m-actions { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-21) var(--space-gutter); }
+.m-actions + .m-nav { margin-top: calc(-1 * var(--space-8)); border-top: var(--border-1) solid var(--line); }
+.m-actions__note { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+
+/* 管理ナビゲーション: モバイルは Figma M02 の形（4項目、各 1/4 幅、高さ 72、選択中は accent の下線） */
+.m-nav { display: flex; flex-direction: column; background: var(--white); }
+.m-nav__items { display: flex; min-height: 72px; }
+.m-nav__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  height: 72px;
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-2) solid transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--muted);
+  text-align: center;
+  transition: color var(--transition-default), background-color var(--transition-default);
+}
+.m-nav__item[aria-current="page"] { color: var(--ink); border-bottom-color: var(--green); }
+.m-nav__item:active { background: var(--light); }
+.m-nav__item:focus-visible { outline-offset: calc(-1 * var(--border-2)); }
+@media (hover: hover) { .m-nav__item:not([aria-current="page"]):hover { color: var(--ink); background: var(--paper); } }
+/* 補った: lg で縦のナビゲーションの下に置く入口（MY-01、閲覧者に見える詳細） */
+.m-nav__links { display: none; }
+
+/* 補った: 不在の代行中（CS-14）。ナビゲーションの先頭に出す */
+.m-proxy {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-8);
+  min-height: var(--size-touch);
+  padding: 0 var(--space-gutter);
+  background: var(--paper);
+  border-bottom: var(--border-1) solid var(--line);
+}
+.m-proxy__label { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--ink); font-weight: var(--weight-medium); }
+.m-proxy .m-link { min-height: var(--size-touch); font-size: var(--text-meta); line-height: var(--leading-meta); white-space: nowrap; }
+
+/* ---------- 知らせの帯（補った。CS-02 通信エラー・CS-10 入力エラー・CS-07 競合 など） ---------- */
+.m-alert {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  padding: var(--space-16);
+  border: var(--border-1) solid var(--focus);
+  border-radius: var(--radius-8);
+  background: var(--white);
+}
+.m-alert__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--focus); }
+.m-alert__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--ink); }
+.m-alert ul { display: flex; flex-direction: column; gap: var(--space-4); padding-left: var(--space-16); list-style: disc; font-size: var(--text-body); line-height: var(--leading-body); }
+.m-alert .m-btn { margin-top: var(--space-8); }
+
+/* ---------- 読み込み中（CS-01。補った） ---------- */
+.m-skeleton { display: flex; flex-direction: column; gap: var(--space-24); }
+.m-skeleton__block { background: var(--paper); border-radius: var(--radius-2); }
+.m-skeleton__line { height: var(--leading-meta); width: 60%; background: var(--paper); border-radius: var(--radius-2); }
+@media (prefers-reduced-motion: no-preference) {
+  .m-skeleton__block, .m-skeleton__line { animation: m-pulse 1.2s ease-in-out infinite alternate; }
+}
+@keyframes m-pulse { from { opacity: 1; } to { opacity: 0.55; } }
+
+/* ---------- 完了（CS-13。75:3390 の形: 縦の中央、gap 24、見出し 22/33、本文 Body の ink、主要な操作） ---------- */
+.m-done {
+  flex: 1 0 auto;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--space-24);
+  padding: var(--space-21) var(--space-gutter);
+  min-height: 60vh;
+}
+.m-done__title { font-size: var(--text-title); line-height: var(--leading-title); font-weight: var(--weight-medium); color: var(--ink); }
+.m-done__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--ink); }
+.m-done__actions { display: flex; flex-direction: column; gap: var(--space-8); }
+/* 画面全体の完了（「状態/…」フレーム 75:95・75:3384・75:3390・75:3396・75:3402）: Brand bar・Title bar・
+   管理ナビゲーション・Actions を持たず、フレーム全体が padding 21・縦 gap 24・縦の中央揃え。
+   <main class="m-screen"> を .m-app の直下に置き、同じ状態で .m-brand・.m-main・.m-dock を隠す。
+   lg では同じ塊を画面の中央に置く（補った） */
+.m-screen { flex: 1 0 auto; display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.m-screen > .m-done { min-height: 0; }
+
+/* 状態の案内（補った。CS-04・CS-05・CS-09・CS-15 など、本文の代わりに出す。完了と同じ型を左上から） */
+.m-empty { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-24) 0; }
+.m-empty__title { font-size: var(--text-section); line-height: var(--leading-heading); font-weight: var(--weight-medium); color: var(--ink); }
+.m-empty__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+
+/* ---------- 確定の確認（CS-12。補った: トークンと Overlay の影から） ---------- */
+.m-dialog {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: var(--space-16);
+  background: var(--color-scrim);
+}
+.m-dialog__panel {
+  width: 100%; max-width: 480px;
+  max-height: calc(100dvh - 2 * var(--space-16));
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-16);
+  padding: var(--space-24) var(--space-21);
+  background: var(--white);
+  border-radius: var(--radius-16);
+  box-shadow: var(--shadow-overlay);
+}
+.m-dialog__title { font-size: var(--text-section); line-height: var(--leading-heading); font-weight: var(--weight-medium); color: var(--ink); }
+.m-dialog__body { display: flex; flex-direction: column; gap: var(--space-8); font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+.m-dialog__body ul { display: flex; flex-direction: column; gap: var(--space-4); padding-left: var(--space-16); list-style: disc; }
+.m-dialog__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-8); }
+@media (min-width: 768px) { .m-dialog { align-items: center; } }
+
+/* 見出しの型の切り替えは、行の高さ 33 のまま触れる範囲を 44 にする */
+.m-target--heading > summary { position: relative; }
+.m-target--heading > summary::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--size-touch); transform: translateY(-50%); }
+
+/* ---------- 写真の登録（CF-01。補った: Lunt/ContentRow の写真 88 と Chip の形の小さな操作） ---------- */
+.m-photos { display: flex; flex-direction: column; gap: var(--space-12); }
+.m-photos__item { display: flex; align-items: center; gap: var(--space-12); }
+.m-photos__thumb { width: 88px; height: 88px; flex: none; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-photos__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.m-photos__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.m-photos__ops { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.m-chipbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--size-touch); min-height: var(--size-touch);
+  padding: 0 var(--space-12);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.m-chipbtn:active { background: var(--light); border-color: var(--green); }
+.m-chipbtn:disabled { background: var(--paper); color: var(--muted); cursor: not-allowed; }
+@media (hover: hover) { .m-chipbtn:not(:disabled):hover { background: var(--paper); } }
+
+/* ---------- 位置の指定（CF-09。Lunt/MapCanvas 32:2 + Lunt/MapPin 22:22 Selected=true） ---------- */
+.m-map { position: relative; width: 100%; height: 200px; border-radius: var(--radius-2); overflow: hidden; background: var(--paper); }
+.m-map > img { width: 100%; height: 100%; object-fit: cover; }
+.m-map[aria-invalid="true"] { outline: var(--border-1) solid var(--focus); }
+.m-pin {
+  position: absolute; left: var(--pin-x, 50%); top: var(--pin-y, 50%);
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-8);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--green);
+  color: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+}
+
+/* ---------- lg（1024px〜）: 左の縦のナビゲーション、本文 最大 720px、Actions は本文の末尾 ---------- */
+@media (min-width: 1024px) {
+  .m-app {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "brand brand" "nav main" "nav actions";
+  }
+  .m-brand { grid-area: brand; position: sticky; top: 0; z-index: 25; border-bottom: var(--border-1) solid var(--line); }
+  .m-main { grid-area: main; width: 100%; max-width: calc(720px + 2 * var(--space-gutter)); justify-self: center; padding-top: var(--space-32); }
+  .m-dock { display: contents; }
+  .m-actions {
+    grid-area: actions; align-self: start;
+    width: 100%; max-width: calc(720px + 2 * var(--space-gutter)); justify-self: center;
+    flex-direction: row; flex-wrap: wrap;
+    padding-bottom: var(--space-48);
+  }
+  .m-actions::before { content: ""; flex: 0 0 100%; height: var(--border-1); background: var(--line); margin-bottom: var(--space-12); }
+  .m-actions .m-btn { width: auto; min-width: 200px; padding-inline: var(--space-24); }
+  .m-actions__note { flex: 0 0 100%; }
+  .m-actions + .m-nav { margin-top: 0; border-top: 0; }
+  .m-nav {
+    grid-area: nav; align-self: start;
+    position: sticky; top: 69px;
+    height: calc(100vh - 69px);
+    overflow-y: auto;
+    border-right: var(--border-1) solid var(--line);
+    padding: var(--space-16) 0;
+    gap: var(--space-16);
+  }
+  .m-nav__items { flex-direction: column; min-height: 0; }
+  .m-nav__item {
+    flex: none; height: auto; min-height: var(--size-touch);
+    justify-content: flex-start;
+    padding: 0 var(--space-21);
+    border-bottom: 0;
+    border-left: var(--border-2) solid transparent;
+    text-align: left;
+  }
+  .m-nav__item[aria-current="page"] { border-left-color: var(--green); background: var(--light); }
+  .m-nav__links { display: flex; flex-direction: column; padding: var(--space-16) var(--space-21) 0; border-top: var(--border-1) solid var(--line); margin: 0 var(--space-0); }
+  .m-nav__links .m-link { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+  .m-proxy { flex-direction: column; align-items: flex-start; gap: 0; padding: var(--space-12) var(--space-21); margin-top: calc(-1 * var(--space-16)); }
+  .m-done { min-height: 50vh; }
+  .m-screen { grid-column: 1 / -1; grid-row: 1 / -1; align-items: center; }
+  .m-screen > .m-done { width: 100%; max-width: calc(480px + 2 * var(--space-gutter)); min-height: 0; }
+  .m-dialog__panel { padding: var(--space-32); }
+}
+
+/* ---------- デザイン確認用の状態切り替え（画面の外。実装の対象ではない） ---------- */
+nav[data-design-states] {
+  position: static; z-index: 100;
+  font-family: var(--font-base);
+}
+nav[data-design-states] > details {
+  background: var(--ink); color: var(--white);
+}
+nav[data-design-states] summary {
+  list-style: none; cursor: pointer;
+  min-height: var(--size-touch); padding: 0 var(--space-12);
+  display: flex; align-items: center; justify-content: flex-start;
+  font-size: var(--text-small); line-height: var(--leading-small);
+}
+nav[data-design-states] summary::-webkit-details-marker { display: none; }
+nav[data-design-states] ul {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: 0 var(--space-8) var(--space-8);
+  max-height: 70vh; overflow-y: auto;
+}
+nav[data-design-states] button {
+  width: 100%; min-height: 32px;
+  padding: var(--space-4) var(--space-8);
+  border: var(--border-1) solid var(--muted);
+  border-radius: var(--radius-8);
+  background: transparent; color: var(--white);
+  font-size: var(--text-small); line-height: var(--leading-small);
+  text-align: left;
+}
+nav[data-design-states] button[aria-pressed="true"] { background: var(--white); color: var(--ink); }
+
+
+/* ---------- CM-02 固有 ---------- */
+.cm02-who { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); }
+.cm02-members .m-list__item { flex-wrap: wrap; }
+.cm02-members .m-list__text { flex: 1 1 180px; }
+.cm02-members .m-chipbtn { flex: none; }
+.cm02-back { align-self: flex-start; }
+.cm02-skel-row { height: 44px; }
+.cm02-skel-field { height: 48px; border-radius: var(--radius-8); }
+</style>
+</head>
+<body data-state="mgr">
+<nav data-design-states aria-label="デザイン確認用の状態切り替え">
+  <details>
+    <summary>状態</summary>
+    <ul>
+      <li><button type="button" data-state="mgr">管理者の操作 · 店舗（既定。店舗のナビゲーション）</button></li>
+      <li><button type="button" data-state="mgr-region">管理者の操作 · 地域（地域運営のナビゲーション）</button></li>
+      <li><button type="button" data-state="mgr-event">管理者の操作 · イベント（イベント運営のナビゲーション）</button></li>
+      <li><button type="button" data-state="op-store">サービス運営者の操作 · 店舗（運営のナビゲーション）</button></li>
+      <li><button type="button" data-state="op-region">サービス運営者の操作 · 地域（運営のナビゲーション）</button></li>
+      <li><button type="button" data-state="absent-store">管理者不在 · 店舗</button></li>
+      <li><button type="button" data-state="absent-region">管理者不在 · 地域</button></li>
+      <li><button type="button" data-state="resign">辞任の確認（CS-12）</button></li>
+      <li><button type="button" data-state="resign-last">辞任の確認 · 最後の管理者（CS-12）</button></li>
+      <li><button type="button" data-state="revoke">解除の確認（CS-12）</button></li>
+      <li><button type="button" data-state="revoke-last">解除の確認 · 最後の管理者（CS-12）</button></li>
+      <li><button type="button" data-state="resigned">辞任済み</button></li>
+      <li><button type="button" data-state="invite-dup">招待しない · すでに管理者</button></li>
+      <li><button type="button" data-state="grant-error">付与しない · アカウントがない</button></li>
+      <li><button type="button" data-state="cs01">CS-01 読み込み中</button></li>
+      <li><button type="button" data-state="cs02">CS-02 通信エラー</button></li>
+      <li><button type="button" data-state="cs04">CS-04 ログインが必要</button></li>
+      <li><button type="button" data-state="cs05">CS-05 権限なし</button></li>
+      <li><button type="button" data-state="cs05-resign">CS-05 権限なし · 辞任の時点で管理者でない</button></li>
+      <li><button type="button" data-state="cs08-invite">CS-08 前提の変化 · 招待が承諾済み</button></li>
+      <li><button type="button" data-state="cs08-revoke">CS-08 前提の変化 · 本人が辞任済み</button></li>
+      <li><button type="button" data-state="cs09">CS-09 空（承諾前の招待がない）</button></li>
+      <li><button type="button" data-state="cs10">CS-10 入力エラー</button></li>
+      <li><button type="button" data-state="cs13">CS-13 完了 · 招待</button></li>
+      <li><button type="button" data-state="cs13-grant">CS-13 完了 · 付与</button></li>
+      <li><button type="button" data-state="cs13-revoke">CS-13 完了 · 解除</button></li>
+      <li><button type="button" data-state="cs15">CS-15 代行できない</button></li>
+    </ul>
+  </details>
+</nav>
+<div class="m-app">
+
+  <!-- Brand bar。ラベルと戻り先は、開いた立場のナビゲーションに合わせる -->
+  <header class="m-brand">
+    <a class="m-brand__home" href="SM-01_店舗ホーム.html" data-when="mgr resign resign-last invite-dup cs01 cs02 cs08-invite cs09 cs10 cs13 cs04 cs05 cs05-resign resigned">
+      <span class="m-brand__logo"><img src="../assets/logo.svg" alt="Lunt"></span>
+      <span class="m-brand__label">お店の管理</span>
+    </a>
+    <a class="m-brand__home" href="RM-01_所属店舗と申請.html" data-when="mgr-region">
+      <span class="m-brand__logo"><img src="../assets/logo.svg" alt="Lunt"></span>
+      <span class="m-brand__label">地域の運営</span>
+    </a>
+    <a class="m-brand__home" href="EM-01_参加店舗と申請.html" data-when="mgr-event">
+      <span class="m-brand__logo"><img src="../assets/logo.svg" alt="Lunt"></span>
+      <span class="m-brand__label">イベントの運営</span>
+    </a>
+    <a class="m-brand__home" href="OM-01_対応が必要なもの.html" data-when="op-store op-region absent-store absent-region revoke revoke-last grant-error cs08-revoke cs13-grant cs13-revoke cs15">
+      <span class="m-brand__logo"><img src="../assets/logo.svg" alt="Lunt"></span>
+      <span class="m-brand__label">サービス運営</span>
+    </a>
+    <a class="m-brand__account" href="MY-01_マイページ.html">マイページ</a>
+  </header>
+
+  <main class="m-main" id="main">
+    <div class="m-title">
+      <!-- サービス運営者: 開いた運営の画面へ戻る -->
+      <a class="m-link cm02-back" href="OM-03_対象の運営.html" data-when="op-store op-region absent-store absent-region revoke revoke-last grant-error cs08-revoke cs13-grant cs13-revoke cs15">対象の運営へ戻る</a>
+
+      <!-- 店舗管理者: 管理する店舗の名称と状態、切り替え -->
+      <details class="m-target" data-when="mgr resign resign-last invite-dup cs01 cs02 cs08-invite cs09 cs10 cs13">
+        <summary>
+          <span class="m-target__name">喫茶 日々</span>
+          <span class="m-target__state">営業中 · 公開中</span>
+          <img class="m-target__icon" src="../assets/icon-down.svg" alt="" width="24" height="24">
+          <span class="m-visually-hidden">管理する店舗を切り替える</span>
+        </summary>
+        <div class="m-target__menu">
+          <p class="m-target__caption">管理する店舗</p>
+          <a class="m-target__item" href="SM-01_店舗ホーム.html" aria-current="true"><span class="m-target__name">喫茶 日々</span><span class="m-target__state">営業中 · 公開中</span></a>
+          <a class="m-target__item" href="SM-01_店舗ホーム.html"><span class="m-target__name">うつわ 凪</span><span class="m-target__state">休業 · 公開中</span></a>
+          <div class="m-target__rule" role="presentation"></div>
+          <a class="m-target__item" href="DT-02_店舗詳細.html"><span class="m-target__name">閲覧者に見える店舗ページ</span></a>
+        </div>
+      </details>
+      <!-- 地域・イベント・サービス運営者: 対象の名称と状態（切り替えを持たない） -->
+      <p class="m-target m-target--static" data-when="mgr-region op-region revoke grant-error cs08-revoke cs13-grant cs13-revoke"><span class="m-target__name">こもれび商店街</span><span class="m-target__state">地域 · 公開中</span></p>
+      <p class="m-target m-target--static" data-when="mgr-event"><span class="m-target__name">こもれび 秋のよりみち市</span><span class="m-target__state">イベント · 公開中 · 開催前</span></p>
+      <p class="m-target m-target--static" data-when="op-store revoke-last"><span class="m-target__name">うつわ 凪</span><span class="m-target__state">店舗 · 休業 · 公開中</span></p>
+      <p class="m-target m-target--static" data-when="absent-store cs15"><span class="m-target__name">ベーカリー 灯</span><span class="m-target__state">店舗 · 営業中 · 公開中 · 管理者のいない店舗</span></p>
+      <p class="m-target m-target--static" data-when="absent-region"><span class="m-target__name">白波横丁</span><span class="m-target__state">地域 · 公開中 · 運営者のいない地域</span></p>
+      <h1 class="m-title__heading">メンバーの管理</h1>
+    </div>
+
+    <!-- ===== 店舗管理者（喫茶 日々） ===== -->
+    <div class="m-body" data-when="mgr resign resign-last invite-dup cs02 cs08-invite cs09 cs10">
+      <div class="m-alert" role="alert" data-when="cs02">
+        <p class="m-alert__title">招待を送れませんでした</p>
+        <p class="m-alert__body">通信を確かめて、もう一度送ってください。入力したメールアドレスは残っています。</p>
+        <button class="m-btn m-btn--secondary" type="button">もう一度送る</button>
+      </div>
+      <div class="m-alert" role="alert" data-when="cs08-invite">
+        <p class="m-alert__title">招待を取り消せませんでした</p>
+        <p class="m-alert__body">tanaka@example.com への招待は、先に承諾されていました。最新の管理者と招待を示しています。</p>
+      </div>
+
+      <section class="m-section" aria-labelledby="h-members">
+        <h2 class="m-heading" id="h-members">店舗管理者</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title cm02-who">hibi@example.com <span class="m-badge" data-tone="accent">あなた</span></span><span class="m-list__meta">店舗管理者</span></span>
+          </li>
+          <li class="m-list__item" data-unless="resign-last">
+            <span class="m-list__text"><span class="m-list__title">mori@example.com</span><span class="m-list__meta">店舗管理者</span></span>
+          </li>
+          <li class="m-list__item" data-when="cs08-invite">
+            <span class="m-list__text"><span class="m-list__title">tanaka@example.com</span><span class="m-list__meta">店舗管理者 · 招待を承諾しました</span></span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="m-section" aria-labelledby="h-invites">
+        <h2 class="m-heading" id="h-invites">承諾前の招待</h2>
+        <ul class="m-list cm02-members" data-unless="cs09 cs08-invite">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">tanaka@example.com</span><span class="m-list__meta">9月20日に招待 · 承諾前</span></span>
+            <button class="m-chipbtn" type="button" aria-label="tanaka@example.com への招待を取り消す">取り消す</button>
+          </li>
+        </ul>
+        <div class="m-notice" data-tone="paper" data-when="cs09 cs08-invite">
+          <p class="m-notice__title">承諾前の招待はありません</p>
+          <p class="m-notice__body">招待を送ると、承諾されるまでここに宛先が並びます。</p>
+        </div>
+      </section>
+
+      <section class="m-section" aria-labelledby="h-invite">
+        <h2 class="m-heading" id="h-invite">招待する</h2>
+        <div class="m-field">
+          <label class="m-field__label" for="f-invite" id="f-invite-label">招待する相手のメールアドレス</label>
+          <div class="m-inline">
+            <input class="m-input" id="f-invite" type="email" name="invite" placeholder="例: name@example.com" autocomplete="email" data-unless="cs02 cs10 invite-dup">
+            <input class="m-input" type="email" name="invite" value="hanako@example.com" aria-labelledby="f-invite-label" data-when="cs02">
+            <input class="m-input" type="email" name="invite" value="hanako@example" aria-labelledby="f-invite-label" aria-invalid="true" aria-describedby="f-invite-err" data-when="cs10">
+            <input class="m-input" type="email" name="invite" value="mori@example.com" aria-labelledby="f-invite-label" aria-invalid="true" aria-describedby="f-invite-dup" data-when="invite-dup">
+            <button class="m-btn m-btn--primary" type="button">招待を送る</button>
+          </div>
+          <p class="m-field__error" id="f-invite-err" data-when="cs10">メールアドレスの形式が正しくありません。「name@example.com」の形で入力してください。</p>
+          <p class="m-field__error" id="f-invite-dup" data-when="invite-dup">mori@example.com は、すでに喫茶 日々の店舗管理者です。招待は送りません。</p>
+          <p class="m-field__help">招待にサービス運営者の承認は要りません。相手が承諾すると、喫茶 日々の店舗管理者になります。承諾前の招待があるメールアドレスには、重ねて送りません。</p>
+        </div>
+      </section>
+
+      <hr class="m-divider">
+
+      <section class="m-section" aria-labelledby="h-resign">
+        <h2 class="m-heading" id="h-resign">辞任する</h2>
+        <p class="m-t-body">辞任すると、喫茶 日々を管理できなくなります。後任の招待が承諾される前でも辞任できます。</p>
+        <button class="m-btn m-btn--secondary" type="button">店舗管理者を辞任する</button>
+      </section>
+    </div>
+
+    <!-- ===== 地域運営者（こもれび商店街） ===== -->
+    <div class="m-body" data-when="mgr-region">
+      <section class="m-section" aria-labelledby="h-members-r">
+        <h2 class="m-heading" id="h-members-r">地域運営者</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item"><span class="m-list__text"><span class="m-list__title cm02-who">komorebi@example.com <span class="m-badge" data-tone="accent">あなた</span></span><span class="m-list__meta">地域運営者</span></span></li>
+          <li class="m-list__item"><span class="m-list__text"><span class="m-list__title">sato@example.com</span><span class="m-list__meta">地域運営者</span></span></li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-r">
+        <h2 class="m-heading" id="h-invites-r">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">yamada@example.com</span><span class="m-list__meta">9月18日に招待 · 承諾前</span></span>
+            <button class="m-chipbtn" type="button" aria-label="yamada@example.com への招待を取り消す">取り消す</button>
+          </li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invite-r">
+        <h2 class="m-heading" id="h-invite-r">招待する</h2>
+        <div class="m-field">
+          <label class="m-field__label" for="f-invite-r">招待する相手のメールアドレス</label>
+          <div class="m-inline">
+            <input class="m-input" id="f-invite-r" type="email" name="invite" placeholder="例: name@example.com" autocomplete="email">
+            <button class="m-btn m-btn--primary" type="button">招待を送る</button>
+          </div>
+          <p class="m-field__help">招待にサービス運営者の承認は要りません。相手が承諾すると、こもれび商店街の地域運営者になります。</p>
+        </div>
+      </section>
+      <hr class="m-divider">
+      <section class="m-section" aria-labelledby="h-resign-r">
+        <h2 class="m-heading" id="h-resign-r">辞任する</h2>
+        <p class="m-t-body">辞任すると、こもれび商店街を運営できなくなります。</p>
+        <button class="m-btn m-btn--secondary" type="button">地域運営者を辞任する</button>
+      </section>
+    </div>
+
+    <!-- ===== イベント運営者（こもれび 秋のよりみち市） ===== -->
+    <div class="m-body" data-when="mgr-event">
+      <section class="m-section" aria-labelledby="h-members-e">
+        <h2 class="m-heading" id="h-members-e">イベント運営者</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item"><span class="m-list__text"><span class="m-list__title cm02-who">yorimichi@example.com <span class="m-badge" data-tone="accent">あなた</span></span><span class="m-list__meta">イベント運営者</span></span></li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-e">
+        <h2 class="m-heading" id="h-invites-e">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">aki.ichi@example.com</span><span class="m-list__meta">9月22日に招待 · 承諾前</span></span>
+            <button class="m-chipbtn" type="button" aria-label="aki.ichi@example.com への招待を取り消す">取り消す</button>
+          </li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invite-e">
+        <h2 class="m-heading" id="h-invite-e">招待する</h2>
+        <div class="m-field">
+          <label class="m-field__label" for="f-invite-e">招待する相手のメールアドレス</label>
+          <div class="m-inline">
+            <input class="m-input" id="f-invite-e" type="email" name="invite" placeholder="例: name@example.com" autocomplete="email">
+            <button class="m-btn m-btn--primary" type="button">招待を送る</button>
+          </div>
+          <p class="m-field__help">招待にサービス運営者の承認は要りません。相手が承諾すると、こもれび 秋のよりみち市のイベント運営者になります。</p>
+        </div>
+      </section>
+      <hr class="m-divider">
+      <section class="m-section" aria-labelledby="h-resign-e">
+        <h2 class="m-heading" id="h-resign-e">辞任する</h2>
+        <p class="m-t-body">辞任すると、こもれび 秋のよりみち市を運営できなくなります。あなたは最後のイベント運営者です。辞任の前に、辞任した後の扱いを確かめます。</p>
+        <button class="m-btn m-btn--secondary" type="button">イベント運営者を辞任する</button>
+      </section>
+    </div>
+
+    <!-- ===== サービス運営者 · 管理者のいる店舗（うつわ 凪）: 解除だけ。付与を示さない ===== -->
+    <div class="m-body" data-when="op-store revoke-last">
+      <section class="m-section" aria-labelledby="h-members-os">
+        <h2 class="m-heading" id="h-members-os">店舗管理者</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">nagi@example.com</span><span class="m-list__meta">店舗管理者</span></span>
+            <button class="m-chipbtn" type="button" aria-label="nagi@example.com の管理権限を解除する">解除</button>
+          </li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-os">
+        <h2 class="m-heading" id="h-invites-os">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item"><span class="m-list__text"><span class="m-list__title">ren@example.com</span><span class="m-list__meta">9月12日に招待 · 承諾前</span></span></li>
+        </ul>
+        <p class="m-field__help">管理者のいる店舗の招待は、店舗管理者が取り消します。</p>
+      </section>
+      <div class="m-notice" data-tone="paper">
+        <p class="m-notice__title">店舗では管理権限を付与しません</p>
+        <p class="m-notice__body">店舗管理者は、管理権限の申請の承認か、店舗管理者からの招待の承諾で就きます。</p>
+      </div>
+    </div>
+
+    <!-- ===== サービス運営者 · 運営者のいる地域（こもれび商店街）: 解除と付与 ===== -->
+    <div class="m-body" data-when="op-region revoke grant-error cs08-revoke">
+      <div class="m-alert" role="alert" data-when="cs08-revoke">
+        <p class="m-alert__title">管理権限を解除できませんでした</p>
+        <p class="m-alert__body">sato@example.com は、先に辞任していました。最新の地域運営者を示しています。</p>
+      </div>
+      <section class="m-section" aria-labelledby="h-members-or">
+        <h2 class="m-heading" id="h-members-or">地域運営者</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">komorebi@example.com</span><span class="m-list__meta">地域運営者</span></span>
+            <button class="m-chipbtn" type="button" aria-label="komorebi@example.com の管理権限を解除する">解除</button>
+          </li>
+          <li class="m-list__item" data-unless="cs08-revoke">
+            <span class="m-list__text"><span class="m-list__title">sato@example.com</span><span class="m-list__meta">地域運営者</span></span>
+            <button class="m-chipbtn" type="button" aria-label="sato@example.com の管理権限を解除する">解除</button>
+          </li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-or">
+        <h2 class="m-heading" id="h-invites-or">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item"><span class="m-list__text"><span class="m-list__title">yamada@example.com</span><span class="m-list__meta">9月18日に招待 · 承諾前</span></span></li>
+        </ul>
+        <p class="m-field__help">運営者のいる地域の招待は、地域運営者が取り消します。</p>
+      </section>
+      <section class="m-section" aria-labelledby="h-grant-or">
+        <h2 class="m-heading" id="h-grant-or">管理権限を付与する</h2>
+        <div class="m-field">
+          <label class="m-field__label" for="f-grant" id="f-grant-label">付与するアカウントのメールアドレス</label>
+          <div class="m-inline">
+            <input class="m-input" id="f-grant" type="email" name="grant" placeholder="例: name@example.com" autocomplete="off" data-unless="grant-error">
+            <input class="m-input" type="email" name="grant" value="kenta@example.com" aria-labelledby="f-grant-label" aria-invalid="true" aria-describedby="f-grant-err" data-when="grant-error">
+            <button class="m-btn m-btn--primary" type="button">付与する</button>
+          </div>
+          <p class="m-field__error" id="f-grant-err" data-when="grant-error">kenta@example.com のアカウントはありません。付与は、Lunt にアカウントのある人にだけ行えます。</p>
+          <p class="m-field__help">付与した時点で、そのアカウントがこもれび商店街の地域運営者になります。すでに地域運営者のアカウントには付与しません。</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== 管理者不在 · 店舗（ベーカリー 灯） ===== -->
+    <div class="m-body" data-when="absent-store cs15">
+      <div class="m-alert" role="alert" data-when="cs15">
+        <p class="m-alert__title">この店舗は代行できません</p>
+        <p class="m-alert__body">ベーカリー 灯には、店舗管理者が就いていました。招待は取り消していません。店舗の運営の画面で、管理者がいることを確かめてください。</p>
+        <a class="m-btn m-btn--secondary" href="OM-03_対象の運営.html">店舗の運営へ戻る</a>
+      </div>
+      <div class="m-notice" data-tone="paper" data-unless="cs15">
+        <p class="m-notice__title">店舗管理者がいません</p>
+        <p class="m-notice__body">ベーカリー 灯は、管理権限の申請の承認か、残っている招待の承諾で店舗管理者が就きます。管理者がいない間は、承諾前の招待をサービス運営者が取り消せます。</p>
+      </div>
+      <section class="m-section" aria-labelledby="h-members-as">
+        <h2 class="m-heading" id="h-members-as">店舗管理者</h2>
+        <p class="m-field__help">いません</p>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-as">
+        <h2 class="m-heading" id="h-invites-as">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">akari.bakery@example.com</span><span class="m-list__meta">8月30日に招待 · 承諾前 · 前の店舗管理者が送った招待</span></span>
+            <button class="m-chipbtn" type="button" aria-label="akari.bakery@example.com への招待を取り消す" data-disabled-when="cs15">取り消す</button>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ===== 管理者不在 · 地域（白波横丁） ===== -->
+    <div class="m-body" data-when="absent-region">
+      <div class="m-notice" data-tone="paper">
+        <p class="m-notice__title">地域運営者がいません</p>
+        <p class="m-notice__body">白波横丁は、サービス運営者が地域の運営者として運営しています。管理権限を付与するか、残っている招待が承諾されると、地域運営者が就きます。</p>
+      </div>
+      <section class="m-section" aria-labelledby="h-members-ar">
+        <h2 class="m-heading" id="h-members-ar">地域運営者</h2>
+        <p class="m-field__help">いません</p>
+      </section>
+      <section class="m-section" aria-labelledby="h-invites-ar">
+        <h2 class="m-heading" id="h-invites-ar">承諾前の招待</h2>
+        <ul class="m-list cm02-members">
+          <li class="m-list__item">
+            <span class="m-list__text"><span class="m-list__title">shiranami@example.com</span><span class="m-list__meta">9月2日に招待 · 承諾前</span></span>
+            <button class="m-chipbtn" type="button" aria-label="shiranami@example.com への招待を取り消す">取り消す</button>
+          </li>
+        </ul>
+      </section>
+      <section class="m-section" aria-labelledby="h-grant-ar">
+        <h2 class="m-heading" id="h-grant-ar">管理権限を付与する</h2>
+        <div class="m-field">
+          <label class="m-field__label" for="f-grant-ar">付与するアカウントのメールアドレス</label>
+          <div class="m-inline">
+            <input class="m-input" id="f-grant-ar" type="email" name="grant" placeholder="例: name@example.com" autocomplete="off">
+            <button class="m-btn m-btn--primary" type="button">付与する</button>
+          </div>
+          <p class="m-field__help">付与した時点で、そのアカウントが白波横丁の地域運営者になります。アカウントのないメールアドレスには付与できません。</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- CS-01 読み込み中 -->
+    <div class="m-body" data-when="cs01" aria-busy="true">
+      <div class="m-skeleton">
+        <div class="m-skeleton__line"></div>
+        <div class="m-skeleton__block cm02-skel-row"></div>
+        <div class="m-skeleton__block cm02-skel-row"></div>
+        <div class="m-skeleton__line"></div>
+        <div class="m-skeleton__block cm02-skel-row"></div>
+        <div class="m-skeleton__line"></div>
+        <div class="m-skeleton__block cm02-skel-field"></div>
+      </div>
+      <p class="m-visually-hidden" role="status">メンバーを読み込んでいます</p>
+    </div>
+
+    <!-- CS-04 ログインが必要 -->
+    <div class="m-body" data-when="cs04">
+      <div class="m-empty">
+        <h2 class="m-empty__title">ログインが必要です</h2>
+        <p class="m-empty__body">メンバーの管理には、ログインが必要です。ログインすると、この画面に戻ります。</p>
+        <a class="m-btn m-btn--primary" href="MY-02_ログイン.html">ログインする</a>
+      </div>
+    </div>
+
+    <!-- CS-05 権限なし -->
+    <div class="m-body" data-when="cs05">
+      <div class="m-empty">
+        <h2 class="m-empty__title">この店舗の管理者ではありません</h2>
+        <p class="m-empty__body">メンバーの管理は、その店舗の店舗管理者と、サービス運営者だけが開けます。管理する店舗・地域・イベントは、マイページから開けます。</p>
+        <a class="m-btn m-btn--primary" href="MY-01_マイページ.html">マイページへ戻る</a>
+      </div>
+    </div>
+    <div class="m-body" data-when="cs05-resign">
+      <div class="m-empty">
+        <h2 class="m-empty__title">すでに店舗管理者ではありません</h2>
+        <p class="m-empty__body">喫茶 日々の店舗管理者ではなくなっていました。管理権限が解除されたか、別の画面で辞任しています。この辞任は反映していません。</p>
+        <a class="m-btn m-btn--primary" href="MY-01_マイページ.html">マイページへ戻る</a>
+      </div>
+    </div>
+
+    <!-- 辞任済み -->
+    <div class="m-done" role="status" data-when="resigned">
+      <h2 class="m-done__title">辞任しました</h2>
+      <p class="m-done__body">喫茶 日々の店舗管理者ではなくなりました。残る管理する店舗・地域・イベントは、マイページから開けます。</p>
+      <div class="m-done__actions">
+        <a class="m-btn m-btn--primary" href="MY-01_マイページ.html">マイページへ</a>
+      </div>
+    </div>
+
+    <!-- CS-13 完了 -->
+    <div class="m-done" role="status" data-when="cs13">
+      <h2 class="m-done__title">招待を送りました</h2>
+      <p class="m-done__body">hanako@example.com に招待を送りました。承諾されると、喫茶 日々の店舗管理者になります。承諾されるまで、承諾前の招待として並びます。</p>
+      <div class="m-done__actions">
+        <a class="m-btn m-btn--primary" href="CM-02_メンバーの管理.html">メンバーの管理に戻る</a>
+        <a class="m-btn m-btn--secondary" href="SM-01_店舗ホーム.html">店舗ホームへ</a>
+      </div>
+    </div>
+    <div class="m-done" role="status" data-when="cs13-grant">
+      <h2 class="m-done__title">管理権限を付与しました</h2>
+      <p class="m-done__body">kenji@example.com が、こもれび商店街の地域運営者になりました。本人に通知が届きます。</p>
+      <div class="m-done__actions">
+        <a class="m-btn m-btn--primary" href="CM-02_メンバーの管理.html">メンバーの管理に戻る</a>
+        <a class="m-btn m-btn--secondary" href="OM-03_対象の運営.html">対象の運営へ戻る</a>
+      </div>
+    </div>
+    <div class="m-done" role="status" data-when="cs13-revoke">
+      <h2 class="m-done__title">管理権限を解除しました</h2>
+      <p class="m-done__body">sato@example.com は、こもれび商店街の地域運営者ではなくなりました。本人に通知が届きます。</p>
+      <div class="m-done__actions">
+        <a class="m-btn m-btn--primary" href="CM-02_メンバーの管理.html">メンバーの管理に戻る</a>
+        <a class="m-btn m-btn--secondary" href="OM-03_対象の運営.html">対象の運営へ戻る</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- 管理ナビゲーション。開いた利用者の立場で決まる -->
+  <div class="m-dock" data-unless="cs04 cs05 cs05-resign resigned">
+    <nav class="m-nav" aria-label="店舗の管理" data-when="mgr resign resign-last invite-dup cs01 cs02 cs08-invite cs09 cs10 cs13">
+      <div class="m-nav__items">
+        <a class="m-nav__item" href="SM-01_店舗ホーム.html">ホーム</a>
+        <a class="m-nav__item" href="SM-03_掲載の一覧.html">掲載</a>
+        <a class="m-nav__item" href="SM-06_イベントの状況.html">イベント</a>
+        <a class="m-nav__item" href="SM-02_店舗情報.html">店舗情報</a>
+      </div>
+      <div class="m-nav__links">
+        <a class="m-link" href="DT-02_店舗詳細.html">閲覧者に見える店舗ページ</a>
+        <a class="m-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </nav>
+    <nav class="m-nav" aria-label="地域の運営" data-when="mgr-region">
+      <div class="m-nav__items">
+        <a class="m-nav__item" href="RM-01_所属店舗と申請.html">所属店舗と申請</a>
+        <a class="m-nav__item" href="RM-02_地域情報の編集.html">地域情報</a>
+        <a class="m-nav__item" href="RM-03_関連づけられたイベント.html">関連イベント</a>
+        <a class="m-nav__item" href="CM-02_メンバーの管理.html" aria-current="page">メンバー</a>
+      </div>
+      <div class="m-nav__links">
+        <a class="m-link" href="DT-03_地域詳細.html">閲覧者に見える地域ページ</a>
+        <a class="m-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </nav>
+    <nav class="m-nav" aria-label="イベントの運営" data-when="mgr-event">
+      <div class="m-nav__items">
+        <a class="m-nav__item" href="EM-01_参加店舗と申請.html">参加店舗と申請</a>
+        <a class="m-nav__item" href="EM-02_イベント情報の編集.html">イベント情報</a>
+        <a class="m-nav__item" href="EM-03_開催地域の関連づけ.html">開催地域</a>
+        <a class="m-nav__item" href="CM-02_メンバーの管理.html" aria-current="page">メンバー</a>
+      </div>
+      <div class="m-nav__links">
+        <a class="m-link" href="DT-04_イベント詳細.html">閲覧者に見えるイベントページ</a>
+        <a class="m-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </nav>
+    <nav class="m-nav" aria-label="サービス運営" data-when="op-store op-region absent-store absent-region revoke revoke-last grant-error cs08-revoke cs13-grant cs13-revoke cs15">
+      <div class="m-nav__items">
+        <a class="m-nav__item" href="OM-01_対応が必要なもの.html">対応が必要なもの</a>
+        <a class="m-nav__item" href="OM-02_対象を探す.html">対象を探す</a>
+        <a class="m-nav__item" href="OM-06_カテゴリーの管理.html">カテゴリー</a>
+        <a class="m-nav__item" href="OM-07_役割の管理.html">役割</a>
+      </div>
+      <div class="m-nav__links">
+        <a class="m-link" href="OM-03_対象の運営.html">対象の運営へ戻る</a>
+        <a class="m-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </nav>
+  </div>
+
+  <!-- CS-12 辞任の確認（ほかに管理者がいる） -->
+  <div class="m-dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-resign" data-when="resign">
+    <div class="m-dialog__panel">
+      <h2 class="m-dialog__title" id="dlg-resign">喫茶 日々の店舗管理者を辞任しますか</h2>
+      <div class="m-dialog__body">
+        <p>辞任すると、喫茶 日々を管理できなくなります。辞任は取り消せません。</p>
+        <ul>
+          <li>ほかの店舗管理者: mori@example.com</li>
+          <li>承諾前の招待（tanaka@example.com）は、有効のまま残ります</li>
+          <li>もう一度管理するには、招待を受けるか、管理権限を申請します</li>
+        </ul>
+      </div>
+      <div class="m-dialog__actions">
+        <button class="m-btn m-btn--primary" type="button">辞任する</button>
+        <button class="m-btn m-btn--secondary" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+  <!-- CS-12 辞任の確認（最後の管理者） -->
+  <div class="m-dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-resign-last" data-when="resign-last">
+    <div class="m-dialog__panel">
+      <h2 class="m-dialog__title" id="dlg-resign-last">最後の店舗管理者として辞任しますか</h2>
+      <div class="m-dialog__body">
+        <p>ほかに店舗管理者はいません。辞任すると、喫茶 日々は管理者のいない店舗になります。辞任は取り消せません。</p>
+        <ul>
+          <li>店舗の公開は続きます</li>
+          <li>掲載は、下書きを含めてサービス運営者の管理下に入ります</li>
+          <li>店舗管理者として行った確認中・差し戻し中の申請（2件）は、失効します</li>
+          <li>承諾前の招待（tanaka@example.com）は有効のまま残り、承諾されると店舗管理者が就きます</li>
+        </ul>
+      </div>
+      <div class="m-dialog__actions">
+        <button class="m-btn m-btn--primary" type="button">辞任する</button>
+        <button class="m-btn m-btn--secondary" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+  <!-- CS-12 解除の確認 -->
+  <div class="m-dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-revoke" data-when="revoke">
+    <div class="m-dialog__panel">
+      <h2 class="m-dialog__title" id="dlg-revoke">sato@example.com の管理権限を解除しますか</h2>
+      <div class="m-dialog__body">
+        <p>こもれび商店街の地域運営者から外します。本人に通知が届きます。解除は取り消せません。</p>
+        <ul>
+          <li>解除する地域運営者: sato@example.com</li>
+          <li>残る地域運営者: komorebi@example.com</li>
+        </ul>
+      </div>
+      <div class="m-dialog__actions">
+        <button class="m-btn m-btn--primary" type="button">解除する</button>
+        <button class="m-btn m-btn--secondary" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+  <!-- CS-12 解除の確認（最後の管理者） -->
+  <div class="m-dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-revoke-last" data-when="revoke-last">
+    <div class="m-dialog__panel">
+      <h2 class="m-dialog__title" id="dlg-revoke-last">nagi@example.com の管理権限を解除しますか</h2>
+      <div class="m-dialog__body">
+        <p>nagi@example.com は、うつわ 凪の最後の店舗管理者です。解除すると、うつわ 凪は管理者のいない店舗になります。解除は取り消せません。</p>
+        <ul>
+          <li>店舗の公開は続きます</li>
+          <li>掲載は、下書きを含めてサービス運営者の管理下に入ります</li>
+          <li>店舗管理者として行った確認中・差し戻し中の申請は、失効します</li>
+          <li>承諾前の招待（ren@example.com）は有効のまま残り、承諾されると店舗管理者が就きます</li>
+        </ul>
+      </div>
+      <div class="m-dialog__actions">
+        <button class="m-btn m-btn--primary" type="button">解除する</button>
+        <button class="m-btn m-btn--secondary" type="button">やめる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(() => {
+  const nav = document.querySelector('nav[data-design-states]');
+  const words = (v) => v.trim().split(/\s+/);
+  const apply = () => {
+    const s = document.body.dataset.state;
+    document.querySelectorAll('[data-when]').forEach((el) => { el.hidden = !words(el.dataset.when).includes(s); });
+    document.querySelectorAll('[data-unless]').forEach((el) => { el.hidden = words(el.dataset.unless).includes(s); });
+    document.querySelectorAll('[data-checked-when]').forEach((el) => { el.checked = words(el.dataset.checkedWhen).includes(s); });
+    document.querySelectorAll('[data-checked-unless]').forEach((el) => { el.checked = !words(el.dataset.checkedUnless).includes(s); });
+    document.querySelectorAll('[data-selected-when]').forEach((el) => { el.selected = words(el.dataset.selectedWhen).includes(s); });
+    document.querySelectorAll('[data-selected-unless]').forEach((el) => { el.selected = !words(el.dataset.selectedUnless).includes(s); });
+    document.querySelectorAll('[data-disabled-when]').forEach((el) => { el.disabled = words(el.dataset.disabledWhen).includes(s); });
+    document.querySelectorAll('[data-disabled-unless]').forEach((el) => { el.disabled = !words(el.dataset.disabledUnless).includes(s); });
+    nav.querySelectorAll('button[data-state]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === s)));
+  };
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-state]');
+    if (b) document.body.dataset.state = b.dataset.state;
+  });
+  new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['data-state'] });
+  apply();
+})();
+</script>
+</body>
+</html>

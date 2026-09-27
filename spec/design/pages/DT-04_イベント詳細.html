@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DT-04 イベント詳細 — Lunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   Lunt 閲覧側（VW・DT）の共通スタイル
+   VW-01 の取り込みで Figma（25:2・25:84・29:2478・29:2547・18:40・20:28）から作成。
+   各画面の <style> に、この内容をそのまま転記してから画面固有のスタイルを足す。
+   ========================================================================= */
+
+:root {
+  /* カラー（Figma Variables: Color → Primitives, Light） */
+  --white: oklch(99.7% 0.005 95.1);   /* #FFFEFA */
+  --ink: oklch(33.2% 0.029 167.8);      /* #273B33 */
+  --secondary: oklch(45.2% 0.022 142.7); /* #4F594E */
+  --muted: oklch(54.8% 0.02 140);       /* #6B7469 */
+  --line: oklch(91% 0.013 126.4);       /* #DFE3DA */
+  --green: oklch(43.4% 0.057 163.2);   /* #315B48 */
+  --light: oklch(94.8% 0.014 134.9);   /* #EAF0E7 */
+  --paper: oklch(95.8% 0.008 91.5);     /* #F3F1EB */
+  --focus: oklch(57.7% 0.13 40.7);      /* #B85B38 */
+
+  /* 書体 */
+  --font-display: 'Noto Serif JP', serif;
+  --font-base: 'Noto Sans JP', sans-serif;
+
+  /* テキストスタイル（Figma: Lunt/*） */
+  --text-catch: 29px;   --leading-catch: 43px;
+  --text-page: 24px;    --leading-page: 36px;
+  --text-section: 18px; --leading-section: 29px;
+  --text-name: 15px;    --leading-name: 24px;
+  --text-body: 14px;    --leading-body: 25px;
+  --text-ui: 13px;      --leading-ui: 20px;
+  --text-meta: 11px;    --leading-meta: 18px;
+  --text-small: 10px;   --leading-small: 16px;
+  --text-title: 22px;   --leading-title: 33px;
+  --leading-heading: 27px;
+  --text-lead: 20px;    --leading-lead: 30px;
+  --tracking-display: 0.02em;
+  --tracking-base: 0;
+  --weight-regular: 400;
+  --weight-medium: 500;
+
+  /* スペーシング（Figma Variables: space/*） */
+  --space-0: 0;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-21: 21px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-gutter: var(--space-21); /* 画面の左右の余白。md で上書き */
+
+  /* 角丸（Figma Variables: radius/*） */
+  --radius-0: 0;
+  --radius-2: 2px;
+  --radius-8: 8px;
+  --radius-16: 16px;
+  --radius-999: 999px;
+
+  /* サイズ（Figma Variables: size/touch） */
+  --size-touch: 44px;
+  --bottom-nav-height: 77px;
+
+  /* 線 */
+  --border-1: 1px;
+  --border-2: 2px;
+
+  /* 重なる面の背景（補ったもの） */
+  --color-scrim: oklch(33.2% 0.029 167.8 / 0.4);
+  --color-green-hover: color-mix(in oklch, var(--green), var(--ink) 45%);
+
+  /* 影（Figma: Lunt/Overlay） */
+  --shadow-overlay: 0 8px 24px oklch(33.2% 0.029 167.8 / 0.12);
+
+  /* トランジション（補ったもの） */
+  --transition-default: 150ms ease-out;
+
+  /* ブレークポイント（参照用） */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}
+
+@media (min-width: 768px) {
+  :root { --space-gutter: var(--space-32); }
+}
+
+/* ---------- 基本 ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-base);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-base);
+  overflow-wrap: anywhere;
+}
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+img { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { margin: 0; font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+:focus-visible {
+  outline: var(--border-2) solid var(--focus);
+  outline-offset: var(--border-2);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* テキストスタイル（Figma: Lunt/*） */
+.t-catch   { font-family: var(--font-display); font-size: var(--text-catch);   line-height: var(--leading-catch);   letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.t-page    { font-family: var(--font-display); font-size: var(--text-page);    line-height: var(--leading-page);    letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.t-section { font-family: var(--font-display); font-size: var(--text-section); line-height: var(--leading-section); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.t-name    { font-family: var(--font-display); font-size: var(--text-name);    line-height: var(--leading-name);    letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.t-body    { font-family: var(--font-base); font-size: var(--text-body);  line-height: var(--leading-body);  letter-spacing: var(--tracking-base); font-weight: var(--weight-regular); }
+.t-ui      { font-family: var(--font-base); font-size: var(--text-ui);    line-height: var(--leading-ui);    letter-spacing: var(--tracking-base); font-weight: var(--weight-medium); }
+.t-meta    { font-family: var(--font-base); font-size: var(--text-meta);  line-height: var(--leading-meta);  letter-spacing: var(--tracking-base); font-weight: var(--weight-regular); }
+.t-small   { font-family: var(--font-base); font-size: var(--text-small); line-height: var(--leading-small); letter-spacing: var(--tracking-base); font-weight: var(--weight-regular); }
+
+/* ---------- 画面の骨組み ---------- */
+/* モバイル: Header（sticky）/ 本文（ページごとスクロール）/ BottomNavigation（fixed, 77px） */
+
+.app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+
+.page {
+  flex: 1;
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 本文の幅: 左右は --space-gutter（〜767 は 21 / md 以上 32）/ lg 最大 1200 で中央 */
+.container {
+  width: 100%;
+  max-width: calc(1200px + 2 * var(--space-gutter));
+  margin-inline: auto;
+  padding-inline: var(--space-gutter);
+}
+
+/* ---------- Header（Lunt/Header 18:40） ---------- */
+
+.site-header {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--white);
+}
+.site-header__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-16);
+  min-height: 60px;
+  width: 100%;
+  max-width: calc(1200px + 2 * var(--space-gutter));
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-gutter);
+}
+/* Type=Detail（Header 29:2412）: Back 44 / Title 幅 212 固定 / Action 44 を gap 16・両端揃えで並べる。390px では間隔が 24 に開く */
+.site-header[data-type="detail"] .site-header__bar--global { display: none; }
+
+.site-header__title {
+  flex: 0 1 212px; min-width: 0;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.site-header__actions { display: flex; align-items: center; gap: var(--space-8); flex: none; }
+.site-header__spacer { width: var(--size-touch); height: var(--size-touch); flex: none; }
+
+/* Lunt/Logo（92×32 の枠の中に 85.33×25.33） */
+.logo { position: relative; display: block; flex: none; width: 92px; height: 32px; border-radius: var(--radius-2); }
+/* 見た目の 92×32 を保ったまま、押せる範囲を上下 8 ずつ広げて高さ 48 にする */
+.logo::after { content: ""; position: absolute; inset: calc(-1 * var(--space-8)) var(--space-0); }
+.logo img { position: absolute; left: 2.9%; top: 9.38%; width: 85.3333px; height: 25.3333px; max-width: none; }
+
+/* アカウントの入口（Figma に人のアイコンが無いため、Chip Selected=false の形の文字ボタンで補った） */
+.account-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-12);
+  border: var(--border-1) solid var(--line);
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  white-space: nowrap;
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.account-link:active { background: var(--light); border-color: var(--green); }
+
+/* lg で使うトップナビ（モバイルでは出さない） */
+.top-nav { display: none; }
+
+/* ---------- BottomNavigation（Lunt/BottomNavigation 19:181） ---------- */
+
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--white);
+  border-top: var(--border-1) solid var(--line);
+  padding: var(--space-4) var(--space-0) calc(var(--space-16) + env(safe-area-inset-bottom, 0px));
+}
+.bottom-nav__list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-4);
+  height: 56px;
+  font-size: var(--text-small); line-height: var(--leading-small);
+  color: var(--ink); text-align: center;
+  transition: background-color var(--transition-default);
+}
+.nav-item img { width: 24px; height: 24px; }
+.nav-item[aria-current="page"] { background: var(--light); }
+.nav-item:active { background: var(--light); }
+.nav-item:focus-visible { outline-offset: calc(-1 * var(--border-2)); }
+
+/* ---------- Button（Lunt/Button 13:18） ---------- */
+
+.button {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: 0;
+  border-radius: var(--radius-8);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--transition-default), border-color var(--transition-default), color var(--transition-default);
+}
+/* Style=Primary */
+.button--primary { background: var(--green); color: var(--white); }
+.button--primary:active { background: var(--ink); }
+.button--primary:disabled, .button--primary[aria-disabled="true"] { background: var(--light); color: var(--muted); cursor: not-allowed; }
+/* Style=Secondary（枠 1px の分だけ高さ 46） */
+.button--secondary { background: var(--white); color: var(--ink); border: var(--border-1) solid var(--line); }
+.button--secondary:active { background: var(--light); border-color: var(--green); }
+.button--secondary:disabled, .button--secondary[aria-disabled="true"] { background: var(--light); border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+
+/* 文字だけの操作（補った: リンクとして示す操作） */
+.text-button {
+  display: inline-flex; align-items: center;
+  min-height: var(--size-touch);
+  padding: 0 var(--space-4);
+  border: 0; background: transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--green);
+  text-decoration: underline; text-underline-offset: var(--space-4);
+  cursor: pointer;
+  border-radius: var(--radius-2);
+  transition: color var(--transition-default), background-color var(--transition-default);
+}
+.text-button:active { background: var(--light); }
+
+/* ---------- IconButton（Lunt/IconButton 14:18） ---------- */
+
+.icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  width: var(--size-touch); height: var(--size-touch);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-999);
+  background: var(--white);            /* State=Off */
+  cursor: pointer;
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.icon-button img { width: 24px; height: 24px; }
+.icon-button--neutral { border: var(--border-1) solid var(--line); } /* State=Neutral */
+.icon-button[aria-pressed="true"] { background: var(--light); }   /* State=On */
+.icon-button:active { background: var(--light); }
+.icon-button:disabled, .icon-button[aria-disabled="true"] { background: var(--paper); cursor: not-allowed; }
+.icon-button:disabled img, .icon-button[aria-disabled="true"] img { opacity: 0.4; }
+
+/* 保存の操作（DiscoverCard の Save。Off = surface + bookmark / On = subtle + bookmark-filled） */
+.save-button .save-button__on { display: none; }
+.save-button[aria-pressed="true"] .save-button__off { display: none; }
+.save-button[aria-pressed="true"] .save-button__on { display: block; }
+
+/* ---------- Tab（Lunt/Tab 24:155） ---------- */
+
+.tabs { display: flex; align-items: flex-start; gap: var(--space-8); }
+.tab {
+  display: flex; align-items: center; justify-content: center;
+  flex: none;
+  width: 64px; min-height: var(--size-touch);
+  padding: 0;
+  border: 0; background: transparent;
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--muted); text-align: center;
+  cursor: pointer;
+  transition: color var(--transition-default), background-color var(--transition-default);
+}
+.tab[aria-pressed="true"], .tab[aria-current="page"], .tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom: var(--border-2) solid var(--green);
+}
+.tab:active { background: var(--light); }
+
+/* ---------- Chip（Lunt/Chip 15:25） ---------- */
+
+.chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--space-4);
+  min-height: var(--size-touch);
+  padding: var(--space-12);
+  border: var(--border-1) solid var(--line);  /* Selected=false（高さ 46） */
+  border-radius: var(--radius-999);
+  background: var(--white);
+  font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-default), border-color var(--transition-default);
+}
+.chip[aria-pressed="true"], .chip--selected { background: var(--light); border: 0; } /* Selected=true（高さ 44） */
+.chip:active { background: var(--light); }
+.chip img { width: 24px; height: 24px; }
+/* 解除できる条件（CF-03）: Selected=true + close */
+.chip--removable { padding-block: 0; padding-inline: var(--space-12) var(--space-8); }
+
+/* ---------- Area selector（01 みつける 26:301） ---------- */
+
+.area-selector {
+  display: flex; align-items: center; gap: var(--space-8);
+  min-width: 0;
+  min-height: var(--size-touch);
+  padding: 0; border: 0; background: transparent;
+  color: var(--ink); text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-2);
+  transition: background-color var(--transition-default);
+}
+.area-selector img { width: 24px; height: 24px; flex: none; }
+.area-selector__label {
+  flex: 1; min-width: 0;
+  font-size: var(--text-meta); line-height: var(--leading-meta);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.area-selector:active { background: var(--light); }
+
+/* ---------- DiscoverCard（Lunt/DiscoverCard 20:28） ---------- */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--space-16);
+  row-gap: var(--space-24);
+}
+.card { position: relative; min-width: 0; }
+.card__link { display: flex; flex-direction: column; gap: var(--space-4); border-radius: var(--radius-2); }
+.card__photo {
+  aspect-ratio: 1 / 1; width: 100%;
+  border-radius: var(--radius-2); overflow: hidden;
+  background: var(--paper);
+}
+.card__photo img { width: 100%; height: 100%; object-fit: cover; transition: filter var(--transition-default); }
+.card__name { font-family: var(--font-display); font-size: var(--text-name); line-height: var(--leading-name); letter-spacing: var(--tracking-display); color: var(--ink); }
+.card__shop { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.card__area { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+.card .save-button { position: absolute; top: var(--space-8); right: var(--space-8); }
+
+/* ---------- EditorialFeature（Lunt/EditorialFeature 21:6） ---------- */
+/* Divider / Location / Kicker / Catch / Photo（348×193）/ Name / Description / Divider、縦 gap 8 */
+
+.feature { display: flex; flex-direction: column; gap: var(--space-8); color: var(--ink); }
+.feature::before, .feature::after { content: ""; display: block; height: var(--border-1); background: var(--line); }
+.feature__head, .feature__foot { display: flex; flex-direction: column; gap: var(--space-8); }
+.feature__location { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+.feature__kicker { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+.feature__catch { font-family: var(--font-display); font-size: var(--text-catch); line-height: var(--leading-catch); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.feature__photo {
+  aspect-ratio: 348 / 193; width: 100%;
+  border-radius: var(--radius-2); overflow: hidden;
+  background: var(--paper);
+}
+.feature__photo img { width: 100%; height: 100%; object-fit: cover; transition: filter var(--transition-default); }
+.feature__name { font-family: var(--font-display); font-size: var(--text-section); line-height: var(--leading-section); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); }
+.feature__description { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+a.feature:focus-visible { outline-offset: var(--space-4); }
+
+/* ---------- EmptyState / 通信エラー（Lunt/EmptyState 22:6、37 通信エラー 41:2648） ---------- */
+
+.feedback {
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-48) var(--space-0);
+  text-align: center;
+}
+.feedback__icon { width: 24px; height: 24px; }
+.feedback__title { font-family: var(--font-display); font-size: var(--text-section); line-height: var(--leading-section); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); color: var(--ink); width: 100%; }
+.feedback__body { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); width: 100%; }
+.feedback__actions { display: flex; flex-direction: column; align-items: center; gap: var(--space-8); width: 100%; }
+.feedback__links { display: flex; flex-wrap: wrap; justify-content: center; column-gap: var(--space-8); }
+
+/* ---------- 読み込み中（36 読み込み 29:2478） ---------- */
+
+.loading { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-24); }
+.loading__text { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+.skeleton { display: block; max-width: 100%; background: var(--light); border-radius: var(--radius-2); }
+
+/* ---------- お知らせ（補った: CS-03・続きの読み込みの CS-02 など、本文の中に置く短い知らせ） ---------- */
+
+.notice {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-8);
+  background: var(--paper);
+}
+.notice__text { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.notice__title { font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium); color: var(--ink); }
+.notice__actions { display: flex; flex-wrap: wrap; column-gap: var(--space-8); }
+.notice--error { border: var(--border-1) solid var(--focus); }
+
+/* ---------- ホバー（ポインターのある端末だけ） ---------- */
+
+@media (hover: hover) {
+  .button--primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--color-green-hover); }
+  .button--secondary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--paper); }
+  .icon-button:not(:disabled):not([aria-pressed="true"]):hover { background: var(--paper); }
+  .icon-button[aria-pressed="true"]:hover { background: var(--line); }
+  .account-link:hover, .chip:not(.chip--selected):not([aria-pressed="true"]):hover { background: var(--paper); }
+  .chip--selected:hover, .chip[aria-pressed="true"]:hover { background: var(--line); }
+  .tab:hover { color: var(--ink); }
+  .text-button:hover { color: var(--ink); }
+  .area-selector:hover { background: var(--paper); }
+  .nav-item:not([aria-current="page"]):hover, .top-nav__item:not([aria-current="page"]):hover { background: var(--paper); }
+  .card__link:hover .card__photo img, a.feature:hover .feature__photo img { filter: brightness(0.92); }
+  .card__link:hover .card__name, a.feature:hover .feature__name { text-decoration: underline; text-underline-offset: var(--space-4); text-decoration-thickness: var(--border-1); }
+}
+
+/* ---------- md（768px〜）: 左右 32（--space-gutter）、カード 3 列 ---------- */
+
+@media (min-width: 768px) {
+  .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .button--fit { max-width: 348px; margin-inline: auto; }
+  .feedback .button { max-width: 348px; }
+  .feedback__title, .feedback__body { max-width: 560px; }
+}
+
+/* ---------- lg（1024px〜）: デスクトップの構造 ---------- */
+
+@media (min-width: 1024px) {
+  .bottom-nav { display: none; }
+  .page { padding-bottom: var(--space-48); }
+
+  .site-header { border-bottom: var(--border-1) solid var(--line); }
+  .site-header[data-type="detail"] .site-header__bar--global { display: flex; }
+  .site-header__bar--local { border-top: var(--border-1) solid var(--line); }
+  /* 検索は上段のグローバルヘッダーにあるので、下段の帯の検索は出さない */
+  .site-header__search { display: none; }
+  .site-header__bar--local:has(> .site-header__search) { justify-content: flex-start; }
+
+  .top-nav { display: block; flex: 1; min-width: 0; }
+  .top-nav__list { display: flex; justify-content: center; gap: var(--space-4); }
+  .top-nav__item {
+    display: flex; align-items: center; gap: var(--space-8);
+    min-height: var(--size-touch);
+    padding: 0 var(--space-16);
+    border-radius: var(--radius-999);
+    font-size: var(--text-ui); line-height: var(--leading-ui); font-weight: var(--weight-medium);
+    color: var(--ink); white-space: nowrap;
+    transition: background-color var(--transition-default);
+  }
+  .top-nav__item img { width: 24px; height: 24px; }
+  .top-nav__item[aria-current="page"] { background: var(--light); }
+  .top-nav__item:active { background: var(--light); }
+
+  .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* 大きな枠: 文字を左、写真を右に置く */
+  .feature {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas: "rule-top rule-top" "head photo" "foot photo" "rule-bottom rule-bottom";
+    column-gap: var(--space-32);
+    row-gap: var(--space-16);
+  }
+  .feature::before { grid-area: rule-top; }
+  .feature::after { grid-area: rule-bottom; }
+  .feature__head { grid-area: head; }
+  .feature__photo { grid-area: photo; }
+  .feature__foot { grid-area: foot; align-self: start; }
+}
+
+/* ---------- デザイン確認用の状態切り替え（実装の対象ではない） ---------- */
+
+nav[data-design-states] {
+  position: static; z-index: 100;
+  font-family: var(--font-base);
+}
+nav[data-design-states] > details {
+  background: var(--ink); color: var(--white);
+}
+nav[data-design-states] summary {
+  list-style: none; cursor: pointer;
+  min-height: var(--size-touch); padding: 0 var(--space-12);
+  display: flex; align-items: center; justify-content: flex-start;
+  font-size: var(--text-small); line-height: var(--leading-small);
+}
+nav[data-design-states] summary::-webkit-details-marker { display: none; }
+nav[data-design-states] ul {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  width: 240px; max-width: 100%;
+  padding: 0 var(--space-8) var(--space-8);
+  max-height: 70vh; overflow-y: auto;
+}
+nav[data-design-states] button {
+  width: 100%; min-height: 32px;
+  padding: var(--space-4) var(--space-8);
+  border: var(--border-1) solid var(--muted);
+  border-radius: var(--radius-8);
+  background: transparent; color: var(--white);
+  font-size: var(--text-small); line-height: var(--leading-small);
+  text-align: left; cursor: pointer;
+}
+nav[data-design-states] button[aria-pressed="true"] { background: var(--white); color: var(--ink); }
+
+/* =========================================================================
+   詳細（DT-01〜DT-04）の共通（画面固有のうち、4 画面で同じもの）
+   Body = 縦 gap 24・padding 21（29:673 ほか）。DetailHero 30:6、ContentRow 21:165
+   lg: 写真（左 7fr）と本文（右 5fr）の 2 列。写真は本文の間とどまる
+   ========================================================================= */
+
+.detail-page { padding-block: var(--space-21); }
+.detail, .detail__main, .detail__media, .detail-section, .detail-rows { display: flex; flex-direction: column; gap: var(--space-24); min-width: 0; }
+/* モバイルは DetailHero のとおり写真と種類の間を 12 にする（写真と本文を lg で左右に分けるため、写真を本文の外に置く） */
+.detail--split { gap: var(--space-12); }
+
+/* DetailHero（30:6）: Photo 348×290 / Kind / Name / Shop / Description、縦 gap 12。Save は写真の右上 8 */
+.hero { display: flex; flex-direction: column; gap: var(--space-12); min-width: 0; }
+.hero__media { position: relative; }
+.hero__photo {
+  aspect-ratio: 348 / 290; width: 100%;
+  border-radius: var(--radius-2); overflow: hidden;
+  background: var(--paper);
+}
+.hero__photo img { width: 100%; height: 100%; object-fit: cover; }
+.hero__media .save-button { position: absolute; top: var(--space-8); right: var(--space-8); }
+.hero__text { display: flex; flex-direction: column; gap: var(--space-12); min-width: 0; }
+.hero__kind { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+.hero__name { font-family: var(--font-display); font-size: var(--text-page); line-height: var(--leading-page); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); color: var(--ink); }
+.hero__place { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.hero__place a { text-decoration: underline; text-underline-offset: var(--space-4); text-decoration-thickness: var(--border-1); text-decoration-color: var(--line); }
+.hero__description { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+
+/* 対象の状態のラベル（補った。文言で示し、色だけに頼らない） */
+.status-tags { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.status-tag {
+  display: inline-flex; align-items: center;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-999);
+  background: var(--light);
+  font-size: var(--text-meta); line-height: var(--leading-meta);
+  color: var(--ink);
+}
+.status-tag--quiet { background: var(--paper); color: var(--secondary); border: var(--border-1) solid var(--line); }
+
+/* 区分の見出し（Lunt/Section） */
+.section-title { font-family: var(--font-display); font-size: var(--text-section); line-height: var(--leading-section); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); color: var(--ink); }
+
+/* 本文の段落（Lunt/Body secondary。「お店のこと」「体験について」） */
+.detail-text { font-size: var(--text-body); line-height: var(--leading-body); color: var(--secondary); }
+
+/* ContentRow 21:165（DT-05 と同じ） */
+.content-row {
+  display: flex; align-items: center;
+  gap: var(--space-16);
+  min-width: 0;
+  border-radius: var(--radius-2);
+}
+.content-row__photo {
+  flex: none;
+  width: 88px; height: 88px;
+  border-radius: var(--radius-2); overflow: hidden;
+  background: var(--paper);
+}
+.content-row__photo img { width: 100%; height: 100%; object-fit: cover; transition: filter var(--transition-default); }
+.content-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.content-row__name { font-family: var(--font-display); font-size: var(--text-name); line-height: var(--leading-name); letter-spacing: var(--tracking-display); color: var(--ink); }
+.content-row__meta { font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--secondary); }
+.content-row__area { font-size: var(--text-small); line-height: var(--leading-small); color: var(--muted); }
+a.content-row:focus-visible { outline-offset: var(--space-4); }
+a.content-row:active .content-row__photo img { filter: brightness(0.92); }
+
+/* 罫線（Divider 78:3398、line 1px） */
+.divider { height: var(--border-1); margin: 0; border: 0; background: var(--line); }
+
+/* 手続きの入口（29:1289 の Divider + Button Secondary。条件つきの入口と取り下げの申立ては文字の操作で添える） */
+.procedures { display: flex; flex-direction: column; gap: var(--space-24); }
+.procedures__buttons { display: flex; flex-direction: column; gap: var(--space-8); }
+.procedures__links { display: flex; flex-wrap: wrap; column-gap: var(--space-8); }
+.procedures__links .text-button { color: var(--secondary); font-size: var(--text-meta); line-height: var(--leading-meta); }
+
+/* 続きの読み込み（CF-05）の知らせ */
+.more-status { display: flex; align-items: center; gap: var(--space-8); min-height: var(--size-touch); font-size: var(--text-meta); line-height: var(--leading-meta); color: var(--muted); }
+
+/* 読み込み中の骨組み（DetailHero と ContentRow の形） */
+.skeleton--hero { width: 100%; aspect-ratio: 348 / 290; }
+.skeleton--kind { width: 96px; height: 18px; }
+.skeleton--name { width: 220px; height: 36px; }
+.skeleton--place { width: 180px; height: 18px; }
+.skeleton--line { width: 100%; height: 18px; }
+.skeleton--line-short { width: 60%; height: 18px; }
+.skeleton--button { width: 100%; height: 44px; border-radius: var(--radius-8); }
+.skeleton-row { display: flex; align-items: center; gap: var(--space-16); width: 100%; }
+.skeleton--thumb { flex: none; width: 88px; height: 88px; }
+.skeleton-row__lines { flex: 1; display: flex; flex-direction: column; gap: var(--space-8); }
+.loading { width: 100%; }
+
+@media (hover: hover) {
+  a.content-row:hover .content-row__photo img { filter: brightness(0.92); }
+  a.content-row:hover .content-row__name { text-decoration: underline; text-underline-offset: var(--space-4); text-decoration-thickness: var(--border-1); }
+  .procedures__links .text-button:hover { color: var(--ink); }
+  .hero__place a:hover { text-decoration-color: currentColor; }
+}
+
+@media (min-width: 768px) {
+  .detail-rows--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-32); row-gap: var(--space-24); }
+}
+
+@media (min-width: 1024px) {
+  .detail-page { padding-block: var(--space-32) var(--space-0); }
+  /* 写真と本文を左右の 2 列に */
+  .detail--split {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: var(--space-48);
+    align-items: start;
+  }
+  .detail--split > .detail__media { position: sticky; top: calc(122px + var(--space-24)); }
+  .detail--split .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail--split .detail-rows--grid { grid-template-columns: minmax(0, 1fr); }
+  .procedures .button { max-width: 348px; }
+}
+
+/* =========================================================================
+   DT-04 イベント詳細（画面固有）
+   Figma 29:1496 22 イベント詳細 / 29:1565 23 参加店舗（参加店舗の区分をすべて示す行の組み方）
+   Event hero は DetailHero の形（Kind の位置に開催期間、Shop の位置に開催場所）。保存の操作は持たない
+   ========================================================================= */
+
+/* キャッチコピー（補った。spec の「キャッチコピー」。明朝 Lunt/Section） */
+.dt04-catch { font-family: var(--font-display); font-size: var(--text-section); line-height: var(--leading-section); letter-spacing: var(--tracking-display); font-weight: var(--weight-regular); color: var(--ink); }
+
+/* 参加店舗: ContentRow（店舗・参加日・地域）+ 添えた掲載（ContentRow の文字の左端にそろえる = 88 + 16） */
+.dt04-participant { display: grid; grid-template-columns: 88px minmax(0, 1fr); column-gap: var(--space-16); row-gap: var(--space-4); min-width: 0; }
+.dt04-participant > .content-row { grid-column: 1 / -1; }
+.dt04-listings { grid-column: 2; display: flex; flex-wrap: wrap; column-gap: var(--space-8); }
+</style>
+</head>
+<body data-state="default">
+<nav data-design-states aria-label="デザイン確認用の状態切り替え">
+  <details>
+    <summary>状態</summary>
+    <ul>
+      <li><button type="button" data-state-value="default">開催前・ログインしていない（既定）</button></li>
+      <li><button type="button" data-state-value="ongoing">開催中</button></li>
+      <li><button type="button" data-state-value="ended">終了</button></li>
+      <li><button type="button" data-state-value="canceled">中止</button></li>
+      <li><button type="button" data-state-value="no-rights">開催前・店舗の管理権限を持たない利用者</button></li>
+      <li><button type="button" data-state-value="empty">CS-09 イベントに閲覧できる掲載がない</button></li>
+      <li><button type="button" data-state-value="unavailable">CS-06 閲覧できない対象</button></li>
+      <li><button type="button" data-state-value="loading">CS-01 読み込み中</button></li>
+      <li><button type="button" data-state-value="loading-more">CS-01 読みものの続きを読み込み中</button></li>
+      <li><button type="button" data-state-value="error">CS-02 通信エラー</button></li>
+    </ul>
+  </details>
+</nav>
+<div class="app">
+
+  <!-- Header Type=Detail（Lunt/Header 18:40）。lg では上段にロゴ・トップナビ・検索・マイページ、下段に戻る・画面名・検索 -->
+  <header class="site-header" data-type="detail">
+    <div class="site-header__bar site-header__bar--global">
+      <a class="logo" href="VW-01_みつける.html"><img src="../assets/logo.svg" width="85.3333" height="25.3333" alt="Lunt"></a>
+      <nav class="top-nav" aria-label="メインナビゲーション">
+        <ul class="top-nav__list">
+          <li><a class="top-nav__item" href="VW-01_みつける.html"><img src="../assets/icon-compass.svg" width="24" height="24" alt="">みつける</a></li>
+          <li><a class="top-nav__item" href="VW-04_マップ.html"><img src="../assets/icon-map.svg" width="24" height="24" alt="">マップ</a></li>
+          <li><a class="top-nav__item" href="VW-05_まち.html" aria-current="page"><img src="../assets/icon-region.svg" width="24" height="24" alt="">まち</a></li>
+          <li><a class="top-nav__item" href="VW-09_読む.html"><img src="../assets/icon-book.svg" width="24" height="24" alt="">読む</a></li>
+          <li><a class="top-nav__item" href="VW-10_保存.html"><img src="../assets/icon-bookmark.svg" width="24" height="24" alt="">保存</a></li>
+        </ul>
+      </nav>
+      <div class="site-header__actions">
+        <a class="icon-button icon-button--neutral" href="VW-03_検索.html" aria-label="検索"><img src="../assets/icon-search.svg" width="24" height="24" alt=""></a>
+        <a class="account-link" href="MY-01_マイページ.html">マイページ</a>
+      </div>
+    </div>
+    <div class="site-header__bar site-header__bar--local">
+      <a class="icon-button icon-button--neutral" href="VW-07_イベントの一覧.html" aria-label="戻る"><img src="../assets/icon-back.svg" width="24" height="24" alt=""></a>
+      <p class="site-header__title"><span data-states="default ongoing ended canceled no-rights empty loading-more">よりみち市</span><span data-states="unavailable loading error">イベント</span></p>
+      <a class="icon-button icon-button--neutral site-header__search" href="VW-03_検索.html" aria-label="検索"><img src="../assets/icon-search.svg" width="24" height="24" alt=""></a>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="container detail-page">
+
+      <!-- ===== イベントの内容（CS-01・CS-02・CS-06 の間は本文ごと置き換える） ===== -->
+      <div class="detail detail--split" data-states="default ongoing ended canceled no-rights empty loading-more">
+
+        <!-- Event hero の写真（保存の操作は持たない）。lg では左の列 -->
+        <div class="detail__media">
+          <div class="hero__media">
+            <div class="hero__photo"><img src="../assets/photo-street.jpg" width="627" height="627" alt="こもれび商店街の通り"></div>
+          </div>
+        </div>
+
+        <div class="detail__main">
+          <!-- Event hero の文字（Kind の位置に開催期間 / Name / 開催場所 / キャッチコピー / 紹介） -->
+          <div class="hero__text">
+            <p class="hero__kind">10月17日（土）・18日（日）</p>
+            <h1 class="hero__name">こもれび 秋のよりみち市</h1>
+            <p class="hero__place">こもれび商店街</p>
+            <div class="status-tags">
+              <span class="status-tag" data-states="default no-rights empty loading-more">開催予定</span>
+              <span class="status-tag" data-states="ongoing">開催中</span>
+              <span class="status-tag status-tag--quiet" data-states="ended">終了</span>
+              <span class="status-tag status-tag--quiet" data-states="canceled">中止</span>
+            </div>
+            <p class="dt04-catch">お店をめぐる、<br>秋の二日間。</p>
+            <p class="hero__description">いつもの街を、少し違う楽しみ方で。お店ごとの限定のおやつや、器を選ぶ相談会に出会える2日間です。</p>
+          </div>
+
+          <!-- 終了・中止: 開催中と区別して示し、VW-07 へ進める -->
+          <div class="notice" role="status" data-states="ended">
+            <p class="notice__title">このイベントは終了しました</p>
+            <p class="notice__text">内容はこのまま見られます。これから開かれるイベントも探せます。</p>
+            <div class="notice__actions"><a class="text-button" href="VW-07_イベントの一覧.html">ほかのイベントを探す</a></div>
+          </div>
+          <div class="notice" role="status" data-states="canceled">
+            <p class="notice__title">このイベントは中止になりました</p>
+            <p class="notice__text">内容はこのまま見られます。ほかのイベントも探せます。</p>
+            <div class="notice__actions"><a class="text-button" href="VW-07_イベントの一覧.html">ほかのイベントを探す</a></div>
+          </div>
+
+          <!-- 参加店舗の位置（VW-08） -->
+          <a class="button button--primary" href="VW-08_参加店舗マップ.html">参加店舗を地図で見る</a>
+
+          <!-- 参加店舗（すべての参加店舗と、店舗ごとに添えた掲載・参加日。参加が成立した順 → DT-02・DT-01） -->
+          <section class="detail-section" aria-labelledby="dt04-shops">
+            <h2 class="section-title" id="dt04-shops">参加店舗と楽しめること</h2>
+
+            <!-- CS-09 イベントに閲覧できる掲載がない: 参加店舗は示し、VW-07 へ進める -->
+            <div class="notice" role="status" data-states="empty">
+              <p class="notice__title">このイベントで見られる掲載は、まだありません</p>
+              <p class="notice__text">参加するお店から、楽しめることを確かめられます。</p>
+              <div class="notice__actions"><a class="text-button" href="VW-07_イベントの一覧.html">ほかのイベントを探す</a></div>
+            </div>
+
+            <div class="detail-rows">
+              <div class="dt04-participant">
+                <a class="content-row" href="DT-02_店舗詳細.html">
+                  <div class="content-row__photo"><img src="../assets/photo-parfait.jpg" width="627" height="627" alt=""></div>
+                  <div class="content-row__body">
+                    <p class="content-row__name">喫茶 日々</p>
+                    <p class="content-row__meta">参加日　10月17日（土）・18日（日）</p>
+                    <p class="content-row__area">こもれび商店街</p>
+                  </div>
+                </a>
+                <ul class="dt04-listings" aria-label="喫茶 日々が添えた掲載" data-states="default ongoing ended canceled no-rights loading-more">
+                  <li><a class="text-button" href="DT-01_掲載詳細.html">いちじくのパフェ</a></li>
+                </ul>
+              </div>
+              <div class="dt04-participant">
+                <a class="content-row" href="DT-02_店舗詳細.html">
+                  <div class="content-row__photo"><img src="../assets/photo-pottery.jpg" width="627" height="627" alt=""></div>
+                  <div class="content-row__body">
+                    <p class="content-row__name">うつわ 凪</p>
+                    <p class="content-row__meta">参加日　10月18日（日）</p>
+                    <p class="content-row__area">こもれび商店街</p>
+                  </div>
+                </a>
+                <ul class="dt04-listings" aria-label="うつわ 凪が添えた掲載" data-states="default ongoing ended canceled no-rights loading-more">
+                  <li><a class="text-button" href="DT-01_掲載詳細.html">青釉のカップ</a></li>
+                  <li><a class="text-button" href="DT-01_掲載詳細.html">器づくり体験</a></li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- 地域（関連づけられた公開中の地域。関連づけた順 → DT-03） -->
+          <section class="detail-section" aria-labelledby="dt04-regions">
+            <h2 class="section-title" id="dt04-regions">開催する街</h2>
+            <div class="detail-rows">
+              <a class="content-row" href="DT-03_地域詳細.html">
+                <div class="content-row__photo"><img src="../assets/photo-street.jpg" width="627" height="627" alt=""></div>
+                <div class="content-row__body">
+                  <p class="content-row__name">こもれび商店街</p>
+                  <p class="content-row__meta">喫茶と器と、小さな寄り道。</p>
+                  <p class="content-row__area">緑野市・旧市街</p>
+                </div>
+              </a>
+            </div>
+          </section>
+
+          <!-- 読みもの（このイベントを紹介している公開中の読みもの。3 件、残りは CF-05 → DT-05）。補った -->
+          <section class="detail-section" aria-labelledby="dt04-reading">
+            <h2 class="section-title" id="dt04-reading">読みもの</h2>
+            <div class="detail-rows">
+              <a class="content-row" href="DT-05_記事.html">
+                <div class="content-row__photo"><img src="../assets/photo-pottery.jpg" width="627" height="627" alt=""></div>
+                <div class="content-row__body">
+                  <p class="content-row__name">器と手しごと</p>
+                  <p class="content-row__meta">器を選ぶ、器をつくる。</p>
+                  <p class="content-row__area">こもれび商店街・白波横丁</p>
+                </div>
+              </a>
+              <a class="content-row" href="DT-05_記事.html">
+                <div class="content-row__photo"><img src="../assets/photo-cafe.jpg" width="627" height="627" alt=""></div>
+                <div class="content-row__body">
+                  <p class="content-row__name">喫茶とおやつ</p>
+                  <p class="content-row__meta">通りを歩いた先で見つけた、ひと息つける場所。</p>
+                  <p class="content-row__area">こもれび商店街・白波横丁</p>
+                </div>
+              </a>
+              <a class="content-row" href="DT-05_記事.html">
+                <div class="content-row__photo"><img src="../assets/photo-croissant.jpg" width="627" height="627" alt=""></div>
+                <div class="content-row__body">
+                  <p class="content-row__name">パンと喫茶</p>
+                  <p class="content-row__meta">焼きたてのパンと、ひと息つける喫茶。</p>
+                  <p class="content-row__area">こもれび商店街・白波横丁</p>
+                </div>
+              </a>
+              <!-- 続きの読み込み（CF-05・CS-01） -->
+              <div class="loading" role="status" data-states="loading-more">
+                <p class="more-status">続きの読みものを読み込んでいます</p>
+                <div class="skeleton-row">
+                  <span class="skeleton skeleton--thumb"></span>
+                  <span class="skeleton-row__lines"><span class="skeleton skeleton--line"></span><span class="skeleton skeleton--line-short"></span></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- イベントの一覧（VW-07）で他のイベントを探す -->
+          <a class="button button--secondary" href="VW-07_イベントの一覧.html">イベントの一覧を見る</a>
+
+          <!-- 手続きの入口（index.md「詳細の手続きの入口」DT-04）: 参加の申請（RQ-06。開催前・開催中で、ログインしていないか店舗の管理権限を持つとき）と取り下げの申立て（RQ-07） -->
+          <div class="procedures">
+            <hr class="divider">
+            <a class="button button--secondary" href="RQ-06_参加の申請.html" data-states="default ongoing empty loading-more">このイベントへの参加を申請する</a>
+            <div class="procedures__links">
+              <a class="text-button" href="RQ-07_取り下げの申立て.html">このイベントの取り下げを申し立てる</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CS-06 閲覧できない対象（名称・写真を示さない） ===== -->
+      <div class="feedback" data-states="unavailable">
+        <img class="feedback__icon" src="../assets/icon-compass.svg" width="24" height="24" alt="">
+        <h1 class="feedback__title">このイベントは見られません。</h1>
+        <p class="feedback__body">公開が終わったか、表示できなくなっています。<br>ほかのイベントを探してみてください。</p>
+        <div class="feedback__actions">
+          <a class="button button--secondary" href="VW-07_イベントの一覧.html">イベントの一覧へ</a>
+          <div class="feedback__links">
+            <a class="text-button" href="VW-01_みつける.html">みつけるへ</a>
+            <a class="text-button" href="VW-03_検索.html">キーワードで探す</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CS-01 読み込み中 ===== -->
+      <div class="loading detail" role="status" data-states="loading">
+        <p class="loading__text">イベントを読み込んでいます</p>
+        <span class="skeleton skeleton--hero"></span>
+        <span class="skeleton skeleton--kind"></span>
+        <span class="skeleton skeleton--name"></span>
+        <span class="skeleton skeleton--place"></span>
+        <span class="skeleton skeleton--line"></span>
+        <span class="skeleton skeleton--line-short"></span>
+        <span class="skeleton skeleton--button"></span>
+      </div>
+
+      <!-- ===== CS-02 通信エラー ===== -->
+      <div class="feedback" role="alert" data-states="error">
+        <img class="feedback__icon" src="../assets/icon-compass.svg" width="24" height="24" alt="">
+        <h1 class="feedback__title">うまく読み込めませんでした。</h1>
+        <p class="feedback__body">通信状況を確認して、<br>もう一度お試しください。</p>
+        <div class="feedback__actions">
+          <button class="button button--secondary" type="button">もう一度読み込む</button>
+          <div class="feedback__links">
+            <a class="text-button" href="VW-03_検索.html">キーワードで探す</a>
+            <a class="text-button" href="VW-04_マップ.html">地図で探す</a>
+            <a class="text-button" href="VW-05_まち.html">まちを探す</a>
+            <a class="text-button" href="VW-07_イベントの一覧.html">イベントを見る</a>
+            <a class="text-button" href="VW-09_読む.html">読みものを見る</a>
+            <a class="text-button" href="VW-10_保存.html">保存を見る</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BottomNavigation Selected=Regions（Lunt/BottomNavigation 19:181。Figma のフレームのとおり）。lg では出さない -->
+  <nav class="bottom-nav" aria-label="メインナビゲーション">
+    <ul class="bottom-nav__list">
+      <li><a class="nav-item" href="VW-01_みつける.html"><img src="../assets/icon-compass.svg" width="24" height="24" alt="">みつける</a></li>
+      <li><a class="nav-item" href="VW-04_マップ.html"><img src="../assets/icon-map.svg" width="24" height="24" alt="">マップ</a></li>
+      <li><a class="nav-item" href="VW-05_まち.html" aria-current="page"><img src="../assets/icon-region.svg" width="24" height="24" alt="">まち</a></li>
+      <li><a class="nav-item" href="VW-09_読む.html"><img src="../assets/icon-book.svg" width="24" height="24" alt="">読む</a></li>
+      <li><a class="nav-item" href="VW-10_保存.html"><img src="../assets/icon-bookmark.svg" width="24" height="24" alt="">保存</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- デザイン確認用の状態切り替え（画面の外。実装の対象ではない） -->
+
+<script>
+/* 状態の切り替え: body[data-state] と一致する [data-states]（空白区切り）だけを表示する */
+(() => {
+  const nav = document.querySelector('nav[data-design-states]');
+  const buttons = nav ? [...nav.querySelectorAll('button[data-state-value]')] : [];
+  const sync = () => {
+    const state = document.body.dataset.state;
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.stateValue === state)));
+    document.querySelectorAll('[data-states]').forEach((el) => {
+      el.hidden = !el.dataset.states.split(/\s+/).includes(state);
+    });
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => {
+    document.body.dataset.state = b.dataset.stateValue;
+    history.replaceState(null, '', '#' + b.dataset.stateValue);
+  }));
+  new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['data-state'] });
+  const fromHash = decodeURIComponent(location.hash.slice(1));
+  if (buttons.some((b) => b.dataset.stateValue === fromHash)) document.body.dataset.state = fromHash;
+  sync();
+})();
+</script>
+</body>
+</html>
