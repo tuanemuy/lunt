@@ -1,7 +1,12 @@
 import type { AccountCommand } from "./account";
 import type { ApplicationCommand } from "./application";
+import type { AreaCommand } from "./area";
 import type { AuthorityCommand } from "./authority";
+import type { DiscoveryCommand } from "./discovery";
+import type { ListingCommand } from "./listing";
+import type { MediaCommand } from "./media";
 import type { NotificationCommand } from "./notification";
+import type { PlaceCommand } from "./place";
 
 /**
  * Buffered writes of one unit of work. Each domain contributes a union
@@ -17,7 +22,12 @@ export type WriteCommand =
   | AccountCommand
   | AuthorityCommand
   | ApplicationCommand
-  | NotificationCommand;
+  | NotificationCommand
+  | AreaCommand
+  | MediaCommand
+  | PlaceCommand
+  | ListingCommand
+  | DiscoveryCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

@@ -1,11 +1,16 @@
 import type { AccountErrorCode } from "@repo/core/domain/account/errorCode";
 import type { ApplicationErrorCode } from "@repo/core/domain/application/errorCode";
+import type { AreaErrorCode } from "@repo/core/domain/area/errorCode";
 import type { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import type {
   CommonErrorCode,
   SubjectErrorCode,
 } from "@repo/core/domain/common/errorCode";
+import type { DiscoveryErrorCode } from "@repo/core/domain/discovery/errorCode";
+import type { ListingErrorCode } from "@repo/core/domain/listing/errorCode";
+import type { MediaErrorCode } from "@repo/core/domain/media/errorCode";
 import type { NotificationErrorCode } from "@repo/core/domain/notification/errorCode";
+import type { PlaceErrorCode } from "@repo/core/domain/place/errorCode";
 
 /**
  * Every `BusinessRuleError` code a Lunt usecase can raise. Each domain
@@ -21,4 +26,9 @@ export type BusinessErrorCode =
   | AccountErrorCode
   | AuthorityErrorCode
   | ApplicationErrorCode
-  | NotificationErrorCode;
+  | NotificationErrorCode
+  | AreaErrorCode
+  | MediaErrorCode
+  | PlaceErrorCode
+  | ListingErrorCode
+  | DiscoveryErrorCode;

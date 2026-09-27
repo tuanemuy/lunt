@@ -6,8 +6,13 @@ import {
 } from "@repo/core/domain/common/exposureSubject";
 import { accountErrorCatalog } from "./errorCatalog/account";
 import { applicationErrorCatalog } from "./errorCatalog/application";
+import { areaErrorCatalog } from "./errorCatalog/area";
 import { authorityErrorCatalog } from "./errorCatalog/authority";
+import { discoveryErrorCatalog } from "./errorCatalog/discovery";
+import { listingErrorCatalog } from "./errorCatalog/listing";
+import { mediaErrorCatalog } from "./errorCatalog/media";
 import { notificationErrorCatalog } from "./errorCatalog/notification";
+import { placeErrorCatalog } from "./errorCatalog/place";
 import {
   type BusinessErrorPresentation,
   changed,
@@ -107,6 +112,11 @@ export const businessErrorCatalog = {
   ...authorityErrorCatalog,
   ...applicationErrorCatalog,
   ...notificationErrorCatalog,
+  ...areaErrorCatalog,
+  ...mediaErrorCatalog,
+  ...placeErrorCatalog,
+  ...listingErrorCatalog,
+  ...discoveryErrorCatalog,
 } satisfies Record<BusinessErrorCode, BusinessErrorPresentation>;
 
 type StaleCode = Exclude<keyof typeof businessErrorCatalog, BusinessErrorCode>;

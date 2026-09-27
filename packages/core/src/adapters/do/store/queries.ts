@@ -7,9 +7,14 @@ import type {
 import type { SqlExec } from "../sql";
 import { accountQueryHandlers } from "./account";
 import { applicationQueryHandlers } from "./application";
+import { areaQueryHandlers } from "./area";
 import { authorityQueryHandlers } from "./authority";
+import { discoveryQueryHandlers } from "./discovery";
+import { listingQueryHandlers } from "./listing";
+import { mediaQueryHandlers } from "./media";
 import { moderationQueryHandlers } from "./moderation";
 import { notificationQueryHandlers } from "./notification";
+import { placeQueryHandlers } from "./place";
 
 /** Handler table of one catalog fragment: one synchronous reader per name. */
 export type QueryHandlersOf<Q> = {
@@ -26,6 +31,11 @@ export const queryHandlers = {
   ...applicationQueryHandlers,
   ...notificationQueryHandlers,
   ...moderationQueryHandlers,
+  ...areaQueryHandlers,
+  ...mediaQueryHandlers,
+  ...placeQueryHandlers,
+  ...listingQueryHandlers,
+  ...discoveryQueryHandlers,
 } satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(

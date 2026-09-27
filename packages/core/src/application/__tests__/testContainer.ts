@@ -2,11 +2,16 @@ import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessSt
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { createTestAccountServices } from "../account/__tests__/testServices";
 import { createTestApplicationServices } from "../application/__tests__/testServices";
+import { createTestAreaServices } from "../area/__tests__/testServices";
 import { createTestAuthorityServices } from "../authority/__tests__/testServices";
 import type { RequestContainer } from "../di/types";
+import { createTestDiscoveryServices } from "../discovery/__tests__/testServices";
 import type { EventDecoderRegistry } from "../events/registry";
+import { createTestListingServices } from "../listing/__tests__/testServices";
+import { createTestMediaServices } from "../media/__tests__/testServices";
 import { createTestModerationServices } from "../moderation/__tests__/testServices";
 import { createTestNotificationServices } from "../notification/__tests__/testServices";
+import { createTestPlaceServices } from "../place/__tests__/testServices";
 import { FakeClock } from "./fakes/fakeClock";
 import { FakeIdGenerator } from "./fakes/fakeIdGenerator";
 import { FakeLogger } from "./fakes/fakeLogger";
@@ -83,6 +88,11 @@ export function createTestContainer(
     ...createTestApplicationServices(deps),
     ...createTestNotificationServices(deps),
     ...createTestModerationServices(deps),
+    ...createTestAreaServices(deps),
+    ...createTestMediaServices(deps),
+    ...createTestPlaceServices(deps),
+    ...createTestListingServices(deps),
+    ...createTestDiscoveryServices(deps),
     ...(options.overrides?.(deps) ?? {}),
   };
   return {

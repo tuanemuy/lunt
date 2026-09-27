@@ -2,8 +2,13 @@ import type { CommandOutcome, WriteCommand } from "../protocol/commands";
 import type { SqlExec } from "../sql";
 import { accountCommandHandlers } from "./account";
 import { applicationCommandHandlers } from "./application";
+import { areaCommandHandlers } from "./area";
 import { authorityCommandHandlers } from "./authority";
+import { discoveryCommandHandlers } from "./discovery";
+import { listingCommandHandlers } from "./listing";
+import { mediaCommandHandlers } from "./media";
 import { notificationCommandHandlers } from "./notification";
+import { placeCommandHandlers } from "./place";
 
 /** Handler table of one command union: one synchronous writer per kind. */
 export type CommandHandlersOf<C extends { kind: string }> = {
@@ -20,6 +25,11 @@ export const commandHandlers = {
   ...authorityCommandHandlers,
   ...applicationCommandHandlers,
   ...notificationCommandHandlers,
+  ...areaCommandHandlers,
+  ...mediaCommandHandlers,
+  ...placeCommandHandlers,
+  ...listingCommandHandlers,
+  ...discoveryCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

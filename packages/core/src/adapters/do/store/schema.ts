@@ -1,10 +1,15 @@
 import type { SqlExec, SqlRow, TransactionRunner } from "../sql";
 import { ACCOUNT_MIGRATIONS } from "./account";
 import { APPLICATION_MIGRATIONS } from "./application";
+import { AREA_MIGRATIONS } from "./area";
 import { AUTHORITY_MIGRATIONS } from "./authority";
 import { DEAD_LETTER_MIGRATION } from "./deadLetters";
 import { DEV_MAILBOX_MIGRATIONS } from "./devMailbox";
+import { DISCOVERY_MIGRATIONS } from "./discovery";
+import { LISTING_MIGRATIONS } from "./listing";
+import { MEDIA_MIGRATIONS } from "./media";
 import { NOTIFICATION_MIGRATIONS } from "./notification";
+import { PLACE_MIGRATIONS } from "./place";
 
 export type Migration = Readonly<{
   version: number;
@@ -59,7 +64,8 @@ const CORE_MIGRATION: Migration = {
  * local and deployed objects keep their data across code changes.
  *
  * Allocated: 1 core, 2 accounts, 3 dead letters, 4 login challenges,
- * 5 authority, 6 application, 7 notification, 8 development mailbox.
+ * 5 authority, 6 application, 7 notification, 8 development mailbox,
+ * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery.
  */
 export const MIGRATIONS: readonly Migration[] = [
   CORE_MIGRATION,
@@ -69,6 +75,11 @@ export const MIGRATIONS: readonly Migration[] = [
   ...APPLICATION_MIGRATIONS,
   ...NOTIFICATION_MIGRATIONS,
   ...DEV_MAILBOX_MIGRATIONS,
+  ...AREA_MIGRATIONS,
+  ...MEDIA_MIGRATIONS,
+  ...PLACE_MIGRATIONS,
+  ...LISTING_MIGRATIONS,
+  ...DISCOVERY_MIGRATIONS,
 ].sort((a, b) => a.version - b.version);
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

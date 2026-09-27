@@ -1,9 +1,14 @@
 import type { AccountServices } from "../account/services";
 import type { ApplicationServices } from "../application/services";
+import type { AreaServices } from "../area/services";
 import type { AuthorityServices } from "../authority/services";
+import type { DiscoveryServices } from "../discovery/services";
 import type { UnitOfWorkProvider } from "../execution/unitOfWork";
+import type { ListingServices } from "../listing/services";
+import type { MediaServices } from "../media/services";
 import type { ModerationServices } from "../moderation/services";
 import type { NotificationServices } from "../notification/services";
+import type { PlaceServices } from "../place/services";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/idGenerator";
 import type { Logger } from "../ports/logger";
@@ -62,7 +67,12 @@ export type RequestContainer = SharedDeps &
   AuthorityServices &
   ApplicationServices &
   NotificationServices &
-  ModerationServices;
+  ModerationServices &
+  AreaServices &
+  MediaServices &
+  PlaceServices &
+  ListingServices &
+  DiscoveryServices;
 
 /**
  * Container of the outbox relay, which runs inside the state Durable

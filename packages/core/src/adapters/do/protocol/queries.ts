@@ -1,8 +1,13 @@
 import type { AccountQueries } from "./account";
 import type { ApplicationQueries } from "./application";
+import type { AreaQueries } from "./area";
 import type { AuthorityQueries } from "./authority";
+import type { DiscoveryQueries } from "./discovery";
+import type { ListingQueries } from "./listing";
+import type { MediaQueries } from "./media";
 import type { ModerationQueries } from "./moderation";
 import type { NotificationQueries } from "./notification";
+import type { PlaceQueries } from "./place";
 
 /**
  * Named reads the request side can run against the Lunt state Durable
@@ -25,7 +30,12 @@ export type QueryCatalog = AccountQueries &
   AuthorityQueries &
   ApplicationQueries &
   NotificationQueries &
-  ModerationQueries;
+  ModerationQueries &
+  AreaQueries &
+  MediaQueries &
+  PlaceQueries &
+  ListingQueries &
+  DiscoveryQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 

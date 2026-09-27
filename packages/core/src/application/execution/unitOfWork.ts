@@ -1,8 +1,13 @@
 import type { AccountRepositories } from "@repo/core/domain/account/ports/unitOfWork";
 import type { ApplicationRepositories } from "@repo/core/domain/application/ports/unitOfWork";
+import type { AreaRepositories } from "@repo/core/domain/area/ports/unitOfWork";
 import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
 import type { EventDraft } from "@repo/core/domain/common/event";
+import type { DiscoveryRepositories } from "@repo/core/domain/discovery/ports/unitOfWork";
+import type { ListingRepositories } from "@repo/core/domain/listing/ports/unitOfWork";
+import type { MediaRepositories } from "@repo/core/domain/media/ports/unitOfWork";
 import type { NotificationRepositories } from "@repo/core/domain/notification/ports/unitOfWork";
+import type { PlaceRepositories } from "@repo/core/domain/place/ports/unitOfWork";
 
 /**
  * Aggregate repositories reachable inside a unit of work. Each domain
@@ -12,7 +17,12 @@ import type { NotificationRepositories } from "@repo/core/domain/notification/po
 export type UnitOfWorkRepositories = AccountRepositories &
   AuthorityRepositories &
   ApplicationRepositories &
-  NotificationRepositories;
+  NotificationRepositories &
+  AreaRepositories &
+  MediaRepositories &
+  PlaceRepositories &
+  ListingRepositories &
+  DiscoveryRepositories;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{

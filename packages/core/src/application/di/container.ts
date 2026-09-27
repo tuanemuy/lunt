@@ -10,12 +10,17 @@ import { UuidV7Generator } from "../ports/idGenerator";
 import { ConsoleLogger } from "../ports/logger";
 import { type AccountEnv, createAccountServices } from "./account";
 import { type ApplicationEnv, createApplicationServices } from "./application";
+import { type AreaEnv, createAreaServices } from "./area";
 import { type AuthorityEnv, createAuthorityServices } from "./authority";
+import { createDiscoveryServices, type DiscoveryEnv } from "./discovery";
+import { createListingServices, type ListingEnv } from "./listing";
+import { createMediaServices, type MediaEnv } from "./media";
 import { createModerationServices, type ModerationEnv } from "./moderation";
 import {
   createNotificationServices,
   type NotificationEnv,
 } from "./notification";
+import { createPlaceServices, type PlaceEnv } from "./place";
 import type { PresentationPorts } from "./presentationPorts";
 import type { ServiceDeps } from "./serviceDeps";
 import type { RequestContainer, RuntimeSettings, SharedDeps } from "./types";
@@ -30,7 +35,12 @@ export type LuntEnv = Readonly<{
   AuthorityEnv &
   ApplicationEnv &
   NotificationEnv &
-  ModerationEnv;
+  ModerationEnv &
+  AreaEnv &
+  MediaEnv &
+  PlaceEnv &
+  ListingEnv &
+  DiscoveryEnv;
 
 /**
  * The session secret the local `wrangler.jsonc` ships with. It is public,
@@ -103,5 +113,10 @@ export function createRequestContainer(
     ...createApplicationServices(env, deps),
     ...createNotificationServices(env, deps),
     ...createModerationServices(env, deps),
+    ...createAreaServices(env, deps),
+    ...createMediaServices(env, deps),
+    ...createPlaceServices(env, deps),
+    ...createListingServices(env, deps),
+    ...createDiscoveryServices(env, deps),
   };
 }
