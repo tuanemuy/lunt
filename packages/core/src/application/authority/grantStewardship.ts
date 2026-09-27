@@ -5,11 +5,8 @@ import {
 } from "@repo/core/domain/authority/stewardship";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { NotFoundError } from "../errors";
-import {
-  type ActorServiceArgs,
-  authorizeRole,
-  persistStewardship,
-} from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeRole, persistStewardship } from "./access";
 import { requireAccountByEmail } from "./accounts";
 
 export type GrantStewardshipInput = Readonly<{

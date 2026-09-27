@@ -5,7 +5,7 @@ import type {
   PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import { ContentRef } from "@repo/core/domain/common/refs";
-import type { ActorServiceArgs } from "./access";
+import type { ActorServiceArgs } from "../types";
 
 export type GetMyAuthorityInput = Readonly<{ pagination: Pagination }>;
 

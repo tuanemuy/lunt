@@ -2,7 +2,8 @@ import { Account } from "@repo/core/domain/account/entity";
 import type { Role } from "@repo/core/domain/authority/role";
 import { RoleRoster } from "@repo/core/domain/authority/roleRoster";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
-import { type ActorServiceArgs, authorizeRole } from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeRole } from "./access";
 import { requireAccountByEmail } from "./accounts";
 
 export type GrantRoleInput = Readonly<{ role: Role; email: string }>;

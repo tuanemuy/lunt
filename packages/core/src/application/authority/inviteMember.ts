@@ -4,11 +4,8 @@ import { InvitationId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import { ConflictError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
-import {
-  type ActorServiceArgs,
-  authorizeOnTarget,
-  persistStewardship,
-} from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeOnTarget, persistStewardship } from "./access";
 
 export type InviteMemberInput = Readonly<{
   target: StewardedRef;

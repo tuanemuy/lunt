@@ -1,7 +1,7 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { InvitationId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
-import type { ActorServiceArgs } from "./access";
+import type { ActorServiceArgs } from "../types";
 import { requireActorAccount } from "./accounts";
 
 export type CheckInvitationInput = Readonly<{

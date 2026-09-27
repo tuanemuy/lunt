@@ -16,10 +16,6 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import type { ExpectedVersion } from "@repo/core/domain/common/transactionalRepository";
 import { ForbiddenError } from "../errors";
-import type { ServiceArgs } from "../types";
-
-/** Arguments of a usecase that requires a signed-in `Actor`. */
-export type ActorServiceArgs<T> = ServiceArgs<T> & Readonly<{ actor: Actor }>;
 
 type RosterReader = Pick<AuthorityRepositories, "roleRosterRepository">;
 

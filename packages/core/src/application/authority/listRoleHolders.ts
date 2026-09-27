@@ -5,7 +5,8 @@ import {
 } from "@repo/core/domain/authority/roleRoster";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type { AccountId } from "@repo/core/domain/common/ids";
-import { type ActorServiceArgs, authorizeRole } from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeRole } from "./access";
 import { findAccountsByIds } from "./accounts";
 
 export type RoleHolderView = Readonly<{

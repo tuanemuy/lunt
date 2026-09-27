@@ -2,7 +2,8 @@ import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type { AccountId, InvitationId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
-import { type ActorServiceArgs, authorizeOnTarget } from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeOnTarget } from "./access";
 import { findAccountsByIds } from "./accounts";
 
 export type ViewMembersInput = Readonly<{ target: StewardedRef }>;

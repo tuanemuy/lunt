@@ -1,7 +1,8 @@
 import type { Role } from "@repo/core/domain/authority/role";
 import { RoleRoster } from "@repo/core/domain/authority/roleRoster";
 import type { AccountId } from "@repo/core/domain/common/ids";
-import { type ActorServiceArgs, authorizeRole } from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeRole } from "./access";
 
 export type RevokeRoleInput = Readonly<{ role: Role; accountId: AccountId }>;
 

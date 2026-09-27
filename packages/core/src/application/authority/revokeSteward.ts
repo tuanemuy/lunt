@@ -1,11 +1,8 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { AccountId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
-import {
-  type ActorServiceArgs,
-  authorizeRole,
-  persistStewardship,
-} from "./access";
+import type { ActorServiceArgs } from "../types";
+import { authorizeRole, persistStewardship } from "./access";
 
 export type RevokeStewardInput = Readonly<{
   target: StewardedRef;
