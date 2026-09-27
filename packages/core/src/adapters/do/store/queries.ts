@@ -1,14 +1,24 @@
-import type { QueryArgs, QueryName, QueryResult } from "../protocol/queries";
+import type {
+  QueryArgs,
+  QueryCatalog,
+  QueryName,
+  QueryResult,
+} from "../protocol/queries";
 import type { SqlExec } from "../sql";
+import { accountQueryHandlers } from "./account";
 
-export type QueryHandlers = {
-  readonly [K in QueryName]: (
-    sql: SqlExec,
-    args: QueryArgs<K>,
-  ) => QueryResult<K>;
+/** Handler table of one catalog fragment: one synchronous reader per name. */
+export type QueryHandlersOf<Q> = {
+  readonly [K in keyof Q]: Q[K] extends { args: infer A; result: infer R }
+    ? (sql: SqlExec, args: A) => R
+    : never;
 };
 
-export const queryHandlers = {} satisfies QueryHandlers;
+export type QueryHandlers = QueryHandlersOf<QueryCatalog>;
+
+export const queryHandlers = {
+  ...accountQueryHandlers,
+} satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(
   sql: SqlExec,

@@ -1,4 +1,5 @@
 import type { SqlExec, SqlRow, TransactionRunner } from "../sql";
+import { ACCOUNT_MIGRATION } from "./account";
 
 export type Migration = Readonly<{
   version: number;
@@ -48,6 +49,7 @@ export const MIGRATIONS: readonly Migration[] = [
          ON consumer_receipts (consumed_at)`,
     ],
   },
+  ACCOUNT_MIGRATION,
 ];
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

@@ -2,9 +2,16 @@ import { env, runInDurableObject } from "cloudflare:test";
 import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import { MIGRATIONS } from "@repo/core/adapters/do/store/schema";
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import { createRequestContainer } from "@repo/core/application/di/container";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
+import {
+  drainByFirstPage,
+  runDailyJobs,
+} from "@repo/core/application/workers/dailyJobs";
+import { Account } from "@repo/core/domain/account/entity";
 import type { EventDraft } from "@repo/core/domain/common/event";
 import { describe, expect, it, vi } from "vitest";
+import { stateClient } from "../../worker/stateClient";
 import { PROBE_EVENT_TYPE } from "./testWorker";
 
 // The real Lunt state Durable Object in Miniflare. Alarms fire for real
@@ -140,5 +147,50 @@ describe("LuntStateObject", () => {
       },
       { timeout: 5_000, interval: 50 },
     );
+  });
+
+  it("runs a daily job over the production container, one unit of work per target", async () => {
+    const client = stateClient(env.LUNT_STATE, freshName());
+    const container = createRequestContainer(env, client);
+    const targets = ["a", "b", "c"].map((n, i) =>
+      Account.register({
+        id: `ffffffff-ffff-7fff-8fff-00000000000${i + 1}`,
+        email: `${n}@example.com`,
+      }),
+    );
+    await container.unitOfWorkProvider.run(async ({ accountRepository }) => {
+      for (const account of targets) await accountRepository.insert(account);
+    });
+
+    const [result] = await runDailyJobs(container, [
+      {
+        name: "deleteEveryAccount",
+        run: (c) =>
+          drainByFirstPage({
+            job: "deleteEveryAccount",
+            logger: c.logger,
+            keyOf: (account) => account.id,
+            readFirstPage: () =>
+              c.unitOfWorkProvider.run(({ accountRepository }) =>
+                accountRepository.findByIds(targets.map((t) => t.id)),
+              ),
+            process: (account) =>
+              c.unitOfWorkProvider.run(async ({ accountRepository }) => {
+                const found = await accountRepository.findById(account.id);
+                if (found !== null) {
+                  await accountRepository.delete(
+                    account.id,
+                    found.expectedVersion,
+                  );
+                }
+              }),
+          }),
+      },
+    ]);
+
+    expect(result?.outcome).toEqual({
+      kind: "completed",
+      report: { processed: 3, failed: 0, abandoned: false },
+    });
   });
 });

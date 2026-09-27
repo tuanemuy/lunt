@@ -2,6 +2,7 @@ import type { UnitOfWorkRepositories } from "@repo/core/application/execution/un
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import type { LuntStateClient } from "../protocol/client";
 import type { WriteCommand } from "../protocol/commands";
+import { DoAccountRepository } from "./accountRepository";
 
 export type RepositoryDeps = Readonly<{
   client: LuntStateClient;
@@ -10,8 +11,15 @@ export type RepositoryDeps = Readonly<{
   idGenerator: IdGenerator;
 }>;
 
+/** Every aggregate repository of one unit of work, sharing its buffer. */
 export function createRepositories(
-  _deps: RepositoryDeps,
+  deps: RepositoryDeps,
 ): UnitOfWorkRepositories {
-  return {};
+  return {
+    accountRepository: new DoAccountRepository(
+      deps.client,
+      deps.writes,
+      deps.idGenerator,
+    ),
+  };
 }

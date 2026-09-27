@@ -1,18 +1,20 @@
-import type {
-  CommandOutcome,
-  WriteCommand,
-  WriteCommandKind,
-} from "../protocol/commands";
+import type { CommandOutcome, WriteCommand } from "../protocol/commands";
 import type { SqlExec } from "../sql";
+import { accountCommandHandlers } from "./account";
 
-export type CommandHandlers = {
-  readonly [K in WriteCommandKind]: (
+/** Handler table of one command union: one synchronous writer per kind. */
+export type CommandHandlersOf<C extends { kind: string }> = {
+  readonly [K in C["kind"]]: (
     sql: SqlExec,
-    command: Extract<WriteCommand, { kind: K }>,
+    command: Extract<C, { kind: K }>,
   ) => CommandOutcome;
 };
 
-export const commandHandlers = {} satisfies CommandHandlers;
+export type CommandHandlers = CommandHandlersOf<WriteCommand>;
+
+export const commandHandlers = {
+  ...accountCommandHandlers,
+} satisfies CommandHandlers;
 
 export function applyCommand(
   sql: SqlExec,
@@ -25,11 +27,9 @@ export function applyCommand(
         ((sql: SqlExec, command: WriteCommand) => CommandOutcome) | undefined
       >
     >
-  )[(command as { kind: string }).kind];
+  )[command.kind];
   if (handler === undefined) {
-    throw new Error(
-      `Unknown write command: ${(command as { kind: string }).kind}`,
-    );
+    throw new Error(`Unknown write command: ${command.kind}`);
   }
   return handler(sql, command);
 }

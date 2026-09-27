@@ -1,3 +1,5 @@
+import type { AccountCommand } from "./account";
+
 /**
  * Buffered writes of one unit of work. Each domain contributes a union
  * of `{ kind: "<domain>.<write>", ... }` commands; the DO-side handler
@@ -8,7 +10,7 @@
  * indexes) are computed by the DO-side handler from that snapshot, so an
  * index can never drift from the aggregate it was derived from.
  */
-export type WriteCommand = never;
+export type WriteCommand = AccountCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

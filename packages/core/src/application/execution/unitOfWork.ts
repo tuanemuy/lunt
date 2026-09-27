@@ -1,3 +1,4 @@
+import type { AccountRepository } from "@repo/core/domain/account/ports/accountRepository";
 import type { EventDraft } from "@repo/core/domain/common/event";
 
 /**
@@ -5,7 +6,9 @@ import type { EventDraft } from "@repo/core/domain/common/event";
  * adds its repositories here (`spec/domains/index.md` 「UnitOfWork ポート」):
  * they are obtained only from the context, never from the container.
  */
-export type UnitOfWorkRepositories = Readonly<Record<never, never>>;
+export type UnitOfWorkRepositories = Readonly<{
+  accountRepository: AccountRepository;
+}>;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{

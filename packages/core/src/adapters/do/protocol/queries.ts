@@ -1,3 +1,5 @@
+import type { AccountQueries } from "./account";
+
 /**
  * Named reads the request side can run against the Lunt state Durable
  * Object. Each domain contributes one fragment (`{ "<domain>.<read>":
@@ -15,7 +17,7 @@ export type QuerySpec<TArgs, TResult> = Readonly<{
   result: TResult;
 }>;
 
-export type QueryCatalog = Record<never, never>;
+export type QueryCatalog = AccountQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 
