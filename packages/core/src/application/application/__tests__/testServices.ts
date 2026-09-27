@@ -1,5 +1,14 @@
+import { DoApplicationReviewDesk } from "@repo/core/adapters/do/applicationReviewDesk";
+import { applicationModel } from "@repo/core/domain/application/application";
+import type { ApplicationKindMap } from "@repo/core/domain/application/kinds";
+import { ReviewPolicy } from "@repo/core/domain/application/reviewPolicy";
 import type { TestServiceDeps } from "../../__tests__/testServiceDeps";
 import type { ApplicationServices } from "../services";
+
+/** The review period usecase tests run with: 72 hours. */
+export const TEST_REVIEW_POLICY = ReviewPolicy.create({
+  proxyAfterMs: 72 * 60 * 60 * 1000,
+});
 
 /**
  * Application's container ports for usecase tests: fakes for external IO,
@@ -7,7 +16,13 @@ import type { ApplicationServices } from "../services";
  * else.
  */
 export function createTestApplicationServices(
-  _deps: TestServiceDeps,
+  deps: TestServiceDeps,
 ): ApplicationServices {
-  return {};
+  return {
+    applicationReviewDesk: new DoApplicationReviewDesk<ApplicationKindMap>(
+      deps.client,
+      applicationModel,
+    ),
+    reviewPolicy: TEST_REVIEW_POLICY,
+  };
 }
