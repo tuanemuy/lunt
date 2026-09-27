@@ -1,3 +1,5 @@
+import { DoDetailQueries } from "@repo/core/adapters/do/detailQueries";
+import { DoReferenceQueries } from "@repo/core/adapters/do/referenceQueries";
 import type { DiscoveryServices } from "../discovery/services";
 import type { ServiceDeps } from "./serviceDeps";
 
@@ -6,7 +8,13 @@ export type DiscoveryEnv = Readonly<Record<never, never>>;
 
 export function createDiscoveryServices(
   _env: DiscoveryEnv,
-  _deps: ServiceDeps,
+  deps: ServiceDeps,
 ): DiscoveryServices {
-  return {};
+  return {
+    detailQueries: new DoDetailQueries(deps.client, deps.shared.idGenerator),
+    referenceQueries: new DoReferenceQueries(
+      deps.client,
+      deps.shared.idGenerator,
+    ),
+  };
 }
