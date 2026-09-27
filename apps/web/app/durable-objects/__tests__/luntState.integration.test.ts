@@ -12,6 +12,7 @@ import {
 import { Account } from "@repo/core/domain/account/entity";
 import type { EventDraft } from "@repo/core/domain/common/event";
 import { describe, expect, it, vi } from "vitest";
+import { presentationPorts } from "../../presentation/ports";
 import { stateClient } from "../../worker/stateClient";
 import { PROBE_EVENT_TYPE } from "./testWorker";
 
@@ -155,7 +156,7 @@ describe("LuntStateObject", () => {
       env.LUNT_STATE as unknown as DurableObjectNamespace,
       freshName(),
     );
-    const container = createRequestContainer(env, client, {});
+    const container = createRequestContainer(env, client, presentationPorts);
     const targets = ["a", "b", "c"].map((n, i) =>
       Account.register({
         id: `ffffffff-ffff-7fff-8fff-00000000000${i + 1}`,

@@ -5,6 +5,7 @@ import { createTestApplicationServices } from "../application/__tests__/testServ
 import { createTestAuthorityServices } from "../authority/__tests__/testServices";
 import type { RequestContainer } from "../di/types";
 import type { EventDecoderRegistry } from "../events/registry";
+import { createTestModerationServices } from "../moderation/__tests__/testServices";
 import { createTestNotificationServices } from "../notification/__tests__/testServices";
 import { FakeClock } from "./fakes/fakeClock";
 import { FakeIdGenerator } from "./fakes/fakeIdGenerator";
@@ -81,6 +82,7 @@ export function createTestContainer(
     ...createTestAuthorityServices(deps),
     ...createTestApplicationServices(deps),
     ...createTestNotificationServices(deps),
+    ...createTestModerationServices(deps),
     ...(options.overrides?.(deps) ?? {}),
   };
   return {

@@ -11,6 +11,7 @@ import { ConsoleLogger } from "../ports/logger";
 import { type AccountEnv, createAccountServices } from "./account";
 import { type ApplicationEnv, createApplicationServices } from "./application";
 import { type AuthorityEnv, createAuthorityServices } from "./authority";
+import { createModerationServices, type ModerationEnv } from "./moderation";
 import {
   createNotificationServices,
   type NotificationEnv,
@@ -28,7 +29,8 @@ export type LuntEnv = Readonly<{
   AccountEnv &
   AuthorityEnv &
   ApplicationEnv &
-  NotificationEnv;
+  NotificationEnv &
+  ModerationEnv;
 
 /**
  * The session secret the local `wrangler.jsonc` ships with. It is public,
@@ -100,5 +102,6 @@ export function createRequestContainer(
     ...createAuthorityServices(env, deps),
     ...createApplicationServices(env, deps),
     ...createNotificationServices(env, deps),
+    ...createModerationServices(env, deps),
   };
 }

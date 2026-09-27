@@ -1,34 +1,19 @@
-import type { RequestContainer } from "../di/types";
-import type { LuntDomainEvent, LuntEventType } from "./registry";
+import { deliverNotifications } from "../notification/deliverNotifications";
+import { purgeNotificationsOnWithdrawal } from "../notification/purgeNotificationsOnWithdrawal";
+import type { EventConsumer } from "./consumer";
+import type { LuntEventType } from "./registry";
 
-/**
- * A consumer usecase and the event types it subscribes to. The relay
- * sends one queue message per (event, consumer) pair, so each consumer
- * is retried — and dead-lettered — independently of the others that
- * received the same event.
- */
-export type EventConsumer<TType extends LuntEventType = LuntEventType> =
-  Readonly<{
-    events: readonly TType[];
-    handle(
-      container: RequestContainer,
-      event: Extract<LuntDomainEvent, { type: TType }>,
-    ): Promise<void>;
-  }>;
-
-export function defineConsumer<const TType extends LuntEventType>(
-  events: readonly [TType, ...TType[]],
-  handle: EventConsumer<TType>["handle"],
-): EventConsumer<TType> {
-  return { events, handle };
-}
+export type { EventConsumer } from "./consumer";
 
 /**
  * Registered consumers, keyed by the consumer usecase's name. The name
  * travels in the queue message and keys the consumer's idempotency
  * receipts, so renaming a consumer is a data migration.
  */
-export const consumers = {} satisfies Readonly<Record<string, EventConsumer>>;
+export const consumers = {
+  deliverNotifications,
+  purgeNotificationsOnWithdrawal,
+} satisfies Readonly<Record<string, EventConsumer>>;
 
 export type ConsumerName = keyof typeof consumers & string;
 
@@ -41,20 +26,6 @@ export type ConsumerName = keyof typeof consumers & string;
  * is registered, and the entry is removed as it moves to `consumers`.
  */
 export const deferredConsumers = {
-  deliverNotifications: {
-    events: [
-      "authority.invitation_issued",
-      "authority.steward_appointed",
-      "authority.steward_removed",
-      "authority.role_granted",
-      "authority.role_revoked",
-    ],
-    stage: "S1-NTF",
-  },
-  purgeNotificationsOnWithdrawal: {
-    events: ["account.withdrawn"],
-    stage: "S1-NTF",
-  },
   withdrawApplicationsOfWithdrawnAccount: {
     events: ["account.withdrawn"],
     stage: "S2B",
@@ -64,7 +35,12 @@ export const deferredConsumers = {
     stage: "S4",
   },
   reassessApplicationPremises: {
-    events: ["authority.steward_appointed", "authority.stewardship_vacated"],
+    events: [
+      "authority.steward_appointed",
+      "authority.stewardship_vacated",
+      "application.withdrawn",
+      "application.rejected",
+    ],
     stage: "S2B",
   },
 } as const satisfies Readonly<

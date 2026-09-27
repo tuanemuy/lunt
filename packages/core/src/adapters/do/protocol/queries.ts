@@ -1,6 +1,7 @@
 import type { AccountQueries } from "./account";
 import type { ApplicationQueries } from "./application";
 import type { AuthorityQueries } from "./authority";
+import type { ModerationQueries } from "./moderation";
 import type { NotificationQueries } from "./notification";
 
 /**
@@ -23,7 +24,8 @@ export type QuerySpec<TArgs, TResult> = Readonly<{
 export type QueryCatalog = AccountQueries &
   AuthorityQueries &
   ApplicationQueries &
-  NotificationQueries;
+  NotificationQueries &
+  ModerationQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 

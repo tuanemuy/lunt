@@ -16,6 +16,7 @@ import type {
 import type { EventDecoderRegistry } from "@repo/core/application/events/registry";
 import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
 import type { DomainEvent, EventDecoder } from "@repo/core/domain/common/event";
+import { presentationPorts } from "../../presentation/ports";
 import { handleQueueBatch } from "../../worker/queue";
 import { stateClient } from "../../worker/stateClient";
 import { LuntStateObject } from "../luntState";
@@ -81,7 +82,7 @@ export default {
         env.RELAY_PROBE_STATE,
         message.body.event.aggregateId,
       );
-      const container = createRequestContainer(env, client, {});
+      const container = createRequestContainer(env, client, presentationPorts);
       await handleQueueBatch(
         { ...batch, messages: [message] },
         {

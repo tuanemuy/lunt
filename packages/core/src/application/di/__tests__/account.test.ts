@@ -3,6 +3,7 @@ import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGe
 import { describe, expect, it } from "vitest";
 import { FakeClock } from "../../__tests__/fakes/fakeClock";
 import { FakeLogger } from "../../__tests__/fakes/fakeLogger";
+import { TestNotificationMailRenderer } from "../../notification/__tests__/testServices";
 import {
   type AccountEnv,
   createAccountServices,
@@ -33,7 +34,9 @@ function deps(devTools: boolean): ServiceDeps {
     client: createInProcessState({ clock, idGenerator }).client,
     shared: { clock, idGenerator, logger: new FakeLogger() },
     runtime: { devTools, sessionSecret: "s".repeat(32), opsToken: null },
-    presentation: {},
+    presentation: {
+      notificationMailRenderer: () => new TestNotificationMailRenderer(),
+    },
   };
 }
 
