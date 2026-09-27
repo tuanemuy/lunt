@@ -6,7 +6,7 @@ import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { createRequestContainer } from "@repo/core/application/di/container";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import {
-  drainByFirstPage,
+  drainPages,
   runDailyJobs,
 } from "@repo/core/application/workers/dailyJobs";
 import { Account } from "@repo/core/domain/account/entity";
@@ -170,13 +170,15 @@ describe("LuntStateObject", () => {
       {
         name: "deleteEveryAccount",
         run: (c) =>
-          drainByFirstPage({
+          drainPages<Account>({
             job: "deleteEveryAccount",
             logger: c.logger,
             keyOf: (account) => account.id,
-            readFirstPage: () =>
-              c.unitOfWorkProvider.run(({ accountRepository }) =>
-                accountRepository.findByIds(targets.map((t) => t.id)),
+            readPage: (page) =>
+              c.unitOfWorkProvider.run(async ({ accountRepository }) =>
+                (
+                  await accountRepository.findByIds(targets.map((t) => t.id))
+                ).slice((page - 1) * 2, page * 2),
               ),
             process: (account) =>
               c.unitOfWorkProvider.run(async ({ accountRepository }) => {
@@ -194,7 +196,7 @@ describe("LuntStateObject", () => {
 
     expect(result?.outcome).toEqual({
       kind: "completed",
-      report: { processed: 3, failed: 0, abandoned: false },
+      report: { processed: 3, failed: 0, skipped: 0, abandoned: false },
     });
   });
 

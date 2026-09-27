@@ -15,7 +15,9 @@ export type DailyJob = Readonly<{
 export type DrainReport = Readonly<{
   processed: number;
   failed: number;
-  /** True when a page of only failures stopped the run early. */
+  /** Targets selected again after this run tried them, left to the next run. */
+  skipped: number;
+  /** True when a read whose every new target failed stopped the run early. */
   abandoned: boolean;
 }>;
 
@@ -57,48 +59,59 @@ export async function runDailyJobs(
 }
 
 /**
- * The shared progression rule of daily jobs over a query whose processed
- * targets drop out of its results: process the first page one target at
- * a time (each target in its own unit of work, inside `process`), then
- * read the first page again. A failure does not stop the run; a page
- * whose every target failed ends it, leaving the rest to the next run.
+ * The shared progression rule of daily jobs (`spec/flows/index.md`
+ * 「共通の前提」) over a query whose processed targets drop out of its
+ * results: process a page one target at a time (each target in its own
+ * unit of work, inside `process`), then read the first page again. One
+ * target failing does not stop the run; a page read whose new targets all
+ * failed, with nothing else on it succeeding, ends it — leaving the rest
+ * to the next run.
  *
- * A target that comes back after it was processed successfully means
- * `process` did not take it out of the query — a bug that would loop
- * forever, so the run stops and reports it instead.
+ * Each target is tried at most once per run. A target that is selected
+ * again after this run processed it — a user changed it afterwards, so
+ * the query rightly picks it up again — is skipped and left to the next
+ * run. Targets that failed are not retried in the same run either. A page
+ * holding only targets already tried makes the run read the next page, so
+ * they never stall the targets behind them.
  */
-export async function drainByFirstPage<T>(
+export async function drainPages<T>(
   args: Readonly<{
     job: string;
     logger: Logger;
-    readFirstPage: () => Promise<readonly T[]>;
+    /** Page `n` (1-based) of the targets the job still has to process. */
+    readPage: (page: number) => Promise<readonly T[]>;
     keyOf: (target: T) => string;
     process: (target: T) => Promise<void>;
   }>,
 ): Promise<DrainReport> {
-  const done = new Set<string>();
-  let processed = 0;
-  let failed = 0;
+  const succeeded = new Set<string>();
+  const failedKeys = new Set<string>();
+  const reselected = new Set<string>();
+  const report = (abandoned: boolean): DrainReport => ({
+    processed: succeeded.size,
+    failed: failedKeys.size,
+    skipped: reselected.size,
+    abandoned,
+  });
+  let page = 1;
   for (;;) {
-    const page = await args.readFirstPage();
-    if (page.length === 0) {
-      return { processed, failed, abandoned: false };
-    }
-    let failedOnPage = 0;
-    for (const target of page) {
-      const key = args.keyOf(target);
-      if (done.has(key)) {
-        throw new Error(
-          `[daily] ${args.job}: target ${key} is still selected after it was processed`,
-        );
+    const targets = await args.readPage(page);
+    if (targets.length === 0) return report(false);
+    const keys = targets.map(args.keyOf);
+    let processedNow = 0;
+    for (const [index, target] of targets.entries()) {
+      const key = keys[index] ?? args.keyOf(target);
+      if (succeeded.has(key)) {
+        reselected.add(key);
+        continue;
       }
+      if (failedKeys.has(key)) continue;
+      processedNow += 1;
       try {
         await args.process(target);
-        done.add(key);
-        processed += 1;
+        succeeded.add(key);
       } catch (error) {
-        failedOnPage += 1;
-        failed += 1;
+        failedKeys.add(key);
         args.logger.error(`[daily] ${args.job}: target ${key} failed`, {
           job: args.job,
           target: key,
@@ -106,8 +119,11 @@ export async function drainByFirstPage<T>(
         });
       }
     }
-    if (failedOnPage === page.length) {
-      return { processed, failed, abandoned: true };
+    if (processedNow === 0) {
+      page += 1;
+      continue;
     }
+    if (keys.every((key) => failedKeys.has(key))) return report(true);
+    page = 1;
   }
 }
