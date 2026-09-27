@@ -37,8 +37,8 @@
 ### 使用するドメインの振る舞い・ポート
 
 - `EmailAddress.create`
-- `LoginChallengeRepository.findById`、`insert`
-- `LoginChallenge.isReplayOf`、`LoginChallenge.issue`（`validForMs` は設定値）
+- `LoginChallengeRepository.findById`、`countUnexpired`、`insert`
+- `LoginChallenge.isReplayOf`、`LoginChallenge.assertIssuable`（`maxUnexpiredChallenges` は設定値）、`LoginChallenge.issue`（`validForMs` は設定値）
 - `LoginSecretGenerator.generate`、`digest`
 - `LoginMailSender.send`
 - `Clock`
@@ -47,7 +47,7 @@
 
 UnitOfWork を2つ使う。メールの送信はどちらの `run` にも入らず、2つの `run` の間に行う（[../domains/account.md](../domains/account.md)「トランザクション境界」）。
 
-- 判定の `run`: `findById` と `isReplayOf` で送り直しを判定する。書き込まない。送り直しなら、送信も書き込みもなしに成功とする
+- 判定の `run`: `findById` と `isReplayOf` で送り直しを判定する。書き込まない。送り直しなら、送信も書き込みもなしに成功とする。送り直しでなければ、`countUnexpired` と `assertIssuable` で発行の上限を確かめ、上限に達していればメールを送らずにエラーにする
 - 書き込みの `run`: `findById` で読み直し、同じ ID がなければ `loginChallengeRepository.insert`。送信の間に保存されていれば、判定の `run` と同じ判定をして書き込まない
 - 送信に失敗すれば、何も保存しない
 - 送信の後に保存が失敗すると、送ったリンクとコードに対応するログインの確認がなく、どちらも無効として扱われる。利用者はメールアドレスの入力からやり直す
@@ -58,6 +58,7 @@ UnitOfWork を2つ使う。メールの送信はどちらの `run` にも入ら�
 | --- | --- |
 | メールアドレスの形式が正しくない | `BusinessRuleError`（`COMMON_INVALID_EMAIL_ADDRESS`）。メールは送られず、何も保存されない |
 | 同じ `LoginChallengeId` のログインの確認が、違うメールアドレスで保存されている | `ConflictError`。判定の `run` で分かれば、メールは送られない |
+| そのメールアドレスの、有効期間を過ぎていないログインの確認が `maxUnexpiredChallenges` 件ある（送り直しを除く） | `BusinessRuleError`（`ACCOUNT_LOGIN_REQUESTS_EXCEEDED`）。メールは送られず、何も保存されない。応答はアカウントの有無で変わらない |
 
 ## completeLoginByLink
 

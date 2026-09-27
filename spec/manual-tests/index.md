@@ -15,7 +15,7 @@
 | 発見 | [discover.md](./discover.md) | 59 | 31 | 23 | 5 |
 | 探索と詳細 | [explore.md](./explore.md) | 87 | 39 | 38 | 10 |
 | 保存 | [keep.md](./keep.md) | 50 | 29 | 20 | 1 |
-| アカウントと通知 | [account.md](./account.md) | 58 | 24 | 31 | 3 |
+| アカウントと通知 | [account.md](./account.md) | 59 | 24 | 32 | 3 |
 | 申請の共通の進み方 | [application.md](./application.md) | 78 | 30 | 43 | 5 |
 | 管理権限 | [membership.md](./membership.md) | 53 | 22 | 30 | 1 |
 | 店舗 | [shop.md](./shop.md) | 109 | 32 | 76 | 1 |
@@ -25,7 +25,7 @@
 | 申立て・連絡・非公開 | [moderation.md](./moderation.md) | 137 | 53 | 78 | 6 |
 | サービス運営 | [operation.md](./operation.md) | 70 | 28 | 38 | 4 |
 | 読みもの編集 | [editorial.md](./editorial.md) | 68 | 24 | 37 | 7 |
-| **合計** | | **1170** | **438** | **669** | **63** |
+| **合計** | | **1171** | **438** | **670** | **63** |
 
 ## 実行記録
 

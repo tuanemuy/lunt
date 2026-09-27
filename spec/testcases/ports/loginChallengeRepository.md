@@ -17,6 +17,16 @@
 | C1 は `exhausted` で保存されている | `findByLinkTokenDigest(C1.linkTokenDigest)` | `exhausted` の C1 を返す | |
 | C1 は `pending` で、`expiresAt` を過ぎている | `findByLinkTokenDigest(C1.linkTokenDigest)`、`findById(C1.id)` | どちらも C1 を返す。有効期間で絞らない | |
 
+## countUnexpired
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| 空 | `countUnexpired(E, now)` | 0 | |
+| `email` が E で `expiresAt` が `now` より後のログインの確認が、`pending`・`redeemed`・`exhausted` で1件ずつ | `countUnexpired(E, now)` | 3。状態で絞らない | |
+| `email` が E で `expiresAt` が `now` と等しいログインの確認が1件、`now` より前のものが1件 | `countUnexpired(E, now)` | 0 | |
+| `email` が E のものが1件、F のものが2件（どれも `expiresAt` が `now` より後） | `countUnexpired(E, now)` | 1 | |
+| `email` が E の `redeemed` のログインの確認が1件（`expiresAt` が `now` より後）で、`deleteClosedBefore(now)` を実行した後 | `countUnexpired(E, now)` | 0。削除されたものは数えない | |
+
 ## save
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |

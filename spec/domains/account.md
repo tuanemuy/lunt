@@ -87,6 +87,8 @@ type CodeRedemption =
 
 有効期間を過ぎたかどうかは保存せず、`expiresAt` と `now` から求める。コードの誤入力の回数の上限（`maxCodeAttempts`）は設定値で、正の整数（I-18）。
 
+同じメールアドレスへの発行の上限（`maxUnexpiredChallenges`）は設定値で、正の整数。有効期間を過ぎていないログインの確認（状態を問わない）が、そのメールアドレスに上限の数だけあれば、新しい発行を受け付けない。コードの推測を発行し直して繰り返すことと、受信箱をメールで溢れさせることを防ぐ。
+
 振る舞い。
 
 | メソッド | 引数 | 戻り値 | 処理 |
@@ -94,6 +96,7 @@ type CodeRedemption =
 | `LoginChallenge.issue` | `params: { id: LoginChallengeId; email: EmailAddress; linkTokenDigest: SecretDigest; codeDigest: SecretDigest; validForMs: number }, now: Date` | `PendingLoginChallenge` | `expiresAt = now + validForMs`、`failedCodeAttempts = 0` のログインの確認を作る。`validForMs` は設定値で、正の整数 |
 | `LoginChallenge.redeemByLink` | `challenge: LoginChallenge \| null, linkTokenDigest: SecretDigest, now: Date` | `RedeemedLoginChallenge` | `challenge` は、ユースケースがリポジトリから読んだ結果。見つからなければ `null`。使用できるのは、`pending` で `now < expiresAt` のログインの確認だけ。`null`、または使用できなければ（使用済み、誤入力の上限に達した、または有効期間を過ぎた）`BusinessRuleError("ACCOUNT_LOGIN_CHALLENGE_INVALID")`。要約が一致しなければ同じエラー。成立すると `redeemed` にする |
 | `LoginChallenge.redeemByCode` | `challenge: LoginChallenge \| null, codeDigest: SecretDigest, maxCodeAttempts: number, now: Date` | `CodeRedemption` | `null`、または使用できなければ `BusinessRuleError("ACCOUNT_LOGIN_CHALLENGE_INVALID")`。要約が一致すれば `redeemed` にして `outcome: "redeemed"` を返す。一致しなければ例外を投げず、`failedCodeAttempts` を1つ進めた `pending`、進めた値が `maxCodeAttempts` に達するなら `exhausted` を、`outcome: "mismatch"` で返す。`error` は、返す `challenge` が `pending` なら `BusinessRuleError("ACCOUNT_LOGIN_CODE_MISMATCH")`（入力し直せる）、`exhausted` なら `BusinessRuleError("ACCOUNT_LOGIN_CHALLENGE_INVALID")`。ユースケースは `challenge` を保存してコミットした後に、`error` をそのまま投げる |
+| `LoginChallenge.assertIssuable` | `unexpiredCount: number, maxUnexpiredChallenges: number` | `void` | `unexpiredCount`（そのメールアドレスの、有効期間を過ぎていないログインの確認の数。状態を問わない）が `maxUnexpiredChallenges` 以上なら `BusinessRuleError("ACCOUNT_LOGIN_REQUESTS_EXCEEDED")` |
 | `LoginChallenge.isReplayOf` | `existing: LoginChallenge, email: EmailAddress` | `boolean` | 同じ ID の発行の要求が、同じメールアドレスの送り直しかどうかを返す |
 | `LoginChallenge.reconstruct` | 永続化された値 | `LoginChallenge` | 復元する。失敗は `RehydrationError` |
 
@@ -105,6 +108,7 @@ type CodeRedemption =
 - 秘密の値そのものを持たない。持つのは要約だけ
 - 見つからないログインの確認と、使用できないログインの確認は、同じエラー（`ACCOUNT_LOGIN_CHALLENGE_INVALID`）になる。応答で区別しない
 - ログインの確認どうしは独立している。同じメールアドレスに送り直しても、前のログインの確認は有効期間まで使用できる
+- 同じメールアドレスの有効期間を過ぎていないログインの確認は、`maxUnexpiredChallenges` 件を超えて発行されない。上限は発行の判定の時点の数で決め、同時の発行で超えることは許す（目安の上限）
 
 ライフサイクル。
 
@@ -206,6 +210,7 @@ interface AccountRepository
 interface LoginChallengeRepository
   extends Omit<TransactionalRepository<LoginChallenge, LoginChallengeId>, "delete"> {
   findByLinkTokenDigest(digest: SecretDigest): Promise<Versioned<LoginChallenge> | null>;
+  countUnexpired(email: EmailAddress, now: Date): Promise<number>;
   deleteClosedBefore(threshold: Date): Promise<void>;
 }
 ```
@@ -214,6 +219,7 @@ interface LoginChallengeRepository
 | --- | --- |
 | `insert` | 同じ `id`、または同じ `linkTokenDigest` のログインの確認があれば `ConflictError`。一意性はポートが担保する |
 | `findByLinkTokenDigest` | 要約が一致するログインの確認を返す。状態と有効期間で絞らない（無効の判断は `LoginChallenge` の振る舞いが行う） |
+| `countUnexpired` | `email` のログインの確認のうち、`now < expiresAt` のものの数を返す。状態（`pending`・`redeemed`・`exhausted`）で絞らない。`deleteClosedBefore` で削除されたものは数えない |
 | `save` | 楽観ロック。リンクとコードの同時の使用、同時のコードの入力は、一方が `ConflictError` になる。対象がなければ（`deleteClosedBefore` で削除済みを含む）、版にかかわらず `NotFoundError` |
 | `deleteClosedBefore` | `redeemed`・`exhausted`、または `expiresAt < threshold` のログインの確認を削除する。集約の版を確かめない。繰り返し呼んでも、残るログインの確認は同じ |
 
