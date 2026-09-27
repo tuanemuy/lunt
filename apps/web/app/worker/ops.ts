@@ -6,6 +6,10 @@ import {
   redactForClient,
   serializeError,
 } from "../presentation/errorResponse";
+import {
+  handleCategoryProvisioning,
+  PROVISION_CATEGORIES_ROUTE,
+} from "./opsCategories";
 
 export const OPS_PREFIX = "/__ops/";
 
@@ -69,6 +73,8 @@ async function readBody(request: Request): Promise<unknown> {
  *   existing account of that address the first service operator
  *   (`establishFirstOperator`; resending for the same account succeeds,
  *   another address once operators exist is refused)
+ * - `POST /__ops/categories/provision` — put the initial categories into
+ *   the empty catalog (`provisionInitialCategories`; `./opsCategories.ts`)
  *
  * `spec/domains/index.md` 「トランザクションとドメインイベント」: DLQ からの
  * 再投入は運用が行う; `spec/usecases/authority.md` `establishFirstOperator`:
@@ -83,6 +89,9 @@ export async function handleOpsRequest(
       "listDeadLetters" | "redriveDeadLetters" | "kickRelay"
     >;
     establishFirstOperator: (email: string) => Promise<void>;
+    provisionInitialCategories: () => Promise<
+      Readonly<{ provisioned: boolean }>
+    >;
   }>,
 ): Promise<Response> {
   if (deps.opsToken === null) {
@@ -122,6 +131,8 @@ export async function handleOpsRequest(
     case "POST /__ops/relay/kick":
       await deps.client.kickRelay();
       return json({ kicked: true });
+    case PROVISION_CATEGORIES_ROUTE:
+      return handleCategoryProvisioning(deps.provisionInitialCategories);
     case "POST /__ops/operators/establish": {
       let body: unknown;
       try {

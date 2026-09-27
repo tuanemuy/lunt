@@ -34,7 +34,12 @@ describe("handleOpsRequest", () => {
   it("does not exist when no operations token is configured", async () => {
     const response = await handleOpsRequest(
       request("GET", "/__ops/dead-letters"),
-      { opsToken: null, client: client(), establishFirstOperator: unused },
+      {
+        opsToken: null,
+        client: client(),
+        establishFirstOperator: unused,
+        provisionInitialCategories: unused,
+      },
     );
     expect(response.status).toBe(404);
   });
@@ -47,7 +52,12 @@ describe("handleOpsRequest", () => {
     ]) {
       const response = await handleOpsRequest(
         request("GET", "/__ops/dead-letters", { headers }),
-        { opsToken: TOKEN, client: c, establishFirstOperator: unused },
+        {
+          opsToken: TOKEN,
+          client: c,
+          establishFirstOperator: unused,
+          provisionInitialCategories: unused,
+        },
       );
       expect(response.status).toBe(401);
     }
@@ -58,7 +68,12 @@ describe("handleOpsRequest", () => {
     const c = client();
     const response = await handleOpsRequest(
       request("GET", "/__ops/dead-letters?limit=5"),
-      { opsToken: TOKEN, client: c, establishFirstOperator: unused },
+      {
+        opsToken: TOKEN,
+        client: c,
+        establishFirstOperator: unused,
+        provisionInitialCategories: unused,
+      },
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ deadLetters: [] });
@@ -67,7 +82,12 @@ describe("handleOpsRequest", () => {
 
   it("re-drives by limit or by keys, and rejects a malformed body", async () => {
     const c = client();
-    const deps = { opsToken: TOKEN, client: c, establishFirstOperator: unused };
+    const deps = {
+      opsToken: TOKEN,
+      client: c,
+      establishFirstOperator: unused,
+      provisionInitialCategories: unused,
+    };
     const byLimit = await handleOpsRequest(
       request("POST", "/__ops/dead-letters/redrive", {
         body: JSON.stringify({ limit: 20 }),
@@ -103,7 +123,12 @@ describe("handleOpsRequest", () => {
     const c = client();
     const response = await handleOpsRequest(
       request("POST", "/__ops/relay/kick"),
-      { opsToken: TOKEN, client: c, establishFirstOperator: unused },
+      {
+        opsToken: TOKEN,
+        client: c,
+        establishFirstOperator: unused,
+        provisionInitialCategories: unused,
+      },
     );
     expect(response.status).toBe(200);
     expect(c.kickRelay).toHaveBeenCalledOnce();
@@ -125,6 +150,7 @@ describe("handleOpsRequest", () => {
       opsToken: TOKEN,
       client: client(),
       establishFirstOperator: establish,
+      provisionInitialCategories: unused,
     };
     const post = (body: string) =>
       handleOpsRequest(
@@ -154,5 +180,27 @@ describe("handleOpsRequest", () => {
       "nobody@example.com",
       "late@example.com",
     ]);
+  });
+
+  it("provisions the initial categories, idempotently", async () => {
+    const provision = vi
+      .fn<() => Promise<{ provisioned: boolean }>>()
+      .mockResolvedValueOnce({ provisioned: true })
+      .mockResolvedValueOnce({ provisioned: false });
+    const deps = {
+      opsToken: TOKEN,
+      client: client(),
+      establishFirstOperator: unused,
+      provisionInitialCategories: provision,
+    };
+    const post = () =>
+      handleOpsRequest(request("POST", "/__ops/categories/provision"), deps);
+
+    const first = await post();
+    const again = await post();
+
+    expect(await first.json()).toEqual({ provisioned: true });
+    expect(await again.json()).toEqual({ provisioned: false });
+    expect(provision).toHaveBeenCalledTimes(2);
   });
 });
