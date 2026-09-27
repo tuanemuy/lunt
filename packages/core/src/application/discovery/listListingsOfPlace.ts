@@ -1,5 +1,5 @@
 import type { PlaceId } from "@repo/core/domain/common/ids";
-import type { Pagination } from "@repo/core/domain/common/pagination";
+import { Pagination } from "@repo/core/domain/common/pagination";
 import {
   type ListingSummary,
   ViewProjection,
@@ -34,11 +34,14 @@ export type ListListingsOfPlaceOutput = Readonly<{
  *
  * @throws NotFoundError `PLACE_NOT_FOUND` when the place is suspended or
  *   missing.
+ * @throws BusinessRuleError `COMMON_INVALID_INPUT` for a pagination out of
+ *   bounds.
  */
 export async function listListingsOfPlace({
   container,
   input,
 }: ServiceArgs<ListListingsOfPlaceInput>): Promise<ListListingsOfPlaceOutput> {
+  const pagination = Pagination.create(input.pagination);
   const today = todayOf(container);
   const place = await container.detailQueries.findPlace(input.placeId);
   if (place === null) {
@@ -46,7 +49,7 @@ export async function listListingsOfPlace({
   }
   const page = await container.detailQueries.findListingsOfPlace(
     { placeId: input.placeId, scene: "reference", today },
-    input.pagination,
+    pagination,
   );
   const items = page.items.map((entry) =>
     ViewProjection.listingSummary(entry, { kind: "displayed" }, today),

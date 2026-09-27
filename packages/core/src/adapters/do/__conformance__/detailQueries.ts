@@ -75,15 +75,25 @@ export function describeDetailQueriesContract(
         const open = await w.place();
         const resting = await w.place({ status: "temporarilyClosed" });
         const closed = await w.place({ status: "permanentlyClosed" });
-        const listings = [
+        const ofOpen = [
           await w.upcoming(open.id),
           await w.endedBySchedule(open.id),
           await w.endedByHand(open.id),
-          await w.available(resting.id),
-          await w.available(closed.id),
         ];
-        for (const L of listings) {
-          expect((await h.detailQueries.findListing(L.id))?.listing).toEqual(L);
+        const ofResting = await w.available(resting.id);
+        const ofClosed = await w.available(closed.id);
+        const expected = [
+          ...ofOpen.map((listing) => ({
+            listing,
+            place: w.entryOf(open, ofOpen),
+          })),
+          { listing: ofResting, place: w.entryOf(resting, [ofResting]) },
+          { listing: ofClosed, place: w.entryOf(closed, [ofClosed]) },
+        ];
+        for (const entry of expected) {
+          expect(await h.detailQueries.findListing(entry.listing.id)).toEqual(
+            entry,
+          );
         }
       });
 

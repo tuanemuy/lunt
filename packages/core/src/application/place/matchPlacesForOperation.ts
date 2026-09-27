@@ -1,9 +1,9 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { Address } from "@repo/core/domain/common/address";
 import type { PlaceId } from "@repo/core/domain/common/ids";
-import type {
+import {
   Pagination,
-  PaginationResult,
+  type PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import { PlaceMatchCriteria } from "@repo/core/domain/place/matching";
@@ -55,7 +55,10 @@ export async function matchPlacesForOperation({
   });
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeRole(ctx, actor, "operate_service");
-    const page = await ctx.placeRepository.match(criteria, input.pagination);
+    const page = await ctx.placeRepository.match(
+      criteria,
+      Pagination.create(input.pagination),
+    );
     const stewardships =
       page.items.length === 0
         ? []

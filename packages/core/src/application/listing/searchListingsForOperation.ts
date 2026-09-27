@@ -1,7 +1,8 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
+import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { ListingId, PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type { Pagination } from "@repo/core/domain/common/pagination";
+import { Pagination } from "@repo/core/domain/common/pagination";
 import type { Publication } from "@repo/core/domain/common/publication";
 import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import { Listing } from "@repo/core/domain/listing/listing";
@@ -47,32 +48,41 @@ export type OperationListingsView = Readonly<{
  * MOD-07). Each hit carries its place's name and suspension and whether
  * the place has a steward.
  *
+ * - `ForbiddenError` (`operate_service`), decided before the input is
+ *   looked at.
  * - A blank keyword reads nothing and returns no hits;
- *   `COMMON_INVALID_SEARCH_KEYWORD` over 100 characters.
- * - `ForbiddenError` (`operate_service`).
+ *   `COMMON_INVALID_SEARCH_KEYWORD` over 100 characters;
+ *   `COMMON_INVALID_INPUT` for a pagination out of bounds.
  */
 export async function searchListingsForOperation({
   container,
   actor,
   input,
 }: ActorServiceArgs<SearchListingsForOperationInput>): Promise<OperationListingsView> {
-  const keyword = SearchKeyword.parse(input.keyword);
   const today = LocalDate.fromInstant(container.clock.now());
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeRole(ctx, actor, "operate_service");
+    const keyword = SearchKeyword.parse(input.keyword);
+    const pagination = Pagination.create(input.pagination);
     if (keyword === null) return null;
     const page = await ctx.listingRepository.searchForOperation(
       keyword,
-      input.pagination,
+      pagination,
     );
-    const placeIds = [...new Set(page.items.map((listing) => listing.placeId))];
+    const batches = IdBatch.chunks([
+      ...new Set(page.items.map((listing) => listing.placeId)),
+    ]);
     const [places, stewardships] = await Promise.all([
-      ctx.placeRepository.findByIds(placeIds),
-      ctx.stewardshipRepository.findByTargets(
-        placeIds.map((id) => ({ kind: "place", id }) as const),
+      Promise.all(batches.map((ids) => ctx.placeRepository.findByIds(ids))),
+      Promise.all(
+        batches.map((ids) =>
+          ctx.stewardshipRepository.findByTargets(
+            ids.map((id) => ({ kind: "place", id }) as const),
+          ),
+        ),
       ),
     ]);
-    return { page, places, stewardships };
+    return { page, places: places.flat(), stewardships: stewardships.flat() };
   });
   if (read === null) return { items: [], count: 0 };
   const places = new Map(read.places.map((place) => [place.id, place]));

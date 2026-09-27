@@ -1,8 +1,8 @@
 import type { Actor } from "@repo/core/domain/common/actor";
 import type { CategoryId, NotificationId } from "@repo/core/domain/common/ids";
-import type {
+import {
   Pagination,
-  PaginationResult,
+  type PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import type { ContentRef, StewardedRef } from "@repo/core/domain/common/refs";
 import {
@@ -71,7 +71,7 @@ export async function listNotifications({
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     const page = await ctx.notificationRepository.findByRecipient(
       actor.accountId,
-      input.pagination,
+      Pagination.create(input.pagination),
     );
     const labels = await readRepositoryLabels(
       ctx,

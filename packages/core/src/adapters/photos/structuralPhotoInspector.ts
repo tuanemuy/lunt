@@ -11,7 +11,9 @@ import { crc32 } from "./crc32";
  * `IEND` with per-chunk CRCs, WebP's RIFF size). It does not decode the
  * pixels. Animated images (APNG, animated WebP) and every other format —
  * GIF, HEIC, video, text — are `not_a_photo`: they are not still images a
- * browser shows everywhere.
+ * browser shows everywhere. So is an image wider or taller than
+ * `MAX_PHOTO_SIDE` pixels: a small file can declare a size whose decoding
+ * would exhaust a viewer's memory.
  */
 export class StructuralPhotoInspector implements PhotoInspector {
   async inspect(bytes: Uint8Array): Promise<PhotoInspection> {
@@ -24,6 +26,15 @@ const PNG = PhotoFormat.create("image/png");
 const WEBP = PhotoFormat.create("image/webp");
 
 const NOT_A_PHOTO: PhotoInspection = { kind: "not_a_photo" };
+
+/** The largest width or height, in pixels, of a file read as a photo. */
+export const MAX_PHOTO_SIDE = 16384;
+
+const withinSide = (width: number, height: number): boolean =>
+  width > 0 &&
+  height > 0 &&
+  width <= MAX_PHOTO_SIDE &&
+  height <= MAX_PHOTO_SIDE;
 
 /** The inspection of `bytes`; never throws. */
 export function inspectPhoto(bytes: Uint8Array): PhotoInspection {
@@ -44,6 +55,8 @@ const u32be = (b: Uint8Array, i: number): number =>
   0;
 const u16le = (b: Uint8Array, i: number): number =>
   at(b, i) | (at(b, i + 1) << 8);
+const u24le = (b: Uint8Array, i: number): number =>
+  at(b, i) | (at(b, i + 1) << 8) | (at(b, i + 2) << 16);
 const u32le = (b: Uint8Array, i: number): number =>
   (at(b, i) |
     (at(b, i + 1) << 8) |
@@ -85,8 +98,7 @@ function isJpeg(b: Uint8Array): boolean {
       if (
         frame ||
         length < 8 ||
-        u16be(b, i + 3) === 0 ||
-        u16be(b, i + 5) === 0 ||
+        !withinSide(u16be(b, i + 5), u16be(b, i + 3)) ||
         components < 1 ||
         components > 4 ||
         length !== 8 + 3 * components
@@ -140,10 +152,7 @@ function isPngHeader(b: Uint8Array, data: number, length: number): boolean {
   const bitDepth = at(b, data + 8);
   const colorType = at(b, data + 9);
   return (
-    width > 0 &&
-    height > 0 &&
-    width <= 0x7fffffff &&
-    height <= 0x7fffffff &&
+    withinSide(width, height) &&
     (PNG_BIT_DEPTHS[colorType]?.includes(bitDepth) ?? false) &&
     at(b, data + 10) === 0 &&
     at(b, data + 11) === 0 &&
@@ -204,7 +213,13 @@ function isWebp(b: Uint8Array): boolean {
     }
     switch (fourcc) {
       case "VP8X":
-        if (size < 10 || (at(b, data) & 0x02) !== 0) return false;
+        if (
+          size < 10 ||
+          (at(b, data) & 0x02) !== 0 ||
+          !withinSide(u24le(b, data + 4) + 1, u24le(b, data + 7) + 1)
+        ) {
+          return false;
+        }
         break;
       case "ANIM":
       case "ANMF":

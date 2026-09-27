@@ -87,12 +87,8 @@ export async function resolveReferences({
     ...new Map(input.refs.map((ref) => [ContentRef.key(ref), ref])).values(),
   ];
   const resolutions: ReferenceResolution[] = [];
-  for (let i = 0; i < distinct.length; i += IdBatch.maxSize) {
-    resolutions.push(
-      ...(await container.referenceQueries.resolve(
-        distinct.slice(i, i + IdBatch.maxSize),
-      )),
-    );
+  for (const batch of IdBatch.chunks(distinct)) {
+    resolutions.push(...(await container.referenceQueries.resolve(batch)));
   }
   const items = distinct.map((ref, i): ResolvedReference => {
     const resolution = resolutions[i];

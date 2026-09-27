@@ -70,13 +70,14 @@ describe("handlePhotoRequest", () => {
     expect(await response.text()).toBe("");
   });
 
-  it("is 404 for a photo without content, a malformed path, or no bucket", async () => {
+  it("is 404 for a photo without content, a malformed path or id, or no bucket", async () => {
     const { bucket } = await stored();
     for (const path of [
       "/photos/ffffffff-ffff-7fff-8fff-000000000002",
       "/photos/",
       `/photos/${id}/extra`,
       "/photos/%E0%A4%A",
+      "/photos/not-a-photo-id",
     ]) {
       expect((await handlePhotoRequest(request(path), bucket)).status).toBe(
         404,

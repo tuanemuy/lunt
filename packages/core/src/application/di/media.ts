@@ -14,9 +14,13 @@ export type MediaEnv = Readonly<{
   PHOTOS?: PhotoBucket | undefined;
   /** How long an unowned photo is kept, in ms (default 7 days). */
   PHOTO_UNOWNED_RETENTION_MS?: string | undefined;
+  /** The largest photo file registration accepts, in bytes (default 10 MiB). */
+  PHOTO_MAX_BYTES?: string | undefined;
 }>;
 
 export const DEFAULT_PHOTO_UNOWNED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const DEFAULT_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
 const policySchema = z.object({
   unownedRetentionMs: z.coerce
@@ -24,12 +28,14 @@ const policySchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_PHOTO_UNOWNED_RETENTION_MS),
+  maxBytes: z.coerce.number().int().positive().default(DEFAULT_PHOTO_MAX_BYTES),
 });
 
 export function readPhotoPolicy(env: MediaEnv): PhotoPolicy {
   return PhotoPolicy.create(
     policySchema.parse({
       unownedRetentionMs: env.PHOTO_UNOWNED_RETENTION_MS,
+      maxBytes: env.PHOTO_MAX_BYTES,
     }),
   );
 }

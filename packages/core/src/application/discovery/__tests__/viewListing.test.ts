@@ -1,9 +1,15 @@
+import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
 import { openDates } from "@repo/core/adapters/do/__conformance__/listingFixtures";
+import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import { ListingId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { NotFoundError } from "../../errors";
-import { LISTING_NOT_FOUND, viewListing } from "../viewListing";
+import {
+  LISTING_NOT_FOUND,
+  MAX_OTHER_LISTINGS,
+  viewListing,
+} from "../viewListing";
 import { type DiscoveryKit, discoveryKit } from "./kit";
 
 const view = (k: DiscoveryKit, listingId: ListingId, otherListingsLimit = 6) =>
@@ -273,5 +279,22 @@ describe("viewListing", () => {
       ListingId.create(k.idGenerator.next()),
     ];
     for (const id of ids) await expectNotFound(view(k, id));
+  });
+
+  it("otherListingsLimit is an integer from 1 to 99", async () => {
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    const L = await k.w.available(P.id);
+    const other = await k.w.available(P.id);
+    expect(otherIds(await view(k, L.id, 1))).toEqual([other.id]);
+    expect(otherIds(await view(k, L.id, MAX_OTHER_LISTINGS))).toEqual([
+      other.id,
+    ]);
+    for (const limit of [0, MAX_OTHER_LISTINGS + 1, 1.5]) {
+      await expectBusinessRuleError(
+        view(k, L.id, limit),
+        CommonErrorCode.InvalidInput,
+      );
+    }
   });
 });

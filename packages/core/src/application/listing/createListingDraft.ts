@@ -13,7 +13,7 @@ import {
   type ManagedListingView,
   presentManagedListing,
 } from "./managedListing";
-import { claimListingPhotos } from "./photos";
+import { claimPhotosOfNewListing } from "./photos";
 
 export type CreateListingDraftInput = Readonly<{
   /** Minted by the caller and resent unchanged on failure. */
@@ -83,7 +83,12 @@ export async function createListingDraft({
       view.catalog,
       now,
     );
-    await claimListingPhotos(ctx, id, PhotoSet.photoIds(content.photos), actor);
+    await claimPhotosOfNewListing(
+      ctx,
+      id,
+      PhotoSet.photoIds(content.photos),
+      actor,
+    );
     await ctx.listingRepository.insert(entity);
     return { ...view, access, listing: entity };
   });

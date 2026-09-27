@@ -107,11 +107,20 @@ export const PLACE_COLUMNS = `id, name, photo_ids, photos_taken_down,
   latitude, longitude, business_hours, contact, operating_status,
   suspended, registered_at, updated_at, version`;
 
-const photoIdsOf = (raw: string): readonly string[] => {
-  const parsed: unknown = JSON.parse(raw);
-  return Array.isArray(parsed)
-    ? parsed.filter((id): id is string => typeof id === "string")
-    : [];
+/**
+ * `photo_ids` as stored — the parsed JSON, or the text itself when it is
+ * not JSON — unchecked like every value the store passes through:
+ * `DoPlaceRepository.toPlace` refuses anything but an array of photo ids
+ * as a data-integrity failure rather than the store repairing it.
+ */
+const photoIdsOf = (raw: string): PlaceRecord["photoIds"] => {
+  let stored: unknown;
+  try {
+    stored = JSON.parse(raw);
+  } catch {
+    stored = raw;
+  }
+  return stored as PlaceRecord["photoIds"];
 };
 
 export const placeRowToRecord = (row: PlaceRow): PlaceRecord => ({

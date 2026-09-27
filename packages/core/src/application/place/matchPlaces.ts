@@ -1,8 +1,9 @@
 import type { Address } from "@repo/core/domain/common/address";
+import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { PhotoId, PlaceId } from "@repo/core/domain/common/ids";
-import type {
+import {
   Pagination,
-  PaginationResult,
+  type PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type {
@@ -45,7 +46,8 @@ export type PlaceMatch = Readonly<{
  * `ReferenceQueries.resolve`'s `substituteCover` — the substitution rule
  * is Discovery's alone.
  *
- * - `BusinessRuleError` `PLACE_INVALID_MATCH_CRITERIA` when both are blank.
+ * - `BusinessRuleError` `PLACE_INVALID_MATCH_CRITERIA` when both are blank;
+ *   `COMMON_INVALID_INPUT` for a pagination out of bounds.
  */
 export async function matchPlaces({
   container,
@@ -56,8 +58,9 @@ export async function matchPlaces({
     address: input.address,
     includeSuspended: false,
   });
+  const pagination = Pagination.create(input.pagination);
   const page = await container.unitOfWorkProvider.run(({ placeRepository }) =>
-    placeRepository.match(criteria, input.pagination),
+    placeRepository.match(criteria, pagination),
   );
   const substitutes = await substituteCovers(
     container.referenceQueries,
@@ -101,14 +104,17 @@ export async function matchPlaces({
   };
 }
 
-/** Discovery's substitute covers of the photo-less places (at most one page, ≤ 100). */
+/** Discovery's substitute covers of the photo-less places, 100 refs per call. */
 async function substituteCovers(
   referenceQueries: ReferenceQueries,
   places: readonly Place[],
 ): Promise<ReadonlyMap<PlaceId, SubstituteCover>> {
-  if (places.length === 0) return new Map();
   const refs: ShowcaseRef[] = places.map(Place.ref);
-  const resolutions = await referenceQueries.resolve(refs);
+  const resolutions = (
+    await Promise.all(
+      IdBatch.chunks(refs).map((batch) => referenceQueries.resolve(batch)),
+    )
+  ).flat();
   const found = new Map<PlaceId, SubstituteCover>();
   for (const resolution of resolutions) {
     if (!resolution.viewable || resolution.target.kind !== "place") continue;

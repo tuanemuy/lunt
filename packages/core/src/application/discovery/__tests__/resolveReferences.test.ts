@@ -201,4 +201,53 @@ describe("resolveReferences", () => {
     const k = await discoveryKit();
     expect(await resolve(k, [])).toEqual({ items: [], photos: {} });
   });
+
+  it("a ref repeated in the input appears once, at its first position", async () => {
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    const L1 = await k.w.available(P.id);
+    const L2 = await k.w.available(P.id);
+    const out = await resolve(k, [
+      placeRef(P),
+      listingRef(L1),
+      placeRef(P),
+      listingRef(L2),
+      listingRef(L1),
+    ]);
+    expect(shapeOf(out)).toEqual([
+      { ref: placeRef(P), viewable: true },
+      { ref: listingRef(L1), viewable: true },
+      { ref: listingRef(L2), viewable: true },
+    ]);
+  });
+
+  it("more than 100 refs are resolved 100 at a time, every ref kept in order", async () => {
+    const batches: number[] = [];
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    const L = await k.w.available(P.id);
+    const missing = Array.from({ length: 149 }, () =>
+      listingRef({ id: k.w.f.listingId() }),
+    );
+    const refs: Ref[] = [listingRef(L), ...missing, placeRef(P)];
+    const out = await resolveReferences({
+      container: {
+        ...k.container,
+        referenceQueries: {
+          isViewable: (ref) => k.container.referenceQueries.isViewable(ref),
+          resolve: (batch) => {
+            batches.push(batch.length);
+            return k.container.referenceQueries.resolve(batch);
+          },
+        },
+      },
+      input: { refs },
+    });
+    expect(batches).toEqual([100, 51]);
+    expect(shapeOf(out)).toEqual([
+      { ref: listingRef(L), viewable: true },
+      ...missing.map((ref) => ({ ref, viewable: false })),
+      { ref: placeRef(P), viewable: true },
+    ]);
+  });
 });

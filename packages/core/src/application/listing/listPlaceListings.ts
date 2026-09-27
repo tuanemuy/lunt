@@ -1,6 +1,6 @@
 import type { PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type { Pagination } from "@repo/core/domain/common/pagination";
+import { Pagination } from "@repo/core/domain/common/pagination";
 import type { ListingShelf } from "@repo/core/domain/listing/listing";
 import type { ListingShelfCounts } from "@repo/core/domain/listing/ports/listingRepository";
 import { authorizeOnTarget } from "../authority/access";
@@ -58,7 +58,7 @@ export async function listPlaceListings({
         input.placeId,
         input.shelf,
         today,
-        input.pagination,
+        Pagination.create(input.pagination),
       ),
       ctx.listingRepository.countByPlace(input.placeId, today),
       ctx.categoryCatalogRepository.find(),

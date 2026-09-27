@@ -162,17 +162,43 @@ export function describeReferenceQueriesContract(
         const open = await w.place();
         const resting = await w.place({ status: "temporarilyClosed" });
         const closed = await w.place({ status: "permanentlyClosed" });
-        const refs: readonly ShowcaseRef[] = [
-          listingRef(await w.upcoming(open.id)),
-          listingRef(await w.endedBySchedule(open.id)),
-          listingRef(await w.endedByHand(open.id)),
-          placeRef(resting),
-          placeRef(closed),
-          listingRef(await w.available(closed.id)),
+        const ofOpen = [
+          await w.upcoming(open.id),
+          await w.endedBySchedule(open.id),
+          await w.endedByHand(open.id),
         ];
-        const result = await h.referenceQueries.resolve(refs);
-        expect(result.every((r) => r.viewable)).toBe(true);
-        expect(result.map((r) => r.ref)).toEqual(refs);
+        const ofClosed = await w.available(closed.id);
+        const openEntry = w.entryOf(open, ofOpen);
+        const closedEntry = w.entryOf(closed, [ofClosed]);
+        const listingResolution = (
+          listing: Listing,
+          place: typeof openEntry,
+        ) => ({
+          ref: listingRef(listing),
+          viewable: true,
+          target: { kind: "listing", entry: { listing, place } },
+        });
+        expect(
+          await h.referenceQueries.resolve([
+            ...ofOpen.map(listingRef),
+            placeRef(resting),
+            placeRef(closed),
+            listingRef(ofClosed),
+          ]),
+        ).toEqual([
+          ...ofOpen.map((listing) => listingResolution(listing, openEntry)),
+          {
+            ref: placeRef(resting),
+            viewable: true,
+            target: { kind: "place", entry: w.entryOf(resting) },
+          },
+          {
+            ref: placeRef(closed),
+            viewable: true,
+            target: { kind: "place", entry: closedEntry },
+          },
+          listingResolution(ofClosed, closedEntry),
+        ]);
       });
 
       it("referenceQueries#10 閲覧できる掲載 L と店舗 P / L、P、L の順の参照で呼ぶ", async () => {

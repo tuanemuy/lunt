@@ -1,5 +1,6 @@
 import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
 import {
+  pngOfLength,
   sampleJpeg,
   sampleVideo,
   truncated,
@@ -12,6 +13,7 @@ import { ConflictError } from "../../errors";
 import { discardReleased } from "../discardReleasedPhotos";
 import { sweepUnownedPhotos } from "../sweepUnownedPhotos";
 import { InjectedStorageFailure, mediaKit } from "./kit";
+import { TEST_PHOTO_MAX_BYTES } from "./testServices";
 
 describe("registerPhoto", () => {
   it("registerPhoto#1 ログインした利用者。静止画のファイル / 同意して、新しい PhotoId で登録する", async () => {
@@ -243,5 +245,23 @@ describe("registerPhoto", () => {
       stage: "stored",
       consentedAt: secondAt,
     });
+  });
+
+  it("a file larger than PhotoPolicy.maxBytes is not a photo, even when well-formed", async () => {
+    const k = mediaKit();
+    const alice = k.person();
+    const largest = pngOfLength(TEST_PHOTO_MAX_BYTES);
+    const kept = await k.register(alice, { bytes: largest });
+    expect(await k.served(kept)).toEqual(largest);
+
+    const photoId = k.newPhotoId();
+    await expectBusinessRuleError(
+      k.register(alice, {
+        photoId,
+        bytes: pngOfLength(TEST_PHOTO_MAX_BYTES + 1, 1),
+      }),
+      MediaErrorCode.NotAPhoto,
+    );
+    await k.expectNoPhoto(PhotoId.create(photoId));
   });
 });

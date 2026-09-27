@@ -29,8 +29,8 @@ export const PHOTO_ID_CONFLICT = "PHOTO_ID_CONFLICT";
  * file) of an `accepted` photo continues from the upload; of a `stored`
  * one succeeds without writing.
  *
- * - `BusinessRuleError` `MEDIA_INVALID_CONSENT` / `MEDIA_NOT_A_PHOTO`,
- *   checked before any write.
+ * - `BusinessRuleError` `MEDIA_INVALID_CONSENT` / `MEDIA_NOT_A_PHOTO` (also
+ *   for a file over `PhotoPolicy.maxBytes`), checked before any write.
  * - `ConflictError` when the id belongs to another registrant or file, to a
  *   `discarded` photo, or to a deleted one; and when the sweep discarded
  *   the photo during the upload — the uploaded content is then deleted.
@@ -43,6 +43,7 @@ export async function registerPhoto({
 }: ActorServiceArgs<RegisterPhotoInput>): Promise<void> {
   const now = container.clock.now();
   const consent = PhotoConsent.agree({ agreed: input.agreed }, now);
+  PhotoIntake.checkSize(input.bytes, container.photoPolicy);
   const inspection = await container.photoInspector.inspect(input.bytes);
   const file = PhotoIntake.accept(input.bytes, inspection);
   const id = PhotoId.create(input.photoId);

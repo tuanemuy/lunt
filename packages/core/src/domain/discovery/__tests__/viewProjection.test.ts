@@ -1,10 +1,10 @@
+import { LocalDate } from "@repo/core/domain/common/localDate";
+import { ManualEnd } from "@repo/core/domain/listing/offering";
 import {
   listingFactory,
   period,
   TODAY,
-} from "@repo/core/adapters/do/__conformance__/listingFixtures";
-import { LocalDate } from "@repo/core/domain/common/localDate";
-import { ManualEnd } from "@repo/core/domain/listing/offering";
+} from "@repo/core/domain/listing/testing/samples";
 import { Place } from "@repo/core/domain/place/place";
 import { samplePlace } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";

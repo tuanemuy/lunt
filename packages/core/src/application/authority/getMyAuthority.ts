@@ -1,8 +1,8 @@
 import { ROLES, type Role } from "@repo/core/domain/authority/role";
 import type { StewardedTargetSummary } from "@repo/core/domain/authority/stewardedTarget";
-import type {
+import {
   Pagination,
-  PaginationResult,
+  type PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import type { ActorServiceArgs } from "../types";
@@ -34,7 +34,7 @@ export async function getMyAuthority({
       const [page, roles] = await Promise.all([
         ctx.stewardshipRepository.findPageBySteward(
           actor.accountId,
-          input.pagination,
+          Pagination.create(input.pagination),
         ),
         ctx.roleRosterRepository.findRolesOf(actor.accountId),
       ]);

@@ -337,4 +337,34 @@ describe("updatePlaceProfile", () => {
     await expectUnchanged(k, p1, mark);
     expect(await k.ownerOf(ph5)).toEqual({ kind: "place", id: p2.id });
   });
+
+  it("a claim buffered before the place save conflicts leaves the photo unowned", async () => {
+    const { k, A, p1 } = await stewardedPlace();
+    const ph3 = await k.photo(A);
+    const racing = commitAfter(k.container, () =>
+      update(k, A, p1, { name: "先に保存された名前" }),
+    );
+    await expectCode(
+      update(k, A, p1, { photoIds: [ph3] }, { container: racing }),
+      ConflictError,
+    );
+    expect(await k.ownerOf(ph3)).toBeNull();
+    const stored = await k.getPlace(p1.id);
+    expect(stored.profile.name).toBe("先に保存された名前");
+    expect(photoIdsOf(stored)).toEqual([]);
+  });
+
+  it("a photo a previous save dropped cannot be added back before the release consumer deletes it", async () => {
+    const { k, A, p1 } = await stewardedPlace();
+    const [ph1, ph2] = [await k.photo(A), await k.photo(A)];
+    const withBoth = await update(k, A, p1, { photoIds: [ph1, ph2] });
+    const dropped = await update(k, A, withBoth, { photoIds: [ph1] });
+    const mark = await k.mark();
+    await expectCode(
+      update(k, A, dropped, { photoIds: [ph1, ph2] }),
+      BusinessRuleError,
+      "MEDIA_PHOTO_ALREADY_OWNED",
+    );
+    await expectUnchanged(k, dropped, mark);
+  });
 });

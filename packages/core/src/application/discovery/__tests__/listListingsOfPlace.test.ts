@@ -1,3 +1,5 @@
+import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import { PlaceId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { describe, expect, it } from "vitest";
@@ -97,6 +99,24 @@ describe("listListingsOfPlace", () => {
       );
       expect(error).toBeInstanceOf(NotFoundError);
       expect((error as NotFoundError).code).toBe(PLACE_NOT_FOUND);
+    }
+  });
+
+  it("a pagination out of bounds is COMMON_INVALID_INPUT", async () => {
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    await k.w.available(P.id);
+    expect((await list(k, P.id, { page: 1, limit: 100 })).count).toBe(1);
+    for (const pagination of [
+      { page: 0, limit: 6 },
+      { page: 1, limit: 0 },
+      { page: 1, limit: 101 },
+      { page: 1.5, limit: 6 },
+    ]) {
+      await expectBusinessRuleError(
+        list(k, P.id, pagination),
+        CommonErrorCode.InvalidInput,
+      );
     }
   });
 });

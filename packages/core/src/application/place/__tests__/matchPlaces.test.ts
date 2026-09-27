@@ -173,4 +173,22 @@ describe("matchPlaces", () => {
       count: 0,
     });
   });
+
+  it("a pagination out of bounds is COMMON_INVALID_INPUT", async () => {
+    const { k } = await twoPlaces();
+    for (const pagination of [
+      { page: 0, limit: 20 },
+      { page: 1, limit: 0 },
+      { page: 1, limit: 101 },
+    ]) {
+      await expectCode(
+        matchPlaces({
+          container: k.container,
+          input: { name: "山田珈琲店", address: null, pagination },
+        }),
+        BusinessRuleError,
+        "COMMON_INVALID_INPUT",
+      );
+    }
+  });
 });

@@ -13,6 +13,9 @@ export type MediaServices = Readonly<{
    */
   photoStorage: PhotoStorage;
   photoInspector: PhotoInspector;
-  /** How long an unowned photo is kept (`PHOTO_UNOWNED_RETENTION_MS`). */
+  /**
+   * How long an unowned photo is kept (`PHOTO_UNOWNED_RETENTION_MS`) and
+   * the largest file registered (`PHOTO_MAX_BYTES`).
+   */
   photoPolicy: PhotoPolicy;
 }>;

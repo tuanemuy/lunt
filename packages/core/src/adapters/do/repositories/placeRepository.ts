@@ -34,13 +34,21 @@ export class DoPlaceRepository implements PlaceRepository {
 
   /** A stored record as a `Place`; `DATA_INTEGRITY_ERROR` when it is not one. */
   static toPlace(record: PlaceRecord, idGenerator: IdGenerator): Place {
-    const malformed = [record.id, ...record.photoIds].find(
-      (id) => idGenerator.parse(id) === null,
+    // The store passes `photo_ids` through unchecked.
+    const photoIds: unknown = record.photoIds;
+    if (!Array.isArray(photoIds)) {
+      throw new SystemError(
+        SystemErrorCode.DataIntegrityError,
+        `Stored place ${record.id} has malformed photo ids`,
+      );
+    }
+    const malformed = [record.id, ...photoIds].find(
+      (id: unknown) => typeof id !== "string" || idGenerator.parse(id) === null,
     );
     if (malformed !== undefined) {
       throw new SystemError(
         SystemErrorCode.DataIntegrityError,
-        `Stored place has malformed id: ${malformed}`,
+        `Stored place has malformed id: ${String(malformed)}`,
       );
     }
     try {

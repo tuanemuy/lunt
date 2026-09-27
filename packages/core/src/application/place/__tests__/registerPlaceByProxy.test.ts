@@ -1,7 +1,11 @@
 import { PlaceId } from "@repo/core/domain/common/ids";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
-import { expectCode, type Person } from "../../authority/__tests__/kit";
+import {
+  commitAfter,
+  expectCode,
+  type Person,
+} from "../../authority/__tests__/kit";
 import { ConflictError, ForbiddenError } from "../../errors";
 import type { GeneratedId } from "../../ports/idGenerator";
 import { matchPlaces } from "../matchPlaces";
@@ -230,6 +234,27 @@ describe("registerPlaceByProxy", () => {
       "MEDIA_PHOTO_NOT_AVAILABLE",
     );
     expect(await k.findPlace(PlaceId.create(p1))).toBeNull();
+    expect(await k.ownerOf(ph1)).toBeNull();
+  });
+
+  it("a claim buffered before the place insert conflicts leaves the photo unowned", async () => {
+    const { k, O } = await operatorKit();
+    const ph1 = await k.photo(O);
+    const p1 = k.newPlaceId();
+    const racing = commitAfter(k.container, () =>
+      register(k, O, p1, { name: "先に登録された店" }),
+    );
+    await expectCode(
+      registerPlaceByProxy({
+        container: racing,
+        actor: O.actor,
+        input: { placeId: p1, profile: profileFields({ photoIds: [ph1] }) },
+      }),
+      ConflictError,
+    );
+    expect((await k.getPlace(PlaceId.create(p1))).profile.name).toBe(
+      "先に登録された店",
+    );
     expect(await k.ownerOf(ph1)).toBeNull();
   });
 });

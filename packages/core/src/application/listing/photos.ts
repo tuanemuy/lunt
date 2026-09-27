@@ -32,9 +32,9 @@ export async function readPhotos(
 /**
  * Makes the listing the owner of the photos a save newly adds
  * (`PhotoOwnership.claimAll`), in the caller's unit of work, all or
- * nothing. A photo already owned by this very listing id is skipped: it
- * was claimed by an earlier create of the same id, whose listing has since
- * been deleted, and that create's insert then conflicts.
+ * nothing. A photo already owned — this listing included, e.g. one a
+ * previous save removed and the release consumer has not deleted yet — is
+ * `MEDIA_PHOTO_ALREADY_OWNED`.
  */
 export async function claimListingPhotos(
   ctx: PhotoContext,
@@ -42,25 +42,53 @@ export async function claimListingPhotos(
   photoIds: readonly PhotoId[],
   actor: Actor,
 ): Promise<void> {
-  if (photoIds.length === 0) return;
+  await claim(ctx, listingOwner(listingId), photoIds, () => false, actor);
+}
+
+/**
+ * `claimListingPhotos` for `createListingDraft` alone: a photo already
+ * owned by this very listing id is skipped. Such a photo was claimed by an
+ * earlier create of the same id whose listing has since been deleted, so
+ * the create's insert conflicts and nothing commits; skipping lets that
+ * conflict, not `MEDIA_PHOTO_ALREADY_OWNED`, answer the resend.
+ */
+export async function claimPhotosOfNewListing(
+  ctx: PhotoContext,
+  listingId: ListingId,
+  photoIds: readonly PhotoId[],
+  actor: Actor,
+): Promise<void> {
   const owner = listingOwner(listingId);
+  await claim(
+    ctx,
+    owner,
+    photoIds,
+    (photo) =>
+      photo.stage === "stored" &&
+      photo.owner !== null &&
+      PhotoOwnerRef.equals(photo.owner, owner),
+    actor,
+  );
+}
+
+async function claim(
+  ctx: PhotoContext,
+  owner: ReturnType<typeof listingOwner>,
+  photoIds: readonly PhotoId[],
+  skip: (photo: PhotoAsset) => boolean,
+  actor: Actor,
+): Promise<void> {
+  if (photoIds.length === 0) return;
   const read = await readPhotos(ctx, photoIds);
   const versions = new Map(
     read.map((photo) => [photo.entity.id, photo.expectedVersion]),
   );
-  const alreadyOurs = new Set(
-    read
-      .filter(
-        ({ entity }) =>
-          entity.stage === "stored" &&
-          entity.owner !== null &&
-          PhotoOwnerRef.equals(entity.owner, owner),
-      )
-      .map(({ entity }) => entity.id),
+  const skipped = new Set(
+    read.filter(({ entity }) => skip(entity)).map(({ entity }) => entity.id),
   );
   const claimed = PhotoOwnership.claimAll(
     read.map(({ entity }) => entity),
-    photoIds.filter((id) => !alreadyOurs.has(id)),
+    photoIds.filter((id) => !skipped.has(id)),
     owner,
     actor,
   );

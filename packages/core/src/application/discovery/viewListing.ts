@@ -1,5 +1,7 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
+import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { ListingId } from "@repo/core/domain/common/ids";
+import { Pagination } from "@repo/core/domain/common/pagination";
 import type { ListingEntry } from "@repo/core/domain/discovery/entry";
 import type {
   OccasionSummary,
@@ -10,6 +12,7 @@ import {
   type ListingSummary,
   ViewProjection,
 } from "@repo/core/domain/discovery/viewProjection";
+import { BusinessRuleError } from "@repo/core/domain/error";
 import {
   type ActiveCategory,
   CategoryCatalog,
@@ -29,9 +32,15 @@ export const LISTING_NOT_FOUND = "LISTING_NOT_FOUND";
 
 export type ViewListingInput = Readonly<{
   listingId: ListingId;
-  /** How many other listings to show: 1–99, checked at the transport boundary. */
+  /**
+   * How many other listings to show: an integer from 1 to
+   * `MAX_OTHER_LISTINGS` (the place's are read one more than this, within
+   * `Pagination.maxLimit`). Checked at the transport boundary and again here.
+   */
   otherListingsLimit: number;
 }>;
+
+export const MAX_OTHER_LISTINGS = Pagination.maxLimit - 1;
 
 export type ViewListingOutput = Readonly<{
   /** The listing as viewers see it, its category resolved to the active one. */
@@ -61,11 +70,23 @@ export type ViewListingOutput = Readonly<{
  * @throws NotFoundError `LISTING_NOT_FOUND` when the listing is a draft,
  *   unpublished, suspended, deleted, at a suspended place, or missing —
  *   without telling which.
+ * @throws BusinessRuleError `COMMON_INVALID_INPUT` when
+ *   `otherListingsLimit` is out of bounds.
  */
 export async function viewListing({
   container,
   input,
 }: ServiceArgs<ViewListingInput>): Promise<ViewListingOutput> {
+  if (
+    !Number.isSafeInteger(input.otherListingsLimit) ||
+    input.otherListingsLimit < 1 ||
+    input.otherListingsLimit > MAX_OTHER_LISTINGS
+  ) {
+    throw new BusinessRuleError(
+      CommonErrorCode.InvalidInput,
+      `otherListingsLimit must be an integer from 1 to ${MAX_OTHER_LISTINGS}`,
+    );
+  }
   const today = todayOf(container);
   const entry = await container.detailQueries.findListing(input.listingId);
   if (entry === null) {

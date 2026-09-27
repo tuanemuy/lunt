@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { crc32 } from "../crc32";
-import { inspectPhoto } from "../structuralPhotoInspector";
+import { inspectPhoto, MAX_PHOTO_SIDE } from "../structuralPhotoInspector";
 import {
+  jpegDeclaring,
+  pngDeclaring,
   sampleEncodedPng,
   sampleGif,
   sampleJpeg,
@@ -9,6 +11,7 @@ import {
   samplePng,
   sampleProgressiveJpeg,
   sampleWebp,
+  webpDeclaring,
 } from "../testing/photoSamples";
 
 const u32 = (bytes: Uint8Array, offset: number, value: number) =>
@@ -81,5 +84,32 @@ describe("StructuralPhotoInspector", () => {
         expect(inspectPhoto(sample.slice(0, length)).kind).toBe("not_a_photo");
       }
     }
+  });
+
+  describe.each([
+    ["JPEG", jpegDeclaring, "image/jpeg"],
+    ["PNG", pngDeclaring, "image/png"],
+    ["extended WebP", webpDeclaring, "image/webp"],
+  ])("a %s's declared size", (_, declaring, format) => {
+    const max = MAX_PHOTO_SIDE;
+
+    it("is a photo up to MAX_PHOTO_SIDE pixels a side", () => {
+      expect(inspectPhoto(declaring(max, max))).toEqual({
+        kind: "photo",
+        format,
+      });
+      expect(inspectPhoto(declaring(3, 2))).toEqual({ kind: "photo", format });
+    });
+
+    it("is not a photo when wider or taller than MAX_PHOTO_SIDE", () => {
+      for (const [width, height] of [
+        [max + 1, 2],
+        [2, max + 1],
+      ] as const) {
+        expect(inspectPhoto(declaring(width, height))).toEqual({
+          kind: "not_a_photo",
+        });
+      }
+    });
   });
 });

@@ -1,3 +1,7 @@
+import {
+  type IdGenerator,
+  UuidV7Generator,
+} from "@repo/core/application/ports/idGenerator";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import {
   type PhotoBucket,
@@ -22,14 +26,20 @@ const notFound = (): Response =>
     headers: { "Cache-Control": "no-store", "Content-Type": "text/plain" },
   });
 
-/** The photo id a request path names, or `null` when it names none. */
-function photoIdOf(pathname: string): string | null {
+/**
+ * The photo id a request path names, or `null` when it names none: the
+ * segment must be an id the generator could have minted, so a malformed
+ * path never reaches the bucket.
+ */
+function photoIdOf(
+  pathname: string,
+  ids: Pick<IdGenerator, "parse">,
+): string | null {
   if (!pathname.startsWith(PHOTO_PATH_PREFIX)) return null;
   const segment = pathname.slice(PHOTO_PATH_PREFIX.length);
   if (segment === "" || segment.includes("/")) return null;
   try {
-    const id = decodeURIComponent(segment);
-    return id.trim() === "" || id.includes("/") ? null : id;
+    return ids.parse(decodeURIComponent(segment));
   } catch {
     return null;
   }
@@ -46,14 +56,16 @@ function matches(ifNoneMatch: string, etag: string): boolean {
 /**
  * Serves `GET` / `HEAD /photos/{photoId}` from `bucket` (design.md D-09):
  * the stored content type, an `ETag`, a short `Cache-Control`, `304` for a
- * matching `If-None-Match`, `404` when there is no content, `405` for
- * other methods.
+ * matching `If-None-Match`, `404` when there is no content or the path
+ * does not name an id `ids` accepts (answered without reading the
+ * bucket), `405` for other methods.
  */
 export async function servePhoto(
   bucket: PhotoBucket,
   request: Request,
+  ids: Pick<IdGenerator, "parse"> = UuidV7Generator,
 ): Promise<Response> {
-  const photoId = photoIdOf(new URL(request.url).pathname);
+  const photoId = photoIdOf(new URL(request.url).pathname, ids);
   if (photoId === null) return notFound();
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method Not Allowed", {

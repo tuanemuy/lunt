@@ -20,6 +20,24 @@ async function acceptedOnly(k: MediaKit): Promise<PhotoId> {
   return id;
 }
 
+/**
+ * A photo left `accepted` with its content in place: the upload succeeded
+ * and the unit of work marking it `stored` failed.
+ */
+async function acceptedWithContent(k: MediaKit): Promise<PhotoId> {
+  const photoId = k.newPhotoId();
+  k.uow.beforeCommitOf(2, async () => {
+    throw new Error("the unit of work after the upload fails");
+  });
+  await expect(k.register(k.person(), { photoId })).rejects.toThrow(
+    "the unit of work after the upload fails",
+  );
+  const id = PhotoId.create(photoId);
+  expect((await k.get(id)).entity.stage).toBe("accepted");
+  expect(await k.served(id)).not.toBeNull();
+  return id;
+}
+
 describe("sweepUnownedPhotos", () => {
   it("sweepUnownedPhotos#1 登録から残す期間を過ぎた、持ち主のない stored の写真 / ジョブを実行する", async () => {
     const k = mediaKit();
@@ -33,10 +51,13 @@ describe("sweepUnownedPhotos", () => {
 
   it("sweepUnownedPhotos#2 登録から残す期間を過ぎた、accepted のまま残った写真（登録または複製の途中で失敗したもの） / ジョブを実行する", async () => {
     const k = mediaKit();
-    const photo = await acceptedOnly(k);
+    const withContent = await acceptedWithContent(k);
+    const withoutContent = await acceptedOnly(k);
     k.passRetention();
-    await sweep(k);
-    await k.expectNoPhoto(photo);
+    const report = await sweep(k);
+    expect(report).toMatchObject({ processed: 2, failed: 0 });
+    await k.expectNoPhoto(withContent);
+    await k.expectNoPhoto(withoutContent);
     expect(k.storage.bucket.keys()).toEqual([]);
   });
 

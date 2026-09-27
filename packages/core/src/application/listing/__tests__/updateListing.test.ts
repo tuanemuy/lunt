@@ -681,4 +681,29 @@ describe("updateListing", () => {
     expect((await k.stored(listing.id)).entity).toEqual(before.entity);
     expect(await k.photoOwner(q)).toBeNull();
   });
+
+  it("a photo a previous save removed cannot be added back before the release consumer deletes it", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const [p1, p2] = await k.photos(m, 2);
+    if (p1 === undefined || p2 === undefined) throw new Error("photos");
+    const listing = await k.published(m, a, { photos: [p1, p2] });
+    await saver(k)(m, listing.id, {
+      ...(await specOf(k, listing.id)),
+      photos: [p1],
+    });
+    expect(await released(k)).toEqual([{ photoIds: [p2] }]);
+    const before = await k.stored(listing.id);
+    await expectCode(
+      saver(k)(m, listing.id, {
+        ...(await specOf(k, listing.id)),
+        photos: [p1, p2],
+      }),
+      BusinessRuleError,
+      "MEDIA_PHOTO_ALREADY_OWNED",
+    );
+    expect(await k.stored(listing.id)).toEqual(before);
+    expect(await released(k)).toEqual([{ photoIds: [p2] }]);
+  });
 });

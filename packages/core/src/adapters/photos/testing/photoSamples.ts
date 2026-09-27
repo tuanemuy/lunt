@@ -62,18 +62,28 @@ function zlibStored(raw: Uint8Array): Uint8Array {
  * distinct files (and digests), the same seed the same bytes.
  */
 export function samplePng(seed = 0): Uint8Array {
-  const width = 2;
-  const height = 2;
+  return pngDeclaring(2, 2, seed);
+}
+
+/**
+ * `samplePng`'s 2×2 pixel data under a header declaring `width`×`height`:
+ * structurally valid, for the inspector's size ceiling (it does not decode).
+ */
+export function pngDeclaring(
+  width: number,
+  height: number,
+  seed = 0,
+): Uint8Array {
   const header = concat(
     u32be(width),
     u32be(height),
     Uint8Array.of(8, 2, 0, 0, 0),
   );
   const rows: Uint8Array[] = [];
-  for (let y = 0; y < height; y++) {
+  for (let y = 0; y < 2; y++) {
     const row = [0];
-    for (let x = 0; x < width; x++) {
-      const n = seed * 7 + y * width + x;
+    for (let x = 0; x < 2; x++) {
+      const n = seed * 7 + y * 2 + x;
       row.push(n & 0xff, (n >>> 8) & 0xff, (seed >>> 16) & 0xff);
     }
     rows.push(Uint8Array.from(row));
@@ -83,6 +93,23 @@ export function samplePng(seed = 0): Uint8Array {
     pngChunk("IHDR", header),
     pngChunk("IDAT", zlibStored(concat(...rows))),
     pngChunk("IEND", new Uint8Array()),
+  );
+}
+
+/**
+ * `samplePng(seed)` grown to exactly `length` bytes by an ancillary chunk
+ * after the header: still a valid PNG.
+ */
+export function pngOfLength(length: number, seed = 0): Uint8Array {
+  const png = samplePng(seed);
+  const padding = length - png.length - 12;
+  if (padding < 0)
+    throw new Error(`A PNG needs at least ${png.length + 12} bytes`);
+  const cut = 8 + 25;
+  return concat(
+    png.subarray(0, cut),
+    pngChunk("teXt", new Uint8Array(padding)),
+    png.subarray(cut),
   );
 }
 
@@ -113,6 +140,46 @@ export const sampleWebp = (): Uint8Array =>
 /** Lossless 3×2 WebP (libwebp via sharp). */
 export const sampleLosslessWebp = (): Uint8Array =>
   fromBase64("UklGRh4AAABXRUJQVlA4TBEAAAAvAkAAAAdQqCIXpf+BiOh/AAA=");
+
+/** `sampleJpeg` with a frame header declaring `width`×`height`. */
+export function jpegDeclaring(width: number, height: number): Uint8Array {
+  const bytes = sampleJpeg();
+  const sof = bytes.findIndex(
+    (byte, i) => byte === 0xff && bytes[i + 1] === 0xc0,
+  );
+  const view = new DataView(bytes.buffer, bytes.byteOffset);
+  view.setUint16(sof + 5, height);
+  view.setUint16(sof + 7, width);
+  return bytes;
+}
+
+const u24le = (value: number): Uint8Array =>
+  Uint8Array.of(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff);
+
+const u32le = (value: number): Uint8Array =>
+  Uint8Array.of(
+    value & 0xff,
+    (value >>> 8) & 0xff,
+    (value >>> 16) & 0xff,
+    value >>> 24,
+  );
+
+/**
+ * An extended WebP (`VP8X`) whose canvas is `width`×`height`, over
+ * `sampleLosslessWebp`'s image.
+ */
+export function webpDeclaring(width: number, height: number): Uint8Array {
+  const lossless = sampleLosslessWebp().subarray(12);
+  const chunks = concat(
+    ascii("VP8X"),
+    u32le(10),
+    Uint8Array.of(0, 0, 0, 0),
+    u24le(width - 1),
+    u24le(height - 1),
+    lossless,
+  );
+  return concat(ascii("RIFF"), u32le(4 + chunks.length), ascii("WEBP"), chunks);
+}
 
 /** 3×2 GIF: a format the inspector does not accept. */
 export const sampleGif = (): Uint8Array =>

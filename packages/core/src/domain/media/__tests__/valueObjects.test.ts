@@ -123,24 +123,51 @@ describe("PhotoIntake", () => {
   });
 });
 
+describe("PhotoIntake.checkSize", () => {
+  const policy = PhotoPolicy.create({ unownedRetentionMs: 1, maxBytes: 4 });
+
+  it("accepts a file of at most maxBytes", () => {
+    expect(() =>
+      PhotoIntake.checkSize(new Uint8Array(4), policy),
+    ).not.toThrow();
+  });
+
+  it("refuses a larger file with MEDIA_NOT_A_PHOTO", () => {
+    expect(codeOf(() => PhotoIntake.checkSize(new Uint8Array(5), policy))).toBe(
+      MediaErrorCode.NotAPhoto,
+    );
+  });
+});
+
 describe("PhotoPolicy", () => {
-  it("create accepts a positive integer retention", () => {
-    expect(
-      PhotoPolicy.create({ unownedRetentionMs: 1 }).unownedRetentionMs,
-    ).toBe(1);
+  it("create accepts a positive integer retention and size", () => {
+    expect(PhotoPolicy.create({ unownedRetentionMs: 1, maxBytes: 1 })).toEqual({
+      unownedRetentionMs: 1,
+      maxBytes: 1,
+    });
   });
 
   it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
     "create refuses %s with MEDIA_INVALID_POLICY",
-    (unownedRetentionMs) => {
-      expect(codeOf(() => PhotoPolicy.create({ unownedRetentionMs }))).toBe(
-        MediaErrorCode.InvalidPolicy,
-      );
+    (value) => {
+      expect(
+        codeOf(() =>
+          PhotoPolicy.create({ unownedRetentionMs: value, maxBytes: 1 }),
+        ),
+      ).toBe(MediaErrorCode.InvalidPolicy);
+      expect(
+        codeOf(() =>
+          PhotoPolicy.create({ unownedRetentionMs: 1, maxBytes: value }),
+        ),
+      ).toBe(MediaErrorCode.InvalidPolicy);
     },
   );
 
   it("sweepBefore is now minus the retention", () => {
-    const policy = PhotoPolicy.create({ unownedRetentionMs: 1000 });
+    const policy = PhotoPolicy.create({
+      unownedRetentionMs: 1000,
+      maxBytes: 1,
+    });
     expect(PhotoPolicy.sweepBefore(policy, T)).toEqual(
       new Date(T.getTime() - 1000),
     );

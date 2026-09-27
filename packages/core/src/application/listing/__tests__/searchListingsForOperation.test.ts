@@ -1,4 +1,5 @@
 import type { ListingId } from "@repo/core/domain/common/ids";
+import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
 import { ForbiddenError } from "../../errors";
@@ -133,5 +134,38 @@ describe("searchListingsForOperation", () => {
     const m = await k.manager(a);
     await k.draft(m, a, { name: "りんご" });
     await expectCode(searcher(k)(m, "りんご"), ForbiddenError);
+  });
+
+  it("a non-operator is refused before the keyword and pagination are looked at", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    await expectCode(
+      searchListingsForOperation({
+        container: k.container,
+        actor: m.actor,
+        input: { keyword: "り".repeat(101), pagination: { page: 0, limit: 0 } },
+      }),
+      ForbiddenError,
+    );
+  });
+
+  it("a pagination out of bounds is COMMON_INVALID_INPUT", async () => {
+    const k = await listingKit();
+    const op = await k.operator();
+    for (const pagination of [
+      { page: 0, limit: 20 },
+      { page: 1, limit: 101 },
+    ]) {
+      await expectCode(
+        searchListingsForOperation({
+          container: k.container,
+          actor: op.actor,
+          input: { keyword: "りんご", pagination },
+        }),
+        BusinessRuleError,
+        "COMMON_INVALID_INPUT",
+      );
+    }
   });
 });

@@ -17,4 +17,13 @@ export const IdBatch = {
       );
     }
   },
+
+  /** `items` split in order into runs of at most 100, for one lookup each. */
+  chunks: <T>(items: readonly T[]): readonly (readonly T[])[] => {
+    const result: T[][] = [];
+    for (let i = 0; i < items.length; i += IdBatch.maxSize) {
+      result.push(items.slice(i, i + IdBatch.maxSize));
+    }
+    return result;
+  },
 };

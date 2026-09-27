@@ -672,7 +672,13 @@ function contentFrom(snapshot: ListingContentSnapshot): ListingContent {
   };
 }
 
-const UNPUBLISH_REASONS: readonly string[] = ["byManager", "photoTakedown"];
+const UNPUBLISH_REASONS: readonly UnpublishReason[] = [
+  "byManager",
+  "photoTakedown",
+];
+
+const isUnpublishReason = (value: string): value is UnpublishReason =>
+  UNPUBLISH_REASONS.some((reason) => reason === value);
 
 function reconstruct(snapshot: ListingSnapshot): Listing {
   try {
@@ -712,15 +718,11 @@ function reconstruct(snapshot: ListingSnapshot): Listing {
     if (
       status === "unpublished" &&
       reason !== null &&
-      UNPUBLISH_REASONS.includes(reason)
+      isUnpublishReason(reason)
     ) {
       return {
         ...base,
-        publication: {
-          status,
-          firstPublishedAt,
-          reason: reason as UnpublishReason,
-        },
+        publication: { status, firstPublishedAt, reason },
         content,
         manualEnd,
       };
