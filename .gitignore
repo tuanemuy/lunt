@@ -11,6 +11,7 @@ dist/
 .wrangler/
 worker-configuration.d.ts
 .dev.vars
+/apps/web/public/area/
 
 # Local environment files
 .env

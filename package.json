@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @repo/web dev",
     "dev:reset": "pnpm --filter @repo/web dev:reset",
+    "area:import": "pnpm --filter @repo/web area:import",
     "build": "pnpm --filter @repo/web build",
     "start": "pnpm --filter @repo/web start",
     "preview": "pnpm --filter @repo/web preview",
