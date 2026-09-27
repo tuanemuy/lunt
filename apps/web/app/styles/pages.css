@@ -1,0 +1,245 @@
+/*
+  Page-specific rules of the account (MY) and service operation (OM) screens,
+  after the `MY 共通` / `MY-0x 固有` / `OM-07 固有` blocks of spec/design/pages.
+*/
+@layer components {
+  .m-inline {
+    display: flex;
+    gap: var(--space-8);
+    align-items: stretch;
+  }
+  .m-inline > .m-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .m-inline > .button {
+    width: auto;
+    flex: none;
+    padding-inline: var(--space-16);
+  }
+
+  .my-lead {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+  }
+  .my-points {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding-left: var(--space-16);
+    list-style: disc;
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+  }
+  .my-points li::marker {
+    color: var(--muted);
+  }
+  .my-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .my-strong {
+    font-weight: var(--weight-medium);
+  }
+
+  .my02-or {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .my02-or::before,
+  .my02-or::after {
+    content: "";
+    flex: 1;
+    height: var(--border-1);
+    background: var(--line);
+  }
+  .my02-sent {
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .my02-code {
+    font-size: var(--text-section);
+    line-height: var(--leading-heading);
+    letter-spacing: var(--tracking-display);
+  }
+  .my02-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+
+  .my01-account {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-16);
+    background: var(--paper);
+    border-radius: var(--radius-8);
+  }
+  .my01-account__label {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .my01-account__mail {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .my01-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+
+  .my03-list .m-list__item {
+    align-items: flex-start;
+  }
+  .my03-chev {
+    flex: none;
+    margin-top: var(--space-8);
+    color: var(--muted);
+  }
+  .my03-item--static {
+    color: var(--ink);
+  }
+  .my03-time {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  .my03-end {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .my07-orphans {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .my07-orphan {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-16);
+    border: var(--border-1) solid var(--line);
+    border-radius: var(--radius-8);
+  }
+  .my07-orphan__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .my07-orphan__name {
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+  .my07-orphan__body {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+  }
+
+  .om-count {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .om07-people {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--border-1) solid var(--line);
+  }
+  .om07-person {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-12);
+    min-height: var(--size-touch);
+    padding: var(--space-12) 0;
+    border-bottom: var(--border-1) solid var(--line);
+  }
+  .om07-person__mail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .om07-person .chip-button {
+    flex: none;
+  }
+  .om07-form {
+    padding-top: var(--space-8);
+  }
+
+  .dev-mail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-16);
+    border: var(--border-1) solid var(--line);
+    border-radius: var(--radius-8);
+  }
+  .dev-mail__subject {
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+  .dev-mail__meta {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+    overflow-wrap: anywhere;
+  }
+  .dev-mail__text {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .dev-mail__text a {
+    color: var(--green);
+    text-decoration: underline;
+  }
+
+  @media (min-width: 1024px) {
+    .my02-block .button {
+      width: auto;
+      min-width: 280px;
+      padding-inline: var(--space-24);
+      align-self: flex-start;
+    }
+    .my02-block .m-field {
+      max-width: 480px;
+    }
+    .my01-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-24) var(--space-32);
+    }
+  }
+}

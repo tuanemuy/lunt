@@ -10,21 +10,41 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AccountRouteImport } from './routes/_account'
+import { Route as ManageRouteImport } from './routes/_manage'
 import { Route as ViewerRouteImport } from './routes/_viewer'
+import { Route as Char91__devChar93InboxRouteImport } from './routes/[__dev]/inbox'
 import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
-import { Route as AccountLoginRouteImport } from './routes/_account/login'
+import { Route as ManageOpsRouteImport } from './routes/_manage/ops'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
 import { Route as Char91__devChar93ErrorsKindRouteImport } from './routes/[__dev]/errors.$kind'
+import { Route as Char91__devChar93IdpAuthorizeRouteImport } from './routes/[__dev]/idp/authorize'
 import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
 import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/ui/manage'
+import { Route as AccountLoginIndexRouteImport } from './routes/_account/login/index'
+import { Route as AccountLoginLinkRouteImport } from './routes/_account/login/link'
+import { Route as AccountMeIndexRouteImport } from './routes/_account/me/index'
+import { Route as AccountMeNotificationsRouteImport } from './routes/_account/me/notifications'
+import { Route as AccountMeWithdrawRouteImport } from './routes/_account/me/withdraw'
+import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
+import { Route as AccountLoginExternalProviderIndexRouteImport } from './routes/_account/login/external/$provider/index'
+import { Route as AccountLoginExternalProviderCallbackRouteImport } from './routes/_account/login/external/$provider/callback'
 
 const AccountRoute = AccountRouteImport.update({
   id: '/_account',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManageRoute = ManageRouteImport.update({
+  id: '/_manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ViewerRoute = ViewerRouteImport.update({
   id: '/_viewer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91__devChar93InboxRoute = Char91__devChar93InboxRouteImport.update({
+  id: '/__dev/inbox',
+  path: '/__dev/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91__devChar93SessionRoute =
@@ -33,10 +53,10 @@ const Char91__devChar93SessionRoute =
     path: '/__dev/session',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AccountLoginRoute = AccountLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => AccountRoute,
+const ManageOpsRoute = ManageOpsRouteImport.update({
+  id: '/ops',
+  path: '/ops',
+  getParentRoute: () => ManageRoute,
 } as any)
 const ViewerIndexRoute = ViewerIndexRouteImport.update({
   id: '/',
@@ -47,6 +67,12 @@ const Char91__devChar93ErrorsKindRoute =
   Char91__devChar93ErrorsKindRouteImport.update({
     id: '/__dev/errors/$kind',
     path: '/__dev/errors/$kind',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91__devChar93IdpAuthorizeRoute =
+  Char91__devChar93IdpAuthorizeRouteImport.update({
+    id: '/__dev/idp/authorize',
+    path: '/__dev/idp/authorize',
     getParentRoute: () => rootRouteImport,
   } as any)
 const Char91__devChar93UiIndexRoute =
@@ -61,80 +87,187 @@ const Char91__devChar93UiManageRoute =
     path: '/__dev/ui/manage',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AccountLoginIndexRoute = AccountLoginIndexRouteImport.update({
+  id: '/login/',
+  path: '/login/',
+  getParentRoute: () => AccountRoute,
+} as any)
+const AccountLoginLinkRoute = AccountLoginLinkRouteImport.update({
+  id: '/login/link',
+  path: '/login/link',
+  getParentRoute: () => AccountRoute,
+} as any)
+const AccountMeIndexRoute = AccountMeIndexRouteImport.update({
+  id: '/me/',
+  path: '/me/',
+  getParentRoute: () => AccountRoute,
+} as any)
+const AccountMeNotificationsRoute = AccountMeNotificationsRouteImport.update({
+  id: '/me/notifications',
+  path: '/me/notifications',
+  getParentRoute: () => AccountRoute,
+} as any)
+const AccountMeWithdrawRoute = AccountMeWithdrawRouteImport.update({
+  id: '/me/withdraw',
+  path: '/me/withdraw',
+  getParentRoute: () => AccountRoute,
+} as any)
+const ManageOpsRolesRoute = ManageOpsRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => ManageOpsRoute,
+} as any)
 const AccountChar91__devChar93ManageErrorsKindRoute =
   AccountChar91__devChar93ManageErrorsKindRouteImport.update({
     id: '/__dev/manage-errors/$kind',
     path: '/__dev/manage-errors/$kind',
     getParentRoute: () => AccountRoute,
   } as any)
+const AccountLoginExternalProviderIndexRoute =
+  AccountLoginExternalProviderIndexRouteImport.update({
+    id: '/login/external/$provider/',
+    path: '/login/external/$provider/',
+    getParentRoute: () => AccountRoute,
+  } as any)
+const AccountLoginExternalProviderCallbackRoute =
+  AccountLoginExternalProviderCallbackRouteImport.update({
+    id: '/login/external/$provider/callback',
+    path: '/login/external/$provider/callback',
+    getParentRoute: () => AccountRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ViewerIndexRoute
+  '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
-  '/login': typeof AccountLoginRoute
+  '/ops': typeof ManageOpsRouteWithChildren
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
+  '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/login/link': typeof AccountLoginLinkRoute
+  '/me/notifications': typeof AccountMeNotificationsRoute
+  '/me/withdraw': typeof AccountMeWithdrawRoute
+  '/ops/roles': typeof ManageOpsRolesRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
+  '/login/': typeof AccountLoginIndexRoute
+  '/me/': typeof AccountMeIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ViewerIndexRoute
+  '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
-  '/login': typeof AccountLoginRoute
+  '/ops': typeof ManageOpsRouteWithChildren
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
+  '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/login/link': typeof AccountLoginLinkRoute
+  '/me/notifications': typeof AccountMeNotificationsRoute
+  '/me/withdraw': typeof AccountMeWithdrawRoute
+  '/ops/roles': typeof ManageOpsRolesRoute
   '/__dev/ui': typeof Char91__devChar93UiIndexRoute
+  '/login': typeof AccountLoginIndexRoute
+  '/me': typeof AccountMeIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_account': typeof AccountRouteWithChildren
+  '/_manage': typeof ManageRouteWithChildren
   '/_viewer': typeof ViewerRouteWithChildren
+  '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
-  '/_account/login': typeof AccountLoginRoute
+  '/_manage/ops': typeof ManageOpsRouteWithChildren
   '/_viewer/': typeof ViewerIndexRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
+  '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/_account/login/link': typeof AccountLoginLinkRoute
+  '/_account/me/notifications': typeof AccountMeNotificationsRoute
+  '/_account/me/withdraw': typeof AccountMeWithdrawRoute
+  '/_manage/ops/roles': typeof ManageOpsRolesRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
+  '/_account/login/': typeof AccountLoginIndexRoute
+  '/_account/me/': typeof AccountMeIndexRoute
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/_account/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/__dev/inbox'
     | '/__dev/session'
-    | '/login'
+    | '/ops'
     | '/__dev/errors/$kind'
+    | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/login/link'
+    | '/me/notifications'
+    | '/me/withdraw'
+    | '/ops/roles'
     | '/__dev/ui/'
+    | '/login/'
+    | '/me/'
     | '/__dev/manage-errors/$kind'
+    | '/login/external/$provider/callback'
+    | '/login/external/$provider/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/__dev/inbox'
     | '/__dev/session'
-    | '/login'
+    | '/ops'
     | '/__dev/errors/$kind'
+    | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/login/link'
+    | '/me/notifications'
+    | '/me/withdraw'
+    | '/ops/roles'
     | '/__dev/ui'
+    | '/login'
+    | '/me'
     | '/__dev/manage-errors/$kind'
+    | '/login/external/$provider/callback'
+    | '/login/external/$provider'
   id:
     | '__root__'
     | '/_account'
+    | '/_manage'
     | '/_viewer'
+    | '/__dev/inbox'
     | '/__dev/session'
-    | '/_account/login'
+    | '/_manage/ops'
     | '/_viewer/'
     | '/__dev/errors/$kind'
+    | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/_account/login/link'
+    | '/_account/me/notifications'
+    | '/_account/me/withdraw'
+    | '/_manage/ops/roles'
     | '/__dev/ui/'
+    | '/_account/login/'
+    | '/_account/me/'
     | '/_account/__dev/manage-errors/$kind'
+    | '/_account/login/external/$provider/callback'
+    | '/_account/login/external/$provider/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AccountRoute: typeof AccountRouteWithChildren
+  ManageRoute: typeof ManageRouteWithChildren
   ViewerRoute: typeof ViewerRouteWithChildren
+  Char91__devChar93InboxRoute: typeof Char91__devChar93InboxRoute
   Char91__devChar93SessionRoute: typeof Char91__devChar93SessionRoute
   Char91__devChar93ErrorsKindRoute: typeof Char91__devChar93ErrorsKindRoute
+  Char91__devChar93IdpAuthorizeRoute: typeof Char91__devChar93IdpAuthorizeRoute
   Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
   Char91__devChar93UiIndexRoute: typeof Char91__devChar93UiIndexRoute
 }
@@ -148,11 +281,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_manage': {
+      id: '/_manage'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_viewer': {
       id: '/_viewer'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ViewerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/inbox': {
+      id: '/__dev/inbox'
+      path: '/__dev/inbox'
+      fullPath: '/__dev/inbox'
+      preLoaderRoute: typeof Char91__devChar93InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/__dev/session': {
@@ -162,12 +309,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91__devChar93SessionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_account/login': {
-      id: '/_account/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof AccountLoginRouteImport
-      parentRoute: typeof AccountRoute
+    '/_manage/ops': {
+      id: '/_manage/ops'
+      path: '/ops'
+      fullPath: '/ops'
+      preLoaderRoute: typeof ManageOpsRouteImport
+      parentRoute: typeof ManageRoute
     }
     '/_viewer/': {
       id: '/_viewer/'
@@ -181,6 +328,13 @@ declare module '@tanstack/react-router' {
       path: '/__dev/errors/$kind'
       fullPath: '/__dev/errors/$kind'
       preLoaderRoute: typeof Char91__devChar93ErrorsKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/idp/authorize': {
+      id: '/__dev/idp/authorize'
+      path: '/__dev/idp/authorize'
+      fullPath: '/__dev/idp/authorize'
+      preLoaderRoute: typeof Char91__devChar93IdpAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/__dev/ui/': {
@@ -197,6 +351,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91__devChar93UiManageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_account/login/': {
+      id: '/_account/login/'
+      path: '/login'
+      fullPath: '/login/'
+      preLoaderRoute: typeof AccountLoginIndexRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/login/link': {
+      id: '/_account/login/link'
+      path: '/login/link'
+      fullPath: '/login/link'
+      preLoaderRoute: typeof AccountLoginLinkRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/me/': {
+      id: '/_account/me/'
+      path: '/me'
+      fullPath: '/me/'
+      preLoaderRoute: typeof AccountMeIndexRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/me/notifications': {
+      id: '/_account/me/notifications'
+      path: '/me/notifications'
+      fullPath: '/me/notifications'
+      preLoaderRoute: typeof AccountMeNotificationsRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/me/withdraw': {
+      id: '/_account/me/withdraw'
+      path: '/me/withdraw'
+      fullPath: '/me/withdraw'
+      preLoaderRoute: typeof AccountMeWithdrawRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_manage/ops/roles': {
+      id: '/_manage/ops/roles'
+      path: '/roles'
+      fullPath: '/ops/roles'
+      preLoaderRoute: typeof ManageOpsRolesRouteImport
+      parentRoute: typeof ManageOpsRoute
+    }
     '/_account/__dev/manage-errors/$kind': {
       id: '/_account/__dev/manage-errors/$kind'
       path: '/__dev/manage-errors/$kind'
@@ -204,22 +400,73 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountChar91__devChar93ManageErrorsKindRouteImport
       parentRoute: typeof AccountRoute
     }
+    '/_account/login/external/$provider/': {
+      id: '/_account/login/external/$provider/'
+      path: '/login/external/$provider'
+      fullPath: '/login/external/$provider/'
+      preLoaderRoute: typeof AccountLoginExternalProviderIndexRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/login/external/$provider/callback': {
+      id: '/_account/login/external/$provider/callback'
+      path: '/login/external/$provider/callback'
+      fullPath: '/login/external/$provider/callback'
+      preLoaderRoute: typeof AccountLoginExternalProviderCallbackRouteImport
+      parentRoute: typeof AccountRoute
+    }
   }
 }
 
 interface AccountRouteChildren {
-  AccountLoginRoute: typeof AccountLoginRoute
+  AccountLoginLinkRoute: typeof AccountLoginLinkRoute
+  AccountMeNotificationsRoute: typeof AccountMeNotificationsRoute
+  AccountMeWithdrawRoute: typeof AccountMeWithdrawRoute
+  AccountLoginIndexRoute: typeof AccountLoginIndexRoute
+  AccountMeIndexRoute: typeof AccountMeIndexRoute
   AccountChar91__devChar93ManageErrorsKindRoute: typeof AccountChar91__devChar93ManageErrorsKindRoute
+  AccountLoginExternalProviderCallbackRoute: typeof AccountLoginExternalProviderCallbackRoute
+  AccountLoginExternalProviderIndexRoute: typeof AccountLoginExternalProviderIndexRoute
 }
 
 const AccountRouteChildren: AccountRouteChildren = {
-  AccountLoginRoute: AccountLoginRoute,
+  AccountLoginLinkRoute: AccountLoginLinkRoute,
+  AccountMeNotificationsRoute: AccountMeNotificationsRoute,
+  AccountMeWithdrawRoute: AccountMeWithdrawRoute,
+  AccountLoginIndexRoute: AccountLoginIndexRoute,
+  AccountMeIndexRoute: AccountMeIndexRoute,
   AccountChar91__devChar93ManageErrorsKindRoute:
     AccountChar91__devChar93ManageErrorsKindRoute,
+  AccountLoginExternalProviderCallbackRoute:
+    AccountLoginExternalProviderCallbackRoute,
+  AccountLoginExternalProviderIndexRoute:
+    AccountLoginExternalProviderIndexRoute,
 }
 
 const AccountRouteWithChildren =
   AccountRoute._addFileChildren(AccountRouteChildren)
+
+interface ManageOpsRouteChildren {
+  ManageOpsRolesRoute: typeof ManageOpsRolesRoute
+}
+
+const ManageOpsRouteChildren: ManageOpsRouteChildren = {
+  ManageOpsRolesRoute: ManageOpsRolesRoute,
+}
+
+const ManageOpsRouteWithChildren = ManageOpsRoute._addFileChildren(
+  ManageOpsRouteChildren,
+)
+
+interface ManageRouteChildren {
+  ManageOpsRoute: typeof ManageOpsRouteWithChildren
+}
+
+const ManageRouteChildren: ManageRouteChildren = {
+  ManageOpsRoute: ManageOpsRouteWithChildren,
+}
+
+const ManageRouteWithChildren =
+  ManageRoute._addFileChildren(ManageRouteChildren)
 
 interface ViewerRouteChildren {
   ViewerIndexRoute: typeof ViewerIndexRoute
@@ -234,9 +481,12 @@ const ViewerRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRouteWithChildren,
+  ManageRoute: ManageRouteWithChildren,
   ViewerRoute: ViewerRouteWithChildren,
+  Char91__devChar93InboxRoute: Char91__devChar93InboxRoute,
   Char91__devChar93SessionRoute: Char91__devChar93SessionRoute,
   Char91__devChar93ErrorsKindRoute: Char91__devChar93ErrorsKindRoute,
+  Char91__devChar93IdpAuthorizeRoute: Char91__devChar93IdpAuthorizeRoute,
   Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,
   Char91__devChar93UiIndexRoute: Char91__devChar93UiIndexRoute,
 }

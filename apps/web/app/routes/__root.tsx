@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { RootErrorPage } from "@/components/feedback/RouteErrorView";
 import { errorResponseMiddleware } from "@/presentation/errorResponseMiddleware";
 import { buildHead } from "@/presentation/head";
@@ -22,6 +22,30 @@ export const loadAppContext = createServerFn({ method: "GET" })
     return { config: container.config };
   });
 
+type AppContext = Awaited<ReturnType<typeof loadAppContext>>;
+
+// The site settings never change while a page is open, so the browser keeps
+// the first answer: a navigation made while offline then reaches its own
+// route (and that route's CS-02) instead of failing here, above every shell.
+let browserAppContext: AppContext | undefined;
+
+async function appContext(): Promise<AppContext> {
+  if (browserAppContext !== undefined) return browserAppContext;
+  const loaded = await loadAppContext();
+  if (typeof window !== "undefined") browserAppContext = loaded;
+  return loaded;
+}
+
+/** Keeps the context the server rendered, for the first client navigation. */
+function RememberAppContext() {
+  const config = Route.useRouteContext({ select: (context) => context.config });
+  useEffect(() => {
+    // Absent when the server's own load of it failed (the root error page).
+    if (config !== undefined) browserAppContext ??= { config };
+  }, [config]);
+  return null;
+}
+
 const SITE_ASSET_LINKS = [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -31,7 +55,7 @@ const SITE_ASSET_LINKS = [
 
 export const Route = createRootRoute({
   staleTime: import.meta.env.DEV ? 0 : Number.POSITIVE_INFINITY,
-  beforeLoad: () => loadAppContext(),
+  beforeLoad: () => appContext(),
   head: ({ match }) => {
     const stylesheet = { rel: "stylesheet", href: appCss };
     const baseLinks = [...SITE_ASSET_LINKS, stylesheet];
@@ -58,6 +82,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <RememberAppContext />
         {import.meta.env.DEV ? <TanStackRouterDevtools /> : null}
         <Scripts />
       </body>

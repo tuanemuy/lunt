@@ -8,6 +8,7 @@
 @import "./components.css";
 @import "./viewer.css";
 @import "./manage.css";
+@import "./pages.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal
    feel slower than the load it follows. */

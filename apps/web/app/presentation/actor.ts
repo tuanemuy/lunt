@@ -96,7 +96,7 @@ export async function startSession(
   resolved.set(container, Promise.resolve({ accountId }));
 }
 
-/** Development tools only: forget this browser's login. */
+/** Forget this browser's login (after withdrawal, and the development sign-out). */
 export function endSession(container: RequestContainer): void {
   deleteCookie(SESSION_COOKIE, { path: "/" });
   resolved.set(container, Promise.resolve(null));
