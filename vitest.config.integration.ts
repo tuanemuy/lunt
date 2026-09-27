@@ -44,7 +44,7 @@ export default defineConfig({
           SESSION_SECRET: "lunt-local-development-session-secret",
           OUTBOX_BATCH_SIZE: "100",
           OUTBOX_LEASE_MS: "300000",
-          OUTBOX_MAX_ATTEMPTS: "2",
+          OUTBOX_ALERT_AFTER_ATTEMPTS: "5",
           OUTBOX_RETENTION_MS: "604800000",
         },
       },

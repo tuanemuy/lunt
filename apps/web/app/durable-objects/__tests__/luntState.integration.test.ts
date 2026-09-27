@@ -197,4 +197,38 @@ describe("LuntStateObject", () => {
       report: { processed: 3, failed: 0, abandoned: false },
     });
   });
+
+  it("relays a row an earlier version parked once an operator kicks the relay", async () => {
+    const name = freshName();
+    const stub = env.RELAY_PROBE_STATE.get(
+      env.RELAY_PROBE_STATE.idFromName(name),
+    );
+    const client = asClient(stub);
+    await runInDurableObject(stub, async (_instance, state) => {
+      await state.storage.deleteAlarm();
+      state.storage.sql.exec(
+        `INSERT INTO outbox_events
+           (id, event_type, aggregate_id, payload, occurred_at, created_at, attempts, failed_at)
+           VALUES (?, ?, ?, '{}', 0, 0, 2, 0)`,
+        UuidV7Generator.next(),
+        PROBE_EVENT_TYPE,
+        name,
+      );
+    });
+
+    await client.kickRelay();
+
+    await vi.waitFor(
+      async () => {
+        const outbox = await runInDurableObject(stub, (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT processed_at, failed_at FROM outbox_events")
+            .toArray(),
+        );
+        expect(outbox[0]?.failed_at).toBeNull();
+        expect(outbox[0]?.processed_at).not.toBeNull();
+      },
+      { timeout: 5_000, interval: 50 },
+    );
+  });
 });

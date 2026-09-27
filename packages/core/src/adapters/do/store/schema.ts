@@ -33,9 +33,9 @@ export const MIGRATIONS: readonly Migration[] = [
         claimed_at INTEGER,
         claimed_by TEXT
       )`,
-      // Pending slice for the alarm relay; quarantined rows
-      // (`failed_at IS NOT NULL`) are excluded so a poison row stops
-      // polluting the hot path.
+      // Pending slice for the alarm relay. `failed_at` is no longer set
+      // (the relay never gives up on a row); `kickRelay` requeues any row
+      // an earlier version parked.
       `CREATE INDEX idx_outbox_pending
          ON outbox_events (next_attempt_at, created_at, id)
          WHERE processed_at IS NULL AND failed_at IS NULL`,

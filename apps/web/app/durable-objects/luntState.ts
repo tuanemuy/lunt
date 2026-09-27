@@ -4,6 +4,7 @@ import { runOutboxAlarmTick } from "@repo/core/adapters/do/alarm";
 import {
   DoSqliteOutboxRepository,
   nextOutboxWakeUpAt,
+  requeueParkedOutboxEvents,
 } from "@repo/core/adapters/do/outboxStore";
 import type {
   CommitRequest,
@@ -90,7 +91,9 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
     this.store.markConsumed(consumer, eventId, SystemClock.now());
   }
 
+  /** Operator escape hatch: requeue parked rows and relay now. */
   async kickRelay(): Promise<void> {
+    requeueParkedOutboxEvents(this.ctx.storage.sql);
     await this.armAlarmAsap();
   }
 

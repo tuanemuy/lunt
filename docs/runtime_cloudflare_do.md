@@ -47,6 +47,8 @@ Durable Object SQLite limits to design around: at most 100 bound parameters per 
 
 Committing events arms the alarm. `alarm()` runs the shared `processOutboxEvents` over the object's outbox, then prunes processed rows and old receipts, then re-arms while rows remain (`adapters/do/alarm.ts`). The platform retries a throwing alarm, so no cron safety net is needed.
 
+The relay never gives up on an event: a failed publish (the queue refused the batch, or the event could not be decoded) is retried with exponential backoff capped at one hour, for as long as it takes. From `OUTBOX_ALERT_AFTER_ATTEMPTS` failures on, each further failure is logged at error level. `kickRelay` requeues rows an earlier version parked (`failed_at`) and relays at once.
+
 The dispatcher (`createFanOutDispatcher`) sends one queue message `{ consumer, event }` per subscribed consumer (`application/events/consumers.ts`). Each message is acked or retried on its own: one failing consumer never re-runs the others, and it alone reaches the dead-letter queue. The consumer checks its receipt first and records it only after it succeeded (`consumeEventMessage`); consumers are idempotent on their own, so a lost receipt costs a repeat, never a wrong result.
 
 ## Schema

@@ -27,8 +27,9 @@
     "OUTBOX_BATCH_SIZE": "100",
     // Crash-recovery window for an alarm that died mid-claim.
     "OUTBOX_LEASE_MS": "300000",
-    // Multiplied by the consumer's `max_retries` — keep low.
-    "OUTBOX_MAX_ATTEMPTS": "2",
+    // The relay never gives up on an event; from this many failed
+    // publishes on, each further failure is logged at error level.
+    "OUTBOX_ALERT_AFTER_ATTEMPTS": "5",
     // Processed outbox rows and consumer receipts: 7 days.
     "OUTBOX_RETENTION_MS": "604800000"
   },
@@ -44,7 +45,6 @@
         "queue": "lunt-events",
         "max_batch_size": 25,
         "max_batch_timeout": 5,
-        // Total delivery budget: OUTBOX_MAX_ATTEMPTS × (1 + max_retries).
         "max_retries": 3,
         "dead_letter_queue": "lunt-events-dlq"
       },

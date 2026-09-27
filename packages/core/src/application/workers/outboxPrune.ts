@@ -1,7 +1,8 @@
 import type { WorkerContainer } from "../di/types";
 
 // Retain processed outbox rows for one week before the daily pruner
-// sweeps them. Quarantined rows (`failed_at IS NOT NULL`) are out of
+// sweeps them. Parked rows (`failed_at IS NOT NULL`, from an earlier
+// relay version) are out of
 // scope — they stay until an operator clears them.
 export const DEFAULT_OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 

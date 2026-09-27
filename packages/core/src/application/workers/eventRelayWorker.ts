@@ -8,11 +8,13 @@ import { type EventDecoderRegistry, eventDecoders } from "../events/registry";
 import type { OutboxEntry, OutboxFailure } from "../ports/outboxRepository";
 
 // Delivery is at-least-once with NO ordering guarantee. Per-row failures
-// bump `attempts` and schedule a backed-off retry; once a row exceeds
-// `maxAttempts` it is quarantined (`failed_at` set) so a poison row stops
-// blocking the hot path. Quarantined rows stay in the table for operator
-// inspection — re-kick them by clearing `failed_at` / `next_attempt_at`.
-// Consumers must be idempotent keyed on `event.id`.
+// bump `attempts` and schedule a backed-off retry (capped at 1h); a row is
+// never given up on, so a queue outage delays delivery but cannot lose an
+// event (`spec/domains/index.md` 「トランザクションとドメインイベント」).
+// From `alertAfterAttempts` on, every further failure is logged at error
+// level so a row that keeps failing (an outage, or an event nothing can
+// decode) reaches an operator. Consumers must be idempotent keyed on
+// `event.id`.
 //
 // The dispatcher receives the full decoded batch of a single relay tick
 // and returns a per-event outcome. The batched contract lets a Cloudflare
@@ -42,7 +44,8 @@ export type EventDispatcher = (
 export type ProcessOutboxEventsOptions = {
   batchSize?: number;
   decoderRegistry?: EventDecoderRegistry;
-  maxAttempts?: number;
+  // Failures from this attempt on are logged at error level.
+  alertAfterAttempts?: number;
   // Returns the delay (ms) before the next retry given the failure count
   // (1-based: `attempts` after the increment). Capped internally to keep
   // the next-attempt timestamp finite.
@@ -78,12 +81,9 @@ const currentRelayWorkerId = (): string => {
 };
 
 export const DEFAULT_BATCH_SIZE = 100;
-// Quarantine after 2 publish attempts. The consumer-side queue then
-// owns redelivery (`max_retries` of the queue consumer), so
-// the total user-visible retry count is the product of the two — keep
-// this low to avoid the multiplication producing surprising attempt
-// counts.
-export const DEFAULT_MAX_ATTEMPTS = 2;
+// Five failed publishes (about 8 minutes of backoff) before each
+// further failure is raised as an error in the logs.
+export const DEFAULT_ALERT_AFTER_ATTEMPTS = 5;
 export const DEFAULT_LEASE_MS = 5 * 60 * 1000; // 5 min
 export const DEFAULT_MAX_ITERATIONS = 10;
 const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1h ceiling
@@ -101,9 +101,7 @@ const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1h ceiling
 //   6        | 16m
 //   7        | 32m
 //   8+       | 1h (capped)
-//
-// With `DEFAULT_MAX_ATTEMPTS = 2`, only `attempts=1` actually fires;
-// the table matters when callers raise `maxAttempts`.
+
 const defaultBackoffMs = (attempts: number): number =>
   Math.min(2 ** Math.max(attempts - 1, 0) * 30_000, MAX_BACKOFF_MS);
 
@@ -174,7 +172,8 @@ async function processOutboxBatch(
 ): Promise<{ processed: number }> {
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const registry = options.decoderRegistry ?? eventDecoders;
-  const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+  const alertAfterAttempts =
+    options.alertAfterAttempts ?? DEFAULT_ALERT_AFTER_ATTEMPTS;
   const backoffMs = options.backoffMs ?? defaultBackoffMs;
   const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
   const { logger, clock, outboxRepository } = container;
@@ -194,9 +193,9 @@ async function processOutboxBatch(
   const planFailure = (entry: OutboxEntry, error: unknown): OutboxFailure => {
     const nextAttempts = entry.attempts + 1;
     const message = describeError(error);
-    if (nextAttempts >= maxAttempts) {
+    if (nextAttempts >= alertAfterAttempts) {
       logger.error(
-        `[outbox] quarantining event ${entry.id} (${entry.type}) after ${nextAttempts} attempts`,
+        `[outbox] event ${entry.id} (${entry.type}) still undelivered after ${nextAttempts} attempts`,
         {
           eventId: entry.id,
           eventType: entry.type,
@@ -204,9 +203,8 @@ async function processOutboxBatch(
           cause: error,
         },
       );
-      return { id: entry.id, error: message, nextAttemptAt: null };
     }
-    const delay = backoffMs(nextAttempts);
+    const delay = Math.min(backoffMs(nextAttempts), MAX_BACKOFF_MS);
     return {
       id: entry.id,
       error: message,

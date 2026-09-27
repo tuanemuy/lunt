@@ -13,18 +13,16 @@ export type OutboxEntry = Readonly<{
   occurredAt: Date;
   aggregateId: string;
   // Number of dispatch/decode failures the relay worker has already
-  // recorded for this row. Used to drive backoff and quarantine decisions.
+  // recorded for this row. Used to drive the backoff.
   attempts: number;
 }>;
 
-// Per-row failure update applied after a decode or dispatch error.
-// `nextAttemptAt === null` means the row has exhausted its retry budget
-// and should be quarantined (excluded from `claimPending`); a non-null
-// value schedules the next retry.
+// Per-row failure update applied after a decode or dispatch error: the
+// row stays pending and becomes claimable again at `nextAttemptAt`.
 export type OutboxFailure = Readonly<{
   id: string;
   error: string;
-  nextAttemptAt: Date | null;
+  nextAttemptAt: Date;
 }>;
 
 // Inputs for an atomic claim-and-list cycle. `workerId` identifies the

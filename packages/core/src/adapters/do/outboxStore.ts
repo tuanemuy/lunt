@@ -122,13 +122,11 @@ export class DoSqliteOutboxRepository implements OutboxRepository {
            SET attempts = attempts + 1,
                last_error = ?,
                next_attempt_at = ?,
-               failed_at = ?,
                claimed_at = NULL,
                claimed_by = NULL
            WHERE id = ? AND processed_at IS NULL AND failed_at IS NULL`,
         failure.error,
-        failure.nextAttemptAt?.getTime() ?? null,
-        failure.nextAttemptAt === null ? now.getTime() : null,
+        failure.nextAttemptAt.getTime(),
         failure.id,
       );
     }
@@ -145,6 +143,22 @@ export class DoSqliteOutboxRepository implements OutboxRepository {
       .toArray();
     return { deleted: rows.length };
   }
+}
+
+/**
+ * Puts rows parked by an earlier relay version (`failed_at` set, which the
+ * current relay never does) back in line, due now. Run by `kickRelay`.
+ */
+export function requeueParkedOutboxEvents(sql: SqlExec): { requeued: number } {
+  const rows = sql
+    .exec(
+      `UPDATE outbox_events
+         SET failed_at = NULL, next_attempt_at = NULL
+         WHERE failed_at IS NOT NULL AND processed_at IS NULL
+         RETURNING id`,
+    )
+    .toArray();
+  return { requeued: rows.length };
 }
 
 /**

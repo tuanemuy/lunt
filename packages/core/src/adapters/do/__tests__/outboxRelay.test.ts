@@ -17,7 +17,7 @@ import type {
 } from "@repo/core/domain/common/event";
 import { describe, expect, it } from "vitest";
 import { runOutboxAlarmTick } from "../alarm";
-import { nextOutboxWakeUpAt } from "../outboxStore";
+import { nextOutboxWakeUpAt, requeueParkedOutboxEvents } from "../outboxStore";
 import { createInProcessState } from "../testing/inProcessState";
 import { DoUnitOfWorkProvider } from "../unitOfWork";
 
@@ -70,7 +70,7 @@ function setup() {
       relayTuning: {
         batchSize: 100,
         leaseMs: LEASE_MS,
-        maxAttempts: 2,
+        alertAfterAttempts: 3,
         decoderRegistry: decoders,
       },
       retentionMs: RETENTION_MS,
@@ -93,6 +93,7 @@ function setup() {
       .toArray();
   return {
     state,
+    logger,
     tick,
     commit,
     rows,
@@ -153,7 +154,38 @@ describe("outbox alarm relay", () => {
     expect(r.rows()[0]?.processed_at).not.toBeNull();
   });
 
-  it("quarantines an event it can never decode after the attempt budget", async () => {
+  it("never gives up on an event the queue keeps refusing, and delivers it once the queue is back", async () => {
+    const r = setup();
+    await r.commit([draft()]);
+    r.failSends(true);
+
+    let now = T0.getTime();
+    for (let attempt = 1; attempt <= 12; attempt++) {
+      await r.tick();
+      const wake = r.alarms.at(-1)?.getTime() ?? Number.NaN;
+      // Backoff grows but stays capped at an hour; the alarm stays armed.
+      expect(wake - now).toBeLessThanOrEqual(60 * 60_000);
+      now = wake;
+      r.setNow(new Date(now));
+    }
+
+    expect(r.rows()).toMatchObject([
+      { processed_at: null, failed_at: null, attempts: 12 },
+    ]);
+    // From the alert threshold (3) on, each failure is an error log.
+    expect(
+      r.logger
+        .byLevel("error")
+        .filter((entry) => entry.message.includes("still undelivered")),
+    ).toHaveLength(10);
+
+    r.failSends(false);
+    await r.tick();
+    expect(r.rows()[0]?.processed_at).not.toBeNull();
+    expect(r.sent.map((m) => m.consumer)).toEqual(["first", "second"]);
+  });
+
+  it("keeps an event nothing can decode pending and retrying instead of parking it", async () => {
     const r = setup();
     await r.commit([draft("unknown.type")]);
 
@@ -161,9 +193,25 @@ describe("outbox alarm relay", () => {
     r.setNow(new Date(T0.getTime() + 60 * 60_000));
     await r.tick();
 
-    expect(r.rows()).toMatchObject([{ processed_at: null, attempts: 2 }]);
-    expect(r.rows()[0]?.failed_at).not.toBeNull();
+    expect(r.rows()).toMatchObject([
+      { processed_at: null, failed_at: null, attempts: 2 },
+    ]);
+    expect(r.alarms.length).toBeGreaterThan(0);
     expect(r.sent).toEqual([]);
+  });
+
+  it("puts rows an earlier version parked back in line when the relay is kicked", async () => {
+    const r = setup();
+    await r.commit([draft()]);
+    r.state.storage.sql.exec(
+      "UPDATE outbox_events SET failed_at = ?, attempts = 2",
+      T0.getTime(),
+    );
+
+    requeueParkedOutboxEvents(r.state.storage.sql);
+    await r.tick();
+
+    expect(r.rows()[0]?.processed_at).not.toBeNull();
   });
 
   it("prunes processed events after the retention period", async () => {
