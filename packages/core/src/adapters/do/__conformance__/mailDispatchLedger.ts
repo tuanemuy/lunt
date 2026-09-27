@@ -1,11 +1,11 @@
 import { Account } from "@repo/core/domain/account/entity";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
-import { notificationIds } from "@repo/core/domain/notification/__tests__/samples";
 import {
   type MailKey,
   OccurrenceKey,
 } from "@repo/core/domain/notification/occurrenceKey";
+import { notificationIds } from "@repo/core/domain/notification/testing/samples";
 import { describe, expect, it } from "vitest";
 import { expectBusinessRuleError } from "./assertions";
 import { ScopeAbort } from "./fixtures";

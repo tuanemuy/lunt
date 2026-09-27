@@ -13,9 +13,9 @@ export type ObservedMail = Readonly<{
 export type MailerHarness = Readonly<{
   mailer: Mailer;
   /**
-   * Two distinct recipients (real mailboxes when mail really leaves); the
-   * first is treated as an address without an account — the port never
-   * reads accounts.
+   * Two distinct recipients (real mailboxes when mail really leaves). No
+   * account exists for either — the port never reads accounts, and mailer#3
+   * sends to the second as the address without an account.
    */
   recipients: readonly [EmailAddress, EmailAddress];
   /**

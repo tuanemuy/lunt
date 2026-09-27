@@ -4,7 +4,7 @@ import { isRehydrationError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import { Notification } from "../notification";
 import { OccurrenceKey } from "../occurrenceKey";
-import { notificationIds, sampleOccurrences } from "./samples";
+import { notificationIds, sampleOccurrences } from "../testing/samples";
 
 const ids = notificationIds();
 const now = new Date("2026-09-28T00:00:00.000Z");
@@ -91,6 +91,7 @@ describe("Notification", () => {
 
 describe("OccurrenceKey", () => {
   const P = ids.place();
+  const R = ids.region();
   const suspended = {
     to: "contentManagers",
     content: { kind: "place", id: P },
@@ -126,9 +127,65 @@ describe("OccurrenceKey", () => {
     expect(OccurrenceKey.ofTakedownOutcome(claim)).toBe(
       OccurrenceKey.ofTakedownOutcome(claim),
     );
-    expect(
-      OccurrenceKey.ofTakedownOutcome(claim).startsWith("occurrence|"),
-    ).toBe(false);
+    expect(OccurrenceKey.ofTakedownOutcome(claim).split(",")[0]).toBe(
+      "takedown-outcome",
+    );
+    expect(OccurrenceKey.of(origin, suspended).split(",")[0]).toBe(
+      "occurrence",
+    );
+  });
+
+  it("is the same when a redelivered event's occurrence is rebuilt", () => {
+    const e = EventId.create("event-redelivered");
+    const build = () =>
+      ({
+        to: "grantee",
+        granted: { kind: "stewardship", target: { kind: "region", id: R } },
+      }) as const;
+    expect(OccurrenceKey.of({ by: "event", eventId: e }, build())).toBe(
+      OccurrenceKey.of({ by: "event", eventId: e }, build()),
+    );
+  });
+
+  it("reads only the identifying fields: extra fields do not change it", () => {
+    for (const { name, delivered } of sampleOccurrences(ids).samples) {
+      const widened = {
+        ...delivered.occurrence,
+        labels: ["名称"],
+        observedAt: new Date("2026-09-01T00:00:00.000Z"),
+      };
+      expect(OccurrenceKey.of(origin, widened), name).toBe(
+        OccurrenceKey.of(origin, delivered.occurrence),
+      );
+    }
+  });
+
+  it("differs between every sample occurrence of one origin", () => {
+    const keys = sampleOccurrences(ids).samples.map(({ delivered }) =>
+      OccurrenceKey.of(origin, delivered.occurrence),
+    );
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("tells apart occurrences that differ only in a kind or an id", () => {
+    const A = ids.account();
+    const role = (r: "editor" | "operator") =>
+      ({ to: "grantee", granted: { kind: "role", role: r } }) as const;
+    expect(OccurrenceKey.of(origin, role("editor"))).not.toBe(
+      OccurrenceKey.of(origin, role("operator")),
+    );
+    const added = (appointee: typeof A) =>
+      ({
+        to: "placeStewards",
+        placeId: P,
+        subject: {
+          kind: "place",
+          matter: { kind: "steward_added", appointee },
+        },
+      }) as const;
+    expect(OccurrenceKey.of(origin, added(A))).not.toBe(
+      OccurrenceKey.of(origin, added(ids.account())),
+    );
   });
 
   it("keys content origins by their token", () => {

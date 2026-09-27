@@ -124,11 +124,13 @@ export const notificationQueryHandlers: QueryHandlersOf<NotificationQueries> = {
 export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand> =
   {
     "notification.deliverAll": (sql, { records }) => {
+      // Only the (recipient, occurrence_key) key is idempotent; a reused
+      // notification id is a bug and must fail the commit, not vanish.
       for (const record of records) {
         sql.exec(
           `INSERT INTO notifications (${COLUMNS})
              VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT DO NOTHING`,
+             ON CONFLICT (recipient, occurrence_key) DO NOTHING`,
           record.id,
           record.recipient,
           record.occurrenceKey,
@@ -147,7 +149,7 @@ export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand>
       sql.exec(
         `INSERT INTO mail_dispatches (occurrence_key, recipient_email)
            VALUES (?, ?)
-           ON CONFLICT DO NOTHING`,
+           ON CONFLICT (occurrence_key, recipient_email) DO NOTHING`,
         key.occurrenceKey,
         key.to,
       );

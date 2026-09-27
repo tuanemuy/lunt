@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { DeliveredOccurrence } from "../delivery";
 import { NotificationDestination } from "../destination";
 import { Occurrence } from "../occurrence";
-import { AUDIENCES, notificationIds, sampleOccurrences } from "./samples";
+import {
+  AUDIENCES,
+  notificationIds,
+  sampleOccurrences,
+} from "../testing/samples";
 
 describe("Occurrence", () => {
   const { samples, place, listing, region, occasion, article } =

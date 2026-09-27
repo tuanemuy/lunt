@@ -1,17 +1,17 @@
 import { EventId } from "@repo/core/domain/common/event";
 import { type AccountId, NotificationId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
-import {
-  AUDIENCES,
-  notificationIds,
-  sampleOccurrences,
-} from "@repo/core/domain/notification/__tests__/samples";
 import type { Origin } from "@repo/core/domain/notification/announcement";
 import {
   type DeliveredOccurrence as Delivered,
   DeliveredOccurrence,
 } from "@repo/core/domain/notification/delivery";
 import { Notification } from "@repo/core/domain/notification/notification";
+import {
+  AUDIENCES,
+  notificationIds,
+  sampleOccurrences,
+} from "@repo/core/domain/notification/testing/samples";
 import { describe, expect, it } from "vitest";
 import { barrier, ScopeAbort } from "./fixtures";
 import type { ConformanceHarness, HarnessFactory } from "./harness";
@@ -552,6 +552,19 @@ export function describeNotificationRepositoryContract(
           }),
         ).rejects.toBeInstanceOf(ScopeAbort);
         expect(await find(h, A)).toEqual({ items: notes, count: 3 });
+      });
+    });
+
+    describe("beyond the spec rows", () => {
+      it("fails the unit of work on a reused notification id instead of dropping the notification", async () => {
+        const h = await makeHarness();
+        const k = kit();
+        const [A, B] = [k.account(), k.account()];
+        const id = k.nid();
+        await deliver(h, k.note(A, 1, { id }));
+        await expect(deliver(h, k.note(B, 2, { id }))).rejects.toThrow();
+        expect(await find(h, B)).toEqual({ items: [], count: 0 });
+        expect((await find(h, A)).count).toBe(1);
       });
     });
   });

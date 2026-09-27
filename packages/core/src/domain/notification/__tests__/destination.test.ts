@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DeliveredOccurrence } from "../delivery";
 import { NotificationDestination } from "../destination";
-import { notificationIds } from "./samples";
+import { notificationIds } from "../testing/samples";
 
 const ids = notificationIds();
 const P = ids.place();

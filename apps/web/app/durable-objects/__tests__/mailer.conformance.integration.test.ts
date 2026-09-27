@@ -37,15 +37,18 @@ describeMailerContract("development inbox, Durable Object", async () => {
 
 // Real SMTP (port 465, `cloudflare:sockets`), only with credentials — the
 // same bindings as the login mail's SMTP run (SMTP_HOST, SMTP_USERNAME,
-// SMTP_PASSWORD, MAIL_FROM, SMTP_TEST_TO). Only sending is automated; read
-// the mails in SMTP_TEST_TO's inbox by hand.
+// SMTP_PASSWORD, MAIL_FROM, SMTP_TEST_TO), plus an optional SMTP_TEST_TO_2
+// for the second recipient (default: SMTP_TEST_TO with a `+lunt2` tag, which
+// most providers deliver to the same inbox). Only sending is automated;
+// read the mails in the recipients' inboxes by hand.
 const smtpEnv = env as unknown as Partial<
   Record<
     | "SMTP_HOST"
     | "SMTP_USERNAME"
     | "SMTP_PASSWORD"
     | "MAIL_FROM"
-    | "SMTP_TEST_TO",
+    | "SMTP_TEST_TO"
+    | "SMTP_TEST_TO_2",
     string
   >
 >;
@@ -56,11 +59,21 @@ const smtpReady =
   smtpEnv.MAIL_FROM !== undefined &&
   smtpEnv.SMTP_TEST_TO !== undefined;
 
+/** `local+tag@domain` of `address`. */
+function tagged(address: string, tag: string): string {
+  const at = address.lastIndexOf("@");
+  return `${address.slice(0, at)}+${tag}${address.slice(at)}`;
+}
+
 describe.skipIf(!smtpReady)("SMTP credentials present", () => {
   describeMailerContract("SMTP", async () => {
     const from = parseMailFrom(smtpEnv.MAIL_FROM ?? "");
     if (from === null) throw new Error("MAIL_FROM is not a mailbox");
-    const to = EmailAddress.create(smtpEnv.SMTP_TEST_TO ?? "");
+    const first = smtpEnv.SMTP_TEST_TO ?? "";
+    const to = EmailAddress.create(first);
+    const second = EmailAddress.create(
+      smtpEnv.SMTP_TEST_TO_2 ?? tagged(first, "lunt2"),
+    );
     return {
       mailer: new TransportMailer(
         new SmtpMailTransport({
@@ -71,7 +84,7 @@ describe.skipIf(!smtpReady)("SMTP credentials present", () => {
           from,
         }),
       ),
-      recipients: [to, to],
+      recipients: [to, second],
     };
   });
 });

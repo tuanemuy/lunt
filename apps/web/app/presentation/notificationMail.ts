@@ -49,9 +49,11 @@ export function createNotificationMailRenderer(
               "次のリンクから確かめられます。",
               notificationDestinationUrl(settings.appUrl, link),
             ]),
-        "",
-        `同じ通知は ${site} の通知一覧でも確かめられます。`,
-        listUrl,
+        // An invitation may go to an address without an account, which
+        // has no in-app notification to point at.
+        ...(mail.occurrence.to === "invitee"
+          ? []
+          : ["", `同じ通知は ${site} の通知一覧でも確かめられます。`, listUrl]),
       ].join("\n");
       return { to: mail.key.to, subject: `【${site}】${title}`, body, link };
     },

@@ -1,4 +1,3 @@
-import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import {
   AccountId,
@@ -21,11 +20,19 @@ import type {
 } from "../occurrence";
 
 /**
- * Ids for notification tests, ascending in mint order and shaped like the
- * generator's (adapters check that), one generator per call.
+ * Ids for notification tests, ascending in mint order, one sequence per
+ * call. They are UUIDv7-shaped (the same shape as the test id generator's)
+ * because the adapters accept only ids the wired generator could mint.
  */
 export function notificationIds(start = 0x20_0000) {
-  const ids = new FakeIdGenerator(start);
+  let counter = start;
+  const ids = {
+    next: (): string => {
+      const tail = counter.toString(16).padStart(12, "0");
+      counter += 1;
+      return `ffffffff-ffff-7fff-8fff-${tail}`;
+    },
+  };
   return {
     account: () => AccountId.create(ids.next()),
     place: () => PlaceId.create(ids.next()),

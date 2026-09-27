@@ -2,11 +2,6 @@ import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { EventId } from "@repo/core/domain/common/event";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import type { TakedownOutcome } from "@repo/core/domain/moderation/takedownOutcome";
-import {
-  AUDIENCES,
-  notificationIds,
-  sampleOccurrences,
-} from "@repo/core/domain/notification/__tests__/samples";
 import type { Origin } from "@repo/core/domain/notification/announcement";
 import type { DeliveredOccurrence } from "@repo/core/domain/notification/delivery";
 import { NotificationDestination } from "@repo/core/domain/notification/destination";
@@ -17,6 +12,11 @@ import {
 } from "@repo/core/domain/notification/mail";
 import { Occurrence } from "@repo/core/domain/notification/occurrence";
 import type { NotificationMailRenderer } from "@repo/core/domain/notification/ports/notificationMailRenderer";
+import {
+  AUDIENCES,
+  notificationIds,
+  sampleOccurrences,
+} from "@repo/core/domain/notification/testing/samples";
 import { describe, expect, it } from "vitest";
 
 export type NotificationMailRendererHarness = Readonly<{
@@ -155,7 +155,7 @@ export function describeNotificationMailRendererContract(
 
       it("notificationMailRenderer#5 placeStewards / categories_reassigned の NotificationMail / render を呼ぶ", () => {
         const h = makeHarness();
-        const successor = "移行先のカテゴリー名";
+        const retired = "廃止したカテゴリー";
         const delivered: DeliveredOccurrence = {
           occurrence: {
             to: "placeStewards",
@@ -174,11 +174,14 @@ export function describeNotificationMailRendererContract(
           mailOf(
             delivered,
             labelsFor(delivered, (ref) =>
-              ref.kind === "category" ? "廃止したカテゴリー" : "店舗名",
+              ref.kind === "category" ? retired : "店舗名",
             ),
           ),
         );
-        expect(rendered.body).not.toContain(successor);
+        // No successor can be mentioned: neither the occurrence nor
+        // `NotificationMail` has a field that could carry one. What is
+        // observable is that the category the mail names is the retired one.
+        expect(rendered.body).toContain(retired);
         expect(rendered.link).toEqual({
           kind: "placeManagement",
           placeId: P,
@@ -416,25 +419,65 @@ export function describeNotificationMailRendererContract(
 
       it("notificationMailRenderer#18 self の NotificationMail / render を呼ぶ", () => {
         const h = makeHarness();
-        const rendered = expectLink(
-          h,
+        const R = ids.region();
+        const facets = [
+          "overview",
+          "profile",
+          "listings",
+          "affiliations",
+          "participations",
+          "members",
+        ] as const;
+        // Where each revoked authority would have opened, had it been
+        // granted: none of them may appear in the body.
+        const cases: readonly Readonly<{
+          revoked: Extract<
+            DeliveredOccurrence["occurrence"],
+            { to: "self" }
+          >["revoked"];
+          forbidden: readonly NotificationDestination[];
+        }>[] = [
           {
-            occurrence: {
-              to: "self",
-              revoked: {
-                kind: "stewardship",
-                target: { kind: "place", id: P },
-              },
-            },
-            delivery: "direct",
+            revoked: { kind: "stewardship", target: { kind: "place", id: P } },
+            forbidden: facets.map((facet) => ({
+              kind: "placeManagement",
+              placeId: P,
+              facet,
+            })),
           },
-          null,
-        );
-        const others = sampleOccurrences(notificationIds(0x44_0000))
-          .samples.map(({ delivered }) => NotificationDestination.of(delivered))
-          .filter((d): d is NotificationDestination => d !== null);
-        for (const destination of others) {
-          expect(rendered.body).not.toContain(h.urlOf(destination));
+          {
+            revoked: { kind: "stewardship", target: { kind: "region", id: R } },
+            forbidden: [
+              {
+                kind: "grantedAuthority",
+                granted: {
+                  kind: "stewardship",
+                  target: { kind: "region", id: R },
+                },
+              },
+              { kind: "regionManagement", regionId: R, facet: "content" },
+              { kind: "regionManagement", regionId: R, facet: "occasionLinks" },
+            ],
+          },
+          {
+            revoked: { kind: "role", role: "editor" },
+            forbidden: [
+              {
+                kind: "grantedAuthority",
+                granted: { kind: "role", role: "editor" },
+              },
+            ],
+          },
+        ];
+        for (const { revoked, forbidden } of cases) {
+          const rendered = expectLink(
+            h,
+            { occurrence: { to: "self", revoked }, delivery: "direct" },
+            null,
+          );
+          for (const destination of forbidden) {
+            expect(rendered.body).not.toContain(h.urlOf(destination));
+          }
         }
       });
     });

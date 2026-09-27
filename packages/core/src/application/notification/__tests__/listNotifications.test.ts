@@ -117,9 +117,46 @@ describe("listNotifications", () => {
   it.todo(
     "listNotifications#7 店舗管理者が不在の店舗 V の掲載 LV が運営による非公開になり、サービス運営者 O に通知が届いた / O として読む",
   );
-  // S2B: an application's label (kind and subject names) needs its kind.
+  it("listNotifications#8 店舗管理者として行った申請 Ap が、最後の店舗管理者の退会で失効し、サービス運営者 O に失効の通知が届いた / O として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const T1 = await k.person("t1");
+    const Q = k.place("店舗Q");
+    await k.appoint(Q, T1);
+    await k.withdraw(T1);
+    const Ap = k.applicationId();
+    await k.consume(
+      k.event(
+        ApplicationEvents.lapsed(
+          Ap,
+          { kind: "place", placeId: Q.id },
+          k.tick(),
+        ),
+      ),
+    );
+    const [item] = (await list(k, O.actor)).items;
+    expect(item).toMatchObject({
+      occurrence: { to: "applicant", applicationId: Ap, matter: "lapsed" },
+      delivery: "proxy",
+      vacantTarget: Q,
+      pointedContent: null,
+      destination: {
+        kind: "proxyOperation",
+        target: Q,
+        direct: { kind: "ownApplication", applicationId: Ap },
+      },
+    });
+    // No application kind is registered before S2B, so Ap cannot be read
+    // and its label is `null`; its kind and subject names are the todo below.
+    expect(item?.labels).toEqual([
+      { ref: Q, label: "店舗Q" },
+      { ref: { kind: "application", id: Ap }, label: null },
+    ]);
+  });
+  // S2B: the application label's kind and subject names (row 8's last part).
   it.todo(
-    "listNotifications#8 店舗管理者として行った申請 Ap が、最後の店舗管理者の退会で失効し、サービス運営者 O に失効の通知が届いた / O として読む",
+    "row 8 of listNotifications: the labels carry Ap's kind and its subjects' names (S2B)",
   );
   it.todo(
     "listNotifications#9 利用者 A の店舗の登録申請 Ap が否認され、A に通知が届いた。店舗は作られていない / A として読む",

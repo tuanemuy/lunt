@@ -21,6 +21,7 @@ import {
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import type { NotifiableEvent } from "@repo/core/domain/notification/announcement";
 import type { Notification } from "@repo/core/domain/notification/notification";
+import { expect } from "vitest";
 import {
   createTestContainer,
   type TestContext,
@@ -28,10 +29,7 @@ import {
 import { removeAllAuthorityOf } from "../../authority/withdrawal";
 import type { RequestContainer } from "../../di/types";
 import { TestContentDirectory } from "../../moderation/__tests__/testServices";
-import {
-  deliverNotifications,
-  deliverNotificationsOf,
-} from "../deliverNotifications";
+import { deliverNotifications } from "../deliverNotifications";
 import { TestMailer } from "./testServices";
 
 /** A registered account and its `Actor`. */
@@ -199,20 +197,14 @@ export function notificationKit(
   }
 
   /**
-   * Consumes `e` as the relay would: through the registered consumer for
-   * the types it subscribes to, and through the usecase for Application's
-   * events until they join the registry.
+   * Consumes `e` as the relay would, through the registered consumer. It
+   * only type-checks while the consumer subscribes to every notifiable
+   * event type.
    */
   async function consume(e: NotifiableEvent): Promise<void> {
     tick();
-    if ((deliverNotifications.events as readonly string[]).includes(e.type)) {
-      await deliverNotifications.handle(
-        container,
-        e as Parameters<typeof deliverNotifications.handle>[1],
-      );
-      return;
-    }
-    await deliverNotificationsOf(container, e);
+    expect(deliverNotifications.events).toContain(e.type);
+    await deliverNotifications.handle(container, e);
   }
 
   /** Resolves to the error `consume` rejected with (fails if it did not). */

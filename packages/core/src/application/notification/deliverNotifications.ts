@@ -1,18 +1,21 @@
 import { APPLICATION_EVENT_TYPES } from "@repo/core/domain/application/events";
-import type {
-  EditorRoster,
-  OperatorRoster,
+import type { Role } from "@repo/core/domain/authority/role";
+import {
+  type EditorRoster,
+  type OperatorRoster,
+  RoleRoster,
 } from "@repo/core/domain/authority/roleRoster";
+import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import { type AccountId, NotificationId } from "@repo/core/domain/common/ids";
+import { ContentRef } from "@repo/core/domain/common/refs";
 import {
-  type Addressees,
   Addressing,
   type AddressingFacts,
+  type Audience,
 } from "@repo/core/domain/notification/addressing";
 import {
-  type Announcement,
   AnnouncementFacts,
   Announcements,
   type NotifiableEvent,
@@ -61,95 +64,137 @@ async function readAnnouncementFacts(
   return AnnouncementFacts.none;
 }
 
-/** Both rosters, read once per consumption and only when first needed. */
-function rosterReader(ctx: UnitOfWorkContext) {
-  let operators: Promise<OperatorRoster> | null = null;
-  let editors: Promise<EditorRoster> | null = null;
-  return {
-    operators: () => {
-      operators ??= ctx.roleRosterRepository
-        .find("operator")
-        .then((found) => found.entity);
-      return operators;
-    },
-    editors: () => {
-      editors ??= ctx.roleRosterRepository
-        .find("editor")
-        .then((found) => found.entity);
-      return editors;
-    },
-  };
-}
+/**
+ * What the read-only `run` read for addressing: the stewardships of the
+ * `stewards` audiences (`null`: none stored), the rosters the audiences
+ * need (`null`: not needed), and the invitees' accounts.
+ */
+type AddressingReads = Readonly<{
+  stewardships: ReadonlyMap<string, Stewardship | null>;
+  operators: OperatorRoster | null;
+  editors: EditorRoster | null;
+  invitees: ReadonlyMap<EmailAddress, AccountId>;
+}>;
 
-async function addressingFactsFor(
+/**
+ * Reads, at consumption time, the facts the audiences need — the current
+ * stewards and rosters, never the payload's before/after. A roster is read
+ * only when an audience can reach it: the operators for an operator role
+ * or a vacant target's stand-ins, the editors for the editor role.
+ */
+async function readAddressingFacts(
   ctx: UnitOfWorkContext,
-  a: Announcement,
-  rosters: ReturnType<typeof rosterReader>,
-): Promise<AddressingFacts> {
-  const audience = Addressing.audienceOf(a);
-  const [stewardship, operators, editors, invitee] = await Promise.all([
-    audience.kind === "stewards"
-      ? ctx.stewardshipRepository
-          .findById(audience.target)
-          .then((found) => found?.entity ?? null)
+  audiences: readonly Audience[],
+): Promise<AddressingReads> {
+  const stewardships = new Map<string, Stewardship | null>();
+  const invitees = new Map<EmailAddress, AccountId>();
+  for (const audience of audiences) {
+    if (audience.kind === "stewards") {
+      const found = await ctx.stewardshipRepository.findById(audience.target);
+      stewardships.set(ContentRef.key(audience.target), found?.entity ?? null);
+    } else if (audience.kind === "email") {
+      const found = await ctx.accountRepository.findByEmail(audience.email);
+      if (found !== null) invitees.set(audience.email, found.entity.id);
+    }
+  }
+  const needsRole = (role: Role) =>
+    audiences.some((a) => a.kind === "role" && a.role === role);
+  const needsOperators =
+    needsRole("operator") ||
+    [...stewardships.values()].some(
+      (s) => s === null || Stewardship.isVacant(s),
+    );
+  const [operators, editors] = await Promise.all([
+    needsOperators
+      ? ctx.roleRosterRepository.find("operator").then((f) => f.entity)
       : null,
-    rosters.operators(),
-    rosters.editors(),
-    audience.kind === "email"
-      ? ctx.accountRepository.findByEmail(audience.email)
+    needsRole("editor")
+      ? ctx.roleRosterRepository.find("editor").then((f) => f.entity)
       : null,
   ]);
-  return {
-    stewardship,
-    operators,
-    editors,
-    inviteeAccount: invitee?.entity.id ?? null,
-  };
+  return { stewardships, operators, editors, invitees };
 }
 
-const addressedAccounts = (addressees: Addressees): readonly AccountId[] =>
-  addressees.to.kind === "accounts" ? addressees.to.accountIds : [];
+/** Every account the read facts could address: the addresses to read. */
+function candidateAccounts(
+  audiences: readonly Audience[],
+  reads: AddressingReads,
+): readonly AccountId[] {
+  return [
+    ...audiences.flatMap((a) => (a.kind === "account" ? [a.accountId] : [])),
+    ...[...reads.stewardships.values()].flatMap((s) =>
+      s === null ? [] : Stewardship.stewards(s).map((st) => st.accountId),
+    ),
+    ...[reads.operators, reads.editors].flatMap((roster) =>
+      roster === null
+        ? []
+        : RoleRoster.holders(roster).map((holder) => holder.accountId),
+    ),
+    ...reads.invitees.values(),
+  ];
+}
+
+/** The facts `Addressing.resolve` takes for one announcement. */
+function addressingFactsFor(
+  audience: Audience,
+  reads: AddressingReads,
+): AddressingFacts {
+  return {
+    stewardship:
+      audience.kind === "stewards"
+        ? (reads.stewardships.get(ContentRef.key(audience.target)) ?? null)
+        : null,
+    // A roster left unread is one no audience of this event can reach, so
+    // `resolve` never consults the stand-in.
+    operators: reads.operators ?? RoleRoster.initial("operator"),
+    editors: reads.editors ?? RoleRoster.initial("editor"),
+    inviteeAccount:
+      audience.kind === "email"
+        ? (reads.invitees.get(audience.email) ?? null)
+        : null,
+  };
+}
 
 /**
  * Turns the event into announcements and decides their recipients and
- * labels. One read-only `run` reads every fact at consumption time — the
- * current stewards and rosters, never the payload's before/after — and the
- * recipients' addresses; content names are read after it, outside `run`.
- * Accounts that no longer exist drop out of the recipients.
+ * labels (`spec/usecases/notification.md` 「トランザクション境界」). One
+ * read-only `run` reads the facts: those the announcements need, those
+ * their audiences need, the candidates' addresses and the repositories'
+ * labels. The announcements are taken there only to know what to read;
+ * extraction and addressing are decided after the `run`, from what it
+ * read, and content names are read after it too. Accounts that no longer
+ * exist drop out of the recipients.
  */
 export async function planAnnouncements(
   container: RequestContainer,
   event: NotifiableEvent,
 ): Promise<readonly PlannedAnnouncement[]> {
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
-    const announcements = Announcements.from(
-      event,
-      await readAnnouncementFacts(ctx, event),
-    );
-    const rosters = rosterReader(ctx);
-    const addressed = await Promise.all(
-      announcements.map(async (a) => ({
-        origin: a.origin,
-        addressees: Addressing.resolve(
-          a,
-          await addressingFactsFor(ctx, a, rosters),
-        ),
-      })),
-    );
+    const facts = await readAnnouncementFacts(ctx, event);
+    const toRead = Announcements.from(event, facts);
+    const audiences = toRead.map(Addressing.audienceOf);
+    const addressing = await readAddressingFacts(ctx, audiences);
     const [accounts, labels] = await Promise.all([
       findAccountsByIds(
         ctx.accountRepository,
-        addressed.flatMap(({ addressees }) => addressedAccounts(addressees)),
+        candidateAccounts(audiences, addressing),
       ),
       readRepositoryLabels(
         ctx,
-        addressed.map(({ addressees }) => addressees.delivered.occurrence),
+        toRead.map((a) => a.occurrence),
       ),
     ]);
-    return { addressed, accounts, labels };
+    return { facts, addressing, accounts, labels };
   });
+  const addressed = Announcements.from(event, read.facts).map((a) => ({
+    origin: a.origin,
+    addressees: Addressing.resolve(
+      a,
+      addressingFactsFor(Addressing.audienceOf(a), read.addressing),
+    ),
+  }));
   const book = await resolveLabels(container.contentDirectory, read.labels);
-  return read.addressed.map(({ origin, addressees }): PlannedAnnouncement => {
+  return addressed.map(({ origin, addressees }): PlannedAnnouncement => {
     const { delivered, to } = addressees;
     const labels = labelsOf(delivered.occurrence, book);
     if (to.kind === "emailOnly") {
