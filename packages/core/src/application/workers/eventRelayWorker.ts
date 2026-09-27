@@ -66,12 +66,16 @@ export type ProcessOutboxEventsOptions = {
   maxIterations?: number;
 };
 
-// Stable diagnostic id for the relay worker. Evaluated once at module
-// load (i.e. per isolate), so successive ticks on the same isolate
-// share the same `claimed_by` value. UUIDv4 is sufficient — this id is
-// never used as a domain key, only for log correlation and lease
-// attribution.
-const RELAY_WORKER_ID = crypto.randomUUID();
+// Stable diagnostic id for the relay worker, minted on first use and then
+// kept for the isolate, so successive ticks on the same isolate share the
+// same `claimed_by` value. Not at module load: workerd refuses random
+// values in global scope. UUIDv4 is sufficient — this id is never used as
+// a domain key, only for log correlation and lease attribution.
+let relayWorkerId: string | undefined;
+const currentRelayWorkerId = (): string => {
+  relayWorkerId ??= crypto.randomUUID();
+  return relayWorkerId;
+};
 
 export const DEFAULT_BATCH_SIZE = 100;
 // Quarantine after 2 publish attempts. The consumer-side queue then
@@ -174,7 +178,7 @@ async function processOutboxBatch(
   const backoffMs = options.backoffMs ?? defaultBackoffMs;
   const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
   const { logger, clock, outboxRepository } = container;
-  const workerId = options.workerId ?? RELAY_WORKER_ID;
+  const workerId = options.workerId ?? currentRelayWorkerId();
 
   const now = clock.now();
   const entries = await outboxRepository.claimPending({
