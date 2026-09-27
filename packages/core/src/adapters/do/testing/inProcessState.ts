@@ -9,6 +9,7 @@ import {
 } from "../outboxStore";
 import type { LuntStateClient } from "../protocol/client";
 import { listPendingDeadLetters, recordDeadLetter } from "../store/deadLetters";
+import { appendDevMail, listDevMail } from "../store/devMailbox";
 import { applyMigrations } from "../store/schema";
 import { createStateStore, type StateStore } from "../store/stateStore";
 import { createNodeSqlStorage, type NodeSqlStorage } from "./nodeSqlStorage";
@@ -96,6 +97,10 @@ export function createInProcessState(
           wire(target),
         ),
       ),
+    devMailboxAppend: (mail) =>
+      call(() => appendDevMail(storage.sql, wire(mail))),
+    devMailboxList: (query) =>
+      call(() => listDevMail(storage.sql, wire(query))),
   };
 
   return {

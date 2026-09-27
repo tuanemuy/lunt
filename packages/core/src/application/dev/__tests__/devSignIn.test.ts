@@ -1,6 +1,4 @@
-import { createNodeHarness } from "@repo/core/adapters/do/testing/nodeHarness";
-import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
-import { FakeLogger } from "@repo/core/application/__tests__/fakes/fakeLogger";
+import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { ForbiddenError } from "@repo/core/application/errors";
 import { isBusinessRuleError } from "@repo/core/domain/error";
@@ -8,21 +6,8 @@ import { describe, expect, it } from "vitest";
 import { devDescribeAccount, devSignIn } from "../devSignIn";
 
 function container(devTools: boolean): RequestContainer {
-  const harness = createNodeHarness();
-  return {
-    clock: { now: () => new Date("2026-09-28T00:00:00.000Z") },
-    idGenerator: new FakeIdGenerator(),
-    logger: new FakeLogger(),
-    config: {
-      appUrl: "http://localhost:3000",
-      siteName: "Lunt",
-      defaultTitle: "Lunt",
-      defaultDescription: "",
-      themeColor: "#fff",
-    },
-    runtime: { devTools, sessionSecret: "x".repeat(32), opsToken: null },
-    unitOfWorkProvider: harness.uow,
-  };
+  const { container } = createTestContainer();
+  return { ...container, runtime: { ...container.runtime, devTools } };
 }
 
 describe("devSignIn", () => {

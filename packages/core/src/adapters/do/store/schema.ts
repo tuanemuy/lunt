@@ -3,6 +3,7 @@ import { ACCOUNT_MIGRATIONS } from "./account";
 import { APPLICATION_MIGRATIONS } from "./application";
 import { AUTHORITY_MIGRATIONS } from "./authority";
 import { DEAD_LETTER_MIGRATION } from "./deadLetters";
+import { DEV_MAILBOX_MIGRATIONS } from "./devMailbox";
 import { NOTIFICATION_MIGRATIONS } from "./notification";
 
 export type Migration = Readonly<{
@@ -66,6 +67,7 @@ export const MIGRATIONS: readonly Migration[] = [
   ...AUTHORITY_MIGRATIONS,
   ...APPLICATION_MIGRATIONS,
   ...NOTIFICATION_MIGRATIONS,
+  ...DEV_MAILBOX_MIGRATIONS,
 ].sort((a, b) => a.version - b.version);
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

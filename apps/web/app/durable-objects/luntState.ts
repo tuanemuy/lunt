@@ -20,6 +20,11 @@ import type {
   RedriveResult,
 } from "@repo/core/adapters/do/protocol/deadLetters";
 import type {
+  DevMailInput,
+  DevMailQuery,
+  DevMailRecord,
+} from "@repo/core/adapters/do/protocol/devMailbox";
+import type {
   QueryArgs,
   QueryName,
   QueryResult,
@@ -28,6 +33,10 @@ import {
   listPendingDeadLetters,
   recordDeadLetter,
 } from "@repo/core/adapters/do/store/deadLetters";
+import {
+  appendDevMail,
+  listDevMail,
+} from "@repo/core/adapters/do/store/devMailbox";
 import { applyMigrations } from "@repo/core/adapters/do/store/schema";
 import {
   createStateStore,
@@ -72,6 +81,8 @@ export type LuntStateEnv = TuningEnv &
  * - **Receipts**: consumers check and record per-consumer receipts here.
  * - **Dead letters**: messages that exhausted the queue's retries are kept
  *   here, and re-driven to their consumers on an operator's request.
+ * - **Development inbox**: mails the development transport "sent"
+ *   (design.md D-07), outside any unit of work.
  */
 export class LuntStateObject extends DurableObject<LuntStateEnv> {
   private readonly store: StateStore;
@@ -130,6 +141,14 @@ export class LuntStateObject extends DurableObject<LuntStateEnv> {
       },
       target,
     );
+  }
+
+  async devMailboxAppend(mail: DevMailInput): Promise<void> {
+    appendDevMail(this.ctx.storage.sql, mail);
+  }
+
+  async devMailboxList(query: DevMailQuery): Promise<readonly DevMailRecord[]> {
+    return listDevMail(this.ctx.storage.sql, query);
   }
 
   override async alarm(): Promise<void> {

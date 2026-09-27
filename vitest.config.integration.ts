@@ -1,6 +1,14 @@
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
+const SMTP_CONTRACT_VARS = [
+  "SMTP_HOST",
+  "SMTP_USERNAME",
+  "SMTP_PASSWORD",
+  "MAIL_FROM",
+  "SMTP_TEST_TO",
+] as const;
+
 // Integration tests run inside a Workers isolate (Miniflare) against the
 // real Lunt state Durable Object. Everything matching
 // `*.integration.test.ts` runs here; the Node-pool `vitest.config.ts`
@@ -52,6 +60,14 @@ export default defineConfig({
           OUTBOX_LEASE_MS: "300000",
           OUTBOX_ALERT_AFTER_ATTEMPTS: "5",
           OUTBOX_RETENTION_MS: "604800000",
+          // The SMTP contract runs only when these reach the pool from
+          // the shell; absent, its suite is skipped.
+          ...Object.fromEntries(
+            SMTP_CONTRACT_VARS.flatMap((key) => {
+              const value = process.env[key];
+              return value ? [[key, value]] : [];
+            }),
+          ),
         },
       },
     }),

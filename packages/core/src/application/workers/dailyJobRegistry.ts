@@ -1,3 +1,4 @@
+import { purgeClosedLoginChallengesJob } from "../account/purgeClosedLoginChallenges";
 import type { DailyJob } from "./dailyJobs";
 
 /**
@@ -5,4 +6,4 @@ import type { DailyJob } from "./dailyJobs";
  * Each domain adds its job here as it lands (`spec/flows/index.md`
  * 「日次のジョブ」).
  */
-export const dailyJobs: readonly DailyJob[] = [];
+export const dailyJobs: readonly DailyJob[] = [purgeClosedLoginChallengesJob];

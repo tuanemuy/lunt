@@ -1,4 +1,5 @@
 import type { AccountRepository } from "./accountRepository";
+import type { LoginChallengeRepository } from "./loginChallengeRepository";
 
 /**
  * Account's repositories inside a unit of work (`UnitOfWorkContext`).
@@ -6,4 +7,5 @@ import type { AccountRepository } from "./accountRepository";
  */
 export type AccountRepositories = Readonly<{
   accountRepository: AccountRepository;
+  loginChallengeRepository: LoginChallengeRepository;
 }>;

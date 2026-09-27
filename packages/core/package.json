@@ -11,7 +11,9 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "oauth4webapi": "^3.8.8",
     "uuid": "^14.0.0",
+    "worker-mailer": "^1.2.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

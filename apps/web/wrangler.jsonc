@@ -35,7 +35,20 @@
     // publishes on, each further failure is logged at error level.
     "OUTBOX_ALERT_AFTER_ATTEMPTS": "5",
     // Processed outbox rows and consumer receipts: 7 days.
-    "OUTBOX_RETENTION_MS": "604800000"
+    "OUTBOX_RETENTION_MS": "604800000",
+    // Account: mail goes to the development inbox (`/__dev/inbox`) and the
+    // "Google" login uses the development fake provider
+    // (`/__dev/idp/authorize`). Both need DEV_TOOLS=1. A deployed
+    // configuration sets MAIL_TRANSPORT=smtp with SMTP_HOST / SMTP_USERNAME
+    // (vars) and SMTP_PASSWORD (secret), and EXTERNAL_IDP=google with
+    // GOOGLE_CLIENT_ID (var) and GOOGLE_CLIENT_SECRET (secret).
+    "MAIL_TRANSPORT": "devInbox",
+    "MAIL_FROM": "Lunt <no-reply@lunt.example>",
+    "EXTERNAL_IDP": "fake",
+    // Login link and code lifetime (15 minutes) and the wrong codes that
+    // close a login challenge.
+    "LOGIN_CHALLENGE_TTL_MS": "900000",
+    "LOGIN_MAX_CODE_ATTEMPTS": "5"
   },
   "durable_objects": {
     "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]

@@ -5,6 +5,7 @@ import type {
   DeadLetterRecord,
   RedriveResult,
 } from "./deadLetters";
+import type { DevMailInput, DevMailQuery, DevMailRecord } from "./devMailbox";
 import type { QueryArgs, QueryName, QueryResult } from "./queries";
 
 /** Identity-attached domain event bound for the DO-local outbox. */
@@ -59,4 +60,11 @@ export interface LuntStateClient {
       | Readonly<{ keys: readonly DeadLetterKey[] }>
       | Readonly<{ limit: number }>,
   ): Promise<RedriveResult>;
+  /**
+   * Development inbox transport: keep a "sent" mail. Outside any unit of
+   * work — sending is a side effect, never part of a commit.
+   */
+  devMailboxAppend(mail: DevMailInput): Promise<void>;
+  /** Development inbox: stored mails, newest first. */
+  devMailboxList(query: DevMailQuery): Promise<readonly DevMailRecord[]>;
 }

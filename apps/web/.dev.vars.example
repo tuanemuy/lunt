@@ -11,3 +11,18 @@
 # in; an entry here overrides the same-named `vars` entry.
 #
 # SESSION_SECRET="at-least-32-random-characters"
+#
+# Real mail over SMTP (port 465, implicit TLS) instead of the development
+# inbox. SMTP_PORT may be omitted; only 465 is accepted.
+# MAIL_TRANSPORT="smtp"
+# MAIL_FROM="Lunt <no-reply@your-domain.example>"
+# SMTP_HOST="smtp.your-provider.example"
+# SMTP_USERNAME="apikey-or-user"
+# SMTP_PASSWORD="secret"
+#
+# Real Google login instead of the development fake provider. The OAuth
+# client's authorized redirect URI must be
+# <APP_URL>/login/external/google/callback.
+# EXTERNAL_IDP="google"
+# GOOGLE_CLIENT_ID="1234567890-abc.apps.googleusercontent.com"
+# GOOGLE_CLIENT_SECRET="secret"

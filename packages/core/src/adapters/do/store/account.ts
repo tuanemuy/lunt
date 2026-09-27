@@ -2,12 +2,18 @@ import type {
   AccountCommand,
   AccountQueries,
   AccountRecord,
+  LoginChallengeRecord,
 } from "../protocol/account";
 import type { SqlRow } from "../sql";
 import type { CommandHandlersOf } from "./commands";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
-import { deleteVersioned, insertUnique, updateVersioned } from "./versioned";
+import {
+  APPLIED,
+  deleteVersioned,
+  insertUnique,
+  updateVersioned,
+} from "./versioned";
 
 const ACCOUNT_TABLE_MIGRATION: Migration = {
   version: 2,
@@ -23,12 +29,37 @@ const ACCOUNT_TABLE_MIGRATION: Migration = {
   ],
 };
 
+const LOGIN_CHALLENGE_TABLE_MIGRATION: Migration = {
+  version: 4,
+  name: "login challenges",
+  statements: [
+    // `link_token_digest` is UNIQUE: the port resolves a link by its digest
+    // alone. A code is only ever checked against one challenge, so code
+    // digests may repeat.
+    `CREATE TABLE login_challenges (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      link_token_digest TEXT NOT NULL UNIQUE,
+      code_digest TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      failed_code_attempts INTEGER,
+      version INTEGER NOT NULL
+    )`,
+    `CREATE INDEX idx_login_challenges_expires_at
+       ON login_challenges (expires_at)`,
+    `CREATE INDEX idx_login_challenges_closed
+       ON login_challenges (status) WHERE status <> 'pending'`,
+  ],
+};
+
 /**
  * Account's tables. Migration versions are allocated globally
  * (`store/schema.ts`): take the next free number across all domains.
  */
 export const ACCOUNT_MIGRATIONS: readonly Migration[] = [
   ACCOUNT_TABLE_MIGRATION,
+  LOGIN_CHALLENGE_TABLE_MIGRATION,
 ];
 
 type AccountRow = Readonly<{ id: string; email: string; version: number }> &
@@ -40,6 +71,46 @@ const toRecord = (row: AccountRow): AccountRecord => ({
   id: row.id,
   email: row.email,
   version: Number(row.version),
+});
+
+type LoginChallengeRow = Readonly<{
+  id: string;
+  email: string;
+  link_token_digest: string;
+  code_digest: string;
+  expires_at: number;
+  status: string;
+  failed_code_attempts: number | null;
+  version: number;
+}> &
+  SqlRow;
+
+const CHALLENGE_COLUMNS = `id, email, link_token_digest, code_digest,
+  expires_at, status, failed_code_attempts, version`;
+
+// The stored status is passed through unchecked: the request side's
+// `LoginChallenge.reconstruct` rejects an unknown one as a data-integrity
+// failure.
+const toChallengeRecord = (row: LoginChallengeRow): LoginChallengeRecord => ({
+  id: row.id,
+  email: row.email,
+  linkTokenDigest: row.link_token_digest,
+  codeDigest: row.code_digest,
+  expiresAt: Number(row.expires_at),
+  status: row.status as LoginChallengeRecord["status"],
+  failedCodeAttempts:
+    row.failed_code_attempts === null ? null : Number(row.failed_code_attempts),
+  version: Number(row.version),
+});
+
+const challengeValues = (record: LoginChallengeRecord) => ({
+  email: record.email,
+  link_token_digest: record.linkTokenDigest,
+  code_digest: record.codeDigest,
+  expires_at: record.expiresAt,
+  status: record.status,
+  failed_code_attempts: record.failedCodeAttempts,
+  version: record.version,
 });
 
 export const accountQueryHandlers: QueryHandlersOf<AccountQueries> = {
@@ -70,6 +141,25 @@ export const accountQueryHandlers: QueryHandlersOf<AccountQueries> = {
       .toArray()
       .map(toRecord);
   },
+  "account.loginChallenge.findById": (sql, { id }) => {
+    const row = sql
+      .exec<LoginChallengeRow>(
+        `SELECT ${CHALLENGE_COLUMNS} FROM login_challenges WHERE id = ?`,
+        id,
+      )
+      .toArray()[0];
+    return row ? toChallengeRecord(row) : null;
+  },
+  "account.loginChallenge.findByLinkTokenDigest": (sql, { digest }) => {
+    const row = sql
+      .exec<LoginChallengeRow>(
+        `SELECT ${CHALLENGE_COLUMNS} FROM login_challenges
+           WHERE link_token_digest = ?`,
+        digest,
+      )
+      .toArray()[0];
+    return row ? toChallengeRecord(row) : null;
+  },
 };
 
 export const accountCommandHandlers: CommandHandlersOf<AccountCommand> = {
@@ -91,4 +181,28 @@ export const accountCommandHandlers: CommandHandlersOf<AccountCommand> = {
     ),
   "account.delete": (sql, { id, expectedVersion }) =>
     deleteVersioned(sql, "accounts", { id }, expectedVersion, `Account ${id}`),
+  "account.loginChallenge.insert": (sql, { record }) =>
+    insertUnique(
+      sql,
+      "login_challenges",
+      { id: record.id, ...challengeValues(record) },
+      `Login challenge ${record.id} or one with its link token`,
+    ),
+  "account.loginChallenge.save": (sql, { record, expectedVersion }) =>
+    updateVersioned(
+      sql,
+      "login_challenges",
+      { id: record.id },
+      challengeValues(record),
+      expectedVersion,
+      `Login challenge ${record.id}`,
+    ),
+  "account.loginChallenge.deleteClosedBefore": (sql, { threshold }) => {
+    sql.exec(
+      `DELETE FROM login_challenges
+         WHERE status <> 'pending' OR expires_at < ?`,
+      threshold,
+    );
+    return APPLIED;
+  },
 };
