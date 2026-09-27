@@ -72,11 +72,13 @@ export default {
       return handlePhotoRequest(request, env.PHOTOS);
     }
     const client = stateClient(env.LUNT_STATE);
+    const { hostname } = new URL(request.url);
     const container = createRequestContainer(
       env,
       client,
       presentationPorts,
-      await requestClock(env, client),
+      await requestClock(env, client, hostname),
+      hostname,
     );
     if (pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {

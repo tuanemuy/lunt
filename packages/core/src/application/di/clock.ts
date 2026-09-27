@@ -3,10 +3,33 @@ import { type Clock, offsetClock, SystemClock } from "../ports/clock";
 
 type ClockEnv = Readonly<{
   DEV_TOOLS?: string | undefined;
+  DEV_TOOLS_ALLOW_REMOTE?: string | undefined;
   DAILY_JOBS_AUTO?: string | undefined;
 }>;
 
-const devToolsOn = (env: ClockEnv): boolean => env.DEV_TOOLS === "1";
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+  "::1",
+]);
+
+/**
+ * Whether the development tools are on for this run (design.md D-19):
+ * `DEV_TOOLS=1`, and — for an HTTP request — a request to this machine
+ * (`localhost`, `127.0.0.1`, `[::1]`) unless `DEV_TOOLS_ALLOW_REMOTE=1`
+ * opens them to a shared test environment. Queue batches and scheduled
+ * runs (`host` null) are not reachable from outside and follow
+ * `DEV_TOOLS` alone. The fake provider lets anyone become anyone, so a
+ * remote environment with the tools on must be trusted.
+ */
+export function devToolsEnabled(env: ClockEnv, host: string | null): boolean {
+  if (env.DEV_TOOLS !== "1") return false;
+  if (host === null) return true;
+  return (
+    LOOPBACK_HOSTS.has(host.toLowerCase()) || env.DEV_TOOLS_ALLOW_REMOTE === "1"
+  );
+}
 
 /**
  * The clock of one request, queue batch or scheduled run (F-06). With the
@@ -18,8 +41,9 @@ const devToolsOn = (env: ClockEnv): boolean => env.DEV_TOOLS === "1";
 export async function requestClock(
   env: ClockEnv,
   client: Pick<LuntStateClient, "devClockOffset">,
+  host: string | null = null,
 ): Promise<Clock> {
-  if (!devToolsOn(env)) return SystemClock;
+  if (!devToolsEnabled(env, host)) return SystemClock;
   const offsetMs = await client.devClockOffset();
   return offsetMs === 0 ? SystemClock : offsetClock(SystemClock, offsetMs);
 }
@@ -31,5 +55,5 @@ export async function requestClock(
  * so a deployed configuration always runs them.
  */
 export function dailyJobsRunAutomatically(env: ClockEnv): boolean {
-  return !(devToolsOn(env) && env.DAILY_JOBS_AUTO === "off");
+  return !(devToolsEnabled(env, null) && env.DAILY_JOBS_AUTO === "off");
 }

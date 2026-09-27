@@ -90,7 +90,7 @@ The answer is `{"established": "<email>"}`. Sending the same address again succe
 
 ## Mail and external login
 
-Development uses the development inbox and a fake Google (`.spec-implement/design.md` D-07): mail is kept in the object and read at `/__dev/inbox`, and the "Google" button goes to `/__dev/idp/authorize`, where the tester picks a verified address, an unverified one, no address, or cancel. Both need `DEV_TOOLS=1` and are refused without it, so a deployment must select the real adapters.
+Development uses the development inbox and a fake Google (`.spec-implement/design.md` D-07): mail is kept in the object and read at `/__dev/inbox`, and the "Google" button goes to `/__dev/idp/authorize`, where the tester picks a verified address, an unverified one, no address, or cancel. Both need `DEV_TOOLS=1` and are refused without it, so a deployment must select the real adapters. Even with `DEV_TOOLS=1`, every development tool answers only requests to `localhost` / `127.0.0.1` / `[::1]` unless `DEV_TOOLS_ALLOW_REMOTE=1` (trusted shared test environments only; `docs/manual_test.md`).
 
 | Variable | Kind | Meaning | Default |
 | --- | --- | --- | --- |

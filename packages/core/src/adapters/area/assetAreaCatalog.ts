@@ -95,7 +95,10 @@ const townRowsSchema = z.array(
   z.tuple([z.string(), z.string(), z.string(), z.string()]),
 );
 
-const ORIGIN = "https://area-assets.invalid";
+// Only the path reaches the assets binding; the host is a placeholder.
+// `localhost` because under `vite dev` the binding is served by Vite,
+// which refuses hosts outside its allowed list.
+const ORIGIN = "http://localhost";
 
 function integrityError(message: string, cause?: unknown): SystemError {
   return new SystemError(SystemErrorCode.DataIntegrityError, message, cause);

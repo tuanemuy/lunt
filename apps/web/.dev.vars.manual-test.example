@@ -4,6 +4,9 @@
 # `vars` of apps/web/wrangler.jsonc.
 
 # The development tools stay on (dev inbox, fake Google, /__dev/clock).
+# They answer only http://localhost:3000 (or 127.0.0.1, [::1]); a shared
+# test environment reached by another host also needs
+# DEV_TOOLS_ALLOW_REMOTE="1" — trusted testers only (docs/manual_test.md).
 DEV_TOOLS="1"
 
 # The daily jobs run only when a test says so: from /__dev/clock
