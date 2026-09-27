@@ -1,468 +1,783 @@
 # Backend Implementation Guide
 
-> **注意**: この文書は、削除済みのテンプレートの Todo の例を題材にしている。引用しているファイル（`todo` を含むパス）はリポジトリにない。パターンの説明として読むこと。Lunt の実装を参照先にした書き直しは、アカウント・管理権限の縦の実装ができた時点で行う。
+Copy-and-adapt patterns for adding a domain or a usecase to Lunt. Account (login, withdrawal) and Authority (stewardship, role rosters, access policy) are the reference vertical: every excerpt below is trimmed from them (`// …` marks a cut), so open the file for the rest.
 
-The Todo domain implementation is the canonical example. When adding a new domain, just follow the same structure.
+- Principles and cross-cutting concepts (unit of work, outbox, idempotent create, validation, error kinds): `AGENTS.md`.
+- The runtime (one Worker, one SQLite-backed Durable Object, Queues, cron, ops endpoints): `docs/runtime_cloudflare_do.md`.
+- Test layers and rules: `docs/test.md`.
+- What to build: `spec/domains/`, `spec/usecases/`, `spec/flows/`, `spec/testcases/`; implementation decisions: `.spec-implement/design.md`.
 
-> For principles and abstract concepts, see `AGENTS.md`. This document is a collection of copy-and-adapt patterns for "how to actually write the code".
-
-## File Layout
+## 1. File layout
 
 ```
 packages/core/src/
+├── lib/error.ts                       CodedError, SerializedErrorBase (every layer extends these)
 ├── domain/
-│   ├── common/
-│   │   ├── event.ts               DomainEventBase, EventDraft, EventDecoder, WithEventDrafts
-│   │   └── pagination.ts
-│   ├── error.ts                   BusinessRuleError
-│   └── ${domain}/
-│       ├── entity.ts
-│       ├── valueObject.ts
-│       ├── events.ts
-│       ├── errorCode.ts
-│       └── ports/${domain}Repository.ts
+│   ├── error.ts                       BusinessRuleError, RehydrationError
+│   ├── businessErrorCode.ts           union of every domain's codes          ← aggregator
+│   ├── common/                        shared kernel: ids, EmailAddress, Version, refs, event, idBatch, …
+│   └── {d}/                           account, authority, application, notification
+│       ├── {entity}.ts                e.g. account/loginChallenge.ts, authority/stewardship.ts
+│       ├── events.ts                  event types + draft factories
+│       ├── errorCode.ts               {D}_… codes                            ← fragment
+│       ├── accessPolicy.ts            (authority) pure policy
+│       └── ports/
+│           ├── {x}Repository.ts
+│           └── unitOfWork.ts          the domain's repositories in a UoW     ← fragment
 ├── application/
-│   ├── di/types.ts                SharedDeps, RequestContainer, WorkerContainer, AppConfig
-│   ├── di/containerStore.ts       ContainerStore, installContainerStore, getInstalledStore, getContainer (shared)
-│   ├── di/serverCloudflare.ts     createRequestContainer, createWorkerContainer, readRequestServerConfig (CF runtime)
-│   ├── di/serverNode.ts           createNodeRequestContainer, createNodeWorkerContainer, readNodeServerEnv (Node runtime)
-│   ├── ports/
-│   │   ├── clock.ts
-│   │   ├── idGenerator.ts
-│   │   ├── logger.ts
-│   │   └── outboxRepository.ts
-│   ├── errors/index.ts            NotFound / Conflict / Validation / SystemError + helpers
+│   ├── types.ts                       ServiceArgs, ActorServiceArgs
+│   ├── errors.ts                      NotFound / Conflict / Unauthorized / Forbidden / SystemError
+│   ├── ports/                         clock, idGenerator, logger, outboxRepository, consumerReceipts
+│   ├── execution/unitOfWork.ts        UnitOfWorkContext / UnitOfWorkProvider  ← aggregator
 │   ├── events/
-│   │   └── buildDecoder.ts
-│   ├── execution/unitOfWork.ts    UnitOfWorkContext enumerates repository slots directly
+│   │   ├── buildDecoder.ts            buildEventDecoder
+│   │   ├── registry.ts                LuntDomainEvent + eventDecoders          ← aggregator
+│   │   └── consumers.ts               defineConsumer, consumers, deferredConsumers ← aggregator
 │   ├── workers/
-│   │   ├── eventRelayWorker.ts
-│   │   └── outboxPrune.ts
-│   ├── types.ts                   ServiceArgs<T>
-│   └── ${domain}/
-│       ├── view.ts
-│       ├── eventDecoders.ts       outbox row → DomainEvent rehydration (lives in application because it depends on SystemError)
-│       ├── ${usecase}.ts
-│       └── __tests__/
-├── presentation/
-│   ├── errorResponse.ts             AppServerError, serializeError, extractSerializedError, httpStatusFor
-│   ├── errorResponseMiddleware.ts   errorResponseMiddleware (wraps inputValidator + handler)
-│   ├── errorDisplay.ts            displayError, sanitizeRouteError
-│   └── validator.ts               validateInput(schema) — transport-boundary shape check
+│   │   ├── dailyJobs.ts               DailyJob, runDailyJobs, drainPages
+│   │   ├── dailyJobRegistry.ts        dailyJobs                              ← aggregator
+│   │   └── eventRelayWorker.ts, eventDelivery.ts, outboxPrune.ts
+│   ├── di/
+│   │   ├── types.ts                   SharedDeps, RequestContainer, WorkerContainer ← aggregator
+│   │   ├── container.ts               LuntEnv, createRequestContainer        ← aggregator
+│   │   ├── {d}.ts                     {D}Env, create{D}Services               ← fragment
+│   │   ├── mail.ts                    shared MailEnv / transport choice
+│   │   └── serviceDeps.ts, env.ts, containerStore.ts, presentationPorts.ts
+│   ├── __tests__/testContainer.ts     createTestContainer                    ← aggregator (tests)
+│   └── {d}/
+│       ├── {usecase}.ts
+│       ├── services.ts                {D}Services: container-level ports     ← fragment
+│       ├── eventDecoders.ts           {d}EventDecoders (domains with events) ← fragment
+│       └── __tests__/testServices.ts  createTest{D}Services                   ← fragment (tests)
 └── adapters/
-    └── d1/
-        ├── client.ts
-        ├── schema.ts              domain tables + `_occ_guard` (for OCC abort in the deferred-batch UoW)
-        ├── unitOfWork.ts          D1UnitOfWorkProvider that assembles a PendingBatch and flushes via db.batch()
-        ├── pendingBatch.ts        Drizzle BatchItem buffer + automatic OCC guard injection
-        ├── repositories/
-        │   ├── helpers.ts         mapDbError + isOccGuardViolation
-        │   ├── ${domain}Repository.ts
-        │   └── outboxRepository.ts
-        └── migrations/            SQL migrations read by wrangler
+    ├── do/                            the Lunt state Durable Object
+    │   ├── protocol/
+    │   │   ├── client.ts              LuntStateClient (query / commit / …)
+    │   │   ├── queries.ts             QueryCatalog                           ← aggregator
+    │   │   ├── commands.ts            WriteCommand, WriteFailure             ← aggregator
+    │   │   └── {d}.ts                 {D}Queries, {D}Command, records        ← fragment
+    │   ├── store/                     runs inside the object (synchronous SQL)
+    │   │   ├── queries.ts / commands.ts  handler tables                      ← aggregators
+    │   │   ├── schema.ts              MIGRATIONS, applyMigrations            ← aggregator
+    │   │   ├── {d}.ts                 migrations + handlers                  ← fragment
+    │   │   ├── versioned.ts           insertUnique / updateVersioned / deleteVersioned
+    │   │   ├── stewardedTargetLookups.ts  per-kind lookups of the directory
+    │   │   └── stateStore.ts          query / commit in one transaction
+    │   ├── repositories/
+    │   │   ├── index.ts               createRepositories                     ← aggregator
+    │   │   ├── {d}.ts                 create{D}Repositories                  ← fragment
+    │   │   └── {x}Repository.ts       request-side repository classes
+    │   ├── unitOfWork.ts              DoUnitOfWorkProvider
+    │   ├── stewardedTargetDirectory.ts   read-only port outside the UoW
+    │   ├── __conformance__/           one port contract suite per port
+    │   ├── __tests__/                 Node runners of the suites
+    │   └── testing/                   node:sqlite harness
+    ├── mail/                          MailTransport: SMTP, development inbox
+    ├── login/                         LoginMailSender, LoginSecretGenerator
+    └── identity/                      Google OIDC, fake IdP
 
-packages/core/src/lib/
-└── error.ts                       CodedError base + SerializedErrorBase / FieldErrors / SerializableError interface (structure only; the union is assembled in presentation)
+apps/web/app/
+├── server.ts                          fetch / queue / scheduled of the one Worker
+├── durable-objects/luntState.ts       LuntStateObject (state, relay alarm, receipts)
+├── durable-objects/__tests__/         Workers runners of the conformance suites
+├── worker/                            queue.ts (consumers, DLQ), ops.ts (/__ops/*), stateClient.ts
+└── presentation/
+    ├── businessErrorCatalog.ts        code → screen state                    ← aggregator
+    └── errorCatalog/{d}.ts            the domain's entries                   ← fragment
 ```
 
-## Domain Layer
+### Fragments and aggregators
 
-### Value Object
+Every shared registry is split per domain. A domain owns its fragment files; the aggregator only spreads or intersects them, and a `satisfies` / mapped type makes a missing entry a compile error.
+
+| Fragment (per domain) | Aggregator | Joined by |
+| --- | --- | --- |
+| `domain/{d}/errorCode.ts` | `domain/businessErrorCode.ts` | `BusinessErrorCode` union |
+| `apps/web/app/presentation/errorCatalog/{d}.ts` | `apps/web/app/presentation/businessErrorCatalog.ts` | spread, `satisfies Record<BusinessErrorCode, …>` |
+| `domain/{d}/ports/unitOfWork.ts` | `application/execution/unitOfWork.ts` | `UnitOfWorkRepositories` intersection |
+| `application/{d}/services.ts` | `application/di/types.ts` | `RequestContainer` intersection |
+| `application/di/{d}.ts` | `application/di/container.ts` | `LuntEnv` intersection + `...create{D}Services(env, deps)` |
+| `application/{d}/eventDecoders.ts` | `application/events/registry.ts` | `LuntDomainEvent` union + `eventDecoders` spread |
+| consumers (in `application/{d}/`) | `application/events/consumers.ts` | `consumers` (or `deferredConsumers` until the stage lands) |
+| daily jobs (in `application/{d}/`) | `application/workers/dailyJobRegistry.ts` | `dailyJobs` array |
+| `adapters/do/protocol/{d}.ts` | `adapters/do/protocol/queries.ts`, `adapters/do/protocol/commands.ts` | `QueryCatalog` intersection, `WriteCommand` union |
+| `adapters/do/store/{d}.ts` | `adapters/do/store/queries.ts`, `adapters/do/store/commands.ts`, `adapters/do/store/schema.ts` | handler spreads `satisfies`, `MIGRATIONS` |
+| `adapters/do/repositories/{d}.ts` | `adapters/do/repositories/index.ts` | `createRepositories` spread |
+| `application/{d}/__tests__/testServices.ts` | `application/__tests__/testContainer.ts` | `...createTest{D}Services(deps)` |
+
+### Adding a new domain: checklist
+
+A domain starts with every fragment in place and empty, the way Notification's were scaffolded before its stage (`domain/notification/ports/unitOfWork.ts`, `application/notification/services.ts`, `application/di/notification.ts`, `adapters/do/protocol/notification.ts`, `adapters/do/store/notification.ts`, `adapters/do/repositories/notification.ts`, `application/notification/__tests__/testServices.ts`, `apps/web/app/presentation/errorCatalog/notification.ts`).
 
 ```ts
-declare const fooIdBrand: unique symbol;
-export type FooId = string & { readonly [fooIdBrand]: true };
+// domain/notification/ports/unitOfWork.ts
+export type NotificationRepositories = Readonly<Record<never, never>>;
 
-export const FooId = {
-  create: (id: string): FooId => {
-    if (id.trim().length === 0) {
-      throw new BusinessRuleError(FooErrorCode.InvalidId, "Invalid foo id");
+// adapters/do/protocol/notification.ts
+export type NotificationQueries = Record<never, QuerySpec<unknown, unknown>>;
+export type NotificationCommand = never;
+
+// adapters/do/store/notification.ts
+export const NOTIFICATION_MIGRATIONS: readonly Migration[] = [];
+export const notificationQueryHandlers: QueryHandlersOf<NotificationQueries> = {};
+export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand> = {};
+```
+
+1. Domain: `domain/{d}/errorCode.ts` (`{D}_…` codes, `as const`) → add the type to `BusinessErrorCode` in `domain/businessErrorCode.ts`; add `errorCatalog/{d}.ts` (`satisfies Record<{D}ErrorCode, BusinessErrorPresentation>`) and spread it in `businessErrorCatalog.ts`.
+2. Ports: `domain/{d}/ports/unitOfWork.ts` (`{D}Repositories`) → intersect it into `UnitOfWorkRepositories`.
+3. Container: `application/{d}/services.ts` (`{D}Services`) → intersect into `RequestContainer`; `application/di/{d}.ts` (`{D}Env`, `create{D}Services`) → intersect `{D}Env` into `LuntEnv` and spread the call in `createRequestContainer`; `application/{d}/__tests__/testServices.ts` → spread in `createTestContainer`.
+4. Store: `adapters/do/protocol/{d}.ts` (`{D}Queries`, `{D}Command`) → add to `QueryCatalog` / `WriteCommand`; `adapters/do/store/{d}.ts` → spread handlers in `store/queries.ts` / `store/commands.ts` and `...{D}_MIGRATIONS` in `MIGRATIONS`; `adapters/do/repositories/{d}.ts` → spread in `createRepositories`.
+5. Migration versions are global, not per domain: reserve the next free number (the list is in the `MIGRATIONS` JSDoc: 1 core, 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox — the next free one is 9) and add it to that JSDoc. `applyMigrations` runs every version an object has not recorded, lowest first, so a reserved lower number that lands after a higher one still runs; a migration may therefore depend only on versions below it. Never edit an applied migration.
+6. Events (when the domain has any): `domain/{d}/events.ts`, `application/{d}/eventDecoders.ts` → add to `LuntDomainEvent` and `eventDecoders`; give every event type at least one consumer or a `deferredConsumers` entry (compile-time check in `application/events/consumers.ts`).
+7. Daily jobs: append to `dailyJobs` in `application/workers/dailyJobRegistry.ts`.
+8. Tests: a conformance suite per new port plus its two runners (section 6).
+
+## 2. Domain layer
+
+No I/O, no clock, no id generation: functions take `now: Date` and caller-minted ids.
+
+### Value objects and ids
+
+A brand plus a namespace object with `create` as the only way in; invalid input throws `BusinessRuleError` with a `COMMON_…` or domain code.
+
+```ts
+// domain/common/emailAddress.ts
+export type EmailAddress = string & { readonly [emailAddressBrand]: true };
+
+export const EmailAddress = {
+  maxLength: 254,
+  create: (raw: string): EmailAddress => {
+    const value = raw.trim().toLowerCase();
+    if (value.length > EmailAddress.maxLength || !EMAIL_PATTERN.test(value)) {
+      throw new BusinessRuleError(CommonErrorCode.InvalidEmailAddress, "Invalid email address");
     }
-    return id as FooId;
+    return value as EmailAddress;
   },
+  equals: (a: EmailAddress, b: EmailAddress): boolean => a === b,
 };
 ```
 
-Key points:
+Aggregate ids share one tagged brand (`domain/common/ids.ts`): `Id<"AccountId">`, `Id<"InvitationId">`, … are mutually non-assignable, and each has `create` rejecting only blank strings. The format (UUIDv7) belongs to the `IdGenerator` port (`application/ports/idGenerator.ts`): adapters check `idGenerator.parse(id)` on rehydration, transports parse caller-minted ids into `GeneratedId` (`parseGeneratedId` in `apps/web/app/presentation/validator.ts`). `domain/common/ids.ts` holds the ids other domains refer to; an id used only inside its own domain gets its brand next to its entity (`LoginChallengeId` in `domain/account/loginChallenge.ts`).
 
-- `unique symbol` for nominal typing
-- the factory is the only creation path
-- invalid values throw `BusinessRuleError` (the Result type is not used)
-- **do not add `generate()`**. id generation goes through the `IdGenerator` port in the application layer
-- domain treats the id as an "opaque non-empty string". The format (UUIDv7 / ULID / KSUID, etc.) is the responsibility of the `IdGenerator` implementation, and the storage adapter re-checks it with `IdGenerator.parse(id)` at rehydration time. Putting generation and parsing behind the same port means that when you swap the generator, the format check switches over in pair automatically, letting you swap the format without touching the VO
+Other shared-kernel pieces to reuse before writing new ones: `Version` (`domain/common/version.ts`), `StewardedRef` / `ContentRef` (`domain/common/refs.ts`), `Pagination` (`domain/common/pagination.ts`), `IdBatch` (`domain/common/idBatch.ts`, the 100-id limit).
 
-### Entity
+### Entities: immutable data + a namespace of pure functions
+
+An aggregate is a `Readonly` type — a discriminated union when it has states — and a same-named `const` holding the functions. Transitions take the narrowest state that allows them, so an illegal transition is a type error, and return a new value with `Version.next`.
 
 ```ts
-export type ActiveFoo = FooBase & Readonly<{ status: "active" }>;
-export type CompletedFoo = FooBase & Readonly<{ status: "completed" }>;
-export type Foo = ActiveFoo | CompletedFoo;
+// domain/account/loginChallenge.ts
+export type PendingLoginChallenge = LoginChallengeBase &
+  Readonly<{ status: "pending"; failedCodeAttempts: number }>;
+export type RedeemedLoginChallenge = LoginChallengeBase & Readonly<{ status: "redeemed" }>;
+export type ExhaustedLoginChallenge = LoginChallengeBase & Readonly<{ status: "exhausted" }>;
+export type LoginChallenge =
+  | PendingLoginChallenge
+  | RedeemedLoginChallenge
+  | ExhaustedLoginChallenge;
 
-export const Foo = {
-  create: (
-    params: { id: string; /* ...domain inputs... */ },
-    now: Date,
-  ): WithEventDrafts<ActiveFoo, FooEvent> => {
-    const id = FooId.create(params.id);
-    const foo: ActiveFoo = { ...params, id, version: 0, createdAt: now, updatedAt: now };
-    return { entity: foo, eventDrafts: [FooEvents.created(foo.id, now)] };
-  },
+/** A mismatch is not thrown: the usecase saves `challenge`, commits, then throws `error`. */
+export type CodeRedemption =
+  | Readonly<{ outcome: "redeemed"; challenge: RedeemedLoginChallenge }>
+  | Readonly<{
+      outcome: "mismatch";
+      challenge: PendingLoginChallenge | ExhaustedLoginChallenge;
+      error: BusinessRuleError<AccountErrorCode>;
+    }>;
 
-  complete: (
-    foo: ActiveFoo,
-    now: Date,
-  ): WithEventDrafts<CompletedFoo, FooEvent> => {
-    const next: CompletedFoo = { ...foo, status: "completed", version: foo.version + 1, updatedAt: now };
-    return { entity: next, eventDrafts: [FooEvents.completed(next.id, now)] };
-  },
-};
+function issue(params: Readonly<{ id: LoginChallengeId; email: EmailAddress; /* … */ validForMs: number }>, now: Date): PendingLoginChallenge {
+  // …
+  return { /* … */ expiresAt: new Date(now.getTime() + params.validForMs), version: Version.initial(), status: "pending", failedCodeAttempts: 0 };
+}
+
+export const LoginChallenge = { issue, redeemByLink, redeemByCode, isReplayOf, reconstruct, snapshot };
 ```
 
-Key points:
-
-- represent state with a discriminated union → invalid transitions become type errors
-- as with `Todo.create`, **VO construction is concentrated in the entity factory** (the application layer passes `id` as a raw string)
-- take `now: Date` and the required `id` as arguments (domain never calls `new Date()` or `uuidv7()`)
-- state transitions return `WithEventDrafts<TEntity, TEvent>`, handling the entity together with its **identity-less drafts**. Assigning the `EventId` is the application layer's responsibility (`attachEventIds`)
-- for operations with no successor entity, such as deletion, do not put a method on the domain; the usecase emits `FooEvents.deleted(...)` directly
-
-### Domain Event
+- A result that must be persisted even when the operation "fails" is returned as data (`CodeRedemption`), not thrown — see `completeLoginByCode` below.
+- A transition that emits events returns `WithEventDrafts<Entity, Event>` (`domain/common/event.ts`); drafts have no id — the unit of work mints it.
 
 ```ts
-export type FooCreatedEvent = DomainEventBase<
-  "foo.created",
-  Readonly<{ fooId: FooId }>
+// domain/authority/stewardship.ts
+export type StewardedStewardship = StewardshipBase &
+  Readonly<{ status: "stewarded"; stewards: readonly [Steward, ...Steward[]] }>;
+export type VacantStewardship = StewardshipBase & Readonly<{ status: "vacant" }>;
+export type Stewardship = StewardedStewardship | VacantStewardship;
+
+/** A stewardship whose target is known to be `T`. */
+export type StewardshipOf<T extends StewardedRef> = Stewardship & Readonly<{ target: T }>;
+
+/** An operator's grant on a region or occasion; places are refused by type. */
+function grant<T extends GrantableRef>(s: StewardshipOf<T>, appointee: Appointee, now: Date): Result<T> {
+  return appoint(s, appointee, "grant", now);
+}
+
+function removeSteward<T extends StewardedRef>(s: StewardshipOf<T>, accountId: AccountId, reason: StewardRemovalReason, now: Date): Result<T> {
+  const verdict = removal(s, accountId);
+  // …
+  if (verdict.vacates) {
+    return {
+      entity: { target: s.target, status: "vacant", invitations: s.invitations, version },
+      eventDrafts: [removed, AuthorityEvents.stewardshipVacated(s.target, now)],
+    };
+  }
+  // …
+}
+```
+
+Patterns worth copying from these two files:
+
+- Non-empty tuples (`readonly [Steward, ...Steward[]]`) instead of a runtime "at least one" check; `RoleRoster` (`domain/authority/roleRoster.ts`) does the same for an established operator roster, which has no empty state at all.
+- An aggregate that "exists" before anything is stored gets a default value instead of `null`: `Stewardship.vacant(target)` / `Stewardship.orVacant(stored, target)`, `RoleRoster.initial(role)`.
+- One function decides each rule and is reused by every caller: `Stewardship.removal` serves resignation, revocation, withdrawal and the withdrawal preview; `RoleRoster.removal` likewise.
+- Idempotent-create checks live on the entity: `LoginChallenge.isReplayOf`, `Stewardship.classifyInvite` (`"new" | "replay" | "conflict"`).
+- An operation with no successor entity drafts its events without one: `Account.withdraw(account, now)` returns drafts only; the usecase deletes the account.
+
+### Rehydration: `reconstruct` + `RehydrationError`
+
+`reconstruct` takes the at-rest snapshot (primitives), rebuilds every value object and re-checks every invariant, and wraps any failure in `RehydrationError`. Adapters turn that into `SystemError(DATA_INTEGRITY_ERROR)`; it is never a user error.
+
+```ts
+// domain/authority/stewardship.ts
+function reconstruct(input: StewardshipSnapshot): Stewardship {
+  try {
+    if (!StewardedRef.isKind(input.target.kind)) throw new Error(`Unknown target kind: ${input.target.kind}`);
+    // … value objects, normalized-form checks, no duplicates …
+    const [first, ...rest] = stewards;
+    if (input.status === "vacant" && first === undefined) return { target, status: "vacant", invitations, version };
+    if (input.status === "stewarded" && first !== undefined) return { target, status: "stewarded", stewards: [first, ...rest], invitations, version };
+    throw new Error(`Status ${input.status} does not match ${stewards.length} stewards`);
+  } catch (error) {
+    throw new RehydrationError("Stored stewardship violates invariants", error);
+  }
+}
+```
+
+`LoginChallenge.snapshot` is the inverse the adapter writes with; keep the pair together in the entity file.
+
+### Domain events
+
+Event types are `DomainEventBase<type, payload>`; the factories return `EventDraft`s. `aggregateId` is the aggregate's key as a string (`"<kind>:<id>"` for a stewardship, the role for a roster).
+
+```ts
+// domain/authority/events.ts
+export type StewardAppointedEvent = DomainEventBase<
+  "authority.steward_appointed",
+  { target: StewardedRef; accountId: AccountId; via: AppointmentVia }
 >;
 
-export type FooEvent = FooCreatedEvent | FooDeletedEvent;
+export type AuthorityEvent = InvitationIssuedEvent | StewardAppointedEvent | StewardRemovedEvent | StewardshipVacatedEvent | RoleGrantedEvent | RoleRevokedEvent;
 
-export const FooEvents = {
-  created: (fooId: FooId, occurredAt: Date): EventDraft<FooCreatedEvent> => ({
-    type: "foo.created",
-    payload: { fooId },
-    occurredAt,
-    aggregateId: fooId,
+export const AuthorityEvents = {
+  stewardAppointed: (target: StewardedRef, accountId: AccountId, via: AppointmentVia, now: Date): EventDraft<StewardAppointedEvent> => ({
+    type: "authority.steward_appointed",
+    payload: { target, accountId, via },
+    occurredAt: now,
+    aggregateId: targetKey(target),
   }),
-
-  deleted: (fooId: FooId, occurredAt: Date): EventDraft<FooDeletedEvent> => ({
-    type: "foo.deleted",
-    payload: { fooId },
-    occurredAt,
-    aggregateId: fooId,
-  }),
+  // …
 };
 ```
 
-Key points:
+Name types `{domain}.{past_tense}`. Consumers must not trust the payload as current state — delivery is unordered — so keep payloads to keys and the facts of the change.
 
-- the factory returns **identity-less drafts**. The `EventId` is minted **inside the UoW** via `idGenerator` (the usecase just calls `collectEvents(drafts)`)
-- this removes `EventId` from domain-function arguments and concentrates the id-generation responsibility in the single UoW adapter
-- domain holds only event types and factories; the decoder goes to the application layer (keeping the dependency direction inward)
+### Policies
 
-#### Event Decoder (application layer)
-
-Write the decoder declaratively with the `buildEventDecoder(type, schema, rehydrate)` helper. You only write the schema definition + brand reconstruction; the helper absorbs the shape assert / `SystemError` conversion / meta forwarding.
+A rule that spans aggregates, or that several usecases share, is a pure function over data the usecase reads. `AccessPolicy.decide` (`domain/authority/accessPolicy.ts`) is the only place authorization rules live; it never throws and returns a decision the application turns into `ForbiddenError`.
 
 ```ts
-// packages/core/src/application/foo/eventDecoders.ts
-import { z } from "zod";
-import type { EventDecoder } from "@repo/core/domain/common/event";
-import type { FooEvent } from "@repo/core/domain/foo/events";
-import { FooId } from "@repo/core/domain/foo/valueObject";
-import { buildEventDecoder } from "../events/buildDecoder";
+export type Operation =
+  | Readonly<{ kind: TargetOperationKind; standing: TargetStanding }>
+  | Readonly<{ kind: RoleOperationKind }>;
 
-const fooCreatedSchema = z.object({ fooId: z.string() }).strict();
-const fooDeletedSchema = z.object({ fooId: z.string() }).strict();
+export type AccessDecision =
+  | Readonly<{ allowed: true; basis: AccessBasis }>
+  | Readonly<{ allowed: false }>;
 
-export type FooEventDecoders = {
-  readonly [K in FooEvent["type"]]: EventDecoder<
-    Extract<FooEvent, { type: K }>
-  >;
-};
+function decide(authority: ActorAuthority, operation: Operation): AccessDecision {
+  switch (operation.kind) {
+    case "operate_service":
+      return authority.roles.has("operator") ? allow("role") : DENY;
+    case "edit_articles":
+      return authority.roles.has("editor") ? allow("role") : DENY;
+    default:
+      return decideOnTarget(operation.kind, operation.standing, authority.roles);
+  }
+}
 
-export const fooEventDecoders: FooEventDecoders = {
-  "foo.created": buildEventDecoder("foo.created", fooCreatedSchema, (p) => ({
-    fooId: FooId.create(p.fooId),
-  })),
-  "foo.deleted": buildEventDecoder("foo.deleted", fooDeletedSchema, (p) => ({
-    fooId: FooId.create(p.fooId),
-  })),
-};
+export const AccessPolicy = { decide };
 ```
 
-Key points:
+### Ports
 
-- put the decoder in the **application layer**. Since it maps decode failures to `SystemError(DataIntegrityError)`, it depends on the application's error contract and therefore cannot live in the inward-facing domain
-- when adding a domain, the only diff is "schema definition + brand reconstruction". The shape assert / error conversion logic is confined to `buildEventDecoder`
-- the payload schema rejects extra fields with `z.object(...).strict()`
-- the whole map is typed as `[K in FooEvent["type"]]: EventDecoder<Extract<...>>` to enforce exhaustiveness (a missing registration in the map is a type error)
-- branded types are reconstructed inside the `rehydrate` function via `FooId.create(p.fooId)`
-- on decode failure, throw `SystemError(DataIntegrityError)` (the relay worker catches it per-row and routes it to the log)
-
-### Repository Port
-
-The base contract including OCC is already consolidated in `TransactionalRepository<TEntity, TId>` (`packages/core/src/domain/common/transactionalRepository.ts`). Each aggregate's port extends it and only adds read-only queries:
+Repository ports start from `TransactionalRepository<TEntity, TId>` (`domain/common/transactionalRepository.ts`): `insert`, `findById` returning `Versioned<T>` (entity + `ExpectedVersion<T>` token), and `save` / `delete` that require the token. Drop what the aggregate never does with `Omit`, add queries, and write the contract (errors, limits, ordering) in the JSDoc — the conformance suite tests exactly that.
 
 ```ts
-export interface FooRepository extends TransactionalRepository<Foo, FooId> {
-  findPage(pagination: Pagination): Promise<PaginationResult<Foo>>;
+// domain/authority/ports/stewardshipRepository.ts
+/**
+ * - `insert`: `ConflictError` when the target already has one.
+ * - `findById`: `null` when none is stored — read it as `Stewardship.vacant(target)`.
+ * - `save`: `ConflictError` on a version mismatch, `NotFoundError` when none is stored.
+ * - `findByTargets`: 0–100 targets (`COMMON_INVALID_INPUT` above), stored ones only, in no particular order.
+ * …
+ */
+export interface StewardshipRepository
+  extends Omit<TransactionalRepository<Stewardship, StewardedRef>, "delete"> {
+  findByTargets(targets: readonly StewardedRef[]): Promise<readonly Stewardship[]>;
+  findPageBySteward(accountId: AccountId, pagination: Pagination): Promise<PaginationResult<Versioned<Stewardship>>>;
 }
 ```
 
-What `TransactionalRepository<TEntity>` provides:
+- A fixed-key aggregate need not follow the base shape: `RoleRosterRepository.find(role)` never returns `null` (`domain/authority/ports/roleRosterRepository.ts`).
+- Bulk maintenance is its own method: `LoginChallengeRepository.deleteClosedBefore(threshold)` (`domain/account/ports/loginChallengeRepository.ts`).
+- The domain's repositories are exposed only through the unit of work:
 
 ```ts
-interface TransactionalRepository<TEntity, TId = string> {
-  insert(entity: TEntity): Promise<void>;
-  findById(id: TId): Promise<Versioned<TEntity> | null>;
-  save(entity: TEntity, expectedVersion: ExpectedVersion<TEntity>): Promise<void>;
-  delete(id: TId, expectedVersion: ExpectedVersion<TEntity>): Promise<void>;
-}
-
-type Versioned<T> = { readonly entity: T; readonly expectedVersion: ExpectedVersion<T> };
-type ExpectedVersion<T> = number & { readonly [brand]: T };  // phantom T
-```
-
-Bind `TId` to the branded `FooId`, not the raw `string` default. The lookup key is then a value object: the usecase constructs it via `FooId.create(input.id)` at its boundary — before the lookup — so the id-format invariant is checked in one place and is no longer duplicated against the transport-layer schema. This is the same "validate at value-object construction" rule the entity factory already follows; an id and an entity are separate concerns, so the id VO is built up front while the entity is what `findById` returns once existence is confirmed. Binding `TId` also makes a foreign id (a `BarId` passed to a `Foo` repository) a type error.
-
-OCC is enforced at the type level with the `ExpectedVersion<Foo>` token:
-
-- only `findById` is the legitimate token-issuing point (a single `as` cast inside the adapter)
-- `save` / `delete` take the token as a required argument → "writing without reading" is a type error
-- `insert` is exclusively for initial persistence. Since no version exists yet, no OCC token is needed
-- read-only queries like `findPage` are defined separately on the concrete port
-
-Thanks to the phantom `T`, `ExpectedVersion<Foo>` and `ExpectedVersion<Bar>` are type-incompatible → **mixing up tokens between aggregates is a type error**. This severs the implicit connection of "the domain function bumps the version → the adapter recomputes `entity.version - 1`", giving a contract where the version observed at read time is carried straight through to the write.
-
-When adding a new domain:
-
-1. add one slot line to `UnitOfWorkContext` (`packages/core/src/application/execution/unitOfWork.ts`)
-2. in the D1 adapter (`packages/core/src/adapters/d1/unitOfWork.ts`), create the repository instance sharing the `PendingBatch` and stuff it into the context
-
-```ts
-export interface UnitOfWorkContext {
-  todoRepository: TodoRepository;
-  fooRepository: FooRepository;          // ← added
-  collectEvents(events: readonly DomainEvent[]): void;
-}
-```
-
-## Application Layer
-
-### Usecase
-
-```ts
-export async function createFoo({
-  container,
-  input,
-}: ServiceArgs<CreateFooInput>): Promise<CreateFooOutput> {
-  const now = container.clock.now();
-
-  const { entity: foo, eventDrafts } = Foo.create(
-    { id: input.id, /* ...input fields... */ },
-    now,
-  );
-
-  const created = await container.unitOfWorkProvider.run(
-    async ({ fooRepository, collectEvents }) => {
-      const found = await fooRepository.findById(foo.id);
-      if (found) {
-        if (!isReplayOf(found.entity, foo)) {
-          throw new ConflictError("FOO_ID_CONFLICT", `...`);
-        }
-        return found.entity;
-      }
-      await fooRepository.insert(foo);
-      collectEvents(eventDrafts);
-      return foo;
-    },
-  );
-
-  return { foo: toFooView(created) };
-}
-```
-
-```ts
-// for operations with "no successor entity", such as deletion, the usecase emits the event directly
-export async function deleteFoo({
-  container,
-  input,
-}: ServiceArgs<DeleteFooInput>): Promise<void> {
-  const now = container.clock.now();
-  const id = FooId.create(input.id);
-
-  await container.unitOfWorkProvider.run(
-    async ({ fooRepository, collectEvents }) => {
-      const found = await fooRepository.findById(id);
-      if (!found) throw new NotFoundError("FOO_NOT_FOUND", `...`);
-      await fooRepository.delete(found.entity.id, found.expectedVersion);
-      collectEvents([FooEvents.deleted(found.entity.id, now)]);
-    },
-  );
-}
-```
-
-Key points:
-
-- **create is idempotent on a caller-chosen id.** The caller mints the id and resends the same one when a create fails, because a failure it observes (a lost response) may be a success server-side; a server-minted id would turn that retry into a second aggregate. A replay — same id, same content — writes nothing, collects no event, and returns the existing aggregate. The same id with different content is a `ConflictError`, since answering it with the existing aggregate would silently drop the new one. Two concurrent resends can both miss the lookup; the loser's `insert` fails as `ConflictError("UNIQUE_VIOLATION")` on every adapter and is not caught — the next resend takes the replay path. `packages/core/src/application/todo/createTodo.ts` is the reference
-- a caller-chosen id is typed `GeneratedId` (`CreateFooInput.id`), the brand only `IdGenerator.next` / `parse` produce. `parse` is the check adapters apply on rehydration, so an id the generator would not mint — one that would be stored as a row that can never be read back — cannot reach the usecase, and the usecase has nothing to check at runtime. Each transport parses the raw string at its boundary with the generator its container wires and rejects a mismatch as its own input error (`parseGeneratedId` in `apps/web/app/presentation/validator.ts`). The domain keeps treating the id as opaque
-- resolve `now` at the top of the usecase. The `EventId` is minted **by the UoW inside `collectEvents`** via `idGenerator`, so the usecase doesn't have to care
-- there are 4 VO-construction sites: the entity factory, the lookup-key construction at the top of a mutate/delete usecase (`FooId.create(input.id)`), adapter rehydration, and the event decoder
-- domain functions return identity-less drafts, and you just pass them straight through with `collectEvents(drafts)`. No explicit type arguments needed
-- ride the Outbox pattern with `collectEvents` (flushed in the same tx)
-- the return value is a DTO (projected by a helper in `view.ts`). Type its fields as primitives, never branded VOs — brands widen to their primitive for free, so projection stays cast-free; the inbound direction is the VO `create()` above, also not a cast
-
-There is intentionally no generic utility for OCC retry. `ConflictError` propagates straight to the caller, and only the usecases that need it build their own retry individually.
-
-### Container Wiring
-
-Provide the container as **two independent types, one per scope**. Mix in `SharedDeps` (`clock` / `idGenerator` / `logger` / `shutdown`) by intersection, and have each scope hold only the fields that are needed in that scope alone.
-
-```ts
-export type SharedDeps = Readonly<{
-  clock: Clock;
-  idGenerator: IdGenerator;
-  logger: Logger;
-  shutdown: () => Promise<void>;
+// domain/authority/ports/unitOfWork.ts
+export type AuthorityRepositories = Readonly<{
+  stewardshipRepository: StewardshipRepository;
+  roleRosterRepository: RoleRosterRepository;
 }>;
-
-// For usecases that mutate aggregates / SSR head. It does not hold `outboxRepository`
-// (writes happen from inside the UoW via `collectEvents`), nor `idempotencyStore`
-// (queue-consumer only).
-export type RequestContainer = SharedDeps &
-  Readonly<{ config: AppConfig; unitOfWorkProvider: UnitOfWorkProvider }>;
-
-// For relay / pruner / queue consumer / DLQ that read and write the outbox directly.
-// It does not hold `config` or `unitOfWorkProvider`.
-export type WorkerContainer = SharedDeps &
-  Readonly<{
-    outboxRepository: OutboxRepository;
-    idempotencyStore: IdempotencyStore;
-  }>;
 ```
 
-```ts
-export function createRequestContainer(
-  config: RequestServerConfig,
-): RequestContainer { /* ...UoW + AppConfig... */ }
+- Read-only ports that never join a unit of work (`StewardedTargetDirectory`, `domain/authority/ports/stewardedTargetDirectory.ts`) and external I/O ports (`LoginMailSender`, `LoginSecretGenerator`, `ExternalIdentityVerifier` in `domain/account/ports/`) live on the container via `application/{d}/services.ts`.
 
-export function createWorkerContainer(env: ServerEnv): WorkerContainer {
-  /* ...outboxRepository + idempotencyStore... */
+### Errors and codes
+
+```ts
+// domain/authority/errorCode.ts
+export const AuthorityErrorCode = {
+  AlreadySteward: "AUTHORITY_ALREADY_STEWARD",
+  InvitationAlreadyPending: "AUTHORITY_INVITATION_ALREADY_PENDING",
+  // …
+  LastOperator: "AUTHORITY_LAST_OPERATOR",
+} as const;
+export type AuthorityErrorCode = (typeof AuthorityErrorCode)[keyof typeof AuthorityErrorCode];
+```
+
+Throw `new BusinessRuleError(AuthorityErrorCode.AlreadySteward, "…")`; `BusinessRuleError<TCode>` defaults to `never`, so the code must be a literal of some domain's union. Shared-kernel codes are in `domain/common/errorCode.ts` (`CommonErrorCode`, plus `SubjectErrorCode` for codes raised under the caller's prefix). A new code does not compile until it has an entry in `apps/web/app/presentation/errorCatalog/{d}.ts`.
+
+## 3. Application layer
+
+### Usecase shape
+
+```ts
+// application/types.ts
+export type ServiceArgs<T> = { container: RequestContainer; input: T };
+export type ActorServiceArgs<T> = ServiceArgs<T> & Readonly<{ actor: Actor }>;
+```
+
+One exported async function per file, named after the spec usecase, with a JSDoc that lists the screen ids, the events and the errors. Build value objects from `input` first (the second validation point), then do every read and write of one decision inside one `run`.
+
+```ts
+// application/authority/grantRole.ts
+export type GrantRoleInput = Readonly<{ role: Role; email: string }>;
+
+export async function grantRole({ container, actor, input }: ActorServiceArgs<GrantRoleInput>): Promise<void> {
+  const email = EmailAddress.create(input.email);
+  await container.unitOfWorkProvider.run(async (ctx) => {
+    await authorizeRole(ctx, actor, "operate_service");
+    const grantee = await requireAccountByEmail(ctx.accountRepository, email);
+    const roster = await ctx.roleRosterRepository.find(input.role);
+    const { entity, eventDrafts } = RoleRoster.grant(roster.entity, grantee.entity.id, container.clock.now());
+    await ctx.roleRosterRepository.save(entity, roster.expectedVersion);
+    await ctx.accountRepository.save(Account.markReferenced(grantee.entity), grantee.expectedVersion);
+    ctx.collectEvents(eventDrafts);
+  });
 }
 ```
 
-Pass `idGenerator` to the `UnitOfWorkProvider`. It uses this to mint the `EventId` when `collectEvents` flushes drafts to the outbox. If you pass the same instance as the container's own `idGenerator`, swapping in a Fake for tests is a single-point change.
+`Account.markReferenced` bumps the account's version in the same unit of work, so a grant and a concurrent withdrawal race on one optimistic lock and only one commits — the pattern for "an aggregate now points at another one that may be deleted".
 
-Consolidate the path that reads request-side env into `readRequestServerConfig()`. A worker just passes `env: ServerEnv` straight to `createWorkerContainer`, without going through `AppConfig` or the `relay` Service Binding (because a worker neither returns HTML nor kicks the relay).
+### Unit of work
 
-The test-only `TestContainer = RequestContainer & WorkerContainer & { db }` flattens the fields of both scopes into a single fat shape — a convenience type for co-locating usecase invocation and worker-pipeline verification within a test. Production code never holds this intersection directly; it always receives either `RequestContainer` or `WorkerContainer`.
+`UnitOfWorkProvider.run(fn)` (`application/execution/unitOfWork.ts`, implemented by `adapters/do/unitOfWork.ts`):
 
-Lock contention such as `SQLITE_BUSY` is an adapter concern: the UoW flushes through a single `db.batch()`, so writes within one process never contend, and nothing is retried at the application layer (see `docs/runtime_node.md` for the libSQL details).
+- Reads (`findById`, queries) go to the state object immediately.
+- Writes (`insert`, `save`, `delete`) and `collectEvents(drafts)` are buffered and committed together in one transaction after `fn` resolves. A scope therefore never sees its own writes: read everything first, then write.
+- `ConflictError` (version mismatch, taken unique key) and `NotFoundError` (`save` / `delete` of a missing row) surface at commit. Nothing is retried; the caller may resend.
+- A throw inside `fn` discards the buffer. A scope with no writes and no events commits nothing, so a read-only `run` is cheap.
+- One scope may span domains: `withdraw` (`application/account/withdraw.ts`) deletes the account and, through `removeAllAuthorityOf(ctx, …)` (`application/authority/withdrawal.ts`), updates every stewardship and roster in the same commit. Cross-domain helpers take the narrowest repositories type they need (`AuthorityRepositories`, `Pick<…>`), not the whole context.
 
-## Adapter Layer
+### Idempotent create with a caller-minted id
 
-### Repository (OCC implementation)
+The caller mints the id (`GeneratedId`) and resends it unchanged; the usecase answers "same id, same content" as a success without writing, and "same id, other content" as `ConflictError`.
 
 ```ts
-async save(foo: Foo): Promise<void> {
-  if (foo.version === 0) {
-    await this.executor.insert(foos).values({ ...foo });
+// application/authority/inviteMember.ts
+const params = { invitationId, email };
+switch (Stewardship.classifyInvite(stewardship, params)) {
+  case "replay":
     return;
-  }
-  const updated = await this.executor
-    .update(foos)
-    .set({ ...foo })
-    .where(and(eq(foos.id, foo.id), eq(foos.version, foo.version - 1)))
-    .returning({ id: foos.id });
-  if (updated.length === 0) {
-    throw new ConflictError(
-      "OPTIMISTIC_LOCK_FAILURE",
-      `Optimistic lock failure: ${foo.id}`,
-    );
-  }
+  case "conflict":
+    throw new ConflictError("INVITATION_ID_CONFLICT", "The invitation id is already used for another email address");
+  case "new":
+    break;
 }
 ```
 
-Key points:
-
-- a 0-row update → `ConflictError("OPTIMISTIC_LOCK_FAILURE")`
-- DB exceptions are converted to `SystemError(DatabaseError)` by `mapDbError`
-- do not use upsert (`ON CONFLICT DO UPDATE`) (because it would hide lost updates)
-
-### Unit of Work
-
-`packages/core/src/adapters/d1/unitOfWork.ts` implements `UnitOfWorkProvider.run(fn)`:
-
-1. create a fresh `PendingBatch` (Drizzle BatchItem buffer)
-2. build the repository / outbox instances together with the shared PendingBatch and stuff them into `UnitOfWorkContext`
-3. pass `fn` a context that gathers the `collectEvents` buffer
-4. after `fn` resolves, stack the collected events onto the same PendingBatch
-5. flush atomically with `db.batch(pending.build())`
-
-Because D1 has no interactive tx, writes are not executed one-by-one inside the UoW but accumulated in the PendingBatch. Reads are immediate, hitting the binding directly. An OCC mismatch aborts the entire batch via the CHECK constraint on the `_occ_guard` table and reaches the presentation layer as `ConflictError("OPTIMISTIC_LOCK_FAILURE")`.
-
-There is no application-level retry because driver-level transient errors are handled on the Cloudflare binding side.
-
-## Outbox Worker
+When a side effect sits between the check and the write, split the work into two scopes and re-check in the second — a failed send stores nothing, and a stored challenge always had its mail accepted:
 
 ```ts
-import { processOutboxEvents } from "@repo/core/application/workers/eventRelayWorker";
+// application/account/startEmailLogin.ts
+const found = await container.unitOfWorkProvider.run(({ loginChallengeRepository }) =>
+  loginChallengeRepository.findById(id),
+);
+if (judge(found, email) === "replay") return;
 
-await processOutboxEvents(container, async (event) => {
-  // switch on event.type and dispatch to the downstream handler
-}, { batchSize: 100 });
+const { linkToken, code } = await secrets.generate();
+// … digests …
+await container.loginMailSender.send({ to: email, linkToken, code });
+
+await container.unitOfWorkProvider.run(async ({ loginChallengeRepository }) => {
+  const stored = await loginChallengeRepository.findById(id);
+  if (judge(stored, email) === "replay") return;
+  await loginChallengeRepository.insert(LoginChallenge.issue({ id, email, linkTokenDigest, codeDigest, validForMs: container.loginSettings.challengeValidForMs }, now));
+});
 ```
 
-### Delivery contract (pitfalls the consumer implementation must guard against)
+### Persist, then throw
 
-As stated in the AGENTS.md key concepts, the Outbox operates with **at-least-once delivery / no ordering**. Write the consumer on that premise. The "why" of the principle is in AGENTS.md; here we expand on "what the implementation must guard against".
-
-- **At-least-once (the same event arrives two or more times)** — the relay worker operates in the order "dispatch succeeds → update the outbox row's `processed_at`". If dispatch goes through but the process dies just before the update, the same event is re-dispatched in the next round. Write the consumer so that **processing the same event N times produces the same result**, either via `event.id`-based dedupe (a processed-id table / unique index) or a natural-key upsert. Code that assumes "trigger a side effect exactly once" (the "fire-and-forget" of external sends, billing, notifications) will duplicate the moment at-most-once breaks.
-  - The `IdempotencyStore` port bundled with the template (the `processed_events` table + D1 `INSERT OR IGNORE` to claim) is the minimal implementation of a "processed-id table". `handleQueue` calls `markProcessed(event.id)` before running the handler, and if `alreadyProcessed: true` it skips the handler and acks. Follow the same pattern when writing new consumers.
-  - **Stamp first vs stamp inside handler** — the template default is stamp first (claim → handler → ack). This order is safe if you write the handler as an idempotent overwrite (a projection UPSERT, etc.) whose result is unchanged on re-run. Conversely, when you want to **roll back the side effect and the stamp together** (the one-shot kind of external send, billing, notification), wrap the handler in `UnitOfWorkProvider.run` and put `markProcessed` and the side-effect write in the same batch within that UoW.
-- **No ordering (zero ordering guarantee)** — each row is rescheduled individually based on its `next_attempt_at` (spread out by backoff + jitter) and `attempts`, so an ordering where `foo.updated` / `foo.deleted` arrives before `foo.created` happens routinely. Don't write consumer-side logic that assumes a state transition like "if I see `deleted`, I must have seen `created`". If you need order, either **read the aggregate's current state before deciding**, or make the event self-contained by putting all the required state into the event payload.
-- **Quarantine (isolating poison rows)** — a row whose `attempts` reaches `maxAttempts` (default 2) gets `failed_at` set and is quarantined. A partial index drops it from `claimPending`, so a poison row doesn't block the hot path. To re-kick, reset `failed_at` / `next_attempt_at` to NULL and reset `attempts` to 0. Decode failures (payload schema mismatch) ride the same retry path — after fixing the schema, re-kick and it is re-dispatched. The relay's `maxAttempts` × the consumer's `1 + max_retries` (`wrangler.consumer.toml`) = the total number of attempts visible to the user. The rule of thumb is to keep this as a product of small values; setting one side to 5 inflates to 25 attempts even if the other is only 5.
-- **Multi-worker safety (claim/lease)** — a row is locked within a single claim+select transaction and becomes invisible to other workers for the lease period. On worker crash, the row is re-claimable once the lease expires. Even with multiple workers running, the same row is not dispatched twice.
-
-### Key points
-
-- log decode / dispatch failures to the logger and reschedule `next_attempt_at` with `attempts++` + exponential backoff
-
-After adding a new domain, export `<domain>EventDecoders` from `packages/core/src/application/${domain}/eventDecoders.ts` and add it to both the `AllDomainEvents` type union and `defaultEventDecoderRegistry` in `eventRelayWorker.ts`:
+When a failed attempt must be recorded (attempt counters), let the scope return the error as data and throw it after `run` has committed:
 
 ```ts
-type AllDomainEvents = TodoEvent | FooEvent;        // ← extend the union
+// application/account/completeLoginByCode.ts
+const settled = await container.unitOfWorkProvider.run(async ({ loginChallengeRepository, accountRepository }): Promise<Settled> => {
+  // …
+  if (redemption.outcome === "mismatch") {
+    await loginChallengeRepository.save(redemption.challenge, expected);
+    return { kind: "mismatch", error: redemption.error };
+  }
+  // …
+});
+if (settled.kind === "mismatch") throw settled.error;
+return settled.result;
+```
 
-export const defaultEventDecoderRegistry = {
-  ...todoEventDecoders,
-  ...fooEventDecoders,        // ← add the decoder
+### Access checks
+
+`application/authority/access.ts` turns `AccessPolicy` into calls made inside the same `run` as the writes, before them, so a revocation committed first is seen:
+
+- `authorizeRole(ctx, actor, "operate_service")` for role-only operations.
+- `authorizeOnTarget(ctx, actor, "invite_member", target)` reads roles and the stewardship (vacant when none is stored) and returns `{ stewardship, expectedVersion, standing, basis }`; `expectedVersion` is `null` for a target with nothing stored.
+- `persistStewardship(ctx, entity, expectedVersion)` then `insert`s or `save`s accordingly.
+- Both throw `ForbiddenError("FORBIDDEN")`; usecases never branch on `basis`.
+
+### Application errors
+
+`application/errors.ts`: `NotFoundError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError` (free-string codes, e.g. `LOGIN_CHALLENGE_ID_CONFLICT`, exported as a constant when the presentation needs it) and `SystemError` with `SystemErrorCode` (`DATABASE_ERROR` from a failing store call, `DATA_INTEGRITY_ERROR` from bad stored data, `NETWORK_ERROR` / `EXTERNAL_API_ERROR` — the retryable ones — from external adapters such as `adapters/identity/googleOidc.ts`). Domain `BusinessRuleError`s pass through usecases untouched.
+
+### Event decoders
+
+The relay rehydrates outbox rows through a decoder per event type. `buildEventDecoder(type, schema, rehydrate)` does the shape check (`.strict()` zod) and the `SystemError(DATA_INTEGRITY_ERROR)` on mismatch; the domain supplies the rehydration of branded values, wrapped so a failing value object is also integrity, not a user error.
+
+```ts
+// application/authority/eventDecoders.ts
+type AuthorityEventDecoders = {
+  readonly [K in AuthorityEvent["type"]]: EventDecoder<Extract<AuthorityEvent, { type: K }>>;
+};
+
+export const authorityEventDecoders: AuthorityEventDecoders = {
+  "authority.role_granted": buildEventDecoder(
+    "authority.role_granted",
+    z.object({ role: roleSchema, accountId: z.string() }).strict(),
+    intact((p) => ({ role: p.role, accountId: AccountId.create(p.accountId) })),
+  ),
+  // …
+};
+```
+
+```ts
+// application/events/registry.ts
+export type LuntDomainEvent = AccountEvent | AuthorityEvent;
+
+export const eventDecoders = {
+  ...accountEventDecoders,
+  ...authorityEventDecoders,
 } satisfies DefaultEventDecoderRegistry;
 ```
 
-`DefaultEventDecoderRegistry` is a complete map type derived from `AllDomainEvents`, and `satisfies` rejects, as a compile error, the case where you wrote only the decoder while forgetting to add the domain — and vice versa. `EventDecoderRegistry` (`Partial<DefaultEventDecoderRegistry>`) is the type for passing overrides in tests and the like, forbidding unknown event types at the syntax level.
+### Consumers
 
-### Outbox Prune
+A consumer is a usecase subscribed to event types, registered by name in `application/events/consumers.ts`. The name keys the queue message and the consumer's receipts, so renaming one is a data migration. Consumers must be idempotent on their own (receipts only save a repeat) and read current state rather than trusting event order.
 
 ```ts
-import { pruneOutbox } from "@repo/core/application/workers/outboxPrune";
-
-await pruneOutbox(container, { retentionMs: 7 * 86_400_000 }); // retain for 7 days
+// application/events/consumers.ts — registering one (none is registered yet in P1)
+export const consumers = {
+  purgeNotificationsOnWithdrawal: defineConsumer(["account.withdrawn"], async (container, event) => {
+    // … event is narrowed to AccountWithdrawnEvent; run the usecase with `container`
+  }),
+} satisfies Readonly<Record<string, EventConsumer>>;
 ```
 
-`retentionMs` is raw milliseconds. `pruneOutbox` uses `clock.now() - retentionMs` as the cutoff and calls `outboxRepository.pruneProcessed(cutoff)`. It does not touch pending rows (`processed_at IS NULL`). It is safe to run concurrently with the relay worker.
+Every event type needs at least one subscriber; `UnsubscribedEventType` must stay `never` or the file does not compile. A consumer that belongs to a later stage is listed in `deferredConsumers` (name, events, stage) and moved to `consumers` when it lands — a name may not be in both.
 
-## Error Design
+### Daily jobs
 
-| Layer | Error type | Location |
-|---|---|---|
-| Domain | `BusinessRuleError<FooErrorCode>` | `packages/core/src/domain/error.ts` |
-| Application | `NotFoundError`, `ConflictError`, `ValidationError`, `SystemError` | `packages/core/src/application/errors.ts` |
-| Presentation | `AppServerError` | `apps/web/app/presentation/errorResponse.ts` |
+A `DailyJob` (`application/workers/dailyJobs.ts`) picks its targets from stored state and the run's single `now`, so re-running it is safe. Register it in `dailyJobs` (`application/workers/dailyJobRegistry.ts`); `runDailyJobs` runs them independently from the Worker's `scheduled` handler.
 
-Every error class extends the abstract base `CodedError<TCode extends string>` in `packages/core/src/lib/error.ts`. The base class owns the `code: TCode` field, a default `retryable: false` getter, and the abstract method `toSerialized()`. The base's return type is the structural `SerializedErrorBase & { kind: string }`, and each subclass narrows it via override to its own `kind`-tagged variant.
+- One bulk statement needs no paging: `purgeClosedLoginChallengesJob` (`application/account/purgeClosedLoginChallenges.ts`) is one `run` calling `deleteClosedBefore(now)`.
+- Per-target work goes through `drainPages`: each target in its own unit of work, one failure does not stop the run, a target is tried at most once per run. The integration test shows the shape:
 
-`code` is a plain string. The per-class enums are deliberately collapsed (the domain enum plus the `SerializedErrorKind` assembled in presentation cover the classification we need). `SystemErrorCode` is kept because it is used for the runtime `retryable` decision.
+```ts
+// apps/web/app/durable-objects/__tests__/luntState.integration.test.ts
+run: (c) =>
+  drainPages<Account>({
+    job: "deleteEveryAccount",
+    logger: c.logger,
+    keyOf: (account) => account.id,
+    readPage: (page) => c.unitOfWorkProvider.run(async ({ accountRepository }) => /* page `page` of the remaining targets */),
+    process: (account) => c.unitOfWorkProvider.run(async ({ accountRepository }) => { /* re-read, then write */ }),
+  }),
+```
 
-`BusinessRuleError<TCode extends string = never>` defaults to `never`. Allowing an unparameterized `BusinessRuleError` would widen `code` to `string` at catch time, so we force the throw side to pass the domain's literal union. `isBusinessRuleError(...)` narrows to `BusinessRuleError<string>`.
+`readPage` must select only targets still to be processed (processed ones drop out), because `drainPages` returns to page 1 after every productive page.
 
-Each error class declares its own `Serialized*Error` variant in the same file (`SerializedBusinessError` in domain, `SerializedNotFoundError` etc. in application) and returns that variant from `toSerialized()`. The presentation layer's `errorResponse.ts` gathers all variants and assembles the `SerializedError` discriminated union. Adding a new error type does not require touching presentation's `serializeError` (it just calls `toSerialized()` structurally). Only the `SerializedError` union and `SerializedErrorKind` need to be appended in the presentation layer.
+### Container wiring and environment
+
+```ts
+// application/di/types.ts
+export type RequestContainer = SharedDeps &
+  Readonly<{ config: AppConfig; runtime: RuntimeSettings; unitOfWorkProvider: UnitOfWorkProvider }> &
+  AccountServices &
+  AuthorityServices &
+  ApplicationServices &
+  NotificationServices;
+```
+
+`RequestContainer` serves HTTP requests, queue consumers and daily jobs alike; `WorkerContainer` is the relay's, inside the object's alarm. Each domain's `create{D}Services(env, deps)` receives `ServiceDeps` (`client`, `shared`, `runtime`, `presentation`) and parses its own env with zod:
+
+```ts
+// application/di/account.ts
+export type AccountEnv = MailEnv & Readonly<{ APP_URL: string; EXTERNAL_IDP?: string | undefined; /* … */ LOGIN_MAX_CODE_ATTEMPTS?: string | undefined }>;
+
+export function createAccountServices(env: AccountEnv, deps: ServiceDeps): AccountServices {
+  const loginSettings = readLoginSettings(env);
+  const mail = createMailTransport(readMailSettings(env, deps.runtime.devTools), deps);
+  // …
+  return {
+    loginSettings,
+    loginSecretGenerator: new WebCryptoLoginSecretGenerator(deps.runtime.sessionSecret),
+    loginMailSender: new MailLoginMailSender(mail.transport, { /* … */ }),
+    // …
+  };
+}
+```
+
+- Env values are optional strings with defaults for development; a development-only adapter (`EXTERNAL_IDP=fake`, `MAIL_TRANSPORT=devInbox`) throws at wiring unless `DEV_TOOLS=1`.
+- A setting shared by several domains gets its own module: `application/di/mail.ts` (`MailEnv`, `readMailSettings`, `createMailTransport`) chooses one `MailTransport` per deployment for Account's login mail and, later, Notification's mail.
+- A domain with nothing to wire still has its fragment (`AuthorityEnv = Readonly<Record<never, never>>`).
+
+## 4. Adapters: the Durable Object
+
+### RPC protocol
+
+The request side talks to one `LuntStateObject` through `LuntStateClient` (`adapters/do/protocol/client.ts`):
+
+- `query(name, args)` — a named, typed read.
+- `commit({ writes, events })` — one unit of work; the object applies every command and inserts the outbox rows in one `transactionSync` (`adapters/do/store/stateStore.ts`), and returns `committed` or `rejected` with the first `WriteFailure`.
+
+Workers RPC loses error classes, so every outcome a port names travels as data. `DoUnitOfWorkProvider` rethrows a rejection as `ConflictError` / `NotFoundError`; `mapDoError` (`adapters/do/helpers.ts`) turns anything else thrown into `SystemError(DATABASE_ERROR)`. Arguments and results are structured-clonable plain data (records, not entities).
+
+### Protocol fragment
+
+```ts
+// adapters/do/protocol/authority.ts
+export type StewardshipRecord = Readonly<{
+  target: TargetRecord;
+  status: string;
+  stewards: readonly Readonly<{ accountId: string; since: Date }>[];
+  invitations: readonly Readonly<{ id: string; email: string; invitedAt: Date }>[];
+  version: number;
+}>;
+
+export type AuthorityQueries = {
+  "authority.findStewardship": QuerySpec<{ target: TargetRecord }, StewardshipRecord | null>;
+  /** Stored stewardships among `targets` (at most 100). */
+  "authority.findStewardshipsByTargets": QuerySpec<{ targets: readonly TargetRecord[] }, readonly StewardshipRecord[]>;
+  // …
+};
+
+export type AuthorityCommand =
+  | Readonly<{ kind: "authority.insertStewardship"; record: StewardshipRecord }>
+  | Readonly<{ kind: "authority.saveStewardship"; record: StewardshipRecord; expectedVersion: number }>
+  | Readonly<{ kind: "authority.saveRoleRoster"; record: RoleRosterRecord; expectedVersion: number | null }>;
+```
+
+Names are `{domain}.{operation}`. Commands carry the whole aggregate snapshot; derived columns and reverse indexes are computed by the handler from it.
+
+### Store fragment
+
+Migrations and one synchronous handler per query name and command kind. The fragment annotates its tables with `QueryHandlersOf<…>` / `CommandHandlersOf<…>`; the aggregators (`store/queries.ts`, `store/commands.ts`) spread them `satisfies QueryHandlers` / `CommandHandlers`, so a catalog entry without a handler does not compile.
+
+```ts
+// adapters/do/store/authority.ts
+const AUTHORITY_TABLES_MIGRATION: Migration = {
+  version: 5,
+  name: "stewardships and role rosters",
+  statements: [
+    `CREATE TABLE stewardships (target_kind TEXT NOT NULL, target_id TEXT NOT NULL, status TEXT NOT NULL, stewards TEXT NOT NULL, invitations TEXT NOT NULL, version INTEGER NOT NULL, PRIMARY KEY (target_kind, target_id))`,
+    // Reverse index of stewards, rebuilt from the snapshot on every write.
+    `CREATE TABLE stewardship_stewards ( /* … */ )`,
+    // …
+  ],
+};
+export const AUTHORITY_MIGRATIONS: readonly Migration[] = [AUTHORITY_TABLES_MIGRATION];
+
+export const authorityCommandHandlers: CommandHandlersOf<AuthorityCommand> = {
+  "authority.saveStewardship": (sql, { record, expectedVersion }) =>
+    afterApplied(
+      updateVersioned(sql, "stewardships", { target_kind: record.target.kind, target_id: record.target.id }, stewardshipValues(record), expectedVersion, describeTarget(record.target)),
+      () => indexStewards(sql, record),
+    ),
+  // …
+};
+```
+
+Store child collections of an aggregate as JSON in its row (dates as epoch ms) and add a reverse-index table only for a lookup the port needs (`findPageBySteward`, `findRolesOf`).
+
+### Versioned writes
+
+`adapters/do/store/versioned.ts` returns outcomes as data, which `StateStore.commit` turns into a rollback plus `rejected`:
+
+| Helper | Outcome |
+| --- | --- |
+| `insertUnique(sql, table, row, describe)` | `ON CONFLICT DO NOTHING`; any unique key taken → `conflict` / `UNIQUE_VIOLATION` |
+| `updateVersioned(sql, table, key, values, expectedVersion, describe)` | `WHERE version = ?`; missing row → `notFound`, stale → `conflict` / `OPTIMISTIC_LOCK_FAILURE`, unique clash → `UNIQUE_VIOLATION` |
+| `deleteVersioned(sql, table, key, expectedVersion, describe)` | same split as update |
+
+A "save if absent" for a fixed-key aggregate is `insertUnique` when `expectedVersion` is `null` (`authority.saveRoleRoster`). Never upsert — it would hide a lost update.
+
+### Request-side repository
+
+One class per port in `adapters/do/repositories/`, constructed per unit of work by the domain's `create{D}Repositories(deps)` with the shared write buffer:
+
+```ts
+// adapters/do/repositories/stewardshipRepository.ts
+export class DoStewardshipRepository implements StewardshipRepository {
+  constructor(private readonly client: LuntStateClient, private readonly writes: WriteCommand[], private readonly idGenerator: IdGenerator) {}
+
+  private toStewardship(record: StewardshipRecord): Stewardship {
+    const malformed = ids.find((id) => this.idGenerator.parse(id) === null);
+    if (malformed !== undefined) throw new SystemError(SystemErrorCode.DataIntegrityError, `Stored stewardship has malformed id: ${malformed}`);
+    try {
+      return Stewardship.reconstruct(record);
+    } catch (error) {
+      if (isRehydrationError(error)) throw new SystemError(SystemErrorCode.DataIntegrityError, "Stored stewardship violates invariants", error);
+      throw error;
+    }
+  }
+
+  findById(target: StewardedRef): Promise<Versioned<Stewardship> | null> {
+    return mapDoError("Failed to find stewardship", async () => {
+      const record = await this.client.query("authority.findStewardship", { target: { kind: target.kind, id: target.id } });
+      return record === null ? null : this.toVersioned(record);
+    });
+  }
+
+  async findByTargets(targets: readonly StewardedRef[]): Promise<readonly Stewardship[]> {
+    IdBatch.assertWithinLimit(targets);
+    // …
+  }
+
+  async save(stewardship: Stewardship, expectedVersion: ExpectedVersion<Stewardship>): Promise<void> {
+    this.writes.push({ kind: "authority.saveStewardship", record: DoStewardshipRepository.toRecord(stewardship), expectedVersion });
+  }
+}
+```
+
+- Reads: `mapDoError` + `client.query`, then `idGenerator.parse` on every stored id and `reconstruct`, both failing as `DATA_INTEGRITY_ERROR`. `toVersioned` is the only place an `ExpectedVersion` is cast.
+- Writes: push a command; nothing is sent until commit.
+- `DoLoginChallengeRepository` (`adapters/do/repositories/loginChallengeRepository.ts`) is the same shape with `LoginChallenge.snapshot` for the record.
+
+### SQLite limits in the object
+
+- At most 100 bound parameters per statement: ports cap id lists at 100 (`IdBatch.assertWithinLimit`, before any query), and handlers pass the list as one JSON parameter — `FROM json_each(?) j JOIN stewardships s ON s.target_kind = json_extract(j.value, '$.kind') …`, `INSERT … SELECT value, ? FROM json_each(?)`.
+- No `BEGIN` / `SAVEPOINT`: atomicity comes from `transactionSync` around the whole commit; handlers just run statements.
+- Keep `LIKE` patterns short; match text with the domain's own normalization instead.
+- `adapters/do/testing/nodeSqlStorage.ts` reproduces these limits in the Node pool.
+
+### Kind-pluggable lookups
+
+`StewardedTargetDirectory` answers for places, regions and occasions, whose tables arrive in later stages. The object-side read (`describeStewardedTargets` in `adapters/do/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (empty in P1 — a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/do/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
+
+### External adapters
+
+- `adapters/mail/`: `MailTransport` (`adapters/mail/transport.ts`) with `SmtpMailTransport` and the development inbox (`DevInboxMailTransport` storing into the object, `DoDevInbox` reading it). Domain-specific senders render and hand over to the transport.
+- `adapters/login/`: `MailLoginMailSender` (renders the login mail; the secrets never reach the outbox or logs), `WebCryptoLoginSecretGenerator`.
+- `adapters/identity/`: `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), `GoogleOidcProvider`, `FakeIdpProvider`.
+- Domain ports get a conformance suite beside their adapter (`adapters/login/__conformance__/`, `adapters/identity/__conformance__/`); test doubles for external I/O live under `testing/` (`InMemoryMailTransport` in `adapters/mail/testing/inMemoryMailTransport.ts`, `adapters/identity/testing/fakeIdpFlow.ts`).
+
+## 5. Outbox, relay, consumers, dead letters
+
+`collectEvents` drafts become outbox rows in the same transaction as the writes. The object's alarm runs `processOutboxEvents` (`application/workers/eventRelayWorker.ts`, via `adapters/do/alarm.ts`), and `createFanOutDispatcher` (`application/workers/eventDelivery.ts`) sends one queue message per subscribed consumer. The Worker's `queue` handler (`apps/web/app/worker/queue.ts`) runs `consumeEventMessage`: skip if the consumer's receipt exists, handle, then record the receipt. Exhausted messages land in the dead-letter queue and are stored in the object for an operator to re-drive through `/__ops/dead-letters` (`apps/web/app/worker/ops.ts`).
+
+What this means for new code — at-least-once, unordered, per-consumer retry — is in `AGENTS.md` (Outbox / domain events); the operational side (backoff, alerts, re-drive procedure, relay kick) is in `docs/runtime_cloudflare_do.md`.
+
+## 6. Tests
+
+Layers, pools and rules are in `docs/test.md`. The patterns:
+
+### Port conformance: one suite, two runners
+
+```ts
+// adapters/do/__conformance__/stewardshipRepository.ts — the suite, written once
+export function describeStewardshipRepositoryContract(makeHarness: HarnessFactory): void {
+  describe("StewardshipRepository contract", () => {
+    describe("insert、findById", () => {
+      it("stewardshipRepository#2 空 / findById(P1)", async () => {
+        const h = await makeHarness();
+        expect(await findStewardship(h, authorityIds().place())).toBeNull();
+      });
+      // …
+    });
+  });
+}
+```
+
+```ts
+// adapters/do/__tests__/stewardshipRepository.conformance.test.ts — Node pool, node:sqlite
+describeStewardshipRepositoryContract(async () => createNodeHarness());
+```
+
+```ts
+// apps/web/app/durable-objects/__tests__/stewardshipRepository.conformance.integration.test.ts — Workers pool, the real object
+describeStewardshipRepositoryContract(createDoHarness);
+```
+
+A `ConformanceHarness` (`adapters/do/__conformance__/harness.ts`) is a fresh store's `uow` plus `savedEvents()`; build fixtures through the port, never with SQL (`adapters/do/__conformance__/authorityFixtures.ts`).
+
+### Usecase tests
+
+`createTestContainer` (`application/__tests__/testContainer.ts`) is a production-shaped `RequestContainer`: the real `DoUnitOfWorkProvider` and repositories over the object's store code on in-memory `node:sqlite`, `FakeClock`, `FakeIdGenerator`, and fakes only for external I/O from each domain's `createTest{D}Services`. Replace a member with `overrides`; `storedEvents()` reads the outbox.
+
+```ts
+// application/authority/__tests__/kit.ts
+const targets = new TestStewardedTargets();
+const t: TestContext = createTestContainer({
+  overrides: () => ({ stewardedTargetDirectory: targets }),
+});
+```
+
+Domains wrap it in a small kit of fixtures built through usecases (`authorityKit` in `application/authority/__tests__/kit.ts`, `createLoginTestContext` in `application/account/__tests__/loginFixtures.ts`).
+
+### Naming (design.md D-11)
+
+`spec/testcases/{d}/{usecase}.md` → `application/{d}/__tests__/{usecase}.test.ts`; `spec/testcases/ports/{port}.md` → `adapters/do/__conformance__/{port}.ts`. Each `##` section is a `describe`, each table row an `it` titled `{usecase}#{n} {前提条件} / {操作}`, `n` counting rows through the file:
+
+```ts
+it("grantRole#1 O はサービス運営者。U のアカウントがある。編集担当者はいない / O を Actor として、editor と U のメールアドレスで実行する", async () => {
+  const k = authorityKit();
+  // …
+});
+```
+
+## 7. Error design
+
+| Layer | Class | `kind` | Where |
+| --- | --- | --- | --- |
+| Domain | `BusinessRuleError<{D}ErrorCode>` | `business` | `domain/error.ts` |
+| Domain (storage) | `RehydrationError` → adapters rethrow as `SystemError(DATA_INTEGRITY_ERROR)` | — | `domain/error.ts` |
+| Application | `NotFoundError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`, `SystemError` | `notFound`, `conflict`, `unauthorized`, `forbidden`, `system` | `application/errors.ts` |
+| Presentation | `AppServerError` carrying the `SerializedError` union | + `validation`, `unknown` | `apps/web/app/presentation/errorResponse.ts` |
+
+Every class extends `CodedError` (`lib/error.ts`) and serializes itself with `toSerialized()`; `serializeError` never enumerates classes, and `httpStatusFor` maps the `kind` to a status. How a business code is shown (CS-08 / CS-10) is decided per code in the catalog — `presentBusinessError(code)` in `apps/web/app/presentation/businessErrorCatalog.ts`. The catch policy per layer boundary is in `AGENTS.md` (Error handling).
