@@ -30,6 +30,12 @@ export default defineConfig({
       miniflare: {
         compatibilityDate: "2026-05-01",
         compatibilityFlags: ["nodejs_compat"],
+        r2Buckets: ["PHOTOS"],
+        assets: {
+          directory:
+            "./packages/core/src/adapters/area/testing/testMasterAssets",
+          binding: "ASSETS",
+        },
         durableObjects: {
           LUNT_STATE: { className: "LuntStateObject", useSQLite: true },
           RELAY_PROBE_STATE: {

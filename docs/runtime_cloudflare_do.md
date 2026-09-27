@@ -130,6 +130,22 @@ The flow uses the authorization code with PKCE (S256), `state` and `nonce`, and 
 - Automated (discovery, authorization URL, a refused callback and a bogus code; runs only with the variables set): `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm vitest run packages/core/src/adapters/identity`.
 - By hand: log in with Google from `/login`; the account for that address is created or reused (a second login lands on the same account), and cancelling on Google's consent screen returns to MY-02 with the external-login failure state. An account without a verified address cannot be produced with Google accounts; that case is covered by the fake provider.
 
+## Area master
+
+The area master (prefectures, municipalities, towns) is static JSON served from the Worker's static assets (`ASSETS`), built from Japan Post's 「住所の郵便番号（1レコード1行、UTF-8形式）」 (`.spec-implement/design.md` D-08).
+
+1. Download `utf_ken_all.zip` from https://www.post.japanpost.jp/zipcode/dl/utf-zip.html (direct link: https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip). Use the UTF-8 version, not the Shift_JIS `ken_all.zip`.
+2. Import it (a `.zip`, the extracted `utf_ken_all.csv`, or the URL): `pnpm area:import ~/Downloads/utf_ken_all.zip`. The files go to `apps/web/public/area/` (`index.json`, `towns/{prefecture}.json`, `postal/{first 3 digits}.json`; about 1,000 files). They are gitignored; `pnpm build` copies them into `dist/client`, and they deploy with the Worker. Re-run the import and redeploy when Japan Post publishes new data (monthly).
+3. Restart `pnpm dev` after importing: each isolate keeps the master it first read.
+
+Without an import, development (`DEV_TOOLS=1`) uses the committed sample in `apps/web/public/area-sample/` (Tokyo's Chiyoda, Chuo, Bunkyo, Taito, Mikurajima; Yokohama Naka; Osaka Kita — every postal code the manual tests use), built from `apps/web/scripts/areaSample.csv`. A deployment without `DEV_TOOLS` reads only `/area`, and area lookups fail with `DATA_INTEGRITY_ERROR` until the master is imported.
+
+Maintenance: `pnpm area:import apps/web/scripts/areaSample.csv --out apps/web/public/area-sample` rebuilds the sample; `pnpm area:import --test-master` rebuilds the tests' master (`packages/core/src/adapters/area/testing/testMasterAssets/`). Tests check that both committed copies match their sources.
+
+## Photos
+
+Photos live in the R2 bucket bound as `PHOTOS` (`apps/web/wrangler.jsonc`, bucket `lunt-photos`) under the key `photos/{photoId}` (D-09). The Worker serves them at `/photos/{photoId}` (`apps/web/app/worker/photos.ts`: ETag and `If-None-Match`, `Cache-Control: max-age=60`, `nosniff`). Locally, `pnpm dev` keeps the bucket under `apps/web/.wrangler/state` (cleared by `pnpm dev:reset`). The record of each photo (consent, owner, state) is in the state object; unowned photos are removed by the daily `sweepUnownedPhotos` after `PHOTO_UNOWNED_RETENTION_MS` (default 7 days). A deployment creates the bucket (`wrangler r2 bucket create lunt-photos`).
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.

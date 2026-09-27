@@ -13,7 +13,7 @@ import type {
 } from "@repo/core/adapters/do/protocol/queries";
 import type { SqlExec } from "@repo/core/adapters/do/sql";
 import { describeContent } from "@repo/core/adapters/do/store/contentLookups";
-import { PlaceId } from "@repo/core/domain/common/ids";
+import { RegionId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 
 const DESCRIBE = "moderation.describeContent";
@@ -58,16 +58,16 @@ describeContentDirectoryContract(async () => {
   };
 });
 
-describe("ContentDirectory in stage 1 (real object)", () => {
-  it("registers no content kind yet, so every target reads as absent", async () => {
+describe("ContentDirectory in stage 2 (real object)", () => {
+  it("registers only the kinds whose tables exist, so a region still reads as absent", async () => {
     const directory = new DoContentDirectory(
       freshStub() as unknown as LuntStateClient,
     );
     expect(
       await directory.describe([
         {
-          kind: "place",
-          id: PlaceId.create("ffffffff-ffff-7fff-8fff-000000000001"),
+          kind: "region",
+          id: RegionId.create("ffffffff-ffff-7fff-8fff-000000000001"),
         },
       ]),
     ).toEqual([]);

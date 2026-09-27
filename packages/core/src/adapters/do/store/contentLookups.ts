@@ -5,6 +5,8 @@ import type {
   ContentSummaryRecord,
 } from "../protocol/moderation";
 import type { SqlExec } from "../sql";
+import { listingContentLookup } from "./listing";
+import { placeContentLookup } from "./place";
 
 /**
  * Reads the existing targets of one kind among `ids` (at most 100, passed
@@ -31,7 +33,10 @@ export type ContentLookups = Readonly<
  * (S4) each add their entry when their tables land; a kind without an entry
  * reads as having no targets, so every name resolves to `null` until then.
  */
-export const CONTENT_LOOKUPS: ContentLookups = {};
+export const CONTENT_LOOKUPS: ContentLookups = {
+  listing: listingContentLookup,
+  place: placeContentLookup,
+};
 
 /**
  * The directory's read over any lookup table: groups `targets` by kind,

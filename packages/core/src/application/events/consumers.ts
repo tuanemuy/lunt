@@ -1,3 +1,5 @@
+import { PLACE_EVENT_TYPES } from "@repo/core/domain/place/events";
+import { discardReleasedPhotos } from "../media/discardReleasedPhotos";
 import { deliverNotifications } from "../notification/deliverNotifications";
 import { purgeNotificationsOnWithdrawal } from "../notification/purgeNotificationsOnWithdrawal";
 import type { EventConsumer } from "./consumer";
@@ -12,6 +14,7 @@ export type { EventConsumer } from "./consumer";
  */
 export const consumers = {
   deliverNotifications,
+  discardReleasedPhotos,
   purgeNotificationsOnWithdrawal,
 } satisfies Readonly<Record<string, EventConsumer>>;
 
@@ -23,9 +26,24 @@ export type ConsumerName = keyof typeof consumers & string;
  * with the events they will subscribe to. Listing them keeps the
  * coverage check below honest while a stage is partial: an event whose
  * only consumers are listed here is relayed to nobody until the consumer
- * is registered, and the entry is removed as it moves to `consumers`.
+ * is registered, and the entry is removed as it moves to `consumers`. An
+ * entry named `<consumer>@<stage>` lists the events a registered consumer
+ * takes on in that later stage (it is removed when they join the
+ * consumer's own list).
  */
 export const deferredConsumers = {
+  "deliverNotifications@S2B-NTF": {
+    events: [
+      ...PLACE_EVENT_TYPES,
+      "listing.unpublished",
+      "listing.suspended",
+      "listing.unsuspended",
+      "listing.deleted",
+      "listing.offering_ended",
+      "category.retired",
+    ],
+    stage: "S2B-NTF",
+  },
   withdrawApplicationsOfWithdrawnAccount: {
     events: ["account.withdrawn"],
     stage: "S2B",
@@ -40,6 +58,7 @@ export const deferredConsumers = {
       "authority.stewardship_vacated",
       "application.withdrawn",
       "application.rejected",
+      "listing.deleted",
     ],
     stage: "S2B",
   },

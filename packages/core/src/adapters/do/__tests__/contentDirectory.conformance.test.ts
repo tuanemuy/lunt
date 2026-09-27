@@ -1,4 +1,4 @@
-import { PlaceId } from "@repo/core/domain/common/ids";
+import { RegionId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import {
   CONFORMANCE_CONTENT_LOOKUPS,
@@ -45,16 +45,18 @@ describeContentDirectoryContract(async () => {
   };
 });
 
-describe("ContentDirectory in stage 1", () => {
-  it("registers no content kind yet, so every target reads as absent", async () => {
-    expect(CONTENT_LOOKUPS).toEqual({});
+const STAGE_2_KINDS = ["listing", "place"];
+
+describe("ContentDirectory in stage 2", () => {
+  it("registers only the kinds whose tables exist, so a region still reads as absent", async () => {
+    expect(Object.keys(CONTENT_LOOKUPS).sort()).toEqual(STAGE_2_KINDS);
     const { state } = createNodeHarness();
     const directory = new DoContentDirectory(state.client);
     expect(
       await directory.describe([
         {
-          kind: "place",
-          id: PlaceId.create("ffffffff-ffff-7fff-8fff-000000000001"),
+          kind: "region",
+          id: RegionId.create("ffffffff-ffff-7fff-8fff-000000000001"),
         },
       ]),
     ).toEqual([]);

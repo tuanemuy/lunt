@@ -22,6 +22,7 @@ import {
 import { installContainerStore } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { consumers } from "@repo/core/application/events/consumers";
+import { provisionInitialCategories } from "@repo/core/application/listing/provisionInitialCategories";
 import { dailyJobs } from "@repo/core/application/workers/dailyJobRegistry";
 import { runDailyJobs } from "@repo/core/application/workers/dailyJobs";
 import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
@@ -29,6 +30,7 @@ import { default as defaultEntry } from "@tanstack/react-start/server-entry";
 import { LuntStateObject } from "./durable-objects/luntState";
 import { presentationPorts } from "./presentation/ports";
 import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
+import { handlePhotoRequest, PHOTO_PATH_PREFIX } from "./worker/photos";
 import { handleQueueBatch } from "./worker/queue";
 import { stateClient } from "./worker/stateClient";
 
@@ -71,12 +73,18 @@ export default {
       presentationPorts,
       await requestClock(env, client),
     );
-    if (new URL(request.url).pathname.startsWith(OPS_PREFIX)) {
+    const { pathname } = new URL(request.url);
+    if (pathname.startsWith(PHOTO_PATH_PREFIX)) {
+      return handlePhotoRequest(request, env.PHOTOS);
+    }
+    if (pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,
         client,
         establishFirstOperator: (email) =>
           establishFirstOperator({ container, input: { email } }),
+        provisionInitialCategories: () =>
+          provisionInitialCategories({ container }),
       });
     }
     return storage.run(container, async () => defaultEntry.fetch(request));
