@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Feedback } from "@/components/ui/Feedback";
-import { sanitizeRouteError } from "@/presentation/errorDisplay";
 import { buildHead } from "@/presentation/head";
 
 export const Route = createFileRoute("/_viewer/")({
@@ -11,15 +10,6 @@ export const Route = createFileRoute("/_viewer/")({
     return { meta, links };
   },
   component: DiscoverPage,
-  errorComponent: ({ error }) => (
-    <div className="container">
-      <Feedback
-        kind="error"
-        title="うまく読み込めませんでした。"
-        body={sanitizeRouteError(error)}
-      />
-    </div>
-  ),
 });
 
 function DiscoverPage() {

@@ -7,7 +7,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
 import type { ReactNode } from "react";
-import { sanitizeRouteError } from "@/presentation/errorDisplay";
+import { RootErrorPage } from "@/components/feedback/RouteErrorView";
 import { errorResponseMiddleware } from "@/presentation/errorResponseMiddleware";
 import { buildHead } from "@/presentation/head";
 import appCss from "../styles/index.css?url";
@@ -40,31 +40,15 @@ export const Route = createRootRoute({
     const { meta, links } = buildHead(config);
     return { meta, links: [...baseLinks, ...links] };
   },
-  component: RootComponent,
+  // The document is the shell: the route's content, its error and its
+  // not-found state all render inside it, so none of them nests <html>.
+  shellComponent: RootDocument,
+  component: Outlet,
   errorComponent: ({ error }) => (
-    <RootDocument>
-      <div>
-        <h1>Something went wrong</h1>
-        <pre>{sanitizeRouteError(error)}</pre>
-      </div>
-    </RootDocument>
+    <RootErrorPage problem={{ kind: "error", error }} />
   ),
-  notFoundComponent: () => (
-    <RootDocument>
-      <div>
-        <h1>404 Not Found</h1>
-      </div>
-    </RootDocument>
-  ),
+  notFoundComponent: () => <RootErrorPage problem={{ kind: "notFound" }} />,
 });
-
-function RootComponent() {
-  return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
-  );
-}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

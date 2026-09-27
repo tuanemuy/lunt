@@ -1,4 +1,5 @@
 import { createRouter } from "@tanstack/react-router";
+import { RouteErrorContent } from "./components/feedback/RouteErrorView";
 import { RoutePendingFallback } from "./components/ui/RoutePendingFallback";
 import { routeTree } from "./routeTree.gen";
 
@@ -8,6 +9,14 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPendingComponent: RoutePendingFallback,
+    // A route's failure or missing target renders inside its parent's
+    // shell as the common state (CS-02 / CS-06 / CS-17, …).
+    defaultErrorComponent: ({ error }) => (
+      <RouteErrorContent problem={{ kind: "error", error }} />
+    ),
+    defaultNotFoundComponent: () => (
+      <RouteErrorContent problem={{ kind: "notFound" }} />
+    ),
     // Skip the fallback for sub-200ms navigations so it doesn't flash...
     defaultPendingMs: 200,
     // ...and once shown, keep it up for at least 300ms to avoid a flicker.

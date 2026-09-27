@@ -12,12 +12,3 @@ export function renderErrorMessage(error: SerializedError): string {
 export function displayError(error: unknown): string {
   return renderErrorMessage(extractSerializedError(error));
 }
-
-export function sanitizeRouteError(error: unknown): string {
-  if (import.meta.env.DEV) {
-    console.error("Route error:", error);
-  } else {
-    console.error("Route error");
-  }
-  return renderErrorMessage(extractSerializedError(error));
-}

@@ -14,8 +14,10 @@ import { Route as ViewerRouteImport } from './routes/_viewer'
 import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
 import { Route as AccountLoginRouteImport } from './routes/_account/login'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
+import { Route as Char91__devChar93ErrorsKindRouteImport } from './routes/[__dev]/errors.$kind'
 import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
 import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/ui/manage'
+import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
 
 const AccountRoute = AccountRouteImport.update({
   id: '/_account',
@@ -41,6 +43,12 @@ const ViewerIndexRoute = ViewerIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ViewerRoute,
 } as any)
+const Char91__devChar93ErrorsKindRoute =
+  Char91__devChar93ErrorsKindRouteImport.update({
+    id: '/__dev/errors/$kind',
+    path: '/__dev/errors/$kind',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const Char91__devChar93UiIndexRoute =
   Char91__devChar93UiIndexRouteImport.update({
     id: '/__dev/ui/',
@@ -53,20 +61,30 @@ const Char91__devChar93UiManageRoute =
     path: '/__dev/ui/manage',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AccountChar91__devChar93ManageErrorsKindRoute =
+  AccountChar91__devChar93ManageErrorsKindRouteImport.update({
+    id: '/__dev/manage-errors/$kind',
+    path: '/__dev/manage-errors/$kind',
+    getParentRoute: () => AccountRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ViewerIndexRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/login': typeof AccountLoginRoute
+  '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
+  '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ViewerIndexRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/login': typeof AccountLoginRoute
+  '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui': typeof Char91__devChar93UiIndexRoute
+  '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -75,15 +93,30 @@ export interface FileRoutesById {
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/_account/login': typeof AccountLoginRoute
   '/_viewer/': typeof ViewerIndexRoute
+  '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
+  '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/__dev/session' | '/login' | '/__dev/ui/manage' | '/__dev/ui/'
+    | '/'
+    | '/__dev/session'
+    | '/login'
+    | '/__dev/errors/$kind'
+    | '/__dev/ui/manage'
+    | '/__dev/ui/'
+    | '/__dev/manage-errors/$kind'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/__dev/session' | '/login' | '/__dev/ui/manage' | '/__dev/ui'
+  to:
+    | '/'
+    | '/__dev/session'
+    | '/login'
+    | '/__dev/errors/$kind'
+    | '/__dev/ui/manage'
+    | '/__dev/ui'
+    | '/__dev/manage-errors/$kind'
   id:
     | '__root__'
     | '/_account'
@@ -91,14 +124,17 @@ export interface FileRouteTypes {
     | '/__dev/session'
     | '/_account/login'
     | '/_viewer/'
+    | '/__dev/errors/$kind'
     | '/__dev/ui/manage'
     | '/__dev/ui/'
+    | '/_account/__dev/manage-errors/$kind'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AccountRoute: typeof AccountRouteWithChildren
   ViewerRoute: typeof ViewerRouteWithChildren
   Char91__devChar93SessionRoute: typeof Char91__devChar93SessionRoute
+  Char91__devChar93ErrorsKindRoute: typeof Char91__devChar93ErrorsKindRoute
   Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
   Char91__devChar93UiIndexRoute: typeof Char91__devChar93UiIndexRoute
 }
@@ -140,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewerIndexRouteImport
       parentRoute: typeof ViewerRoute
     }
+    '/__dev/errors/$kind': {
+      id: '/__dev/errors/$kind'
+      path: '/__dev/errors/$kind'
+      fullPath: '/__dev/errors/$kind'
+      preLoaderRoute: typeof Char91__devChar93ErrorsKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/__dev/ui/': {
       id: '/__dev/ui/'
       path: '/__dev/ui'
@@ -154,15 +197,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91__devChar93UiManageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_account/__dev/manage-errors/$kind': {
+      id: '/_account/__dev/manage-errors/$kind'
+      path: '/__dev/manage-errors/$kind'
+      fullPath: '/__dev/manage-errors/$kind'
+      preLoaderRoute: typeof AccountChar91__devChar93ManageErrorsKindRouteImport
+      parentRoute: typeof AccountRoute
+    }
   }
 }
 
 interface AccountRouteChildren {
   AccountLoginRoute: typeof AccountLoginRoute
+  AccountChar91__devChar93ManageErrorsKindRoute: typeof AccountChar91__devChar93ManageErrorsKindRoute
 }
 
 const AccountRouteChildren: AccountRouteChildren = {
   AccountLoginRoute: AccountLoginRoute,
+  AccountChar91__devChar93ManageErrorsKindRoute:
+    AccountChar91__devChar93ManageErrorsKindRoute,
 }
 
 const AccountRouteWithChildren =
@@ -183,6 +236,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRouteWithChildren,
   ViewerRoute: ViewerRouteWithChildren,
   Char91__devChar93SessionRoute: Char91__devChar93SessionRoute,
+  Char91__devChar93ErrorsKindRoute: Char91__devChar93ErrorsKindRoute,
   Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,
   Char91__devChar93UiIndexRoute: Char91__devChar93UiIndexRoute,
 }
