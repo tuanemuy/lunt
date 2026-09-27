@@ -1,10 +1,23 @@
+import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
+import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
+import { InMemoryPhotoBucket } from "@repo/core/adapters/photos/testing/inMemoryPhotoBucket";
+import { PhotoPolicy } from "@repo/core/domain/media/photoPolicy";
 import type { TestServiceDeps } from "../../__tests__/testServiceDeps";
 import type { MediaServices } from "../services";
 
+/** The retention usecase tests run with: 7 days. */
+export const TEST_UNOWNED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
- * Media's container ports for usecase tests: fakes for external IO, the
- * real adapters (over the in-process state object) for everything else.
+ * Media's container ports for usecase tests: the production adapters, with
+ * an in-memory bucket in place of R2.
  */
 export function createTestMediaServices(_deps: TestServiceDeps): MediaServices {
-  return {};
+  return {
+    photoStorage: new R2PhotoStorage(new InMemoryPhotoBucket()),
+    photoInspector: new StructuralPhotoInspector(),
+    photoPolicy: PhotoPolicy.create({
+      unownedRetentionMs: TEST_UNOWNED_RETENTION_MS,
+    }),
+  };
 }
