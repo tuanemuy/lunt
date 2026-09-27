@@ -259,7 +259,7 @@ type SearchableText = Readonly<{ primary: string; secondary: readonly string[] }
 
 | 関数 | 定義 |
 | --- | --- |
-| `KeywordRelevance.termScore(text: SearchableText, term: string): 0 \| 1 \| 2 \| 3 \| 4` | 各文字列を `TextNormalization.normalize` で正規化して比べる。`primary` が語と等しければ 4、語で始まれば 3、語を含めば 2。どれでもなく、`secondary` のどれかが語を含めば 1。それ以外は 0 |
+| `KeywordRelevance.termScore(text: SearchableText, term: string): 0 \| 1 \| 2 \| 3 \| 4` | 各文字列を `TextNormalization.normalize` で正規化して比べる。正規化した語が空なら 0。`primary` が語と等しければ 4、語で始まれば 3、語を含めば 2。どれでもなく、`secondary` のどれかが語を含めば 1。それ以外は 0 |
 | `KeywordRelevance.relevance(text: SearchableText, keyword: SearchKeyword): number` | すべての語の `termScore` が 1 以上なら、その和。どれかが 0 なら 0 |
 | `KeywordRelevance.matches(text: SearchableText, keyword: SearchKeyword): boolean` | `relevance` が 1 以上 |
 
