@@ -74,6 +74,20 @@ The answer lists `redriven` and `failed` (a letter whose event can no longer be 
 
 The endpoints exist only when `OPS_TOKEN` is set (at least 32 characters; the public development token is refused unless `DEV_TOOLS=1`).
 
+## Opening the service: the first operator
+
+Every operator screen needs an operator, and only an operator can grant the role, so the first one is made by the opening procedure (`establishFirstOperator`, `spec/usecases/authority.md`):
+
+1. The future operator logs in once (email link or code, or Google), which creates their account.
+2. Make that account the first operator:
+
+```bash
+curl -X POST -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"email":"operator@example.com"}' "$APP_URL/__ops/operators/establish"
+```
+
+The answer is `{"established": "<email>"}`. Sending the same address again succeeds without a change. It fails with 404 (`ACCOUNT_NOT_FOUND`) when no account has that address yet, and with 422 (`AUTHORITY_OPERATORS_ALREADY_ESTABLISHED`) once operators exist — from then on, operators grant the role from the role management screen (OM-07). Locally, `OPS_TOKEN` is `lunt-local-development-operations-token` (`apps/web/wrangler.jsonc`).
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.

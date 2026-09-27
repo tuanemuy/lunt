@@ -10,6 +10,7 @@ import type {
   ScheduledController,
 } from "@cloudflare/workers-types";
 import { DoConsumerReceipts } from "@repo/core/adapters/do/consumerReceipts";
+import { establishFirstOperator } from "@repo/core/application/authority/establishFirstOperator";
 import {
   createRequestContainer,
   type LuntEnv,
@@ -65,6 +66,8 @@ export default {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,
         client,
+        establishFirstOperator: (email) =>
+          establishFirstOperator({ container, input: { email } }),
       });
     }
     return storage.run(container, async () => defaultEntry.fetch(request));
