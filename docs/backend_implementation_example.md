@@ -461,6 +461,7 @@ return settled.result;
 - `authorizeOnTarget(ctx, actor, "invite_member", target)` reads roles and the stewardship (vacant when none is stored) and returns `{ stewardship, expectedVersion, standing, basis }`; `expectedVersion` is `null` for a target with nothing stored.
 - `persistStewardship(ctx, entity, expectedVersion)` then `insert`s or `save`s accordingly.
 - Both throw `ForbiddenError("FORBIDDEN")`; usecases never branch on `basis`.
+- Both also record, through `ctx.accessGuard` (`domain/authority/ports/accessGuard.ts`), the facts the decision rested on — the role, the stewardship, the vacancy of an absence proxy's target. The object checks them again at commit (`protocol/conditions.ts`), so a revocation committed after the read but before the commit refuses the unit of work with `ForbiddenError` (`spec/usecases/authority.md` 「確定までの間に役割を解除された場合を含む」). A later domain that decides access the same way (e.g. `act_as_place`) gets this by calling these helpers; a condition of its own is one more member of `CommitCondition` and one handler in `store/conditions.ts`.
 
 ### Application errors
 

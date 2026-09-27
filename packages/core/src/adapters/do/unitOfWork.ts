@@ -1,4 +1,8 @@
-import { ConflictError, NotFoundError } from "@repo/core/application/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from "@repo/core/application/errors";
 import type {
   UnitOfWorkContext,
   UnitOfWorkProvider,
@@ -13,6 +17,7 @@ import {
 import { mapDoError } from "./helpers";
 import type { CommitRequest, LuntStateClient } from "./protocol/client";
 import type { WriteCommand } from "./protocol/commands";
+import type { CommitCondition } from "./protocol/conditions";
 import { createRepositories } from "./repositories";
 import type { RepositoryDeps } from "./repositories/deps";
 
@@ -39,12 +44,14 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
 
   async run<T>(fn: (ctx: UnitOfWorkContext) => Promise<T>): Promise<T> {
     const writes: WriteCommand[] = [];
+    const conditions: CommitCondition[] = [];
     const collected: DomainEvent[] = [];
 
     const ctx: UnitOfWorkContext = {
       ...this.repositories({
         client: this.client,
         writes,
+        conditions,
         idGenerator: this.idGenerator,
       }),
       collectEvents: (drafts) => {
@@ -63,6 +70,7 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
     }
 
     const request: CommitRequest = {
+      conditions,
       writes,
       events: collected.map((event) => ({
         id: event.id,
@@ -76,6 +84,12 @@ export class DoUnitOfWorkProvider implements UnitOfWorkProvider {
     const outcome = await mapDoError("Failed to commit unit of work", () =>
       this.client.commit(request),
     );
+    if (outcome.kind === "refused") {
+      throw new ForbiddenError(
+        "FORBIDDEN",
+        `The operation is no longer allowed (${outcome.condition.kind})`,
+      );
+    }
     if (outcome.kind === "rejected") {
       const { failure } = outcome;
       if (failure.kind === "notFound") {

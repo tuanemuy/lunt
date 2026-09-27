@@ -34,11 +34,11 @@ curl "http://localhost:3000/cdn-cgi/local/scheduled?cron=5+15+*+*+*"
 The object's RPC surface (`packages/core/src/adapters/do/protocol/client.ts`, `LuntStateClient`):
 
 - `query(name, args)` — a named read. `protocol/queries.ts` is the typed catalog (name → args, result); `store/queries.ts` holds the handler of every name, and `satisfies` makes a missing handler a type error.
-- `commit({ writes, events })` — applies a unit of work. `protocol/commands.ts` is the typed union of write commands; `store/commands.ts` holds one handler per `kind`. The object runs every command and inserts the outbox rows inside one `transactionSync`.
+- `commit({ conditions, writes, events })` — applies a unit of work. `protocol/commands.ts` is the typed union of write commands; `store/commands.ts` holds one handler per `kind`. `protocol/conditions.ts` is the typed union of commit conditions — facts an access decision rested on (a role still held, a steward still stewarding, a target still vacant), added through Authority's `AccessGuard` — and `store/conditions.ts` checks each. The object reads the conditions, runs every command and inserts the outbox rows inside one `transactionSync`.
 - `isConsumed` / `markConsumed` — per-consumer receipts.
 - `kickRelay` — re-arms the relay alarm after manual outbox edits.
 
-Workers RPC turns thrown errors into plain `Error`s, so every outcome a port contract names travels as data: `commit` returns `rejected` with a `WriteFailure` (`conflict` for a version mismatch or a taken unique key, `notFound` for a `save` / `delete` of a missing aggregate), and `DoUnitOfWorkProvider` rethrows it as `ConflictError` / `NotFoundError`. Anything else that throws becomes `SystemError(DATABASE_ERROR)` (`mapDoError`).
+Workers RPC turns thrown errors into plain `Error`s, so every outcome a port contract names travels as data: `commit` returns `rejected` with a `WriteFailure` (`conflict` for a version mismatch or a taken unique key, `notFound` for a `save` / `delete` of a missing aggregate) or `refused` naming a condition that no longer holds, and `DoUnitOfWorkProvider` rethrows them as `ConflictError` / `NotFoundError` / `ForbiddenError`. Conditions are read before the writes (so an operator may revoke their own role), but a failing write is reported ahead of a refusal: a concurrent change of the same aggregate is a conflict to resend. Anything else that throws becomes `SystemError(DATABASE_ERROR)` (`mapDoError`).
 
 Request-side repositories run `query` for reads (immediately, inside the unit of work) and append write commands to the unit of work's buffer. Commands carry the aggregate snapshot; the object's handler derives index columns from it, so indexes cannot drift from their aggregate.
 

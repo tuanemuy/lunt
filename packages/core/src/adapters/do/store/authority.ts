@@ -2,6 +2,7 @@ import { StewardedTargetOrder } from "@repo/core/domain/authority/stewardedTarge
 import { StewardedRef } from "@repo/core/domain/common/refs";
 import type {
   AuthorityCommand,
+  AuthorityCondition,
   AuthorityQueries,
   RoleRosterRecord,
   StewardshipRecord,
@@ -10,6 +11,7 @@ import type {
 import type { CommandOutcome } from "../protocol/commands";
 import type { SqlExec, SqlRow } from "../sql";
 import type { CommandHandlersOf } from "./commands";
+import type { ConditionHandlersOf } from "./conditions";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
 import {
@@ -328,3 +330,34 @@ export const authorityCommandHandlers: CommandHandlersOf<AuthorityCommand> = {
       () => indexHolders(sql, record),
     ),
 };
+
+export const authorityConditionHandlers: ConditionHandlersOf<AuthorityCondition> =
+  {
+    "authority.holdsRole": (sql, { accountId, role }) =>
+      sql
+        .exec(
+          "SELECT 1 AS ok FROM role_holders WHERE account_id = ? AND role = ?",
+          accountId,
+          role,
+        )
+        .toArray().length > 0,
+    "authority.stewards": (sql, { accountId, target }) =>
+      sql
+        .exec(
+          `SELECT 1 AS ok FROM stewardship_stewards
+             WHERE account_id = ? AND target_kind = ? AND target_id = ?`,
+          accountId,
+          target.kind,
+          target.id,
+        )
+        .toArray().length > 0,
+    "authority.vacant": (sql, { target }) =>
+      sql
+        .exec(
+          `SELECT 1 AS ok FROM stewardship_stewards
+             WHERE target_kind = ? AND target_id = ? LIMIT 1`,
+          target.kind,
+          target.id,
+        )
+        .toArray().length === 0,
+  };

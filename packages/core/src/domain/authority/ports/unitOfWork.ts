@@ -1,3 +1,4 @@
+import type { AccessGuard } from "./accessGuard";
 import type { RoleRosterRepository } from "./roleRosterRepository";
 import type { StewardshipRepository } from "./stewardshipRepository";
 
@@ -8,4 +9,5 @@ import type { StewardshipRepository } from "./stewardshipRepository";
 export type AuthorityRepositories = Readonly<{
   stewardshipRepository: StewardshipRepository;
   roleRosterRepository: RoleRosterRepository;
+  accessGuard: AccessGuard;
 }>;

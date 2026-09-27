@@ -1,4 +1,5 @@
 import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
+import { DoAccessGuard } from "./accessGuard";
 import type { RepositoryDeps } from "./deps";
 import { DoRoleRosterRepository } from "./roleRosterRepository";
 import { DoStewardshipRepository } from "./stewardshipRepository";
@@ -18,5 +19,6 @@ export function createAuthorityRepositories(
       deps.writes,
       deps.idGenerator,
     ),
+    accessGuard: new DoAccessGuard(deps.conditions),
   };
 }

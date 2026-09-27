@@ -1,4 +1,5 @@
 import type { WriteCommand, WriteFailure } from "./commands";
+import type { CommitCondition } from "./conditions";
 import type {
   DeadLetterInput,
   DeadLetterKey,
@@ -18,16 +19,20 @@ export type OutboxEventInput = Readonly<{
 }>;
 
 export type CommitRequest = Readonly<{
+  /** Checked, in order, before any write (`protocol/conditions.ts`). */
+  conditions: readonly CommitCondition[];
   writes: readonly WriteCommand[];
   events: readonly OutboxEventInput[];
 }>;
 
 /**
- * `rejected` names the first command that failed; the whole transaction
- * (every write and every outbox row) has been rolled back.
+ * `refused` names the first condition that did not hold, `rejected` the
+ * first command that failed; either way nothing of the unit of work
+ * (writes, outbox rows) has been kept.
  */
 export type CommitResult =
   | Readonly<{ kind: "committed" }>
+  | Readonly<{ kind: "refused"; index: number; condition: CommitCondition }>
   | Readonly<{ kind: "rejected"; index: number; failure: WriteFailure }>;
 
 /**

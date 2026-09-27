@@ -1,6 +1,7 @@
 import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
 import { describe, expect, it } from "vitest";
 import type { WriteCommand } from "../protocol/commands";
+import type { CommitCondition } from "../protocol/conditions";
 import { applyMigrations, MIGRATIONS } from "../store/schema";
 import { createStateStore } from "../store/stateStore";
 import { createNodeSqlStorage } from "../testing/nodeSqlStorage";
@@ -74,12 +75,15 @@ describe("StateStore.commit", () => {
   it("names the first command that failed and keeps nothing of the unit of work", () => {
     const { storage, store } = freshStore();
     const taken = insertAccount("taken@example.com");
-    expect(store.commit({ writes: [taken], events: [] }, NOW)).toEqual({
+    expect(
+      store.commit({ conditions: [], writes: [taken], events: [] }, NOW),
+    ).toEqual({
       kind: "committed",
     });
 
     const result = store.commit(
       {
+        conditions: [],
         writes: [
           insertAccount("fresh@example.com"),
           insertAccount("taken@example.com"),
@@ -116,10 +120,11 @@ describe("StateStore.commit", () => {
     const { store } = freshStore();
     const insert = insertAccount("a@example.com");
     if (insert.kind !== "account.insert") throw new Error("unexpected");
-    store.commit({ writes: [insert], events: [] }, NOW);
+    store.commit({ conditions: [], writes: [insert], events: [] }, NOW);
 
     const stale = store.commit(
       {
+        conditions: [],
         writes: [
           {
             kind: "account.save",
@@ -133,6 +138,7 @@ describe("StateStore.commit", () => {
     );
     const missing = store.commit(
       {
+        conditions: [],
         writes: [
           { kind: "account.delete", id: ids.next(), expectedVersion: 0 },
         ],
@@ -149,6 +155,160 @@ describe("StateStore.commit", () => {
       kind: "rejected",
       failure: { kind: "notFound" },
     });
+  });
+});
+
+describe("StateStore.commit conditions", () => {
+  const operators = (
+    holders: readonly string[],
+    version: number,
+  ): WriteCommand => ({
+    kind: "authority.saveRoleRoster",
+    record: {
+      role: "operator",
+      status: "established",
+      holders: holders.map((accountId) => ({ accountId, since: NOW })),
+      version,
+    },
+    expectedVersion: version === 1 ? null : version - 1,
+  });
+  const holdsOperator = (accountId: string) =>
+    ({ kind: "authority.holdsRole", accountId, role: "operator" }) as const;
+
+  it("refuses the whole unit of work at the first condition that no longer holds", () => {
+    const { storage, store } = freshStore();
+    const [a, b] = [ids.next(), ids.next()];
+    store.commit(
+      { conditions: [], writes: [operators([a, b], 1)], events: [] },
+      NOW,
+    );
+    store.commit(
+      { conditions: [], writes: [operators([b], 2)], events: [] },
+      NOW,
+    );
+
+    const result = store.commit(
+      {
+        conditions: [holdsOperator(b), holdsOperator(a)],
+        writes: [insertAccount("fresh@example.com")],
+        events: [
+          {
+            id: ids.next(),
+            type: "conformance.happened",
+            payload: {},
+            occurredAt: NOW,
+            aggregateId: "x",
+          },
+        ],
+      },
+      NOW,
+    );
+
+    expect(result).toEqual({
+      kind: "refused",
+      index: 1,
+      condition: holdsOperator(a),
+    });
+    const count = (table: string) =>
+      storage.sql
+        .exec<{ n: number }>(`SELECT count(*) AS n FROM ${table}`)
+        .toArray()[0]?.n;
+    expect(count("accounts")).toBe(0);
+    expect(count("outbox_events")).toBe(0);
+  });
+
+  it("checks conditions before the unit of work's own writes", () => {
+    const { store } = freshStore();
+    const [a, b] = [ids.next(), ids.next()];
+    store.commit(
+      { conditions: [], writes: [operators([a, b], 1)], events: [] },
+      NOW,
+    );
+
+    // A revokes their own operator role: the condition is about the
+    // state the decision read, not the state the unit of work leaves.
+    const result = store.commit(
+      {
+        conditions: [holdsOperator(a)],
+        writes: [operators([b], 2)],
+        events: [],
+      },
+      NOW,
+    );
+
+    expect(result).toEqual({ kind: "committed" });
+  });
+
+  it("reports a conflicting write rather than a condition that no longer holds", () => {
+    const { store } = freshStore();
+    const [a, b] = [ids.next(), ids.next()];
+    store.commit(
+      { conditions: [], writes: [operators([a, b], 1)], events: [] },
+      NOW,
+    );
+    store.commit(
+      { conditions: [], writes: [operators([b], 2)], events: [] },
+      NOW,
+    );
+
+    // A read version 1 and its role; B has since removed A (version 2).
+    const result = store.commit(
+      {
+        conditions: [holdsOperator(a)],
+        writes: [operators([a], 2)],
+        events: [],
+      },
+      NOW,
+    );
+
+    expect(result).toMatchObject({
+      kind: "rejected",
+      failure: { kind: "conflict", code: "OPTIMISTIC_LOCK_FAILURE" },
+    });
+  });
+
+  it("checks stewardship and vacancy against the stored stewards", () => {
+    const { store } = freshStore();
+    const steward = ids.next();
+    const place = { kind: "place", id: ids.next() };
+    const empty = { kind: "place", id: ids.next() };
+    store.commit(
+      {
+        conditions: [],
+        writes: [
+          {
+            kind: "authority.insertStewardship",
+            record: {
+              target: place,
+              status: "stewarded",
+              stewards: [{ accountId: steward, since: NOW }],
+              invitations: [],
+              version: 1,
+            },
+          },
+        ],
+        events: [],
+      },
+      NOW,
+    );
+    const check = (condition: CommitCondition) =>
+      store.commit({ conditions: [condition], writes: [], events: [] }, NOW)
+        .kind;
+
+    expect(
+      check({ kind: "authority.stewards", accountId: steward, target: place }),
+    ).toBe("committed");
+    expect(
+      check({
+        kind: "authority.stewards",
+        accountId: ids.next(),
+        target: place,
+      }),
+    ).toBe("refused");
+    expect(check({ kind: "authority.vacant", target: place })).toBe("refused");
+    expect(check({ kind: "authority.vacant", target: empty })).toBe(
+      "committed",
+    );
   });
 });
 

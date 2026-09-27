@@ -4,6 +4,7 @@ import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import { MIGRATIONS } from "@repo/core/adapters/do/store/schema";
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { createRequestContainer } from "@repo/core/application/di/container";
+import { ForbiddenError } from "@repo/core/application/errors";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import {
   drainPages,
@@ -11,6 +12,7 @@ import {
 } from "@repo/core/application/workers/dailyJobs";
 import { Account } from "@repo/core/domain/account/entity";
 import type { EventDraft } from "@repo/core/domain/common/event";
+import { AccountId } from "@repo/core/domain/common/ids";
 import { describe, expect, it, vi } from "vitest";
 import { presentationPorts } from "../../presentation/ports";
 import { stateClient } from "../../worker/stateClient";
@@ -85,6 +87,24 @@ describe("LuntStateObject", () => {
         payload: JSON.stringify({ note: "hello" }),
       },
     ]);
+  });
+
+  it("refuses a unit of work whose access condition no longer holds and keeps none of it", async () => {
+    const name = freshName();
+    const stub = env.LUNT_STATE.get(env.LUNT_STATE.idFromName(name));
+    const provider = new DoUnitOfWorkProvider(asClient(stub), UuidV7Generator);
+    const nobody = AccountId.create(UuidV7Generator.next());
+
+    const refused = provider.run(async ({ accessGuard, collectEvents }) => {
+      accessGuard.holdsRole(nobody, "operator");
+      collectEvents([probeDraft(name)]);
+    });
+
+    await expect(refused).rejects.toBeInstanceOf(ForbiddenError);
+    const rows = await runInDurableObject(stub, (_instance, state) =>
+      state.storage.sql.exec("SELECT id FROM outbox_events").toArray(),
+    );
+    expect(rows).toEqual([]);
   });
 
   it("relays an event to each subscribed consumer independently and records a receipt only for the one that succeeded", async () => {

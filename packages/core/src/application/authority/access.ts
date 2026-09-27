@@ -7,7 +7,9 @@ import {
   type TargetOperationKind,
   type TargetStanding,
 } from "@repo/core/domain/authority/accessPolicy";
+import type { AccessGuard } from "@repo/core/domain/authority/ports/accessGuard";
 import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
+import type { Role } from "@repo/core/domain/authority/role";
 import {
   Stewardship,
   type StewardshipOf,
@@ -18,6 +20,42 @@ import type { ExpectedVersion } from "@repo/core/domain/common/transactionalRepo
 import { ForbiddenError } from "../errors";
 
 type RosterReader = Pick<AuthorityRepositories, "roleRosterRepository">;
+type RoleAuthorizer = Pick<
+  AuthorityRepositories,
+  "roleRosterRepository" | "accessGuard"
+>;
+
+/** The role each role-only operation rests on (`AccessPolicy.decide`). */
+const ROLE_OF: Readonly<Record<RoleOperationKind, Role>> = {
+  operate_service: "operator",
+  edit_articles: "editor",
+};
+
+/**
+ * Keeps the facts a target decision rested on true until the commit
+ * (`AccessGuard`): the steward still stewards the target; the absence
+ * proxy is still an operator and the target still vacant; a role basis
+ * on a target is always the operator role.
+ */
+function guardTargetDecision(
+  guard: AccessGuard,
+  actor: Actor,
+  target: StewardedRef,
+  basis: AccessBasis,
+): void {
+  switch (basis) {
+    case "steward":
+      guard.stewards(actor.accountId, target);
+      return;
+    case "absence_proxy":
+      guard.holdsRole(actor.accountId, "operator");
+      guard.vacant(target);
+      return;
+    case "role":
+      guard.holdsRole(actor.accountId, "operator");
+      return;
+  }
+}
 
 /**
  * The target's stewardship as read for an access decision inside a unit
@@ -76,7 +114,8 @@ export function requireAllowed(decision: AccessDecision): AccessBasis {
 
 /**
  * `readTargetAccess` + `AccessPolicy.decide` for an operation on one
- * target; `ForbiddenError` when refused.
+ * target; `ForbiddenError` when refused, and — through `AccessGuard` —
+ * when what allowed it has changed by the time the unit of work commits.
  */
 export async function authorizeOnTarget<T extends StewardedRef>(
   ctx: AuthorityRepositories,
@@ -88,20 +127,24 @@ export async function authorizeOnTarget<T extends StewardedRef>(
   const basis = requireAllowed(
     AccessPolicy.decide(access.authority, { kind, standing: access.standing }),
   );
+  guardTargetDecision(ctx.accessGuard, actor, target, basis);
   return { ...access, basis };
 }
 
 /**
  * Reads the actor's roles and decides a role-only operation
- * (`operate_service`, `edit_articles`); `ForbiddenError` when refused.
+ * (`operate_service`, `edit_articles`); `ForbiddenError` when refused,
+ * and — through `AccessGuard` — when the role is revoked before the unit
+ * of work commits.
  */
 export async function authorizeRole(
-  ctx: RosterReader,
+  ctx: RoleAuthorizer,
   actor: Actor,
   kind: RoleOperationKind,
 ): Promise<ActorAuthority> {
   const authority = await readActorAuthority(ctx, actor);
   requireAllowed(AccessPolicy.decide(authority, { kind }));
+  ctx.accessGuard.holdsRole(actor.accountId, ROLE_OF[kind]);
   return authority;
 }
 

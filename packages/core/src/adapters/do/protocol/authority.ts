@@ -60,6 +60,25 @@ export type AuthorityQueries = {
   >;
 };
 
+/**
+ * Authority's commit conditions: facts an access decision rested on,
+ * checked again inside the commit (before any write) so a revocation,
+ * resignation or appointment committed after the unit of work read them
+ * refuses the whole unit of work.
+ */
+export type AuthorityCondition =
+  | Readonly<{
+      kind: "authority.holdsRole";
+      accountId: string;
+      role: string;
+    }>
+  | Readonly<{
+      kind: "authority.stewards";
+      accountId: string;
+      target: TargetRecord;
+    }>
+  | Readonly<{ kind: "authority.vacant"; target: TargetRecord }>;
+
 export type AuthorityCommand =
   | Readonly<{ kind: "authority.insertStewardship"; record: StewardshipRecord }>
   | Readonly<{

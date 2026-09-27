@@ -7,6 +7,7 @@ import type { WriteFailure } from "../protocol/commands";
 import type { QueryArgs, QueryName, QueryResult } from "../protocol/queries";
 import type { SqlExec, SqlRow, TransactionRunner } from "../sql";
 import { applyCommand } from "./commands";
+import { conditionHolds } from "./conditions";
 import { runQuery } from "./queries";
 
 /**
@@ -29,6 +30,10 @@ export type StateStore = Readonly<{
 
 // Thrown inside the transaction to abort it; converted back to data
 // before leaving `commit`. Never escapes this module.
+class Refusal {
+  constructor(readonly index: number) {}
+}
+
 class Rejection {
   constructor(
     readonly index: number,
@@ -64,17 +69,31 @@ export function createStateStore(
     commit(request, now) {
       try {
         transaction(() => {
+          // Conditions are read before the writes (they describe what the
+          // decision read, so an operator may still revoke their own
+          // role), but a refusal is reported only after the writes: a
+          // write that conflicts wins, because a concurrent change of the
+          // same aggregate is a conflict to resend, not a refusal.
+          const refusal = request.conditions.findIndex(
+            (condition) => !conditionHolds(sql, condition),
+          );
           request.writes.forEach((command, index) => {
             const outcome = applyCommand(sql, command);
             if (outcome.kind !== "applied") {
               throw new Rejection(index, outcome);
             }
           });
+          if (refusal !== -1) throw new Refusal(refusal);
           for (const event of request.events) {
             insertOutboxEvent(sql, event, now);
           }
         });
       } catch (error) {
+        if (error instanceof Refusal) {
+          const condition = request.conditions[error.index];
+          if (condition === undefined) throw error;
+          return { kind: "refused", index: error.index, condition };
+        }
         if (error instanceof Rejection) {
           return {
             kind: "rejected",
