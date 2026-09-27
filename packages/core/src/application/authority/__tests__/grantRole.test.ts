@@ -6,6 +6,7 @@ import {
 import type { Role } from "@repo/core/domain/authority/role";
 import { isBusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
+import { withdraw } from "../../account/withdraw";
 import { getMyAuthority } from "../getMyAuthority";
 import { grantRole } from "../grantRole";
 import { listRoleHolders } from "../listRoleHolders";
@@ -95,7 +96,7 @@ describe("grantRole", () => {
       ),
       ConflictError,
     );
-    await k.withdraw(U);
+    await withdraw({ container: k.container, actor: U.actor, input: {} });
     expect(await k.holders("editor")).toEqual([]);
   });
 

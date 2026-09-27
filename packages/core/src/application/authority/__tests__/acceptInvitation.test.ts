@@ -6,6 +6,7 @@ import type { InvitationId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import { isBusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
+import { withdraw } from "../../account/withdraw";
 import type { RequestContainer } from "../../di/types";
 import { acceptInvitation } from "../acceptInvitation";
 import { cancelInvitation } from "../cancelInvitation";
@@ -106,7 +107,7 @@ describe("acceptInvitation", () => {
       ),
       ConflictError,
     );
-    await k.withdraw(C);
+    await withdraw({ container: k.container, actor: C.actor, input: {} });
     expect(stewardIds(await k.stewardship(P))).toEqual([A.accountId]);
     expect(await k.findAccount(C)).toBeNull();
   });

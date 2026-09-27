@@ -7,6 +7,7 @@ import type { GrantableRef } from "@repo/core/domain/authority/stewardship";
 import { RegionId } from "@repo/core/domain/common/ids";
 import { isBusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
+import { withdraw } from "../../account/withdraw";
 import { grantStewardship } from "../grantStewardship";
 import { inviteMember } from "../inviteMember";
 import { viewMembers } from "../viewMembers";
@@ -96,7 +97,7 @@ describe("grantStewardship", () => {
       ),
       ConflictError,
     );
-    await k.withdraw(U);
+    await withdraw({ container: k.container, actor: U.actor, input: {} });
     expect(stewardIds(await k.stewardship(R))).toEqual([]);
   });
 
