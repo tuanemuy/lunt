@@ -1,4 +1,7 @@
-import { ExposureSubject } from "@repo/core/domain/common/exposureSubject";
+import {
+  ExposureSubject,
+  PublishableSubject,
+} from "@repo/core/domain/common/exposureSubject";
 import {
   type Exposure,
   Publication,
@@ -71,7 +74,7 @@ describe("Publication.publish (suspended → published → missing → ok)", () 
     });
   });
 
-  it.each(ExposureSubject.all)(
+  it.each(PublishableSubject.all)(
     "suspension is checked first for %s (before invalid transition and missing)",
     (subject) => {
       expectBusinessError(
@@ -232,5 +235,16 @@ describe("Suspension", () => {
         suspended: false,
       });
     }
+  });
+});
+
+describe("PublishableSubject", () => {
+  it("excludes the place, which has no publication", () => {
+    // @ts-expect-error a place is always published; it has no publication
+    const place: PublishableSubject = "PLACE";
+    expect(PublishableSubject.all).not.toContain(place);
+    expect([...PublishableSubject.all, "PLACE"].sort()).toEqual(
+      [...ExposureSubject.all].sort(),
+    );
   });
 });

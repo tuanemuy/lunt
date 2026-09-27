@@ -3,7 +3,7 @@ import {
   type PublishConditionUnmetCode,
   SubjectErrorCode,
 } from "@repo/core/domain/common/errorCode";
-import type { ExposureSubject } from "@repo/core/domain/common/exposureSubject";
+import type { PublishableSubject } from "@repo/core/domain/common/exposureSubject";
 import type { Suspension } from "@repo/core/domain/common/suspension";
 import {
   BusinessRuleError,
@@ -47,7 +47,7 @@ export type SerializedPublishConditionUnmetError<M = unknown> =
  * content for the same reason raise this too (`Publication.assertConditionMet`).
  */
 export class PublishConditionUnmetError<
-  S extends ExposureSubject = ExposureSubject,
+  S extends PublishableSubject = PublishableSubject,
   M = unknown,
 > extends BusinessRuleError<PublishConditionUnmetCode<S>> {
   constructor(
@@ -94,7 +94,7 @@ export const Publication = {
    * `PublishConditionUnmetError`. `firstPublishedAt` is `now` from `draft`
    * and unchanged on re-publishing.
    */
-  publish: <S extends ExposureSubject, M>(
+  publish: <S extends PublishableSubject, M>(
     state: Exposure,
     missing: readonly M[],
     now: Date,
@@ -125,7 +125,7 @@ export const Publication = {
    * (`photoTakedown` skips this: losing the publish condition unpublishes even
    * during a suspension); not published → `COMMON_PUBLICATION_INVALID_TRANSITION`.
    */
-  unpublish: <S extends ExposureSubject>(
+  unpublish: <S extends PublishableSubject>(
     state: Exposure,
     reason: UnpublishReason,
     subject: S,
@@ -152,7 +152,7 @@ export const Publication = {
    * aggregates guarding a save of published content (the check `publish`
    * does as its last step, without the transition checks).
    */
-  assertConditionMet: <S extends ExposureSubject, M>(
+  assertConditionMet: <S extends PublishableSubject, M>(
     missing: readonly M[],
     subject: S,
   ): void => {

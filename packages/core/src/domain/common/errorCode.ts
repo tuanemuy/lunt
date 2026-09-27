@@ -1,4 +1,7 @@
-import type { ExposureSubject } from "@repo/core/domain/common/exposureSubject";
+import type {
+  ExposureSubject,
+  PublishableSubject,
+} from "@repo/core/domain/common/exposureSubject";
 
 /** `BusinessRuleError` codes owned by the shared kernel (`COMMON_` prefix). */
 export const CommonErrorCode = {
@@ -34,7 +37,7 @@ export type CommonErrorCode =
 export type SuspendedCode<S extends ExposureSubject = ExposureSubject> =
   `${S}_SUSPENDED`;
 export type PublishConditionUnmetCode<
-  S extends ExposureSubject = ExposureSubject,
+  S extends PublishableSubject = PublishableSubject,
 > = `${S}_PUBLISH_CONDITION_UNMET`;
 export type AlreadySuspendedCode<S extends ExposureSubject = ExposureSubject> =
   `${S}_ALREADY_SUSPENDED`;
@@ -52,7 +55,7 @@ export type PhotoNotFoundCode<S extends ExposureSubject = ExposureSubject> =
  */
 export type SubjectErrorCode<S extends ExposureSubject = ExposureSubject> =
   | SuspendedCode<S>
-  | PublishConditionUnmetCode<S>
+  | PublishConditionUnmetCode<Extract<S, PublishableSubject>>
   | AlreadySuspendedCode<S>
   | NotSuspendedCode<S>
   | DuplicatePhotoCode<S>
@@ -61,7 +64,7 @@ export type SubjectErrorCode<S extends ExposureSubject = ExposureSubject> =
 export const SubjectErrorCode = {
   suspended: <S extends ExposureSubject>(subject: S): SuspendedCode<S> =>
     `${subject}_SUSPENDED`,
-  publishConditionUnmet: <S extends ExposureSubject>(
+  publishConditionUnmet: <S extends PublishableSubject>(
     subject: S,
   ): PublishConditionUnmetCode<S> => `${subject}_PUBLISH_CONDITION_UNMET`,
   alreadySuspended: <S extends ExposureSubject>(
