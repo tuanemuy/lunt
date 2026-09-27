@@ -43,7 +43,7 @@ describe("schema migrations", () => {
     );
   });
 
-  it("apply only the migrations newer than the recorded one", () => {
+  it("apply only the migrations not yet recorded", () => {
     const storage = createNodeSqlStorage();
     const [first] = MIGRATIONS;
     if (first === undefined) throw new Error("no migrations");
@@ -53,6 +53,20 @@ describe("schema migrations", () => {
       .exec<{ n: number }>("SELECT count(*) AS n FROM _schema_migrations")
       .toArray()[0]?.n;
     expect(count).toBe(MIGRATIONS.length);
+  });
+
+  it("apply a lower version that lands after a higher one was applied", () => {
+    const storage = createNodeSqlStorage();
+    const early = MIGRATIONS.filter((migration) => migration.version !== 4);
+    applyMigrations(storage.sql, storage.transaction, NOW, early);
+    applyMigrations(storage.sql, storage.transaction, NOW);
+    const versions = storage.sql
+      .exec<{ version: number }>(
+        "SELECT version FROM _schema_migrations ORDER BY version",
+      )
+      .toArray()
+      .map((row) => row.version);
+    expect(versions).toEqual(MIGRATIONS.map((migration) => migration.version));
   });
 });
 

@@ -50,12 +50,13 @@ const CORE_MIGRATION: Migration = {
 
 /**
  * Versioned DDL for the Lunt state Durable Object, ordered by version.
- * Each entry is applied exactly once, in order, inside its own
- * transaction, and recorded in `_schema_migrations`; an object applies
- * only versions above the highest it has recorded. Versions are allocated
- * globally: a new migration takes the next number above every existing
- * one, whichever domain it belongs to. Never edit an applied one — local
- * and deployed objects keep their data across code changes.
+ * Each entry is applied exactly once, inside its own transaction, and
+ * recorded in `_schema_migrations`; an object applies every version it
+ * has not recorded, lowest first. Versions are allocated globally, and a
+ * domain may reserve one before its migration lands (below), so a lower
+ * version can arrive after a higher one is applied — a migration must
+ * therefore depend only on versions below it. Never edit an applied one:
+ * local and deployed objects keep their data across code changes.
  *
  * Allocated: 1 core, 2 accounts, 3 dead letters, 4 login challenges,
  * 5 authority, 6 application, 7 notification, 8 development mailbox.
@@ -77,7 +78,7 @@ const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (
 )`;
 
 /**
- * Brings the object's SQLite up to the latest migration. Synchronous, so
+ * Applies every migration the object has not recorded yet. Synchronous, so
  * running it from the DO constructor completes before any request is
  * delivered — no request can observe a half-migrated store.
  */
@@ -88,14 +89,16 @@ export function applyMigrations(
   migrations: readonly Migration[] = MIGRATIONS,
 ): void {
   sql.exec(LEDGER_DDL);
-  const rows = sql
-    .exec<{ version: number | null } & SqlRow>(
-      "SELECT MAX(version) AS version FROM _schema_migrations",
-    )
-    .toArray();
-  const current = Number(rows[0]?.version ?? 0);
+  const applied = new Set(
+    sql
+      .exec<{ version: number } & SqlRow>(
+        "SELECT version FROM _schema_migrations",
+      )
+      .toArray()
+      .map((row) => Number(row.version)),
+  );
   for (const migration of migrations) {
-    if (migration.version <= current) continue;
+    if (applied.has(migration.version)) continue;
     transaction(() => {
       for (const statement of migration.statements) {
         sql.exec(statement);
