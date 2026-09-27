@@ -34,8 +34,9 @@ export function createNotificationMailRenderer(
       const title = headline(mail.occurrence);
       const body = [
         `${title}。`,
-        "",
-        ...mail.labels.map((label) => `・${refText(label)}`),
+        ...(mail.labels.length === 0
+          ? []
+          : ["", ...mail.labels.map((label) => `・${refText(label)}`)]),
         ...(mail.delivery === "proxy"
           ? [
               "",
