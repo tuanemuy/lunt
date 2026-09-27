@@ -1,5 +1,9 @@
 import { createSerializationAdapter } from "@tanstack/react-router";
-import { AppServerError, type SerializedError } from "./errorResponse";
+import {
+  AppServerError,
+  isAppServerError,
+  type SerializedError,
+} from "./errorResponse";
 
 // Registered on the global start instance so `AppServerError` survives the
 // Seroval roundtrip with class identity intact. Without this, the client
@@ -10,7 +14,7 @@ export const appServerErrorAdapter = createSerializationAdapter<
   SerializedError
 >({
   key: "AppServerError",
-  test: (value): value is AppServerError => value instanceof AppServerError,
+  test: (value): value is AppServerError => isAppServerError(value),
   toSerializable: (value) => value.serialized,
   fromSerializable: (value) => new AppServerError(value),
 });

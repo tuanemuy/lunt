@@ -5,12 +5,13 @@ import { setResponseStatus } from "@tanstack/react-start/server";
 import {
   AppServerError,
   httpStatusFor,
+  isAppServerError,
   redactForClient,
   type SerializedError,
   serializeError,
 } from "./errorResponse";
 
-// Wraps the entire server-function pipeline so throws from `inputValidator`
+// Wraps the entire server-function pipeline so throws from `validator`
 // and the handler land in the same catch. Setting the response status from
 // inside the handler alone would miss validator throws (they fire before
 // `.handler` runs), and the constructor of `AppServerError` can't touch the
@@ -31,10 +32,9 @@ export const errorResponseMiddleware = createMiddleware({
   } catch (error) {
     if (isRedirect(error) || isNotFound(error)) throw error;
 
-    const rawSerialized =
-      error instanceof AppServerError
-        ? error.serialized
-        : serializeError(error);
+    const rawSerialized = isAppServerError(error)
+      ? error.serialized
+      : serializeError(error);
 
     if (rawSerialized.kind === "system" || rawSerialized.kind === "unknown") {
       await logServerError(error, rawSerialized);

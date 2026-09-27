@@ -9,14 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AccountRouteImport } from './routes/_account'
 import { Route as ViewerRouteImport } from './routes/_viewer'
+import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
+import { Route as AccountLoginRouteImport } from './routes/_account/login'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
 import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
 import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/ui/manage'
 
+const AccountRoute = AccountRouteImport.update({
+  id: '/_account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ViewerRoute = ViewerRouteImport.update({
   id: '/_viewer',
   getParentRoute: () => rootRouteImport,
+} as any)
+const Char91__devChar93SessionRoute =
+  Char91__devChar93SessionRouteImport.update({
+    id: '/__dev/session',
+    path: '/__dev/session',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AccountLoginRoute = AccountLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AccountRoute,
 } as any)
 const ViewerIndexRoute = ViewerIndexRouteImport.update({
   id: '/',
@@ -38,43 +56,82 @@ const Char91__devChar93UiManageRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof ViewerIndexRoute
+  '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/login': typeof AccountLoginRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof ViewerIndexRoute
+  '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/login': typeof AccountLoginRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_account': typeof AccountRouteWithChildren
   '/_viewer': typeof ViewerRouteWithChildren
+  '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/_account/login': typeof AccountLoginRoute
   '/_viewer/': typeof ViewerIndexRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/__dev/ui/manage' | '/__dev/ui/'
+  fullPaths:
+    '/' | '/__dev/session' | '/login' | '/__dev/ui/manage' | '/__dev/ui/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/__dev/ui/manage' | '/__dev/ui'
-  id: '__root__' | '/_viewer' | '/_viewer/' | '/__dev/ui/manage' | '/__dev/ui/'
+  to: '/' | '/__dev/session' | '/login' | '/__dev/ui/manage' | '/__dev/ui'
+  id:
+    | '__root__'
+    | '/_account'
+    | '/_viewer'
+    | '/__dev/session'
+    | '/_account/login'
+    | '/_viewer/'
+    | '/__dev/ui/manage'
+    | '/__dev/ui/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AccountRoute: typeof AccountRouteWithChildren
   ViewerRoute: typeof ViewerRouteWithChildren
+  Char91__devChar93SessionRoute: typeof Char91__devChar93SessionRoute
   Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
   Char91__devChar93UiIndexRoute: typeof Char91__devChar93UiIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_account': {
+      id: '/_account'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_viewer': {
       id: '/_viewer'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ViewerRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/__dev/session': {
+      id: '/__dev/session'
+      path: '/__dev/session'
+      fullPath: '/__dev/session'
+      preLoaderRoute: typeof Char91__devChar93SessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_account/login': {
+      id: '/_account/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof AccountLoginRouteImport
+      parentRoute: typeof AccountRoute
     }
     '/_viewer/': {
       id: '/_viewer/'
@@ -100,6 +157,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AccountRouteChildren {
+  AccountLoginRoute: typeof AccountLoginRoute
+}
+
+const AccountRouteChildren: AccountRouteChildren = {
+  AccountLoginRoute: AccountLoginRoute,
+}
+
+const AccountRouteWithChildren =
+  AccountRoute._addFileChildren(AccountRouteChildren)
+
 interface ViewerRouteChildren {
   ViewerIndexRoute: typeof ViewerIndexRoute
 }
@@ -112,7 +180,9 @@ const ViewerRouteWithChildren =
   ViewerRoute._addFileChildren(ViewerRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  AccountRoute: AccountRouteWithChildren,
   ViewerRoute: ViewerRouteWithChildren,
+  Char91__devChar93SessionRoute: Char91__devChar93SessionRoute,
   Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,
   Char91__devChar93UiIndexRoute: Char91__devChar93UiIndexRoute,
 }

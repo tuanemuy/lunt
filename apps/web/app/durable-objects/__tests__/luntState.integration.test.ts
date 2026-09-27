@@ -1,4 +1,5 @@
 import { env, runInDurableObject } from "cloudflare:test";
+import type { DurableObjectNamespace } from "@cloudflare/workers-types";
 import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import { MIGRATIONS } from "@repo/core/adapters/do/store/schema";
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
@@ -150,7 +151,10 @@ describe("LuntStateObject", () => {
   });
 
   it("runs a daily job over the production container, one unit of work per target", async () => {
-    const client = stateClient(env.LUNT_STATE, freshName());
+    const client = stateClient(
+      env.LUNT_STATE as unknown as DurableObjectNamespace,
+      freshName(),
+    );
     const container = createRequestContainer(env, client);
     const targets = ["a", "b", "c"].map((n, i) =>
       Account.register({

@@ -27,8 +27,16 @@ export type SerializedUnknownError = SerializedErrorBase & {
   kind: "unknown";
 };
 
+/**
+ * A business error; `missing` lists the publish conditions an item lacks
+ * (`{SUBJECT}_PUBLISH_CONDITION_UNMET`, `PublishConditionUnmetError`).
+ */
+export type SerializedBusinessErrorWithDetail = SerializedBusinessError & {
+  missing?: readonly string[];
+};
+
 export type SerializedError =
-  | SerializedBusinessError
+  | SerializedBusinessErrorWithDetail
   | SerializedNotFoundError
   | SerializedConflictError
   | SerializedUnauthorizedError
@@ -114,8 +122,24 @@ export function httpStatusFor(serialized: SerializedError): number {
   return HTTP_STATUS_BY_KIND[serialized.kind];
 }
 
+// With RSC enabled, server functions run in the `rsc` module graph while
+// the serialization adapter is registered from the `ssr` graph (start.ts):
+// the same realm, but two copies of this module, so `instanceof` fails
+// across them. A `Symbol.for` brand is realm-global and survives that.
+const APP_SERVER_ERROR = Symbol.for("lunt/AppServerError");
+
+/** `AppServerError` from any module graph of this realm. */
+export function isAppServerError(value: unknown): value is AppServerError {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { [APP_SERVER_ERROR]?: unknown })[APP_SERVER_ERROR] === true
+  );
+}
+
 export class AppServerError extends Error {
   override readonly name = "AppServerError";
+  readonly [APP_SERVER_ERROR] = true;
 
   constructor(public readonly serialized: SerializedError) {
     super(serialized.message);
@@ -154,7 +178,7 @@ function asSerializedError(value: unknown): SerializedError | null {
 }
 
 export function extractSerializedError(error: unknown): SerializedError {
-  if (error instanceof AppServerError) {
+  if (isAppServerError(error)) {
     return error.serialized;
   }
   if (hasSerializedRemnant(error)) {
