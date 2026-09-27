@@ -22,10 +22,6 @@ import { renderNotifications } from "./-render";
 
 /** MY-03 通知一覧. Needs a login (CS-04). */
 export const Route = createFileRoute("/_account/me/notifications")({
-  // The error view stays in the route's own chunk: CS-02 must render when
-  // the navigation failed for want of a network, which also keeps a split
-  // chunk from being fetched.
-  codeSplitGroupings: [["component"]],
   beforeLoad: ({ location }) => requireLogin(location),
   loader: async () => {
     const { Notifications } = await renderNotifications();

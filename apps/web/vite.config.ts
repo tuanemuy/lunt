@@ -26,6 +26,18 @@ export default defineConfig({
       // makes the plugin silently fall back to the default CF entry.
       server: { entry: "server.ts" },
       rsc: { enabled: true },
+      router: {
+        codeSplittingOptions: {
+          // Only each route's component (and its not-found view) stays a
+          // lazy chunk. The error and pending views ship with the route
+          // itself: they are what a navigation shows when the network is
+          // gone (CS-02) or slow, and a lazy chunk fetched at that moment
+          // fails too — the failure then escapes to the root. The cost is a
+          // little more code in the initial bundle per route that defines
+          // its own error or pending view.
+          defaultBehavior: [["component"], ["notFoundComponent"]],
+        },
+      },
     }),
     rsc(),
     serverFnDiscovery({ srcDirectory: "app" }),

@@ -17,7 +17,7 @@ describe("myPageSections", () => {
     const sections = myPageSections(["operator"], []);
     expect(titles(sections)).toEqual(["お知らせと申請", "役割"]);
     expect(sections[1]?.entries).toEqual([
-      expect.objectContaining({ title: "サービス運営", to: "/ops/roles" }),
+      expect.objectContaining({ title: "サービス運営", to: "/ops" }),
     ]);
   });
 
@@ -25,7 +25,7 @@ describe("myPageSections", () => {
     const sections = myPageSections(["editor", "operator"], []);
     expect(sections[1]?.entries.map((entry) => [entry.key, entry.to])).toEqual([
       ["editor", null],
-      ["operator", "/ops/roles"],
+      ["operator", "/ops"],
     ]);
   });
 

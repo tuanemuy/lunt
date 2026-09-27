@@ -13,8 +13,8 @@ import { TextLink } from "@/components/ui/TextButton";
  */
 const OPS_NAV = [{ to: "/ops/roles", label: "役割" }] as const;
 
-/** The home of the service-operation area: its first screen that exists. */
-export const OPS_HOME = OPS_NAV[0].to;
+/** The home of the service-operation area: OM-01's URL. */
+export const OPS_HOME = "/ops";
 
 /** The frame of the OM screens (brand band labelled サービス運営). */
 export function OpsShell({ children }: { children: ReactNode }) {

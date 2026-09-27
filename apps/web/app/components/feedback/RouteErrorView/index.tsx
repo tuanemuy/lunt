@@ -153,10 +153,19 @@ function RetryButton() {
 
 /**
  * A route's error or not-found content, drawn for the shell it sits in:
- * the viewer's `Feedback` or the management `EmptyPanel`.
+ * the viewer's `Feedback` or the management `EmptyPanel`. `inManageShell`
+ * is for a management layout that failed itself and draws its own frame
+ * around this content.
  */
-export function RouteErrorContent({ problem }: { problem: RouteProblem }) {
-  const area = useArea();
+export function RouteErrorContent({
+  problem,
+  inManageShell = false,
+}: {
+  problem: RouteProblem;
+  inManageShell?: boolean;
+}) {
+  const detected = useArea();
+  const area: Area = inManageShell ? "manage" : detected;
   const view = viewOf(problem, area);
   const retry = view.retry ? <RetryButton /> : undefined;
   if (area === "manage") {

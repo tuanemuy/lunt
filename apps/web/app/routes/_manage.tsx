@@ -1,4 +1,11 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  type ErrorComponentProps,
+  Outlet,
+  useLocation,
+} from "@tanstack/react-router";
+import { RouteErrorContent } from "@/components/feedback/RouteErrorView";
+import { ManageShell } from "@/components/layout/ManageShell";
 import { requireLogin } from "@/presentation/session";
 
 /**
@@ -9,4 +16,25 @@ import { requireLogin } from "@/presentation/session";
 export const Route = createFileRoute("/_manage")({
   beforeLoad: ({ location }) => requireLogin(location),
   component: Outlet,
+  errorComponent: ManageError,
 });
+
+const AREA_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
+  ["/ops", "サービス運営"],
+  ["/editorial", "読みもの編集"],
+];
+
+/**
+ * The login check itself failed (e.g. offline, CS-02): no area layout has
+ * drawn its frame, so this draws a management one around the state.
+ */
+function ManageError({ error }: ErrorComponentProps) {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const label =
+    AREA_LABELS.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "管理";
+  return (
+    <ManageShell context={label} homeTo="/me" solo>
+      <RouteErrorContent problem={{ kind: "error", error }} inManageShell />
+    </ManageShell>
+  );
+}

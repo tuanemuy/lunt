@@ -43,9 +43,9 @@ const TARGET_SECTIONS = [
 >;
 
 /**
- * The role entries (`spec/pages/index.md` 「マイページからの入口」). The
- * operator's entry opens the only service-operation screen of this stage,
- * OM-07; AM-01 comes with the editorial stage.
+ * The role entries (`spec/pages/index.md` 「マイページからの入口」): the
+ * operator's opens OM-01 (`/ops`, which stands in with OM-07 until OM-01's
+ * stage); the editor's AM-01 comes with the editorial stage.
  */
 const ROLE_ENTRIES: Readonly<Record<Role, MyPageEntry>> = {
   editor: {
@@ -58,7 +58,7 @@ const ROLE_ENTRIES: Readonly<Record<Role, MyPageEntry>> = {
     key: "operator",
     title: "サービス運営",
     meta: "サービス運営者",
-    to: "/ops/roles",
+    to: "/ops",
   },
 };
 

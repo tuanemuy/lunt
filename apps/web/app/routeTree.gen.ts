@@ -25,6 +25,7 @@ import { Route as AccountLoginLinkRouteImport } from './routes/_account/login/li
 import { Route as AccountMeIndexRouteImport } from './routes/_account/me/index'
 import { Route as AccountMeNotificationsRouteImport } from './routes/_account/me/notifications'
 import { Route as AccountMeWithdrawRouteImport } from './routes/_account/me/withdraw'
+import { Route as ManageOpsIndexRouteImport } from './routes/_manage/ops/index'
 import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
 import { Route as AccountLoginExternalProviderIndexRouteImport } from './routes/_account/login/external/$provider/index'
@@ -112,6 +113,11 @@ const AccountMeWithdrawRoute = AccountMeWithdrawRouteImport.update({
   path: '/me/withdraw',
   getParentRoute: () => AccountRoute,
 } as any)
+const ManageOpsIndexRoute = ManageOpsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ManageOpsRoute,
+} as any)
 const ManageOpsRolesRoute = ManageOpsRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
   '/login/': typeof AccountLoginIndexRoute
   '/me/': typeof AccountMeIndexRoute
+  '/ops/': typeof ManageOpsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
@@ -159,7 +166,6 @@ export interface FileRoutesByTo {
   '/': typeof ViewerIndexRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
-  '/ops': typeof ManageOpsRouteWithChildren
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
@@ -170,6 +176,7 @@ export interface FileRoutesByTo {
   '/__dev/ui': typeof Char91__devChar93UiIndexRoute
   '/login': typeof AccountLoginIndexRoute
   '/me': typeof AccountMeIndexRoute
+  '/ops': typeof ManageOpsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
@@ -193,6 +200,7 @@ export interface FileRoutesById {
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
   '/_account/login/': typeof AccountLoginIndexRoute
   '/_account/me/': typeof AccountMeIndexRoute
+  '/_manage/ops/': typeof ManageOpsIndexRoute
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/_account/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
@@ -214,6 +222,7 @@ export interface FileRouteTypes {
     | '/__dev/ui/'
     | '/login/'
     | '/me/'
+    | '/ops/'
     | '/__dev/manage-errors/$kind'
     | '/login/external/$provider/callback'
     | '/login/external/$provider/'
@@ -222,7 +231,6 @@ export interface FileRouteTypes {
     | '/'
     | '/__dev/inbox'
     | '/__dev/session'
-    | '/ops'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
@@ -233,6 +241,7 @@ export interface FileRouteTypes {
     | '/__dev/ui'
     | '/login'
     | '/me'
+    | '/ops'
     | '/__dev/manage-errors/$kind'
     | '/login/external/$provider/callback'
     | '/login/external/$provider'
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/__dev/ui/'
     | '/_account/login/'
     | '/_account/me/'
+    | '/_manage/ops/'
     | '/_account/__dev/manage-errors/$kind'
     | '/_account/login/external/$provider/callback'
     | '/_account/login/external/$provider/'
@@ -386,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountMeWithdrawRouteImport
       parentRoute: typeof AccountRoute
     }
+    '/_manage/ops/': {
+      id: '/_manage/ops/'
+      path: '/'
+      fullPath: '/ops/'
+      preLoaderRoute: typeof ManageOpsIndexRouteImport
+      parentRoute: typeof ManageOpsRoute
+    }
     '/_manage/ops/roles': {
       id: '/_manage/ops/roles'
       path: '/roles'
@@ -447,10 +464,12 @@ const AccountRouteWithChildren =
 
 interface ManageOpsRouteChildren {
   ManageOpsRolesRoute: typeof ManageOpsRolesRoute
+  ManageOpsIndexRoute: typeof ManageOpsIndexRoute
 }
 
 const ManageOpsRouteChildren: ManageOpsRouteChildren = {
   ManageOpsRolesRoute: ManageOpsRolesRoute,
+  ManageOpsIndexRoute: ManageOpsIndexRoute,
 }
 
 const ManageOpsRouteWithChildren = ManageOpsRoute._addFileChildren(
