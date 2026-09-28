@@ -9,6 +9,7 @@ import { DEV_MAILBOX_MIGRATIONS } from "./devMailbox";
 import { DISCOVERY_MIGRATIONS } from "./discovery";
 import { LISTING_MIGRATIONS } from "./listing";
 import { MEDIA_MIGRATIONS } from "./media";
+import { MODERATION_MIGRATIONS } from "./moderation";
 import { NOTIFICATION_MIGRATIONS } from "./notification";
 import { PLACE_MIGRATIONS } from "./place";
 
@@ -66,7 +67,8 @@ const CORE_MIGRATION: Migration = {
  *
  * Allocated: 1 core, 2 accounts, 3 dead letters, 4 login challenges,
  * 5 authority, 6 application, 7 notification, 8 development mailbox,
- * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery.
+ * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery,
+ * 14 moderation, 15 application (stage 2), 16 notification (stage 2).
  */
 export const MIGRATIONS: readonly Migration[] = [
   CORE_MIGRATION,
@@ -82,6 +84,7 @@ export const MIGRATIONS: readonly Migration[] = [
   ...PLACE_MIGRATIONS,
   ...LISTING_MIGRATIONS,
   ...DISCOVERY_MIGRATIONS,
+  ...MODERATION_MIGRATIONS,
 ].sort((a, b) => a.version - b.version);
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

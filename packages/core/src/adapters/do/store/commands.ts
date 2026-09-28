@@ -7,6 +7,7 @@ import { authorityCommandHandlers } from "./authority";
 import { discoveryCommandHandlers } from "./discovery";
 import { listingCommandHandlers } from "./listing";
 import { mediaCommandHandlers } from "./media";
+import { moderationCommandHandlers } from "./moderation";
 import { notificationCommandHandlers } from "./notification";
 import { placeCommandHandlers } from "./place";
 
@@ -30,6 +31,7 @@ export const commandHandlers = {
   ...placeCommandHandlers,
   ...listingCommandHandlers,
   ...discoveryCommandHandlers,
+  ...moderationCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

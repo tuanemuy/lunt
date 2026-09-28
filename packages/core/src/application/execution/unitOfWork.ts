@@ -6,6 +6,7 @@ import type { EventDraft } from "@repo/core/domain/common/event";
 import type { DiscoveryRepositories } from "@repo/core/domain/discovery/ports/unitOfWork";
 import type { ListingRepositories } from "@repo/core/domain/listing/ports/unitOfWork";
 import type { MediaRepositories } from "@repo/core/domain/media/ports/unitOfWork";
+import type { ModerationRepositories } from "@repo/core/domain/moderation/ports/unitOfWork";
 import type { NotificationRepositories } from "@repo/core/domain/notification/ports/unitOfWork";
 import type { PlaceRepositories } from "@repo/core/domain/place/ports/unitOfWork";
 
@@ -22,7 +23,8 @@ export type UnitOfWorkRepositories = AccountRepositories &
   MediaRepositories &
   PlaceRepositories &
   ListingRepositories &
-  DiscoveryRepositories;
+  DiscoveryRepositories &
+  ModerationRepositories;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{

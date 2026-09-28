@@ -7,6 +7,7 @@ import type { RepositoryDeps } from "./deps";
 import { createDiscoveryRepositories } from "./discovery";
 import { createListingRepositories } from "./listing";
 import { createMediaRepositories } from "./media";
+import { createModerationRepositories } from "./moderation";
 import { createNotificationRepositories } from "./notification";
 import { createPlaceRepositories } from "./place";
 
@@ -26,5 +27,6 @@ export function createRepositories(
     ...createPlaceRepositories(deps),
     ...createListingRepositories(deps),
     ...createDiscoveryRepositories(deps),
+    ...createModerationRepositories(deps),
   };
 }

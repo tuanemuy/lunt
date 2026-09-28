@@ -9,6 +9,7 @@ import type {
 import type { DiscoveryErrorCode } from "@repo/core/domain/discovery/errorCode";
 import type { ListingErrorCode } from "@repo/core/domain/listing/errorCode";
 import type { MediaErrorCode } from "@repo/core/domain/media/errorCode";
+import type { ModerationErrorCode } from "@repo/core/domain/moderation/errorCode";
 import type { NotificationErrorCode } from "@repo/core/domain/notification/errorCode";
 import type { PlaceErrorCode } from "@repo/core/domain/place/errorCode";
 
@@ -31,4 +32,5 @@ export type BusinessErrorCode =
   | MediaErrorCode
   | PlaceErrorCode
   | ListingErrorCode
-  | DiscoveryErrorCode;
+  | DiscoveryErrorCode
+  | ModerationErrorCode;

@@ -11,6 +11,7 @@ import { authorityErrorCatalog } from "./errorCatalog/authority";
 import { discoveryErrorCatalog } from "./errorCatalog/discovery";
 import { listingErrorCatalog } from "./errorCatalog/listing";
 import { mediaErrorCatalog } from "./errorCatalog/media";
+import { moderationErrorCatalog } from "./errorCatalog/moderation";
 import { notificationErrorCatalog } from "./errorCatalog/notification";
 import { placeErrorCatalog } from "./errorCatalog/place";
 import {
@@ -117,6 +118,7 @@ export const businessErrorCatalog = {
   ...placeErrorCatalog,
   ...listingErrorCatalog,
   ...discoveryErrorCatalog,
+  ...moderationErrorCatalog,
 } satisfies Record<BusinessErrorCode, BusinessErrorPresentation>;
 
 type StaleCode = Exclude<keyof typeof businessErrorCatalog, BusinessErrorCode>;

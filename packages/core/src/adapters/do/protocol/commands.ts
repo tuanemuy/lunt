@@ -5,6 +5,7 @@ import type { AuthorityCommand } from "./authority";
 import type { DiscoveryCommand } from "./discovery";
 import type { ListingCommand } from "./listing";
 import type { MediaCommand } from "./media";
+import type { ModerationCommand } from "./moderation";
 import type { NotificationCommand } from "./notification";
 import type { PlaceCommand } from "./place";
 
@@ -27,7 +28,8 @@ export type WriteCommand =
   | MediaCommand
   | PlaceCommand
   | ListingCommand
-  | DiscoveryCommand;
+  | DiscoveryCommand
+  | ModerationCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

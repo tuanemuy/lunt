@@ -21,3 +21,6 @@ export type ModerationQueries = {
     readonly ContentSummaryRecord[]
   >;
 };
+
+/** Moderation's write commands (none until its tables land). */
+export type ModerationCommand = never;
