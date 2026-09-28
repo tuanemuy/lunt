@@ -2,7 +2,10 @@ import type {
   ApplicationCaseIn,
   ApplicationIn,
   ApplicationOf as ApplicationOfIn,
+  ContentFor,
+  FactsFor,
   KindName,
+  PremiseResultFor,
   RequestIn,
   SlotIn,
   TargetIn,
@@ -45,3 +48,21 @@ export type UnderReviewApplication = UnderReview<Application>;
 export type ReturnedApplication = Returned<Application>;
 export type ActiveApplication = Active<Application>;
 export type ClosedApplication = Closed<Application>;
+/** `ContentOf<K>`. */
+export type ContentOf<K extends ApplicationKind> = ContentFor<
+  ApplicationKindMap[K]
+>;
+/** `PremiseFactsOf<K>`. */
+export type PremiseFactsOf<K extends ApplicationKind> = FactsFor<
+  ApplicationKindMap[K]
+>;
+/** `PremiseResultOf<K>`. */
+export type PremiseResultOf<K extends ApplicationKind> = PremiseResultFor<
+  ApplicationKindMap[K]
+>;
+
+export {
+  ApplicationTarget,
+  type IndividualKind,
+  type IndividualTargetInput,
+} from "./target";

@@ -1,7 +1,9 @@
-import { PLACE_EVENT_TYPES } from "@repo/core/domain/place/events";
+import { reassessApplicationPremises } from "../application/reassessApplicationPremises";
+import { withdrawApplicationsOfWithdrawnAccount } from "../application/withdrawApplicationsOfWithdrawnAccount";
 import { discardReleasedPhotos } from "../media/discardReleasedPhotos";
 import { deliverNotifications } from "../notification/deliverNotifications";
 import { purgeNotificationsOnWithdrawal } from "../notification/purgeNotificationsOnWithdrawal";
+import { sendTakedownOutcome } from "../notification/sendTakedownOutcome";
 import type { EventConsumer } from "./consumer";
 import type { LuntEventType } from "./registry";
 
@@ -16,6 +18,9 @@ export const consumers = {
   deliverNotifications,
   discardReleasedPhotos,
   purgeNotificationsOnWithdrawal,
+  reassessApplicationPremises,
+  sendTakedownOutcome,
+  withdrawApplicationsOfWithdrawnAccount,
 } satisfies Readonly<Record<string, EventConsumer>>;
 
 export type ConsumerName = keyof typeof consumers & string;
@@ -32,35 +37,16 @@ export type ConsumerName = keyof typeof consumers & string;
  * consumer's own list).
  */
 export const deferredConsumers = {
-  "deliverNotifications@S2B-NTF": {
-    events: [
-      ...PLACE_EVENT_TYPES,
-      "listing.unpublished",
-      "listing.suspended",
-      "listing.unsuspended",
-      "listing.deleted",
-      "listing.offering_ended",
-      "category.retired",
-    ],
-    stage: "S2B-NTF",
-  },
-  withdrawApplicationsOfWithdrawnAccount: {
-    events: ["account.withdrawn"],
-    stage: "S2B",
-  },
   purgeBookmarksOnWithdrawal: {
     events: ["account.withdrawn"],
     stage: "S4",
   },
-  reassessApplicationPremises: {
-    events: [
-      "authority.steward_appointed",
-      "authority.stewardship_vacated",
-      "application.withdrawn",
-      "application.rejected",
-      "listing.deleted",
-    ],
-    stage: "S2B",
+  // Joins region.affiliation_established / affiliation_dissolved and
+  // occasion.participation_established / cancelled / ended /
+  // period_changed once those events exist.
+  "reassessApplicationPremises@S3": {
+    events: [],
+    stage: "S3",
   },
 } as const satisfies Readonly<
   Record<string, Readonly<{ events: readonly LuntEventType[]; stage: string }>>

@@ -1,4 +1,5 @@
 import { purgeClosedLoginChallengesJob } from "../account/purgeClosedLoginChallenges";
+import { notifyOverdueReviewsJob } from "../application/notifyOverdueReviews";
 import { detectEndedOfferingsJob } from "../listing/detectEndedOfferings";
 import { sweepUnownedPhotosJob } from "../media/sweepUnownedPhotos";
 import type { DailyJob } from "./dailyJobs";
@@ -12,4 +13,5 @@ export const dailyJobs: readonly DailyJob[] = [
   purgeClosedLoginChallengesJob,
   sweepUnownedPhotosJob,
   detectEndedOfferingsJob,
+  notifyOverdueReviewsJob,
 ];

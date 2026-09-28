@@ -2,17 +2,25 @@ import type { AccountEvent } from "@repo/core/domain/account/events";
 import type { ApplicationEvent } from "@repo/core/domain/application/events";
 import type { AuthorityEvent } from "@repo/core/domain/authority/events";
 import type { EventDecoder } from "@repo/core/domain/common/event";
-import type { PhotosReleasedEvent } from "@repo/core/domain/common/photoEvents";
+import type {
+  PhotosReleasedEvent,
+  PhotosTakenDownEvent,
+} from "@repo/core/domain/common/photoEvents";
 import type {
   CategoryEvent,
   ListingEvent,
 } from "@repo/core/domain/listing/events";
+import type { ModerationEvent } from "@repo/core/domain/moderation/events";
 import type { PlaceEvent } from "@repo/core/domain/place/events";
 import { accountEventDecoders } from "../account/eventDecoders";
 import { applicationEventDecoders } from "../application/eventDecoders";
 import { authorityEventDecoders } from "../authority/eventDecoders";
 import { listingEventDecoders } from "../listing/eventDecoders";
 import { photoEventDecoders } from "../media/eventDecoders";
+import {
+  contentPhotoEventDecoders,
+  moderationEventDecoders,
+} from "../moderation/eventDecoders";
 import { placeEventDecoders } from "../place/eventDecoders";
 
 /**
@@ -29,7 +37,9 @@ export type LuntDomainEvent =
   | PhotosReleasedEvent
   | PlaceEvent
   | ListingEvent
-  | CategoryEvent;
+  | CategoryEvent
+  | ModerationEvent
+  | PhotosTakenDownEvent;
 
 export type LuntEventType = LuntDomainEvent["type"];
 
@@ -53,4 +63,6 @@ export const eventDecoders = {
   ...photoEventDecoders,
   ...placeEventDecoders,
   ...listingEventDecoders,
+  ...moderationEventDecoders,
+  ...contentPhotoEventDecoders,
 } satisfies DefaultEventDecoderRegistry;

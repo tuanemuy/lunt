@@ -141,11 +141,11 @@ describe("createFanOutDispatcher", () => {
     expect(sent).toEqual([]);
   });
 
-  it("lists authority.stewardship_vacated, which no stage-1 consumer subscribes to, as awaiting a later stage", () => {
-    expect(awaitingLaterStage.has("authority.stewardship_vacated")).toBe(true);
-    expect(subscribersOf(consumers, "authority.stewardship_vacated")).toEqual(
-      [],
-    );
+  it("delivers authority.stewardship_vacated, whose consumer landed in stage 2, instead of listing it as awaiting a later stage", () => {
+    expect(awaitingLaterStage.has("authority.stewardship_vacated")).toBe(false);
+    expect(subscribersOf(consumers, "authority.stewardship_vacated")).toEqual([
+      "reassessApplicationPremises",
+    ]);
   });
 });
 

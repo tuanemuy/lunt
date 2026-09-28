@@ -25,9 +25,15 @@ import {
   readReviewPolicy,
 } from "../../di/application";
 
-describe("Application wiring in stage 1", () => {
-  it("registers no production kind: the ports run and hold nothing", async () => {
-    expect(APPLICATION_KINDS).toEqual({});
+describe("Application wiring", () => {
+  it("registers the stage-2 kinds; the ports start empty", async () => {
+    expect(Object.keys(APPLICATION_KINDS).sort()).toEqual([
+      "listing",
+      "listingRevision",
+      "registration",
+      "revision",
+      "stewardship",
+    ]);
     const { container } = createTestContainer();
     const ids = applicationIds();
     const id = ids.application();
