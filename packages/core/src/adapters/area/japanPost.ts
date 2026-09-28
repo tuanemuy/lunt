@@ -7,10 +7,11 @@
  *   file), so every row is a town.
  * - 「以下に掲載がない場合」 is the whole-municipality town: empty name and
  *   reading.
- * - 「{…}の次に番地がくる場合」 (an address where the block number follows
- *   the municipality's name) is a town without a place name of its own:
- *   empty name and reading, told apart from the whole-municipality town by
- *   its postal code.
+ * - 「{…}の次に番地がくる場合」 and 「{…}の次に{番地の範囲}番地がくる場合」
+ *   (an address where the block number follows the municipality's name,
+ *   e.g. `小菅村の次に１〜６６３番地がくる場合`) is a town without a place
+ *   name of its own: empty name and reading, told apart from the
+ *   whole-municipality town and from each other by the postal code.
  * - A municipality without that row whose only row is `〇〇一円` (e.g.
  *   `御蔵島村一円`) takes that row as its whole-municipality town.
  * - Per-floor rows of buildings (`（１階）`, `（地階・階層不明）`) stay towns,
@@ -38,7 +39,8 @@ const Column = {
 const COLUMN_COUNT = 15;
 const WHOLE_MUNICIPALITY = "以下に掲載がない場合";
 const WHOLE_MUNICIPALITY_SUFFIX = "一円";
-const NUMBER_FOLLOWS = /の次に番地がくる場合$/u;
+/** Tested after the range notes are dropped (`…がくる場合（川東）`). */
+const NUMBER_FOLLOWS = /の次に.*番地.*がくる場合$/u;
 const HALF_WIDTH_KATAKANA = /[｡-ﾟ]+/gu;
 
 /** An innermost parenthesized group (full- or half-width parentheses). */
@@ -169,7 +171,8 @@ export function parseJapanPostCsv(text: string): AreaMasterRow[] {
     const cell = (column: number): string => (cells[column] ?? "").trim();
     const municipalityCode = cell(Column.municipalityCode);
     const name = cell(Column.townName);
-    const whole = name === WHOLE_MUNICIPALITY || NUMBER_FOLLOWS.test(name);
+    const whole =
+      name === WHOLE_MUNICIPALITY || NUMBER_FOLLOWS.test(dropRangeNotes(name));
     return {
       line,
       row: {

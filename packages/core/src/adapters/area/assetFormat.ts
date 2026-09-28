@@ -82,8 +82,8 @@ function groupRows(
  * Splits master rows into the asset files, keyed by their path under the
  * base path. Throws when the rows break the master's invariants (a code in
  * the wrong format, a municipality outside its prefecture, two names for
- * one code, the same town twice, more than two unnamed towns in one
- * municipality) — the importer must have resolved those already.
+ * one code, the same town twice) — the importer must have resolved those
+ * already.
  */
 export function buildAreaAssets(
   rows: readonly AreaMasterRow[],
@@ -91,7 +91,6 @@ export function buildAreaAssets(
   const prefectures = new Map<string, string>();
   const municipalities = new Map<string, string>();
   const townKeys = new Set<string>();
-  const unnamedTowns = new Map<string, number>();
   const townRows: AreaAssetTownRow[] = [];
 
   const sameName = (
@@ -124,17 +123,6 @@ export function buildAreaAssets(
       );
     }
     townKeys.add(key);
-    if (row.name === "") {
-      // The whole-municipality town and the 「…の次に番地がくる場合」 town
-      // (spec/domains/area.md), told apart by their postal codes.
-      const count = (unnamedTowns.get(municipalityCode) ?? 0) + 1;
-      if (count > 2) {
-        throw new Error(
-          `Municipality ${municipalityCode} has more than two unnamed towns`,
-        );
-      }
-      unnamedTowns.set(municipalityCode, count);
-    }
     townRows.push([areaCode, municipalityCode, row.name, row.kana]);
   }
 

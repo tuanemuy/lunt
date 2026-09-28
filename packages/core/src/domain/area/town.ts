@@ -17,7 +17,7 @@ export type Municipality = Readonly<{
  * The third level: a place name under one municipality with the postal code
  * of its area. Several towns may share one `AreaCode`. A town with an empty
  * `name` is the whole municipality or an address where the block number
- * follows the municipality's name — at most two per municipality, told
+ * follows the municipality's name — a municipality may have several, told
  * apart by `areaCode`.
  * Only `AreaCatalog` produces one — never built from user input.
  */
@@ -41,7 +41,7 @@ export const Town = {
 
   /**
    * The order `AreaCatalog.listTowns` returns: the unnamed towns first,
-   * then `kana`, `areaCode`, `name` ascending by code point (two unnamed
+   * then `kana`, `areaCode`, `name` ascending by code point (unnamed
    * towns by `areaCode`).
    */
   compare: (a: Town, b: Town): number => {

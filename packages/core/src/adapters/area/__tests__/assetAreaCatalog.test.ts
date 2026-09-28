@@ -213,17 +213,18 @@ describe("buildAreaAssets", () => {
       [...SAMPLE, { ...YANAKA, areaCode: "1100002", municipalityName: "台東" }],
     ],
     ["the same town twice", [...SAMPLE, ...SAMPLE]],
-    [
-      "three unnamed towns in one municipality",
-      [
-        { ...YANAKA, name: "", kana: "" },
-        { ...YANAKA, areaCode: "1100000", name: "", kana: "" },
-        { ...YANAKA, areaCode: "1100009", name: "", kana: "" },
-      ],
-    ],
     ["a malformed postal code", [{ ...YANAKA, areaCode: "110-0001" }]],
   ])("refuses %s", (_label, rows) => {
     expect(() => buildAreaAssets(rows)).toThrow();
+  });
+
+  it("keeps any number of unnamed towns in one municipality, told apart by postal code", () => {
+    const rows: readonly AreaMasterRow[] = [
+      { ...YANAKA, areaCode: "1100000", name: "", kana: "" },
+      { ...YANAKA, areaCode: "1100008", name: "", kana: "" },
+      { ...YANAKA, areaCode: "1100009", name: "", kana: "" },
+    ];
+    expect(() => buildAreaAssets(rows)).not.toThrow();
   });
 
   it("serves a municipality's two unnamed towns — the whole municipality and 「…の次に番地がくる場合」 — first, by postal code", async () => {

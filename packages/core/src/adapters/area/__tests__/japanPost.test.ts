@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildAreaAssets } from "../assetFormat";
 import { parseCsv, parseJapanPostCsv } from "../japanPost";
 
 const line = (
@@ -105,6 +106,71 @@ describe("parseJapanPostCsv (spec/domains/area.md import rules)", () => {
       ["3940091", "", ""],
       ["3940002", "赤羽", "アカハネ"],
     ]);
+  });
+
+  it("turns 「…の次に{番地の範囲}番地がくる場合」 into unnamed towns told apart by postal code, notes and all", () => {
+    const kosuge = (postal: string, kana: string, town: string) =>
+      line(
+        "19443",
+        postal,
+        "ヤマナシケン",
+        "キタツルグンコスゲムラ",
+        kana,
+        "山梨県",
+        "北都留郡小菅村",
+        town,
+      );
+    const kotohira = (postal: string, kana: string, town: string) =>
+      line(
+        "37403",
+        postal,
+        "カガワケン",
+        "ナカタドグンコトヒラチョウ",
+        kana,
+        "香川県",
+        "仲多度郡琴平町",
+        town,
+      );
+    const rows = parseJapanPostCsv(
+      [
+        kosuge("4090200", "イカニケイサイガナイバアイ", "以下に掲載がない場合"),
+        kosuge(
+          "4090142",
+          "コスゲムラノツギニ1-663バンチガクルバアイ",
+          "小菅村の次に１〜６６３番地がくる場合",
+        ),
+        kosuge(
+          "4090211",
+          "コスゲムラノツギニ664バンチイコウガクルバアイ",
+          "小菅村の次に６６４番地以降がくる場合",
+        ),
+        kotohira(
+          "7660002",
+          "コトヒラチョウノツギニ1-426バンチガクルバアイ(カワヒガシ)",
+          "琴平町の次に１〜４２６番地がくる場合（川東）",
+        ),
+        kotohira(
+          "7660001",
+          "コトヒラチョウノツギニ427バンチイコウガクルバアイ(カワニシ)",
+          "琴平町の次に４２７番地以降がくる場合（川西）",
+        ),
+      ].join("\n"),
+    );
+    expect(
+      rows.map((row) => [
+        row.areaCode,
+        row.municipalityCode,
+        row.name,
+        row.kana,
+      ]),
+    ).toEqual([
+      ["4090200", "19443", "", ""],
+      ["4090142", "19443", "", ""],
+      ["4090211", "19443", "", ""],
+      ["7660002", "37403", "", ""],
+      ["7660001", "37403", "", ""],
+    ]);
+    expect(() => buildAreaAssets(rows)).not.toThrow();
   });
 
   it("keeps a 「一円」 place name in a municipality with other rows", () => {
