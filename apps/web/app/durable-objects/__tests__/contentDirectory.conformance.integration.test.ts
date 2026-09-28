@@ -2,6 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import {
   CONFORMANCE_CONTENT_LOOKUPS,
   describeContentDirectoryContract,
+  describeContentLookupMechanism,
   seedConformanceContent,
 } from "@repo/core/adapters/do/__conformance__/contentDirectory";
 import { DoContentDirectory } from "@repo/core/adapters/do/contentDirectory";
@@ -13,6 +14,8 @@ import type {
 } from "@repo/core/adapters/do/protocol/queries";
 import type { SqlExec } from "@repo/core/adapters/do/sql";
 import { describeContent } from "@repo/core/adapters/do/store/contentLookups";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import { RegionId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 
@@ -30,10 +33,33 @@ function isDescribe(
   return name === DESCRIBE;
 }
 
-// The real object's SQLite with the conformance-only lookups standing in
-// for the content kinds stage 1 does not have yet: each describe runs the
-// lookup mechanism inside the object.
+// The real object: listings and places stored through their repositories,
+// the directory reading the object's own lookups.
 describeContentDirectoryContract(async () => {
+  const stub = freshStub();
+  const client = stub as unknown as LuntStateClient;
+  return {
+    uow: new DoUnitOfWorkProvider(client, UuidV7Generator),
+    savedEvents: () =>
+      runInDurableObject(stub, (_instance, state) =>
+        state.storage.sql
+          .exec<{ event_type: string; aggregate_id: string; payload: string }>(
+            "SELECT event_type, aggregate_id, payload FROM outbox_events ORDER BY created_at, id",
+          )
+          .toArray()
+          .map((row) => ({
+            type: row.event_type,
+            aggregateId: row.aggregate_id,
+            payload: JSON.parse(row.payload) as unknown,
+          })),
+      ),
+    directory: new DoContentDirectory(client),
+  };
+});
+
+// The real object's SQLite with the conformance-only lookups standing in
+// for the content kinds that have no storage yet.
+describeContentLookupMechanism(async () => {
   const stub = freshStub();
   const client = stub as unknown as LuntStateClient;
   const inObject = <T>(fn: (sql: SqlExec) => T): Promise<T> =>

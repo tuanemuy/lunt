@@ -1,0 +1,157 @@
+import { TakedownClaimId } from "@repo/core/domain/common/ids";
+import { describe, expect, it } from "vitest";
+import { expectCode } from "../../authority/__tests__/kit";
+import { ForbiddenError, NotFoundError } from "../../errors";
+import { updateListing } from "../../listing/updateListing";
+import { type ModerationKit, moderationKit } from "./kit";
+
+async function claimedListing(k: ModerationKit, photos: number, name = "掲載") {
+  const placeId = await k.place();
+  const m = await k.manager(placeId);
+  const listing = await k.listingWithPhotos(m, placeId, photos, name);
+  const target = { kind: "listing", id: listing.id } as const;
+  const [first] = listing.photos;
+  if (first === undefined) throw new Error("photos");
+  const claimId = await k.claim({ target, photoIds: [first] });
+  return { placeId, m, listing, target, claimId };
+}
+
+describe("getTakedownClaim", () => {
+  it("getTakedownClaim#1 写真の権利者が、閲覧できる掲載の写真3枚のうち1枚を示した、未対応の申立てがある。操作する人はサービス運営者 / 申立てを読む", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const placeId = await k.place();
+    const m = await k.manager(placeId);
+    const listing = await k.listingWithPhotos(m, placeId, 3, "限定メニュー");
+    const [p1, p2, p3] = listing.photos;
+    if (p1 === undefined || p2 === undefined || p3 === undefined) {
+      throw new Error("three photos");
+    }
+    const target = { kind: "listing", id: listing.id } as const;
+    const receivedAt = k.clock.now();
+    const claimId = await k.claim({
+      target,
+      photoIds: [p2],
+      reason: "私が撮った写真です",
+      email: "rights@example.com",
+    });
+    const detail = await k.readClaim(op, claimId);
+    expect(detail).toEqual({
+      claimId,
+      standing: "photoRightsHolder",
+      target,
+      claimedPhotoIds: [p2],
+      reason: "私が撮った写真です",
+      email: "rights@example.com",
+      receivedAt,
+      status: "open",
+      outcome: null,
+      targetName: "限定メニュー",
+      targetExists: true,
+      targetViewable: true,
+      photos: [p1, p2, p3].map((photoId) => ({
+        photoId,
+        displayRef: { url: expect.any(String) },
+        claimed: photoId === p2,
+      })),
+      removedClaimedPhotoIds: [],
+    });
+  });
+
+  it("getTakedownClaim#2 店舗本人が店舗を対象にした、未対応の申立てがある。店舗は写真を持つ / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const place = await k.placeWithPhotos(2, "一号店");
+    const claimId = await k.claim({ target: { kind: "place", id: place.id } });
+    const detail = await k.readClaim(await k.operator(), claimId);
+    expect(detail.claimedPhotoIds).toEqual([]);
+    expect(detail.photos.map((p) => [p.photoId, p.claimed])).toEqual(
+      place.photos.map((photoId) => [photoId, false]),
+    );
+  });
+
+  it("getTakedownClaim#3 未対応の申立ての対象の掲載が、運営による非公開になっている / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const { listing, claimId } = await claimedListing(k, 2, "限定メニュー");
+    await k.suspend(op, listing.id);
+    const detail = await k.readClaim(op, claimId);
+    expect(detail).toMatchObject({
+      targetExists: true,
+      targetViewable: false,
+      targetName: "限定メニュー",
+    });
+    expect(detail.photos.map((p) => p.photoId)).toEqual(listing.photos);
+  });
+
+  it("getTakedownClaim#4 未対応の申立ての対象の掲載の店舗が、非公開になっている / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const { placeId, listing, claimId } = await claimedListing(k, 2);
+    await k.suspendPlace(placeId);
+    const detail = await k.readClaim(await k.operator(), claimId);
+    expect(detail).toMatchObject({ targetExists: true, targetViewable: false });
+    expect(detail.photos.map((p) => p.photoId)).toEqual(listing.photos);
+  });
+
+  it("getTakedownClaim#5 未対応の申立ての対象の掲載が、提出の後に削除されている / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const { m, listing, target, claimId } = await claimedListing(k, 2);
+    await k.remove(m, listing.id);
+    const detail = await k.readClaim(await k.operator(), claimId);
+    expect(detail).toMatchObject({
+      claimId,
+      target,
+      status: "open",
+      targetExists: false,
+      targetViewable: false,
+      targetName: null,
+      photos: [],
+    });
+  });
+
+  it("getTakedownClaim#6 未対応の申立てで示された写真が、提出の後に対象から外されている。対象は残っている / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const { m, listing, claimId } = await claimedListing(k, 2);
+    const [claimed, kept] = listing.photos;
+    if (claimed === undefined || kept === undefined) throw new Error("photos");
+    const stored = (await k.stored(listing.id)).entity;
+    await updateListing({
+      container: k.container,
+      actor: m.actor,
+      input: {
+        listingId: listing.id,
+        version: stored.version,
+        content: k.content({ name: "掲載", photos: [kept] }),
+      },
+    });
+    const detail = await k.readClaim(await k.operator(), claimId);
+    expect(detail.photos.map((p) => p.photoId)).toEqual([kept]);
+    expect(detail.claimedPhotoIds).toEqual([claimed]);
+    expect(detail.removedClaimedPhotoIds).toEqual([claimed]);
+  });
+
+  it("getTakedownClaim#7 対応済みの申立てがある / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const { claimId } = await claimedListing(k, 1);
+    await k.resolveClaim(op, claimId, "措置は行いません");
+    expect(await k.readClaim(op, claimId)).toMatchObject({
+      status: "resolved",
+      outcome: "措置は行いません",
+    });
+  });
+
+  it("getTakedownClaim#8 サービス運営者。存在しない TakedownClaimId / 申立てを読む", async () => {
+    const k = await moderationKit();
+    await expectCode(
+      k.readClaim(await k.operator(), TakedownClaimId.create(k.newId())),
+      NotFoundError,
+      "TAKEDOWN_CLAIM_NOT_FOUND",
+    );
+  });
+
+  it("getTakedownClaim#9 未対応の申立てがある。操作する人はサービス運営者の役割を持たない / 申立てを読む", async () => {
+    const k = await moderationKit();
+    const { m, claimId } = await claimedListing(k, 1);
+    await expectCode(k.readClaim(m, claimId), ForbiddenError);
+  });
+});

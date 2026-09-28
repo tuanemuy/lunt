@@ -1,8 +1,12 @@
 import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { EventId } from "@repo/core/domain/common/event";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { MediaErrorCode } from "@repo/core/domain/media/errorCode";
 import { PhotoOwnership } from "@repo/core/domain/media/photoOwnership";
 import { describe, expect, it } from "vitest";
+import { NotFoundError } from "../../errors";
+import { eventDecoders } from "../../events/registry";
+import { moderationKit } from "../../moderation/__tests__/kit";
 import { discardReleasedPhotos } from "../discardReleasedPhotos";
 import { type MediaKit, mediaKit } from "./kit";
 
@@ -83,9 +87,45 @@ describe("discardReleasedPhotos", () => {
     );
   });
 
-  it.todo(
-    "discardReleasedPhotos#6 申立てで削除された写真（MOD-02） / takeDownPhotosByClaim が出した photos.released を消費する",
-  );
+  it("discardReleasedPhotos#6 申立てで削除された写真（MOD-02） / takeDownPhotosByClaim が出した photos.released を消費する", async () => {
+    const k = await moderationKit();
+    const placeId = await k.place();
+    const m = await k.manager(placeId);
+    const listing = await k.listingWithPhotos(m, placeId, 2);
+    const [A] = listing.photos;
+    if (A === undefined) throw new Error("photo");
+    const target = { kind: "listing", id: listing.id } as const;
+    const claimId = await k.claim({ target, photoIds: [A] });
+    await k.takeDown(await k.operator(), claimId, target, [A]);
+    const [stored] = await k.events("photos.released");
+    if (stored === undefined) throw new Error("no photos.released");
+    await discardReleasedPhotos.handle(
+      k.container,
+      eventDecoders["photos.released"](stored.payload, {
+        id: EventId.create(k.newId()),
+        occurredAt: stored.occurredAt,
+        aggregateId: stored.aggregateId,
+      }),
+    );
+    const found = await k.run(({ photoAssetRepository }) =>
+      photoAssetRepository.findByIds([A]),
+    );
+    expect(found).toEqual([]);
+    await expect(
+      k.container.photoStorage.copy(A, PhotoId.create(k.newId())),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expectBusinessRuleError(
+      Promise.resolve().then(() =>
+        PhotoOwnership.claimAll(
+          found.map((f) => f.entity),
+          [A],
+          { kind: "place", id: placeId },
+          m.actor,
+        ),
+      ),
+      MediaErrorCode.PhotoNotAvailable,
+    );
+  });
 
   it("discardReleasedPhotos#7 photos.released に載っていない、同じ読みものの別の写真 / photos.released を消費する", async () => {
     const k = mediaKit();
@@ -97,8 +137,6 @@ describe("discardReleasedPhotos", () => {
     expect(await k.served(b)).toEqual(content);
   });
 
-  // Mechanism of #6 until Moderation (S2B-MOD) emits the event: a deleted
-  // photo can never be put on any aggregate again.
   it("a photo deleted on release cannot be claimed by any owner", async () => {
     const k = mediaKit();
     const { editor, a } = await articlePhotos(k);

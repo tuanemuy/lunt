@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONFORMANCE_CONTENT_LOOKUPS,
   describeContentDirectoryContract,
+  describeContentLookupMechanism,
   seedConformanceContent,
 } from "../__conformance__/contentDirectory";
 import { DoContentDirectory } from "../contentDirectory";
@@ -10,6 +11,15 @@ import type { LuntStateClient } from "../protocol/client";
 import type { QueryArgs, QueryName, QueryResult } from "../protocol/queries";
 import { CONTENT_LOOKUPS, describeContent } from "../store/contentLookups";
 import { createNodeHarness } from "../testing/nodeHarness";
+
+// Node backend: the directory adapter over the object's store code on
+// `node:sqlite`, with listings and places stored through their real
+// repositories. The same suites run against the real object in the
+// Workers pool.
+describeContentDirectoryContract(async () => {
+  const h = createNodeHarness();
+  return { ...h, directory: new DoContentDirectory(h.state.client) };
+});
 
 const DESCRIBE = "moderation.describeContent";
 
@@ -20,11 +30,7 @@ function isDescribe(
   return name === DESCRIBE;
 }
 
-// Node backend: the directory adapter and the object's lookup mechanism on
-// `node:sqlite`, with the conformance-only lookups standing in for the
-// content kinds stage 1 does not have yet. The same suite runs against the
-// real object in the Workers pool.
-describeContentDirectoryContract(async () => {
+describeContentLookupMechanism(async () => {
   const { state } = createNodeHarness();
   const { sql } = state.storage;
   const client: Pick<LuntStateClient, "query"> = {

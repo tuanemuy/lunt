@@ -22,11 +22,11 @@ export function createTestModerationServices(
 }
 
 /**
- * Test-only `ContentDirectory` holding the targets a test adds. No content
- * kind has its tables yet in stage 1, so a usecase test that needs a
- * target's name swaps this in: `createTestContainer({ overrides: () => ({
- * contentDirectory: directory }) })`. It keeps the port's contract (0–100
- * targets, existing ones only, `ContentOrder`).
+ * Test-only `ContentDirectory` holding the targets a test adds, for tests
+ * that name targets without storing them (regions, occasions and articles
+ * have no storage before their stages): `createTestContainer({ overrides:
+ * () => ({ contentDirectory: directory }) })`. It keeps the port's contract
+ * (0–100 targets, existing ones only, `ContentOrder`).
  */
 export class TestContentDirectory implements ContentDirectory {
   private readonly targets = new Map<string, ContentSummary>();
