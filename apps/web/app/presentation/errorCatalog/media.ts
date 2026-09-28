@@ -15,7 +15,7 @@ export const mediaErrorCatalog = {
   ),
   [MediaErrorCode.InvalidFormat]: invalid("写真の形式を読み取れませんでした"),
   [MediaErrorCode.NotAPhoto]: invalid(
-    "このファイルは写真として扱えません。JPEG・PNG・WebP の静止画を選んでください",
+    "このファイルは写真として扱えません。JPEG・PNG・WebP の静止画（縦横とも16384ピクセルまで）を選んでください",
   ),
   [MediaErrorCode.InvalidPolicy]: invalid("写真の設定値が正しくありません"),
   [MediaErrorCode.DuplicateSourceUnavailable]: changed(
