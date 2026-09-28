@@ -20,6 +20,7 @@
 | テスト環境で日次のジョブを実行する | `/__dev/clock` → 「日次のジョブを実行する」 (every daily job, on the application's time; the result per job is listed) |
 | 日次のジョブは手順が実行を指示したときだけ動く | `DAILY_JOBS_AUTO="off"` (in the example settings) stops the Cron Trigger |
 | 通信エラー | the browser's developer tools → offline |
+| 店舗管理者 O1 の店舗（段階2） | Stage 2 has no screen that gives a store its first steward (claim approval comes with S2B). Log the account in once, then `/__dev/stewards` → store id (from `/places/$placeId`) + the account's address. It records the appointment as a claim approval would (`authority.steward_appointed`, `via: "application"`); later stewards join through CM-02 invitations |
 
 ## Where the development tools answer
 
