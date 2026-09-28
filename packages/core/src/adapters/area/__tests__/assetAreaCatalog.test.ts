@@ -214,14 +214,46 @@ describe("buildAreaAssets", () => {
     ],
     ["the same town twice", [...SAMPLE, ...SAMPLE]],
     [
-      "two whole-municipality towns",
+      "three unnamed towns in one municipality",
       [
         { ...YANAKA, name: "", kana: "" },
         { ...YANAKA, areaCode: "1100000", name: "", kana: "" },
+        { ...YANAKA, areaCode: "1100009", name: "", kana: "" },
       ],
     ],
     ["a malformed postal code", [{ ...YANAKA, areaCode: "110-0001" }]],
   ])("refuses %s", (_label, rows) => {
     expect(() => buildAreaAssets(rows)).toThrow();
+  });
+
+  it("serves a municipality's two unnamed towns — the whole municipality and 「…の次に番地がくる場合」 — first, by postal code", async () => {
+    const okaya = {
+      prefectureCode: "20",
+      prefectureName: "長野県",
+      municipalityCode: "20204",
+      municipalityName: "岡谷市",
+    } as const;
+    const rows: readonly AreaMasterRow[] = [
+      { ...okaya, areaCode: "3940091", name: "", kana: "" },
+      { ...okaya, areaCode: "3940002", name: "赤羽", kana: "アカハネ" },
+      { ...okaya, areaCode: "3940000", name: "", kana: "" },
+    ];
+    const catalog = new AssetAreaCatalog(
+      InMemoryAreaAssets.fromRows(rows, "/area"),
+      { basePaths: ["/area"] },
+    );
+
+    const towns = await catalog.listTowns(MunicipalityCode.create("20204"));
+
+    expect(towns.map((town) => [town.areaCode, town.name])).toEqual([
+      ["3940000", ""],
+      ["3940091", ""],
+      ["3940002", "赤羽"],
+    ]);
+    const [numberFollows] = await catalog.findTownsByPostalCode(
+      PostalCode.create("3940091"),
+    );
+    expect(numberFollows?.name).toBe("");
+    expect(numberFollows?.municipality.name).toBe("岡谷市");
   });
 });

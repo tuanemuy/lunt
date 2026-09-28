@@ -21,7 +21,7 @@ import type { TownRef } from "../townRef";
  * Orders:
  * - `listPrefectures`, `listMunicipalities`: `code` ascending.
  * - `listTowns`, `findTownsByPostalCode`: `Town.compare` — the
- *   whole-municipality town (empty `name`) first, then `kana`, `areaCode`,
+ *   unnamed towns (empty `name`) first, then `kana`, `areaCode`,
  *   `name` ascending by code point.
  * - `labelSelections`: the argument order, selections of codes the master
  *   lacks left out (no de-duplication).

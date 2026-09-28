@@ -16,7 +16,9 @@ export type Municipality = Readonly<{
 /**
  * The third level: a place name under one municipality with the postal code
  * of its area. Several towns may share one `AreaCode`. A town with an empty
- * `name` stands for the whole municipality (at most one per municipality).
+ * `name` is the whole municipality or an address where the block number
+ * follows the municipality's name — at most two per municipality, told
+ * apart by `areaCode`.
  * Only `AreaCatalog` produces one — never built from user input.
  */
 export type Town = Readonly<{
@@ -24,7 +26,7 @@ export type Town = Readonly<{
   prefecture: Prefecture;
   municipality: Municipality;
   name: string;
-  /** Reading of `name`; sorts towns. Empty for the whole-municipality town. */
+  /** Reading of `name`; sorts towns. Empty for an unnamed town. */
   kana: string;
 }>;
 
@@ -38,8 +40,9 @@ export const Town = {
     a.name === b.name,
 
   /**
-   * The order `AreaCatalog.listTowns` returns: the whole-municipality town
-   * first, then `kana`, `areaCode`, `name` ascending by code point.
+   * The order `AreaCatalog.listTowns` returns: the unnamed towns first,
+   * then `kana`, `areaCode`, `name` ascending by code point (two unnamed
+   * towns by `areaCode`).
    */
   compare: (a: Town, b: Town): number => {
     const aWhole = a.name === "";

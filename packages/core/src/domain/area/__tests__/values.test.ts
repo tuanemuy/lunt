@@ -147,6 +147,25 @@ describe("Town", () => {
     expect(sorted).toEqual([whole, d, b, a, c]);
   });
 
+  it("labels and addresses the 「…の次に番地がくる場合」 town like the whole municipality, told apart by postal code", () => {
+    const whole = town("1000000", "", "");
+    const numberFollows = town("1000091", "", "");
+    expect(TownFns.label(numberFollows)).toBe("100-0091 東京都千代田区");
+    expect(TownFns.label(whole)).toBe("100-0000 東京都千代田区");
+    expect(TownFns.equals(whole, numberFollows)).toBe(false);
+    const address = TownFns.toAddress(numberFollows, "123番地");
+    expect(address).toMatchObject({
+      areaCode: "1000091",
+      town: "",
+      rest: "123番地",
+    });
+    expect(
+      [town("1000004", "大手町", "オオテマチ"), numberFollows, whole].sort(
+        TownFns.compare,
+      ),
+    ).toEqual([whole, numberFollows, town("1000004", "大手町", "オオテマチ")]);
+  });
+
   it("is equal when areaCode, municipality and name match, regardless of kana", () => {
     expect(
       TownFns.equals(town("1000004", "大手町", "オオテマチ"), {

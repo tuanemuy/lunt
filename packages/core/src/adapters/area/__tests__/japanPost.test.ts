@@ -77,6 +77,36 @@ describe("parseJapanPostCsv (spec/domains/area.md import rules)", () => {
     ]);
   });
 
+  it("turns 「…の次に番地がくる場合」 into an unnamed town beside the whole-municipality town", () => {
+    const okaya = (postal: string, kana: string, town: string) =>
+      line(
+        "20204",
+        postal,
+        "ナガノケン",
+        "オカヤシ",
+        kana,
+        "長野県",
+        "岡谷市",
+        town,
+      );
+    const rows = parseJapanPostCsv(
+      [
+        okaya("3940000", "イカニケイサイガナイバアイ", "以下に掲載がない場合"),
+        okaya(
+          "3940091",
+          "オカヤシノツギニバンチガクルバアイ",
+          "岡谷市の次に番地がくる場合",
+        ),
+        okaya("3940002", "アカハネ", "赤羽"),
+      ].join("\n"),
+    );
+    expect(rows.map((row) => [row.areaCode, row.name, row.kana])).toEqual([
+      ["3940000", "", ""],
+      ["3940091", "", ""],
+      ["3940002", "赤羽", "アカハネ"],
+    ]);
+  });
+
   it("keeps a 「一円」 place name in a municipality with other rows", () => {
     const taga = (postal: string, kana: string, town: string) =>
       line(

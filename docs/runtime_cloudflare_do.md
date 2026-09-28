@@ -138,7 +138,7 @@ The area master (prefectures, municipalities, towns) is static JSON served from 
 2. Import it (a `.zip`, the extracted `utf_ken_all.csv`, or the URL): `pnpm area:import ~/Downloads/utf_ken_all.zip`. The files go to `apps/web/public/area/` (`index.json`, `towns/{prefecture}.json`, `postal/{first 3 digits}.json`; about 1,000 files). They are gitignored; `pnpm build` copies them into `dist/client`, and they deploy with the Worker. Re-run the import and redeploy when Japan Post publishes new data (monthly).
 3. Restart `pnpm dev` after importing: each isolate keeps the master it first read.
 
-Without an import, development (`DEV_TOOLS=1`) uses the committed sample in `apps/web/public/area-sample/` (Tokyo's Chiyoda, Chuo, Bunkyo, Taito, Mikurajima; Yokohama Naka; Osaka Kita — every postal code the manual tests use), built from `apps/web/scripts/areaSample.csv`. A deployment without `DEV_TOOLS` reads only `/area`, and area lookups fail with `DATA_INTEGRITY_ERROR` until the master is imported.
+Without an import, development (`DEV_TOOLS=1`) uses the committed sample in `apps/web/public/area-sample/` (Tokyo's Chiyoda, Chuo, Bunkyo, Taito, Mikurajima; Yokohama Naka; Osaka Kita; Okaya, Nagano, for the 「…の次に番地がくる場合」 town — every postal code the manual tests use), built from `apps/web/scripts/areaSample.csv`. A deployment without `DEV_TOOLS` reads only `/area`, and area lookups fail with `DATA_INTEGRITY_ERROR` until the master is imported.
 
 Maintenance: `pnpm area:import apps/web/scripts/areaSample.csv --out apps/web/public/area-sample` rebuilds the sample; `pnpm area:import --test-master` rebuilds the tests' master (`packages/core/src/adapters/area/testing/testMasterAssets/`). Tests check that both committed copies match their sources.
 
