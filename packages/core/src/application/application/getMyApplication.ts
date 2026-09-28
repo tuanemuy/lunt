@@ -23,7 +23,7 @@ import {
   type ApplicationStatusView,
   applicantView,
   nameSubjects,
-  readRegistrations,
+  readSummaryReads,
   type SubjectView,
 } from "./views";
 
@@ -79,12 +79,12 @@ export async function getMyApplication({
     return {
       app,
       source: await readContentSource(ctx, app),
-      registrations: await readRegistrations(ctx, [app]),
+      reads: await readSummaryReads(ctx, [app]),
     };
   });
   const { app, source } = read;
   const [subjects, refs] = await Promise.all([
-    nameSubjects(container.contentDirectory, [app], read.registrations),
+    nameSubjects(container.contentDirectory, [app], read.reads.registrations),
     displayRefsOf(container.photoStorage, photoIdsOf(source)),
   ]);
   const named = subjects.get(app.id) ?? [];
@@ -93,7 +93,7 @@ export async function getMyApplication({
     kind: app.target.kind,
     version: app.version,
     submittedAt: app.submittedAt,
-    applicant: applicantView(app, named),
+    applicant: applicantView(app, named, read.reads.emails),
     subjects: named,
     status: app.status,
     content: contentView(source, refs),

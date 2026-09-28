@@ -5,7 +5,7 @@ import { authorizeRole } from "../authority/access";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
-  readRegistrations,
+  readSummaryReads,
   summarizeAll,
 } from "./views";
 
@@ -60,16 +60,12 @@ export async function listApplicationsAwaitingReview({
     desk,
     pagination,
   );
-  const registrations = await container.unitOfWorkProvider.run(async (ctx) => {
+  const reads = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeRole(ctx, actor, "operate_service");
-    return readRegistrations(ctx, page.items);
+    return readSummaryReads(ctx, page.items);
   });
   return {
-    items: await summarizeAll(
-      container.contentDirectory,
-      page.items,
-      registrations,
-    ),
+    items: await summarizeAll(container.contentDirectory, page.items, reads),
     count: page.count,
   };
 }

@@ -41,7 +41,7 @@ describe("getMyApplication", () => {
       kind: "stewardship",
       version: a1.version,
       submittedAt: a1.submittedAt,
-      applicant: { kind: "individual", accountId: A.accountId },
+      applicant: { kind: "individual", accountId: A.accountId, email: A.email },
       subjects: [{ ref: placeRef(p1), name: "山田珈琲店", notYet: false }],
       status: { kind: "underReview", since: a1.submittedAt, answering: null },
       content: {

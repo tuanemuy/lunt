@@ -56,6 +56,30 @@ describe("listApplicationsAwaitingReview", () => {
     });
   });
 
+  it("each individual applicant comes with their account's email address, or null once they have withdrawn", async () => {
+    const k = await reviewKit();
+    const A = await k.person("A");
+    const B = await k.person("B");
+    const { claim: a1 } = await k.claimOnPlace(A);
+    const { claim: b1 } = await k.claimOnPlace(B);
+    await k.deleteAccount(B);
+
+    const byId = new Map(
+      (await k.awaiting("asApprover")).items.map((i) => [i.id, i]),
+    );
+
+    expect(byId.get(a1.id)?.applicant).toEqual({
+      kind: "individual",
+      accountId: A.accountId,
+      email: A.email,
+    });
+    expect(byId.get(b1.id)?.applicant).toEqual({
+      kind: "individual",
+      accountId: B.accountId,
+      email: null,
+    });
+  });
+
   it.todo(
     "listApplicationsAwaitingReview#2 X への所属の申請 b1（10日前から確認中）、e1 への参加の申請 b2（8日前から確認中）、X への離脱の申請 b3（3日前から確認中）が保存されている / O が、期間超過の代行ができる申請を読む",
   );

@@ -8,7 +8,7 @@ import { authorizeOnTarget, readActorAuthority } from "../authority/access";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
-  readRegistrations,
+  readSummaryReads,
   summarizeAll,
 } from "./views";
 
@@ -85,14 +85,10 @@ export async function listMyApplications({
       criteria,
       pagination,
     );
-    return { page, registrations: await readRegistrations(ctx, page.items) };
+    return { page, reads: await readSummaryReads(ctx, page.items) };
   });
   const [items, place] = await Promise.all([
-    summarizeAll(
-      container.contentDirectory,
-      read.page.items,
-      read.registrations,
-    ),
+    summarizeAll(container.contentDirectory, read.page.items, read.reads),
     placeId === null
       ? null
       : container.contentDirectory

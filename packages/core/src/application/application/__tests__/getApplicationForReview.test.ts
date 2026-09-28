@@ -86,6 +86,26 @@ describe("getApplicationForReview", () => {
     );
   });
 
+  it("an individual applicant comes with their account's email address, or null once they have withdrawn", async () => {
+    const k = await reviewKit();
+    const A = await k.person("A");
+    const B = await k.person("B");
+    const { claim: a1 } = await k.claimOnPlace(A);
+    const { claim: b1 } = await k.claimOnPlace(B);
+    await k.deleteAccount(B);
+
+    expect((await k.forReview(k.O, a1.id)).applicant).toEqual({
+      kind: "individual",
+      accountId: A.accountId,
+      email: A.email,
+    });
+    expect((await k.forReview(k.O, b1.id)).applicant).toEqual({
+      kind: "individual",
+      accountId: B.accountId,
+      email: null,
+    });
+  });
+
   it("getApplicationForReview#2 併せた管理権限の申請 s1 が確認中。登録申請 r1 も確認中 / O が s1 を確かめる", async () => {
     const k = await reviewKit();
     const A = await k.person("A");

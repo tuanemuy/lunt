@@ -34,7 +34,7 @@ import {
   type ApplicationStatusView,
   applicantView,
   nameSubjects,
-  readRegistrations,
+  readSummaryReads,
   type SubjectView,
 } from "./views";
 
@@ -83,6 +83,7 @@ export type ApplicationForReview = Readonly<{
   /** The version a decision is sent with. */
   version: Version;
   submittedAt: Date;
+  /** An individual with their account's email address (`null` once withdrawn). */
   applicant: ApplicantView;
   subjects: readonly ReviewSubjectView[];
   /**
@@ -186,7 +187,9 @@ async function readFacts(
  * and per kind: places similar to a registration (suspended included) and
  * its companion claim; whether a claimed place already has stewards and
  * the claim's registration. Retired categories read as their active
- * successors.
+ * successors. An individual applicant comes with their account's email
+ * address, read through the Account port (`AccountRepository`), `null`
+ * once they have withdrawn.
  *
  * - `NotFoundError`; `ForbiddenError` when the actor is neither the
  *   approver nor an operator who may stand in.
@@ -213,13 +216,13 @@ export async function getApplicationForReview({
       permission,
       source,
       facts: await readFacts(ctx, source),
-      registrations: await readRegistrations(ctx, [app]),
+      reads: await readSummaryReads(ctx, [app]),
     };
   });
   const { app, source } = read;
   const judged = readViewability(source);
   const [subjects, refs] = await Promise.all([
-    nameSubjects(container.contentDirectory, [app], read.registrations),
+    nameSubjects(container.contentDirectory, [app], read.reads.registrations),
     displayRefsOf(container.photoStorage, photoIdsOf(source)),
   ]);
   const named = subjects.get(app.id) ?? [];
@@ -237,7 +240,7 @@ export async function getApplicationForReview({
     kind: app.target.kind,
     version: app.version,
     submittedAt: app.submittedAt,
-    applicant: applicantView(app, named),
+    applicant: applicantView(app, named, read.reads.emails),
     subjects: withViewability,
     status: app.status,
     content: contentView(source, refs),

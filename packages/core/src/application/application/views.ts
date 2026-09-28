@@ -10,6 +10,7 @@ import type {
   ContentSubject,
   NamedSubject,
 } from "@repo/core/domain/application/subject";
+import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type {
   AccountId,
@@ -40,12 +41,21 @@ export type SubjectView = Readonly<{
 }>;
 
 /**
- * Who applied. An application made as a place's steward shows the place
- * (P-76), named like the subject it always is.
+ * Who applied. An individual comes with their account's email address,
+ * read through the Account port (`AccountRepository.findByIds`) — `null`
+ * once they have withdrawn. An application made as a place's steward
+ * shows the place (P-76), named like the subject it always is.
  */
 export type ApplicantView =
-  | Readonly<{ kind: "individual"; accountId: AccountId }>
+  | Readonly<{
+      kind: "individual";
+      accountId: AccountId;
+      email: EmailAddress | null;
+    }>
   | Readonly<{ kind: "place"; placeId: PlaceId; name: string | null }>;
+
+/** The email addresses of the individual applicants read, by account. */
+export type ApplicantEmails = ReadonlyMap<AccountId, EmailAddress>;
 
 /**
  * The status as screens show it: under review since when (and, after a
@@ -130,6 +140,44 @@ function proposedContent(
 }
 
 /**
+ * The email addresses of the individual applicants of `apps`, read 100 at
+ * a time inside the reader's unit of work; a withdrawn account is absent.
+ */
+export async function readApplicantEmails(
+  ctx: Pick<UnitOfWorkContext, "accountRepository">,
+  apps: readonly AnyApplication[],
+): Promise<ApplicantEmails> {
+  const ids = [
+    ...new Set(
+      apps.flatMap(({ target: { applicant } }) =>
+        applicant.kind === "individual" ? [applicant.accountId] : [],
+      ),
+    ),
+  ];
+  const found = await Promise.all(
+    IdBatch.chunks(ids).map((chunk) => ctx.accountRepository.findByIds(chunk)),
+  );
+  return new Map(found.flat().map((account) => [account.id, account.email]));
+}
+
+/** What a reader reads with its applications to show them. */
+export type SummaryReads = Readonly<{
+  registrations: ReadonlyMap<ApplicationId, AnyApplication>;
+  emails: ApplicantEmails;
+}>;
+
+/** `readRegistrations` and `readApplicantEmails` of `apps`, in the reader's unit of work. */
+export async function readSummaryReads(
+  ctx: Pick<UnitOfWorkContext, "applicationRepository" | "accountRepository">,
+  apps: readonly AnyApplication[],
+): Promise<SummaryReads> {
+  return {
+    registrations: await readRegistrations(ctx, apps),
+    emails: await readApplicantEmails(ctx, apps),
+  };
+}
+
+/**
  * Names every content subject of `apps` (「申請の対象の名称」「まだない対象」):
  * content names from the applications and their `registrations`, the rest
  * through `ContentDirectory.describe`, 100 at a time. Call it outside any
@@ -189,10 +237,15 @@ export async function nameSubjects(
 export function applicantView(
   app: AnyApplication,
   subjects: readonly SubjectView[],
+  emails: ApplicantEmails,
 ): ApplicantView {
   const { applicant } = app.target;
   if (applicant.kind === "individual") {
-    return { kind: "individual", accountId: applicant.accountId };
+    return {
+      kind: "individual",
+      accountId: applicant.accountId,
+      email: emails.get(applicant.accountId) ?? null,
+    };
   }
   const place = subjects.find(
     ({ ref }) => ref.kind === "place" && ref.id === applicant.placeId,
@@ -207,11 +260,12 @@ export function applicantView(
 export function summarize(
   app: ApplicationValue,
   subjects: readonly SubjectView[],
+  emails: ApplicantEmails,
 ): ApplicationSummary {
   return {
     id: app.id,
     kind: app.target.kind,
-    applicant: applicantView(app, subjects),
+    applicant: applicantView(app, subjects, emails),
     subjects,
     status: app.status,
     submittedAt: app.submittedAt,
@@ -224,8 +278,10 @@ export function summarize(
 export async function summarizeAll(
   directory: ContentDirectory,
   apps: readonly ApplicationValue[],
-  registrations: ReadonlyMap<ApplicationId, AnyApplication>,
+  reads: SummaryReads,
 ): Promise<readonly ApplicationSummary[]> {
-  const subjects = await nameSubjects(directory, apps, registrations);
-  return apps.map((app) => summarize(app, subjects.get(app.id) ?? []));
+  const subjects = await nameSubjects(directory, apps, reads.registrations);
+  return apps.map((app) =>
+    summarize(app, subjects.get(app.id) ?? [], reads.emails),
+  );
 }

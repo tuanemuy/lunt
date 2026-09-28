@@ -37,7 +37,7 @@ describe("listMyApplications", () => {
     expect(result.place).toBeNull();
     expect(result.items[0]).toMatchObject({
       kind: "stewardship",
-      applicant: { kind: "individual", accountId: A.accountId },
+      applicant: { kind: "individual", accountId: A.accountId, email: A.email },
       subjects: [{ ref: placeRef(p1), name: "山田珈琲店", notYet: false }],
       status: { kind: "underReview" },
     });

@@ -10,7 +10,7 @@ import { authorizeOnTarget } from "../authority/access";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
-  readRegistrations,
+  readSummaryReads,
   summarizeAll,
 } from "./views";
 
@@ -107,14 +107,14 @@ export async function listApplicationsForSubject({
       items,
       count: page.count,
       underReviewCount,
-      registrations: await readRegistrations(ctx, items),
+      reads: await readSummaryReads(ctx, items),
     };
   });
   return {
     items: await summarizeAll(
       container.contentDirectory,
       read.items,
-      read.registrations,
+      read.reads,
     ),
     count: read.count,
     underReviewCount: read.underReviewCount,
