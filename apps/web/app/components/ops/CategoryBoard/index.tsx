@@ -2,6 +2,7 @@
 
 import {
   useActionState,
+  useEffect,
   useOptimistic,
   useRef,
   useState,
@@ -71,6 +72,10 @@ type Panel =
 
 type AddState = Readonly<{ name: string; error: string | null }>;
 
+const LIST_ID = "om06-table";
+const renameButtonId = (id: string): string => `om06-rename-${id}`;
+const retireButtonId = (id: string): string => `om06-retire-${id}`;
+
 /** The add whose outcome is not known to be final, resent with the same id. */
 type Attempt = { id: string; name: string };
 
@@ -98,10 +103,27 @@ export function CategoryBoard({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const attempt = useRef<Attempt | null>(null);
+  // A closed panel takes the focus with it; the element named here (the
+  // row's button, or the list after a retirement) takes it once committed
+  // and enabled — a renamed row's button stays disabled until it is saved.
+  const focusAfter = useRef<string | null>(null);
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (id === null) return;
+    const target = document.getElementById(id);
+    if (target === null || target.matches(":disabled")) return;
+    focusAfter.current = null;
+    target.focus();
+  });
+  const closePanel = (focus: string) => {
+    focusAfter.current = focus;
+    setPanel(null);
+  };
 
   const [addState, add, adding] = useActionState(
     async (_previous: AddState, form: FormData): Promise<AddState> => {
       const name = String(form.get("name") ?? "");
+      setOutcome(null);
       if (name.trim() === "") return { name, error: "名称を入力してください" };
       if (attempt.current?.name !== name.trim()) {
         attempt.current = { id: newId(), name: name.trim() };
@@ -123,17 +145,50 @@ export function CategoryBoard({
           return { name, error: fieldMessage(state) };
         }
         setOutcome({ kind: "failed", error: state });
+        if (state.kind !== "failed") await reconcile();
         return { name, error: null };
       }
     },
     { name: "", error: null },
   );
 
+  const [clearedAdd, setClearedAdd] = useState<AddState | null>(null);
+  const addError = addState === clearedAdd ? null : addState.error;
+  /** Another operation starts: earlier results no longer describe the list. */
+  const clearResults = () => {
+    setOutcome(null);
+    setClearedAdd(addState);
+  };
+  const openPanel = (next: Exclude<Panel, null>) => {
+    clearResults();
+    setPanel(next);
+  };
+
   const single = rows.length <= 1;
   return (
     <ManageBody>
       <ManageStatus>{`現役のカテゴリー ${rows.length}つ`}</ManageStatus>
-      {outcome === null ? null : outcome.kind === "failed" ? (
+      <div role="status">
+        {outcome === null || outcome.kind === "failed" ? null : (
+          <Notice
+            variant="manage"
+            title={
+              outcome.kind === "added"
+                ? `「${outcome.name}」を追加しました`
+                : outcome.kind === "renamed"
+                  ? `「${outcome.from}」を「${outcome.to}」に変更しました`
+                  : `「${outcome.name}」を廃止しました`
+            }
+          >
+            {outcome.kind === "added"
+              ? "並びの最後に入りました。掲載と絞り込みの選択肢に表示されます。"
+              : outcome.kind === "renamed"
+                ? "掲載のカテゴリーは変わりません。閲覧者には新しい名称で表示されます。"
+                : `「${outcome.name}」を設定したすべての掲載を「${outcome.successor}」に付け替えました。申請の内容にある「${outcome.name}」は「${outcome.successor}」として示します。`}
+          </Notice>
+        )}
+      </div>
+      {outcome?.kind !== "failed" ? null : (
         <Alert
           title={
             outcome.error.kind === "premiseChanged"
@@ -151,25 +206,6 @@ export function CategoryBoard({
                 ? "この変更は保存していません。最新の一覧を示しています。もう一度操作してください。"
                 : outcome.error.message}
         </Alert>
-      ) : (
-        <div role="status">
-          <Notice
-            variant="manage"
-            title={
-              outcome.kind === "added"
-                ? `「${outcome.name}」を追加しました`
-                : outcome.kind === "renamed"
-                  ? `「${outcome.from}」を「${outcome.to}」に変更しました`
-                  : `「${outcome.name}」を廃止しました`
-            }
-          >
-            {outcome.kind === "added"
-              ? "並びの最後に入りました。掲載と絞り込みの選択肢に表示されます。"
-              : outcome.kind === "renamed"
-                ? "掲載のカテゴリーは変わりません。閲覧者には新しい名称で表示されます。"
-                : `「${outcome.name}」を設定したすべての掲載を「${outcome.successor}」に付け替えました。申請の内容にある「${outcome.name}」は「${outcome.successor}」として示します。`}
-          </Notice>
-        </div>
       )}
 
       <form
@@ -186,7 +222,7 @@ export function CategoryBoard({
           label="名称"
           requirement="required"
           help="追加したカテゴリーは、並びの最後に入ります。"
-          {...(addState.error === null ? {} : { error: addState.error })}
+          {...(addError === null ? {} : { error: addError })}
         >
           {(control) => (
             <div className="m-inline">
@@ -212,7 +248,7 @@ export function CategoryBoard({
         <p className="m-field__help">
           作成した順に並びます。並び順を変える操作と、廃止を取り消す操作はありません。
         </p>
-        <table className="om-table">
+        <table className="om-table outline-none" id={LIST_ID} tabIndex={-1}>
           <thead>
             <tr>
               <th scope="col">順</th>
@@ -244,18 +280,20 @@ export function CategoryBoard({
                 <td className="om-table__ops">
                   <div className="om-table__opsbox">
                     <ChipButton
+                      id={renameButtonId(row.id)}
                       disabled={row.pending === true}
                       onClick={() =>
-                        setPanel({ kind: "rename", category: row })
+                        openPanel({ kind: "rename", category: row })
                       }
                     >
                       名称を変更
                     </ChipButton>
                     {single ? null : (
                       <ChipButton
+                        id={retireButtonId(row.id)}
                         disabled={row.pending === true}
                         onClick={() =>
-                          setPanel({ kind: "retire", category: row })
+                          openPanel({ kind: "retire", category: row })
                         }
                       >
                         廃止する
@@ -282,15 +320,16 @@ export function CategoryBoard({
         <RenamePanel
           key={panel.category.id}
           category={panel.category}
+          onStart={clearResults}
           onDone={(from, to) => {
-            setPanel(null);
+            closePanel(renameButtonId(panel.category.id));
             setOutcome({ kind: "renamed", from, to });
           }}
           onFailed={(error) => {
             setOutcome({ kind: "failed", error });
-            setPanel(null);
+            closePanel(renameButtonId(panel.category.id));
           }}
-          onCancel={() => setPanel(null)}
+          onCancel={() => closePanel(renameButtonId(panel.category.id))}
           applyOptimistic={applyOptimistic}
         />
       ) : null}
@@ -301,15 +340,16 @@ export function CategoryBoard({
           candidates={rows.filter(
             (row) => row.id !== panel.category.id && row.pending !== true,
           )}
+          onStart={clearResults}
           onDone={(name, successor) => {
-            setPanel(null);
+            closePanel(LIST_ID);
             setOutcome({ kind: "retired", name, successor });
           }}
           onFailed={(error) => {
-            setPanel(null);
+            closePanel(LIST_ID);
             setOutcome({ kind: "failed", error });
           }}
-          onCancel={() => setPanel(null)}
+          onCancel={() => closePanel(retireButtonId(panel.category.id))}
           applyOptimistic={applyOptimistic}
         />
       ) : null}
@@ -319,13 +359,17 @@ export function CategoryBoard({
 
 type PanelProps = {
   category: CategoryOption;
+  /** The change is sent: earlier results give way. */
+  onStart: () => void;
   onCancel: () => void;
+  /** A refusal that closes the panel (the board shows it with the fresh list). */
   onFailed: (error: ErrorState) => void;
   applyOptimistic: (action: OptimisticAction) => void;
 };
 
 function RenamePanel({
   category,
+  onStart,
   onDone,
   onFailed,
   onCancel,
@@ -334,6 +378,8 @@ function RenamePanel({
   const reconcile = useReconcile();
   const [name, setName] = useState(category.name);
   const [error, setError] = useState<string | null>(null);
+  // A communication failure keeps the panel and what was typed (CS-02).
+  const [lost, setLost] = useState(false);
   const [saving, startSave] = useTransition();
   const dirty = name !== category.name;
   return (
@@ -347,6 +393,9 @@ function RenamePanel({
           setError("名称を入力してください");
           return;
         }
+        setError(null);
+        setLost(false);
+        onStart();
         startSave(async () => {
           applyOptimistic({
             type: "rename",
@@ -359,6 +408,10 @@ function RenamePanel({
             await reconcile();
           } catch (caught) {
             const state = classifyError(caught);
+            if (state.kind === "failed") {
+              setLost(true);
+              return;
+            }
             if (state.kind === "invalidInput") setError(fieldMessage(state));
             else onFailed(state);
             await reconcile();
@@ -369,6 +422,18 @@ function RenamePanel({
       <SectionTitle variant="manage" id="om06-rename">
         {`「${category.name}」の名称を変更`}
       </SectionTitle>
+      {lost ? (
+        <Alert
+          title="名称を保存できませんでした"
+          actions={
+            <Button type="submit" variant="secondary" disabled={saving}>
+              もう一度保存
+            </Button>
+          }
+        >
+          通信を確かめて、もう一度保存してください。入力した名称は残っています。
+        </Alert>
+      ) : null}
       <Field
         id="om06-rename-name"
         label="新しい名称"
@@ -406,6 +471,7 @@ function RenamePanel({
 function RetirePanel({
   category,
   candidates,
+  onStart,
   onDone,
   onFailed,
   onCancel,
@@ -418,6 +484,7 @@ function RetirePanel({
   const [successorId, setSuccessorId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [lost, setLost] = useState(false);
   const [retiring, startRetire] = useTransition();
   const successor = candidates.find(
     (candidate) => candidate.id === successorId,
@@ -426,6 +493,8 @@ function RetirePanel({
   const retire = () => {
     setConfirming(false);
     if (successor === undefined) return;
+    setLost(false);
+    onStart();
     startRetire(async () => {
       applyOptimistic({ type: "retire", id: category.id });
       try {
@@ -435,7 +504,12 @@ function RetirePanel({
         onDone(category.name, successor.name);
         await reconcile();
       } catch (caught) {
-        onFailed(classifyError(caught));
+        const state = classifyError(caught);
+        if (state.kind === "failed") {
+          setLost(true);
+          return;
+        }
+        onFailed(state);
         await reconcile();
       }
     });
@@ -461,6 +535,18 @@ function RetirePanel({
       <SectionTitle variant="manage" id="om06-retire">
         {`「${category.name}」を廃止`}
       </SectionTitle>
+      {lost && successor !== undefined ? (
+        <Alert
+          title="廃止できませんでした"
+          actions={
+            <Button variant="secondary" disabled={retiring} onClick={retire}>
+              もう一度廃止する
+            </Button>
+          }
+        >
+          {`通信を確かめて、もう一度操作してください。移行先の「${successor.name}」は選んだままです。`}
+        </Alert>
+      ) : null}
       <Field
         id="om06-successor"
         label="移行先のカテゴリー"

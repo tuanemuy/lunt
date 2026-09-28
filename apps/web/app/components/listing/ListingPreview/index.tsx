@@ -2,6 +2,9 @@
 
 import { useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
+import { DetailPhotos } from "@/components/detail/DetailPhotos";
+import { ListingCardBody } from "@/components/detail/ListingCard";
+import { ListingHeroText } from "@/components/detail/ListingHero";
 import { ManageBody } from "@/components/layout/ManageShell";
 import {
   listingPagePath,
@@ -9,21 +12,15 @@ import {
   ShopPage,
 } from "@/components/manage/ShopShell";
 import { usePlaceFrame } from "@/components/manage/ShopShell/usePlaceFrame";
-import { FramedPhoto } from "@/components/photo/FramedPhoto";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
-import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { transitionListingFn } from "@/presentation/listing";
-import {
-  jpDate,
-  type ListingPreviewData,
-  offeringSummary,
-} from "@/presentation/listingView";
+import type { ListingPreviewData } from "@/presentation/listingView";
 import { useReconcile } from "@/presentation/reconcile";
 
 const MISSING_WORD: Readonly<Record<string, string>> = {
@@ -50,7 +47,6 @@ export function ListingPreview({ data }: { data: ListingPreviewData }) {
   const [failure, setFailure] = useState<ErrorState | null>(null);
   const [publishing, startPublish] = useTransition();
   const name = data.name ?? "名称未設定";
-  const [cover] = data.photos;
   const alreadyPublished = data.publication.status === "published";
   const canPublish = !alreadyPublished && !data.suspended;
 
@@ -168,7 +164,6 @@ export function ListingPreview({ data }: { data: ListingPreviewData }) {
     );
   }
 
-  const status = data.offeringStatus;
   return (
     <ShopPage
       frame={frame}
@@ -266,70 +261,20 @@ export function ListingPreview({ data }: { data: ListingPreviewData }) {
         <p className="cm03-meta">見る人には、このように表示されます。</p>
 
         <p className="cm03-label">掲載詳細</p>
-        <div className="cm03-hero">
-          <FramedPhoto
-            url={cover?.url ?? null}
-            framing={cover?.framing ?? null}
-            alt={name}
-            ratio={348 / 290}
-            className="cm03-hero__photo"
-          />
-          {data.category === null ? (
-            <p className="cm03-missing">カテゴリーが選ばれていません</p>
+        <div className="detail cm03-detail">
+          {data.hero.photos.length === 0 ? (
+            <p className="cm03-missing">写真が登録されていません</p>
           ) : (
-            <p className="cm03-hero__kind">{data.category}</p>
+            <DetailPhotos photos={data.hero.photos} />
           )}
-          <p className="cm03-hero__name">{name}</p>
-          <p className="cm03-hero__shop">
-            {[data.placeName, data.regionName]
-              .filter((part) => part !== null)
-              .join(" ・ ")}
-          </p>
-          {status.phase === "available" &&
-          data.operatingStatus === "open" ? null : (
-            <StatusTags>
-              {status.phase === "upcoming" ? (
-                <StatusTag>{`提供開始前・${jpDate(status.startsOn)}から`}</StatusTag>
-              ) : null}
-              {status.phase === "ended" ? (
-                <StatusTag quiet>提供終了</StatusTag>
-              ) : null}
-              {data.operatingStatus === "temporarilyClosed" ? (
-                <StatusTag quiet>お店は休業中</StatusTag>
-              ) : null}
-              {data.operatingStatus === "permanentlyClosed" ? (
-                <StatusTag quiet>お店は閉店しました</StatusTag>
-              ) : null}
-            </StatusTags>
-          )}
-          {data.description === null ? null : (
-            <p className="cm03-hero__desc">{data.description}</p>
-          )}
+          <ListingHeroText hero={data.hero} nameAs="p" />
         </div>
-        {data.offering.kind === "none" ? null : (
-          <p className="cm03-meta">
-            {data.offering.kind === "dates"
-              ? `開催日：${data.offering.dates.map(jpDate).join("、")}`
-              : `提供期間：${offeringSummary(data.offering)}`}
-          </p>
-        )}
 
         <p className="cm03-label">一覧のカード</p>
         <div className="card-grid cm03-cards">
           <article className="card">
             <div className="card__link">
-              <FramedPhoto
-                url={cover?.url ?? null}
-                framing={cover?.framing ?? null}
-                alt=""
-                ratio={1}
-                className="card__photo"
-              />
-              <p className="card__name">{name}</p>
-              <p className="card__shop">{data.placeName}</p>
-              {data.regionName === null ? null : (
-                <p className="card__area">{data.regionName}</p>
-              )}
+              <ListingCardBody item={data.card} />
             </div>
           </article>
         </div>

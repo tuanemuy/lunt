@@ -8,6 +8,7 @@ import {
   ManageTitle,
   ProxyBanner,
 } from "@/components/layout/ManageShell";
+import { OpsSearchReturnLink } from "@/components/ops/OpsSearchReturn";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
@@ -46,8 +47,8 @@ type SubmitState = Readonly<{
   fields: PlaceFieldErrors;
 }>;
 
-/** The registration whose outcome is not known to be final, resent with the same id. */
-type Attempt = { id: string; key: string };
+/** `registerPlaceByProxy`'s answer when the id already holds another store. */
+const PLACE_ID_CONFLICT = "PLACE_ID_CONFLICT";
 
 function ProxyNav() {
   return (
@@ -55,7 +56,7 @@ function ProxyNav() {
       label="店舗の管理"
       proxy={
         <ProxyBanner label="サービス運営者として代理登録中">
-          <TextLink to="/ops/search">対象を探すへ戻る</TextLink>
+          <OpsSearchReturnLink />
         </ProxyBanner>
       }
       links={<TextLink to="/me">マイページ</TextLink>}
@@ -67,17 +68,23 @@ function ProxyNav() {
  * SM-02 新規（代理登録）(SHP-12): an operator, having made sure on OM-02
  * that the store is not there, registers it. It is published as a store
  * without a steward; the registration is idempotent on the id minted for
- * this entry, so a lost answer is resent as a replay.
+ * this entry, so a lost answer is resent as a replay, and an edited resend
+ * of a stored registration is told apart (CS-08).
  */
 export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
   const [values, setValues] = useState<PlaceFormValues>(EMPTY);
   const [state, setState] = useState<SubmitState>({ error: null, fields: {} });
   const [registered, setRegistered] = useState<Registered | null>(null);
   const [registering, startRegister] = useTransition();
-  const attempt = useRef<Attempt | null>(null);
+  // Kept until the registration is known to have gone through: a failed
+  // attempt may have been stored with only its answer lost, so a resend
+  // (edited or not) must reach the same id.
+  const attemptId = useRef<string | null>(null);
+  const [taken, setTaken] = useState<string | null>(null);
 
   const register = () =>
     startRegister(async () => {
+      setTaken(null);
       const built = toPlaceProfile(values);
       if (!built.ok) {
         setState({
@@ -92,18 +99,24 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
         });
         return;
       }
-      const key = JSON.stringify(built.profile);
-      if (attempt.current?.key !== key) {
-        attempt.current = { id: newId(), key };
-      }
+      attemptId.current ??= newId();
+      const placeId = attemptId.current;
       try {
         const place = await registerPlaceByProxyFn({
-          data: { placeId: attempt.current.id, profile: built.profile },
+          data: { placeId, profile: built.profile },
         });
-        attempt.current = null;
+        attemptId.current = null;
         setRegistered(place);
       } catch (error) {
         const classified = classifyError(error);
+        if (
+          classified.kind === "conflict" &&
+          classified.code === PLACE_ID_CONFLICT
+        ) {
+          setTaken(placeId);
+          setState({ error: null, fields: {} });
+          return;
+        }
         setState({ error: classified, fields: placeFieldErrors(classified) });
       }
     });
@@ -173,6 +186,31 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
           register();
         }}
       >
+        {taken === null ? null : (
+          <Alert
+            title="この店舗は、すでに登録されていました"
+            actions={
+              <>
+                <ButtonLink
+                  variant="secondary"
+                  to="/manage/places/$placeId/info"
+                  params={{ placeId: taken }}
+                >
+                  登録された店舗情報を開く
+                </ButtonLink>
+                <ButtonLink
+                  variant="secondary"
+                  to="/ops/subjects/$kind/$id"
+                  params={{ kind: "place", id: taken }}
+                >
+                  店舗の運営へ
+                </ButtonLink>
+              </>
+            }
+          >
+            通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録された店舗を開いて、店舗情報を確かめてください。
+          </Alert>
+        )}
         {failure === null ? null : failure.kind === "invalidInput" ? (
           <Alert
             title="登録できませんでした"

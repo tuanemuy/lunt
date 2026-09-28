@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipButton } from "@/components/ui/ChipButton";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
@@ -22,6 +22,14 @@ const KIND_CHOICES = [
 ] as const;
 
 /**
+ * Enter in a date field would submit the listing form (saving it); it does
+ * nothing there, as in the rest of the offering.
+ */
+const keepFormUnsent = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === "Enter") event.preventDefault();
+};
+
+/**
  * CF-06 提供の設定: none, a period (start, end or both) or open dates —
  * one at a time; switching drops the previous setting. No times, seats
  * or bookings.
@@ -33,6 +41,16 @@ export function OfferingField({
   disabled = false,
 }: OfferingFieldProps) {
   const [adding, setAdding] = useState("");
+  const canAdd =
+    !disabled &&
+    adding !== "" &&
+    value.kind === "dates" &&
+    !value.dates.includes(adding);
+  const addDate = () => {
+    if (!canAdd || value.kind !== "dates") return;
+    onChange({ ...value, dates: [...value.dates, adding].sort() });
+    setAdding("");
+  };
   const pickKind = (kind: OfferingDraft["kind"]) => {
     if (kind === value.kind) return;
     onChange(
@@ -65,6 +83,7 @@ export function OfferingField({
                   type="date"
                   value={value.start}
                   disabled={disabled}
+                  onKeyDown={keepFormUnsent}
                   onChange={(event) =>
                     onChange({ ...value, start: event.currentTarget.value })
                   }
@@ -78,6 +97,7 @@ export function OfferingField({
                   type="date"
                   value={value.end}
                   disabled={disabled}
+                  onKeyDown={keepFormUnsent}
                   onChange={(event) =>
                     onChange({ ...value, end: event.currentTarget.value })
                   }
@@ -123,20 +143,13 @@ export function OfferingField({
               value={adding}
               disabled={disabled}
               onChange={(event) => setAdding(event.currentTarget.value)}
-            />
-            <Button
-              variant="secondary"
-              disabled={
-                disabled || adding === "" || value.dates.includes(adding)
-              }
-              onClick={() => {
-                onChange({
-                  ...value,
-                  dates: [...value.dates, adding].sort(),
-                });
-                setAdding("");
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                addDate();
               }}
-            >
+            />
+            <Button variant="secondary" disabled={!canAdd} onClick={addDate}>
               追加
             </Button>
           </div>

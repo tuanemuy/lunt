@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { ManageBody, ManageStatus } from "@/components/layout/ManageShell";
 import { ShopPage } from "@/components/manage/ShopShell";
 import { usePlaceFrame } from "@/components/manage/ShopShell/usePlaceFrame";
+import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
@@ -24,14 +25,15 @@ import {
 } from "../ListingFailureAlert";
 import { ListingFormFields } from "../ListingFormFields";
 
-/** The save whose outcome is not known to be final, resent with the same id. */
-type Attempt = { id: string; key: string };
+/** `createListingDraft`'s answer when the id already holds another listing. */
+const LISTING_ID_CONFLICT = "LISTING_ID_CONFLICT";
 
 /**
  * SM-04 新規 (LST-01, LST-15): an empty listing of the store. Only saving
  * is offered; the saved draft opens in SM-04 for the preview and publish.
- * The create is idempotent on the id minted for this content, so a lost
- * answer is resent as a replay.
+ * The create is idempotent on the id minted for this entry, kept until the
+ * save is known to have gone through, so a lost answer is resent as a
+ * replay and an edited resend of a stored save is told apart (CS-08).
  */
 export function NewListingEditor({
   categories,
@@ -48,20 +50,20 @@ export function NewListingEditor({
   const [failure, setFailure] = useState<ListingFailure | null>(null);
   const [lostAccess, setLostAccess] = useState(false);
   const [saving, startSave] = useTransition();
-  const attempt = useRef<Attempt | null>(null);
+  const attemptId = useRef<string | null>(null);
+  const [taken, setTaken] = useState<string | null>(null);
 
   const save = () =>
     startSave(async () => {
       const content = toListingContent(values);
-      const key = JSON.stringify(content);
-      if (attempt.current?.key !== key) {
-        attempt.current = { id: newId(), key };
-      }
+      attemptId.current ??= newId();
+      const id = attemptId.current;
+      setFailure(null);
       try {
         const { listingId } = await createListingDraftFn({
-          data: { listingId: attempt.current.id, placeId: place.id, content },
+          data: { listingId: id, placeId: place.id, content },
         });
-        attempt.current = null;
+        attemptId.current = null;
         await navigate({
           to: "/manage/places/$placeId/listings/$listingId",
           params: { placeId: place.id, listingId },
@@ -70,6 +72,10 @@ export function NewListingEditor({
         });
       } catch (error) {
         const state = classifyError(error);
+        if (state.kind === "conflict" && state.code === LISTING_ID_CONFLICT) {
+          setTaken(id);
+          return;
+        }
         if (state.kind === "forbidden" && !proxy) {
           setLostAccess(true);
           router.clearCache();
@@ -121,6 +127,22 @@ export function NewListingEditor({
         }}
       >
         <ManageStatus tone="neutral">{`新規 · ${place.name}`}</ManageStatus>
+        {taken === null ? null : (
+          <Alert
+            title="この下書きは、すでに保存されていました"
+            actions={
+              <ButtonLink
+                variant="secondary"
+                to="/manage/places/$placeId/listings/$listingId"
+                params={{ placeId: place.id, listingId: taken }}
+              >
+                保存された下書きを開く
+              </ButtonLink>
+            }
+          >
+            通信が途切れる前の保存が届いていました。そのあとに変えた内容は保存していません。保存された下書きを開いて、続きを編集してください。
+          </Alert>
+        )}
         {failure === null ? null : (
           <ListingFailureAlert
             failure={failure}

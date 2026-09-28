@@ -86,6 +86,12 @@ type Outcome =
   | Readonly<{ kind: "forbidden" }>
   | Readonly<{ kind: "failed"; title: string; message: string }>;
 
+/** Completions, announced through the board's live region; the rest are alerts. */
+const isNotice = (outcome: Outcome): boolean =>
+  outcome.kind === "invited" ||
+  outcome.kind === "cancelled" ||
+  outcome.kind === "revoked";
+
 /** A state that replaces the board: the viewer no longer manages the target. */
 type Ending = "resigned" | "notSteward";
 
@@ -104,19 +110,15 @@ function OutcomeBand({
   switch (outcome.kind) {
     case "invited":
       return (
-        <div role="status">
-          <Notice variant="manage" title="招待を送りました">
-            {`${outcome.email} に招待を送りました。承諾されると、${data.name}の${words.role}になります。承諾されるまで、承諾前の招待として並びます。`}
-          </Notice>
-        </div>
+        <Notice variant="manage" title="招待を送りました">
+          {`${outcome.email} に招待を送りました。承諾されると、${data.name}の${words.role}になります。承諾されるまで、承諾前の招待として並びます。`}
+        </Notice>
       );
     case "cancelled":
       return (
-        <div role="status">
-          <Notice variant="manage" title="招待を取り消しました">
-            {`${outcome.email} への招待は、承諾できなくなりました。`}
-          </Notice>
-        </div>
+        <Notice variant="manage" title="招待を取り消しました">
+          {`${outcome.email} への招待は、承諾できなくなりました。`}
+        </Notice>
       );
     case "invitationGone":
       return (
@@ -126,17 +128,30 @@ function OutcomeBand({
       );
     case "stewardArrived":
       return (
-        <Alert title={`この${words.target}は代行できません`}>
+        <Alert
+          title={`この${words.target}は代行できません`}
+          {...(data.kind === "place"
+            ? {
+                actions: (
+                  <ButtonLink
+                    variant="secondary"
+                    to="/ops/subjects/$kind/$id"
+                    params={{ kind: data.kind, id: data.id }}
+                  >
+                    {`${words.target}の運営へ戻る`}
+                  </ButtonLink>
+                ),
+              }
+            : {})}
+        >
           {`${data.name}には、${words.role}が就いていました。招待は取り消していません。${words.target}の運営の画面で、管理者がいることを確かめてください。`}
         </Alert>
       );
     case "revoked":
       return (
-        <div role="status">
-          <Notice variant="manage" title="管理権限を解除しました">
-            {`${outcome.email} は、${data.name}の${words.role}ではなくなりました。本人に通知が届きます。`}
-          </Notice>
-        </div>
+        <Notice variant="manage" title="管理権限を解除しました">
+          {`${outcome.email} は、${data.name}の${words.role}ではなくなりました。本人に通知が届きます。`}
+        </Notice>
       );
     case "notSteward":
       return (
@@ -337,7 +352,14 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
 
   return (
     <ManageBody aria-busy={working}>
-      {outcome === null ? null : <OutcomeBand outcome={outcome} data={data} />}
+      <div role="status">
+        {outcome !== null && isNotice(outcome) ? (
+          <OutcomeBand outcome={outcome} data={data} />
+        ) : null}
+      </div>
+      {outcome === null || isNotice(outcome) ? null : (
+        <OutcomeBand outcome={outcome} data={data} />
+      )}
       {lists.stewards.length === 0 ? (
         <Notice variant="manage" tone="paper" title={`${words.role}がいません`}>
           {data.kind === "place"
@@ -462,6 +484,7 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
                 },
               });
             }}
+            onAttempt={() => setOutcome(null)}
             onInvited={(email) => setOutcome({ kind: "invited", email })}
             onForbidden={() => setOutcome({ kind: "forbidden" })}
           />

@@ -12,6 +12,7 @@ import {
   TargetSwitcherItem,
   TargetSwitcherRule,
 } from "@/components/layout/ManageShell";
+import { OpsSearchReturnLink } from "@/components/ops/OpsSearchReturn";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   frameStateText,
@@ -32,9 +33,6 @@ export const listingPagePath = (listingId: string): string =>
 /** CM-02 for a store (see `placePagePath`). */
 export const placeMembersPath = (placeId: string): string =>
   `/manage/places/${placeId}/members`;
-
-/** The service-operation screen a proxy returns to (CS-14): OM-02. */
-const PROXY_RETURN = "/ops/search";
 
 /** The frame of the SM screens (brand band labelled お店の管理). */
 export function ShopShell({
@@ -70,7 +68,7 @@ export function ShopNav({ frame }: { frame: PlaceFrame }) {
         ? {
             proxy: (
               <ProxyBanner label="不在の代行中">
-                <TextLink to={PROXY_RETURN}>対象を探すへ戻る</TextLink>
+                <OpsSearchReturnLink />
               </ProxyBanner>
             ),
           }

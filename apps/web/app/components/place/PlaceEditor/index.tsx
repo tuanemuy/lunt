@@ -18,6 +18,14 @@ import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
+import {
+  isDirty,
+  movedDraft,
+  reloadDraft,
+  savedDraft,
+  settledDraft,
+  useEditDraft,
+} from "@/presentation/editDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { updatePlaceProfileFn } from "@/presentation/place";
 import {
@@ -28,11 +36,7 @@ import {
   placeFieldErrors,
   toPlaceProfile,
 } from "@/presentation/placeForm";
-import {
-  OPERATING_STATUS_LABEL,
-  type OperatingStatus,
-  type PlaceEditorData,
-} from "@/presentation/placeView";
+import type { PlaceEditorData } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
 import { PLACE_FIELD_ANCHOR, PlaceFormFields } from "../PlaceFormFields";
 import { OperatingStatusPanel } from "./OperatingStatusPanel";
@@ -49,16 +53,7 @@ export const placeFormValuesOf = (data: PlaceEditorData): PlaceFormValues => ({
   contact: data.contact,
 });
 
-const sameValues = (a: PlaceFormValues, b: PlaceFormValues): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-/** The edit as it started: the values and the version they were read at. */
-type Draft = Readonly<{ base: PlaceFormValues; version: number }>;
-
-type Outcome =
-  | Readonly<{ kind: "saved" }>
-  | Readonly<{ kind: "statusChanged"; status: OperatingStatus }>
-  | Readonly<{ kind: "lostAccess" }>;
+type Outcome = Readonly<{ kind: "saved" }> | Readonly<{ kind: "lostAccess" }>;
 
 type SaveState = Readonly<{
   error: ErrorState | null;
@@ -88,30 +83,21 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
   const router = useRouter();
   const reconcile = useReconcile();
   const proxy = frame.basis === "proxy";
-  const latest = useRef(data);
-  latest.current = data;
-
-  const [draft, setDraft] = useState<Draft>(() => ({
-    base: placeFormValuesOf(data),
-    version: data.version,
-  }));
-  const [values, setValues] = useState<PlaceFormValues>(draft.base);
-  const valuesRef = useRef(values);
-  valuesRef.current = values;
+  const [draft, setDraft] = useEditDraft(data, placeFormValuesOf);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const { values } = draft;
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const dirty = !sameValues(values, draft.base);
-
-  const restart = () => {
-    const fresh = placeFormValuesOf(latest.current);
-    setDraft({ base: fresh, version: latest.current.version });
-    setValues(fresh);
-  };
+  const [resumed, setResumed] = useState(false);
+  const dirty = isDirty(draft);
 
   const [saveState, setSaveState] = useState<SaveState>(NO_ERROR);
   const [saving, startSave] = useTransition();
   const save = () =>
     startSave(async () => {
-      const built = toPlaceProfile(valuesRef.current);
+      setDraft(settledDraft);
+      const { values: submitted, version } = draftRef.current;
+      const built = toPlaceProfile(submitted);
       if (!built.ok) {
         setSaveState({
           error: {
@@ -126,13 +112,10 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
         return;
       }
       try {
-        await updatePlaceProfileFn({
-          data: {
-            placeId: data.placeId,
-            version: draft.version,
-            profile: built.profile,
-          },
+        const saved = await updatePlaceProfileFn({
+          data: { placeId: data.placeId, version, profile: built.profile },
         });
+        setDraft((current) => savedDraft(current, submitted, saved.version));
         setSaveState(NO_ERROR);
         setOutcome({ kind: "saved" });
         await reconcile();
@@ -146,6 +129,20 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
       }
     });
   const failure = saveState.error;
+  const fields = (
+    <PlaceFormFields
+      values={values}
+      onChange={(change) =>
+        setDraft((current) => ({
+          ...current,
+          values: { ...current.values, ...change },
+        }))
+      }
+      errors={saveState.fields}
+      lists={data.areaLists}
+      disabled={saving}
+    />
+  );
 
   if (outcome?.kind === "lostAccess") {
     return (
@@ -179,8 +176,8 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
       <Button
         variant="secondary"
         onClick={() => {
-          restart();
           setOutcome(null);
+          setResumed(true);
         }}
       >
         店舗情報の編集を続ける
@@ -189,59 +186,39 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
     return (
       <ShopPage frame={frame} heading="店舗情報を編集">
         <FocusOnMount>
-          {outcome.kind === "saved" ? (
-            <DonePanel
-              title="店舗情報を保存しました"
-              actions={
-                <>
-                  {proxy ? (
-                    <ButtonLink
-                      to="/manage/places/$placeId/listings"
-                      params={{ placeId: frame.placeId }}
-                    >
-                      掲載の一覧へ
-                    </ButtonLink>
-                  ) : (
-                    <ButtonLink
-                      to="/manage/places/$placeId"
-                      params={{ placeId: frame.placeId }}
-                    >
-                      店舗ホームに戻る
-                    </ButtonLink>
-                  )}
+          <DonePanel
+            title="店舗情報を保存しました"
+            actions={
+              <>
+                {proxy ? (
                   <ButtonLink
-                    variant="secondary"
-                    to={placePagePath(frame.placeId)}
+                    to="/manage/places/$placeId/listings"
+                    params={{ placeId: frame.placeId }}
                   >
-                    店舗ページを見る
+                    掲載の一覧へ
                   </ButtonLink>
-                  {continueEditing}
-                </>
-              }
-            >
-              {frame.suspended
-                ? "保存しました。店舗の非公開が解除されると、閲覧者に表示されます。"
-                : "公開中の店舗ページに変更を反映しました。"}
-            </DonePanel>
-          ) : (
-            <DonePanel
-              title={`営業状況を${OPERATING_STATUS_LABEL[outcome.status]}にしました`}
-              actions={
-                <>
-                  <ButtonLink to={placePagePath(frame.placeId)}>
-                    店舗ページを見る
+                ) : (
+                  <ButtonLink
+                    to="/manage/places/$placeId"
+                    params={{ placeId: frame.placeId }}
+                  >
+                    店舗ホームに戻る
                   </ButtonLink>
-                  {continueEditing}
-                </>
-              }
-            >
-              {outcome.status === "open"
-                ? "店舗と掲載は、営業中として表示されています。"
-                : outcome.status === "temporarilyClosed"
-                  ? "店舗と掲載は、休業中として表示されています。掲載はフィードの対象のままです。"
-                  : "店舗と掲載は、フィード・地図・地域やイベントの一覧に表示されなくなりました。検索・保存・詳細では閉店として表示されます。"}
-            </DonePanel>
-          )}
+                )}
+                <ButtonLink
+                  variant="secondary"
+                  to={placePagePath(frame.placeId)}
+                >
+                  店舗ページを見る
+                </ButtonLink>
+                {continueEditing}
+              </>
+            }
+          >
+            {frame.suspended
+              ? "保存しました。店舗の非公開が解除されると、閲覧者に表示されます。"
+              : "公開中の店舗ページに変更を反映しました。"}
+          </DonePanel>
         </FocusOnMount>
       </ShopPage>
     );
@@ -296,8 +273,8 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
                 disabled={saving}
                 onClick={() =>
                   startSave(async () => {
+                    setDraft(reloadDraft);
                     await reconcile();
-                    restart();
                     setSaveState(NO_ERROR);
                   })
                 }
@@ -354,22 +331,18 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
             </Notice>
           </div>
         ) : null}
-        <PlaceFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={saveState.fields}
-          lists={data.areaLists}
-          disabled={saving}
-        />
+        {resumed ? <FocusOnMount>{fields}</FocusOnMount> : fields}
         <hr className="m-divider" />
         <OperatingStatusPanel
           placeId={data.placeId}
-          version={data.version}
+          version={draft.version}
           current={data.operatingStatus}
           proxy={proxy}
-          onChanged={(status) => setOutcome({ kind: "statusChanged", status })}
+          suspended={frame.suspended}
+          onChanged={(version) =>
+            setDraft((current) => movedDraft(current, version))
+          }
+          onReload={() => setDraft(reloadDraft)}
           onLostAccess={() => {
             setOutcome({ kind: "lostAccess" });
             router.clearCache();

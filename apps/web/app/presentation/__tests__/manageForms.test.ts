@@ -65,11 +65,20 @@ describe("toPlaceProfile", () => {
     });
   });
 
-  it("refuses without a town or with a position that is not numbers", () => {
-    const built = toPlaceProfile({ ...placeValues, town: null, latitude: "x" });
+  it("refuses without a name or a town, or with a position that is not numbers", () => {
+    const built = toPlaceProfile({
+      ...placeValues,
+      name: "  ",
+      town: null,
+      latitude: "x",
+    });
     expect(built.ok).toBe(false);
     if (!built.ok) {
-      expect(Object.keys(built.errors).sort()).toEqual(["location", "town"]);
+      expect(Object.keys(built.errors).sort()).toEqual([
+        "location",
+        "name",
+        "town",
+      ]);
     }
   });
 });

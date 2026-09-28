@@ -7,8 +7,9 @@ import { validateInput } from "@/presentation/validator";
 
 // The SM screens' bodies and CM-03 as RSC payloads, returned unresolved so
 // each loader can forward them and the body streams in under its skeleton.
-// The store's access was checked by the area's guard; the bodies render
-// their own CS-17 / CS-05 when the target changed since.
+// These endpoints can be called without the area's guard, so every body's
+// loader repeats its check (`requireManagement`, or a `manage_target`
+// usecase); the bodies render their own CS-17 / CS-05 / CS-15.
 
 const idField = z.string().min(1).max(64);
 const placeRef = z.object({ placeId: idField });

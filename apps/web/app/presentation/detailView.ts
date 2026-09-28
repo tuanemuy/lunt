@@ -5,9 +5,13 @@ import type { PhotoRefs } from "@repo/core/application/discovery/views";
 import { Address } from "@repo/core/domain/common/address";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import type { ListingStanding } from "@repo/core/domain/discovery/standing";
-import type { ListingSummary } from "@repo/core/domain/discovery/viewProjection";
+import type {
+  ListingPreview,
+  ListingSummary,
+} from "@repo/core/domain/discovery/viewProjection";
 import type { Offering } from "@repo/core/domain/listing/offering";
 import type { Framing } from "@repo/core/domain/listing/values";
+import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { PhotoSource } from "./photoFraming";
 
@@ -36,6 +40,22 @@ export type ListingCardItem = Readonly<{
   photo: PhotoSource | null;
   /** 提供開始前・… / 提供終了 for the reference scene; `null` while available. */
   state: string | null;
+}>;
+
+/**
+ * DT-01's hero: the photos and what the listing says about itself, as
+ * DT-01 shows it and CM-03 previews it. `name` and `categoryName` are
+ * `null` only in a preview of a draft that lacks them.
+ */
+export type ListingHeroData = Readonly<{
+  name: string | null;
+  categoryName: string | null;
+  description: string | null;
+  photos: readonly DetailPhoto[];
+  offering: OfferingState;
+  offeringText: string | null;
+  placeName: string;
+  operating: OperatingStatus;
 }>;
 
 export type ListingDetailData = Readonly<{
@@ -219,6 +239,78 @@ export function toListingDetailData(
   };
 }
 
+/** DT-01's hero of its data. */
+export const listingHeroOf = (data: ListingDetailData): ListingHeroData => ({
+  name: data.name,
+  categoryName: data.categoryName,
+  description: data.description,
+  photos: data.photos,
+  offering: data.offering,
+  offeringText: data.offeringText,
+  placeName: data.place.name,
+  operating: data.place.operating,
+});
+
+/** What CM-03 shows of a listing: DT-01's hero and the list card. */
+export type ListingPreviewViews = Readonly<{
+  hero: ListingHeroData;
+  card: ListingCardItem;
+}>;
+
+/**
+ * CM-03's views of `previewListing`'s projection, mapped as DT-01 and the
+ * cards map a published listing's.
+ */
+export function toListingPreviewViews(
+  listingId: string,
+  preview: ListingPreview,
+  categoryName: string | null,
+  refs: ReadonlyMap<PhotoId, PhotoDisplayRef>,
+  today: string,
+): ListingPreviewViews {
+  const { detail, summary } = preview;
+  const source = (
+    photoId: PhotoId,
+    framing: Framing | null,
+  ): PhotoSource | null => {
+    const ref = refs.get(photoId);
+    return ref === undefined
+      ? null
+      : { src: ref.url, framing: toFraming(framing) };
+  };
+  const name = detail.name;
+  const offering = offeringState(detail.standing, today);
+  return {
+    hero: {
+      name,
+      categoryName,
+      description: detail.description,
+      photos: detail.photos.map((photo, index) => ({
+        photo: source(photo.photoId, photo.framing),
+        alt:
+          index === 0
+            ? (name ?? "掲載")
+            : `${name ?? "掲載"}（${index + 1}枚目）`,
+      })),
+      offering,
+      offeringText: offeringText(detail.offering, today),
+      placeName: detail.place.name,
+      operating: detail.standing.operating,
+    },
+    card: {
+      listingId,
+      name: summary.listingName ?? "名称未設定",
+      placeName: summary.placeName,
+      regionName: summary.region,
+      photo:
+        summary.cover === null
+          ? null
+          : source(summary.cover.photoId, summary.cover.framing),
+      state: offeringLabel(offeringState(summary.standing, today)),
+    },
+  };
+}
+
 /** DT-02's data from `viewPlace`. */
 export function toPlaceDetailData(output: ViewPlaceOutput): PlaceDetailData {
   const { place, photos } = output;
@@ -255,10 +347,3 @@ export function toPlaceListingsPage(
     count: output.count,
   };
 }
-
-/** 営業状況 as DT-02's お店のこと states it. */
-export const OPERATING_TEXT: Readonly<Record<OperatingStatus, string>> = {
-  open: "営業中",
-  temporarilyClosed: "休業中",
-  permanentlyClosed: "閉店",
-};

@@ -41,7 +41,7 @@ export const listingErrorCatalog = {
   LISTING_CATEGORY_NOT_FOUND: changed("カテゴリーが見つかりません"),
   LISTING_CATEGORY_RETIRED: changed("このカテゴリーは、すでに廃止されています"),
   LISTING_CATEGORY_LAST_ONE: changed("最後の1つのカテゴリーは廃止できません"),
-  LISTING_CATEGORY_SUCCESSOR_INVALID: invalid(
-    "移行先には、廃止するカテゴリー以外の現役のカテゴリーを選んでください",
+  LISTING_CATEGORY_SUCCESSOR_INVALID: changed(
+    "選んだ移行先のカテゴリーは、すでに廃止されていました。現役のカテゴリーから選び直してください",
   ),
 } satisfies Record<ListingErrorCode, BusinessErrorPresentation>;

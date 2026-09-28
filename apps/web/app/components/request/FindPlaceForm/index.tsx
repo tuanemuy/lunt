@@ -79,7 +79,12 @@ export function FindPlaceForm({
           {(control) => (
             <Input
               {...control}
-              {...(nothing ? { "aria-invalid": true as const } : {})}
+              {...(nothing
+                ? {
+                    "aria-invalid": true as const,
+                    "aria-describedby": "rq01-name-error",
+                  }
+                : {})}
               name="address"
               type="search"
               maxLength={MATCH_TERM_MAX}

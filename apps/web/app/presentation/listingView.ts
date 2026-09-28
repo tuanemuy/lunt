@@ -3,6 +3,7 @@ import type {
   OfferingStatus,
 } from "@repo/core/domain/listing/offering";
 import type { Framing } from "@repo/core/domain/listing/values";
+import type { ListingCardItem, ListingHeroData } from "./detailView";
 
 export type { Framing, Offering, OfferingStatus };
 
@@ -191,20 +192,16 @@ export type ListingEditorData = Readonly<{
   }>;
 }>;
 
-/** What CM-03 shows: the listing as viewers would see it. */
+/**
+ * What CM-03 shows: the listing as viewers would see it, built by the same
+ * mapping as DT-01 and its cards (`toListingPreviewViews`).
+ */
 export type ListingPreviewData = Readonly<{
   id: string;
   name: string | null;
-  description: string | null;
-  category: string | null;
-  photos: readonly ListingPhotoItem[];
-  offering: Offering;
-  offeringStatus: OfferingStatus;
+  hero: ListingHeroData;
+  card: ListingCardItem;
   placeName: string;
-  /** The place's operating status, which viewers see as 休業中 / 閉店. */
-  operatingStatus: "open" | "temporarilyClosed" | "permanentlyClosed";
-  /** The region shown in lists (none until Region's stage). */
-  regionName: string | null;
   publication: PublicationView;
   suspended: boolean;
   placeSuspended: boolean;

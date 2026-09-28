@@ -53,12 +53,6 @@ export type PlaceMatchPage =
 /** Results per page (CF-05 loads the next as the list is read). */
 export const PLACE_MATCH_PAGE_SIZE = 20;
 
-export const OPERATING_WORDS: Readonly<Record<OperatingStatus, string>> = {
-  open: "営業中",
-  temporarilyClosed: "休業中",
-  permanentlyClosed: "閉店",
-};
-
 export function toPlaceMatchPage(
   result: PaginationResult<PlaceMatch>,
 ): PlaceMatchPage {

@@ -16,6 +16,7 @@ import { Route as ViewerRouteImport } from './routes/_viewer'
 import { Route as Char91__devChar93ClockRouteImport } from './routes/[__dev]/clock'
 import { Route as Char91__devChar93InboxRouteImport } from './routes/[__dev]/inbox'
 import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
+import { Route as Char91__devChar93StewardsRouteImport } from './routes/[__dev]/stewards'
 import { Route as ManageOpsRouteImport } from './routes/_manage/ops'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
 import { Route as Char91__devChar93ErrorsKindRouteImport } from './routes/[__dev]/errors.$kind'
@@ -81,6 +82,12 @@ const Char91__devChar93SessionRoute =
   Char91__devChar93SessionRouteImport.update({
     id: '/__dev/session',
     path: '/__dev/session',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91__devChar93StewardsRoute =
+  Char91__devChar93StewardsRouteImport.update({
+    id: '/__dev/stewards',
+    path: '/__dev/stewards',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ManageOpsRoute = ManageOpsRouteImport.update({
@@ -277,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/__dev/stewards': typeof Char91__devChar93StewardsRoute
   '/ops': typeof ManageOpsRouteWithChildren
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
@@ -316,6 +324,7 @@ export interface FileRoutesByTo {
   '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/__dev/stewards': typeof Char91__devChar93StewardsRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
@@ -357,6 +366,7 @@ export interface FileRoutesById {
   '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
+  '/__dev/stewards': typeof Char91__devChar93StewardsRoute
   '/_manage/ops': typeof ManageOpsRouteWithChildren
   '/_viewer/': typeof ViewerIndexRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
+    | '/__dev/stewards'
     | '/ops'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
@@ -438,6 +449,7 @@ export interface FileRouteTypes {
     | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
+    | '/__dev/stewards'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
@@ -478,6 +490,7 @@ export interface FileRouteTypes {
     | '/__dev/clock'
     | '/__dev/inbox'
     | '/__dev/session'
+    | '/__dev/stewards'
     | '/_manage/ops'
     | '/_viewer/'
     | '/__dev/errors/$kind'
@@ -522,6 +535,7 @@ export interface RootRouteChildren {
   Char91__devChar93ClockRoute: typeof Char91__devChar93ClockRoute
   Char91__devChar93InboxRoute: typeof Char91__devChar93InboxRoute
   Char91__devChar93SessionRoute: typeof Char91__devChar93SessionRoute
+  Char91__devChar93StewardsRoute: typeof Char91__devChar93StewardsRoute
   Char91__devChar93ErrorsKindRoute: typeof Char91__devChar93ErrorsKindRoute
   Char91__devChar93IdpAuthorizeRoute: typeof Char91__devChar93IdpAuthorizeRoute
   Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
@@ -577,6 +591,13 @@ declare module '@tanstack/react-router' {
       path: '/__dev/session'
       fullPath: '/__dev/session'
       preLoaderRoute: typeof Char91__devChar93SessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/stewards': {
+      id: '/__dev/stewards'
+      path: '/__dev/stewards'
+      fullPath: '/__dev/stewards'
+      preLoaderRoute: typeof Char91__devChar93StewardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_manage/ops': {
@@ -954,6 +975,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91__devChar93ClockRoute: Char91__devChar93ClockRoute,
   Char91__devChar93InboxRoute: Char91__devChar93InboxRoute,
   Char91__devChar93SessionRoute: Char91__devChar93SessionRoute,
+  Char91__devChar93StewardsRoute: Char91__devChar93StewardsRoute,
   Char91__devChar93ErrorsKindRoute: Char91__devChar93ErrorsKindRoute,
   Char91__devChar93IdpAuthorizeRoute: Char91__devChar93IdpAuthorizeRoute,
   Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,

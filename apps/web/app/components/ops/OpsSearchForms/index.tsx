@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import type { OpsSearch } from "@/presentation/opsSearch";
+import { useRememberOpsSearch } from "../OpsSearchReturn";
 
 /**
  * OM-02's two searches: stores by name and / or address, listings by
@@ -14,6 +15,7 @@ import type { OpsSearch } from "@/presentation/opsSearch";
  */
 export function OpsSearchForms({ search }: { search: OpsSearch }) {
   const navigate = useNavigate();
+  useRememberOpsSearch(search);
   const [name, setName] = useState(search.name ?? "");
   const [address, setAddress] = useState(search.address ?? "");
   const [keyword, setKeyword] = useState(search.q ?? "");

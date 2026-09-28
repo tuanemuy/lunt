@@ -1,56 +1,22 @@
 // Server-only: import from server components or server-function handlers
 // (dynamically), never from client components.
-import { getMyAuthority } from "@repo/core/application/authority/getMyAuthority";
 import { viewMembers } from "@repo/core/application/authority/viewMembers";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { NotFoundError } from "@repo/core/application/errors";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
 import type { Actor } from "@repo/core/domain/common/actor";
-import { PlaceId } from "@repo/core/domain/common/ids";
 import { StewardedRef } from "@repo/core/domain/common/refs";
-import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import { requireActor } from "./actor";
 import type {
   MemberBoardData,
   MembersFrame,
   MemberTargetInput,
 } from "./members";
+import { isOperator } from "./operatorAccess";
+import { placeStateText } from "./placeView";
 import { loadPlaceFrame } from "./shopData";
-
-const OPERATING: Readonly<Record<OperatingStatus, string>> = {
-  open: "営業中",
-  temporarilyClosed: "休業",
-  permanentlyClosed: "閉店",
-};
-
-function placeState(
-  operatingStatus: OperatingStatus,
-  suspended: boolean,
-): string {
-  return `${OPERATING[operatingStatus]} · ${suspended ? "店舗は非公開" : "公開中"}`;
-}
-
-/** An id that cannot name a place names no target (CS-17), not an input error. */
-function placeIdOf(raw: string): PlaceId {
-  try {
-    return PlaceId.create(raw);
-  } catch {
-    throw new NotFoundError("PLACE_NOT_FOUND", `No place has the id ${raw}`);
-  }
-}
-
-async function isOperator(
-  container: RequestContainer,
-  actor: Actor,
-): Promise<boolean> {
-  const { roles } = await getMyAuthority({
-    container,
-    actor,
-    input: { pagination: { page: 1, limit: 1 } },
-  });
-  return roles.includes("operator");
-}
+import { placeIdOf } from "./targetIds";
 
 type TargetFacts = Readonly<{
   name: string;
@@ -83,7 +49,10 @@ async function readTarget(
   });
   return {
     name: view.place.profile.name,
-    state: placeState(view.place.operatingStatus, view.suspended),
+    state: placeStateText({
+      operatingStatus: view.place.operatingStatus,
+      suspended: view.suspended,
+    }),
     steward: view.management.allowed && view.management.basis === "steward",
     vacant: !view.hasSteward,
   };

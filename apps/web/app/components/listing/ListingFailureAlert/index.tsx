@@ -89,10 +89,14 @@ export function ListingFailureAlert({
     const listed = LISTING_FIELDS.filter(
       (field) => fields[field] !== undefined,
     );
-    const publishing = state.missing.length > 0;
+    const unmet = state.missing.length > 0;
     return (
       <Alert
-        title={publishing ? "公開できませんでした" : "保存できませんでした"}
+        title={
+          unmet && attempt === "publish"
+            ? "公開できませんでした"
+            : "保存できませんでした"
+        }
         list={listed.map((field) => (
           <li key={field}>
             <a className="text-button" href={`#${LISTING_FIELD_ANCHOR[field]}`}>
@@ -101,8 +105,10 @@ export function ListingFailureAlert({
           </li>
         ))}
       >
-        {publishing
-          ? `写真・名称・カテゴリーは、掲載を公開するための条件です。次の項目を直してください。${failure.savedFirst === true ? "内容は保存しました。" : ""}`
+        {unmet
+          ? attempt === "publish"
+            ? `写真・名称・カテゴリーは、掲載を公開するための条件です。次の項目を直してください。${failure.savedFirst === true ? "内容は保存しました。" : ""}`
+            : "公開中の掲載は、写真・名称・カテゴリーの公開の条件を満たす内容だけを保存できます。次の項目を直すか、先に一時非公開にしてから保存してください。"
           : listed.length === 0
             ? state.message
             : "次の項目を直してください。"}

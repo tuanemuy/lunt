@@ -52,8 +52,8 @@ const coordinate = (text: string): number | null => {
 
 /**
  * The profile the transport takes, or the fields that cannot be sent as
- * they are: a town must be picked and the position given as numbers.
- * Everything else is the server's to judge.
+ * they are: the publish condition's name, town and position (CS-10 lists
+ * every one missing at once). Everything else is the server's to judge.
  */
 export function toPlaceProfile(
   values: PlaceFormValues,
@@ -63,6 +63,9 @@ export function toPlaceProfile(
   const latitude = coordinate(values.latitude);
   const longitude = coordinate(values.longitude);
   const errors: Partial<Record<PlaceField, string>> = {};
+  if (values.name.trim() === "") {
+    errors.name = "店舗名を入力してください";
+  }
   if (values.town === null) {
     errors.town =
       "町域を選んでください。郵便番号から探すか、都道府県・市区町村・町域を順に選びます";
@@ -70,7 +73,12 @@ export function toPlaceProfile(
   if (latitude === null || longitude === null) {
     errors.location = "位置を、緯度と経度の数で入力してください";
   }
-  if (values.town === null || latitude === null || longitude === null) {
+  if (
+    errors.name !== undefined ||
+    values.town === null ||
+    latitude === null ||
+    longitude === null
+  ) {
     return { ok: false, errors };
   }
   return {

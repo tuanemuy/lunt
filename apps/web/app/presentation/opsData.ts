@@ -10,6 +10,7 @@ import { Address } from "@repo/core/domain/common/address";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { requireActor } from "./actor";
 import { listingPhotoItem, publicationView } from "./listingData";
+import { requireOperator } from "./operatorAccess";
 import type { ListingMatchItem, MatchPage, PlaceMatchItem } from "./opsSearch";
 import type { OpsSubjectData, OpsSubjectKind } from "./opsSubject";
 import { listingIdOf, placeIdOf } from "./targetIds";
@@ -83,6 +84,9 @@ export async function loadOpsSubject(
   rawId: string,
 ): Promise<OpsSubjectData> {
   const { container, actor } = await actorAndContainer();
+  // The reads below let a steward in too (`inspect_target`), and the render
+  // endpoint can be called without the area guard.
+  await requireOperator(container, actor);
   switch (kind) {
     case "place": {
       const placeId = placeIdOf(rawId);

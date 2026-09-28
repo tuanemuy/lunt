@@ -8,11 +8,11 @@ import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
 import {
   matchPlacesFn,
-  OPERATING_WORDS,
   PLACE_MATCH_PAGE_SIZE,
   type PlaceMatchItem,
   type PlaceMatchPage,
 } from "@/presentation/findPlace";
+import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
 
 function appendNew(
   current: readonly PlaceMatchItem[],
@@ -44,7 +44,7 @@ function MatchRow({ item }: { item: PlaceMatchItem }) {
             className="m-row__sub rq01-row-state"
             {...(item.operating === "open" ? {} : { "data-tone": "quiet" })}
           >
-            {OPERATING_WORDS[item.operating]}
+            {OPERATING_STATUS_TEXT[item.operating]}
           </span>
         </span>
       </Link>

@@ -6,8 +6,19 @@ import {
 } from "./errorResponse";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 
-/** The largest photo file the transport accepts (CF-01). */
+/**
+ * The default largest photo file (CF-01), which the browser checks before
+ * sending. The server refuses by the configured `container.photoPolicy`.
+ */
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+
+const MIB = 1024 * 1024;
+
+/** `10MB`, or `64KB` below a megabyte. */
+const sizeText = (bytes: number): string =>
+  bytes >= MIB
+    ? `${Math.floor(bytes / MIB)}MB`
+    : `${Math.floor(bytes / 1024)}KB`;
 
 /** A registered photo, ready to be placed in a form's photo list. */
 export type UploadedPhoto = Readonly<{ photoId: string; url: string }>;
@@ -44,8 +55,9 @@ const reject = (field: string, message: string): never => {
 
 /**
  * The transport check of a photo registration posted as multipart form
- * data: the caller-minted id, the consent box and one file of at most
- * `PHOTO_MAX_BYTES`. Whether the file is a photo is Media's to decide.
+ * data: the caller-minted id, the consent box and one file. Its size is
+ * checked against the configured limit in the handler, which has the
+ * container; whether the file is a photo is Media's to decide.
  */
 export function parsePhotoUpload(input: FormData): PhotoUpload {
   if (!(input instanceof FormData))
@@ -61,9 +73,6 @@ export function parsePhotoUpload(input: FormData): PhotoUpload {
   const file = input.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return reject("file", "写真を選んでください");
-  }
-  if (file.size > PHOTO_MAX_BYTES) {
-    return reject("file", "写真は10MBまでのファイルを選んでください");
   }
   return { photoId, agreed: input.get("agreed") === "true", file };
 }
@@ -92,6 +101,13 @@ export const uploadPhotoFn = createServerFn({ method: "POST" })
       import("@repo/core/domain/common/ids"),
     ]);
     const container = await getContainer();
+    const { maxBytes } = container.photoPolicy;
+    if (data.file.size > maxBytes) {
+      reject(
+        "file",
+        `写真は${sizeText(maxBytes)}までのファイルを選んでください`,
+      );
+    }
     const actor = await requireActor(container);
     const photoId = parseGeneratedId(
       container.idGenerator,

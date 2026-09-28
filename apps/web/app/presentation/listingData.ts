@@ -12,10 +12,12 @@ import type {
 import { previewListing } from "@repo/core/application/listing/previewListing";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
 import { Address } from "@repo/core/domain/common/address";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { ListingShelf } from "@repo/core/domain/listing/listing";
 import { requireActor } from "./actor";
+import { toListingPreviewViews } from "./detailView";
 import type {
   CategoryOption,
   ListingEditorData,
@@ -26,6 +28,7 @@ import type {
   ListingShelfKey,
   PublicationView,
 } from "./listingView";
+import { requireManagement } from "./shopData";
 import { listingIdOf, placeIdOf } from "./targetIds";
 
 const SHELVES: Readonly<Record<ListingShelfKey, ListingShelf>> = {
@@ -121,6 +124,7 @@ export async function loadNewListing(rawPlaceId: string): Promise<
     }),
     loadCategoryOptions(),
   ]);
+  requireManagement(view.management.allowed);
   return {
     categories,
     place: {
@@ -173,6 +177,7 @@ async function managedListingOf(
       "The listing belongs to another store",
     );
   }
+  requireManagement(view.access.manageable);
   return view;
 }
 
@@ -191,8 +196,9 @@ export async function loadListingName(
 ): Promise<string | null> {
   try {
     return (await managedListingOf(rawPlaceId, rawListingId)).name;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof NotFoundError) return null;
+    throw error;
   }
 }
 
@@ -211,21 +217,19 @@ export async function loadListingPreview(
       "The listing belongs to another store",
     );
   }
+  const { hero, card } = toListingPreviewViews(
+    listingId,
+    view.preview,
+    view.category?.name ?? null,
+    view.photoRefs,
+    LocalDate.fromInstant(container.clock.now()),
+  );
   return {
     id: listingId,
     name: detail.name,
-    description: detail.description,
-    category: view.category?.name ?? null,
-    photos: detail.photos.map((photo) => ({
-      photoId: photo.photoId,
-      url: view.photoRefs.get(photo.photoId)?.url ?? null,
-      framing: photo.framing,
-    })),
-    offering: detail.offering,
-    offeringStatus: detail.standing.offering,
+    hero,
+    card,
     placeName: summary.placeName,
-    operatingStatus: detail.standing.operating,
-    regionName: null,
     publication: publicationView(view.publication),
     suspended: view.suspended,
     placeSuspended: view.placeSuspended,

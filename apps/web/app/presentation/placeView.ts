@@ -2,11 +2,25 @@ import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 
 export type { OperatingStatus };
 
+/** 営業状況 as the management screens name it (a choice, a state line). */
 export const OPERATING_STATUS_LABEL = {
   open: "営業中",
   temporarilyClosed: "休業",
   permanentlyClosed: "閉店",
 } as const satisfies Readonly<Record<OperatingStatus, string>>;
+
+/** 営業状況 as the viewer screens and RQ-01 state it (DT-02 お店のこと). */
+export const OPERATING_STATUS_TEXT = {
+  open: "営業中",
+  temporarilyClosed: "休業中",
+  permanentlyClosed: "閉店",
+} as const satisfies Readonly<Record<OperatingStatus, string>>;
+
+/**
+ * The SM area's refusal of an operator whose store has a steward: the
+ * absence proxy is not open to them (CS-15), unlike a stranger (CS-05).
+ */
+export const PLACE_PROXY_UNAVAILABLE = "PLACE_PROXY_UNAVAILABLE";
 
 export const OPERATING_STATUSES = [
   "open",

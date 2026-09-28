@@ -3,10 +3,8 @@ import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
 import type { PlaceDetailPage } from "@/presentation/detail";
-import {
-  OPERATING_TEXT,
-  type PlaceDetailData,
-} from "@/presentation/detailView";
+import type { PlaceDetailData } from "@/presentation/detailView";
+import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
 import { DetailPhotos } from "../DetailPhotos";
 import { PlaceListings } from "./PlaceListings";
 
@@ -116,7 +114,7 @@ export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
               )}
               <div>
                 <dt>営業状況</dt>
-                <dd>{OPERATING_TEXT[data.operating]}</dd>
+                <dd>{OPERATING_STATUS_TEXT[data.operating]}</dd>
               </div>
             </dl>
             <PlaceMap data={data} />

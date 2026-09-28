@@ -15,14 +15,31 @@ import { PhotoId } from "@repo/core/domain/common/ids";
 import { requireActor } from "./actor";
 import { loadAreaLists, townOfAddress } from "./areaData";
 import type { PlaceProfileInput } from "./place";
-import type {
-  AreaLists,
-  PlaceEditorData,
-  PlaceFrame,
-  ShopHomeData,
-  ShopSummary,
+import {
+  type AreaLists,
+  PLACE_PROXY_UNAVAILABLE,
+  type PlaceEditorData,
+  type PlaceFrame,
+  type ShopHomeData,
+  type ShopSummary,
 } from "./placeView";
 import { placeIdOf } from "./targetIds";
+
+/**
+ * The SM screens' check on a store read with `inspect_target` (its
+ * stewards and every operator): only `manage_target` may go on. The read
+ * let the actor in, so a refusal here is an operator facing a store that
+ * has a steward (CS-15). Every SM loader repeats it, since the RSC render
+ * endpoints can be called without the area's guard.
+ */
+export function requireManagement(manageable: boolean): void {
+  if (!manageable) {
+    throw new ForbiddenError(
+      PLACE_PROXY_UNAVAILABLE,
+      "The store has a steward, so an operator may not manage it",
+    );
+  }
+}
 
 /** See `loadPlaceFrameFn`. */
 export async function loadPlaceFrame(
@@ -32,13 +49,11 @@ export async function loadPlaceFrame(
 ): Promise<PlaceFrame> {
   const placeId = placeIdOf(rawPlaceId);
   const view = await getManagedPlace({ container, actor, input: { placeId } });
-  if (!view.management.allowed) {
-    throw new ForbiddenError(
-      "PLACE_MANAGE_FORBIDDEN",
-      "Only the store's stewards, or an operator while it has none, may manage it",
-    );
-  }
-  const basis = view.management.basis === "steward" ? "steward" : "proxy";
+  requireManagement(view.management.allowed);
+  const basis =
+    view.management.allowed && view.management.basis === "steward"
+      ? "steward"
+      : "proxy";
   const stewarded: readonly ShopSummary[] =
     basis === "steward"
       ? (await listStewardedPlaces({ container, actor, input: {} })).map(
@@ -84,8 +99,9 @@ async function actorAndContainer() {
 export async function loadShopHome(rawPlaceId: string): Promise<ShopHomeData> {
   const { container, actor } = await actorAndContainer();
   const placeId = placeIdOf(rawPlaceId);
-  const [view, listings, members] = await Promise.all([
-    getManagedPlace({ container, actor, input: { placeId } }),
+  const view = await getManagedPlace({ container, actor, input: { placeId } });
+  requireManagement(view.management.allowed);
+  const [listings, members] = await Promise.all([
     listPlaceListings({
       container,
       actor,
@@ -133,6 +149,7 @@ export async function loadPlaceEditor(
     actor,
     input: { placeId: placeIdOf(rawPlaceId) },
   });
+  requireManagement(view.management.allowed);
   const { place } = view;
   const { profile } = place;
   const town = await townOfAddress(container, profile.address);

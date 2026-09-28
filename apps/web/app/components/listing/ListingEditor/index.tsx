@@ -18,6 +18,15 @@ import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
+import {
+  followDraft,
+  isDirty,
+  movedDraft,
+  reloadDraft,
+  savedDraft,
+  settledDraft,
+  useEditDraft,
+} from "@/presentation/editDraft";
 import { classifyError } from "@/presentation/errorState";
 import {
   duplicateListingFn,
@@ -26,7 +35,6 @@ import {
   updateListingFn,
 } from "@/presentation/listing";
 import {
-  type ListingFormValues,
   listingFieldErrors,
   listingFormValuesOf,
   toListingContent,
@@ -46,11 +54,6 @@ import {
   ListingFailureAlert,
 } from "../ListingFailureAlert";
 import { ListingFormFields } from "../ListingFormFields";
-
-const sameValues = (a: ListingFormValues, b: ListingFormValues): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-type Draft = Readonly<{ base: ListingFormValues; version: number }>;
 
 /** The last completed operation, shown in place of the form or above it (CS-13). */
 type Outcome =
@@ -112,34 +115,42 @@ export function ListingEditor({
   const navigate = useNavigate();
   const reconcile = useReconcile();
   const proxy = frame.basis === "proxy";
-  const latest = useRef(data);
-  latest.current = data;
   const params = { placeId: data.place.id, listingId: data.id };
 
-  const [draft, setDraft] = useState<Draft>(() => ({
-    base: listingFormValuesOf(data),
-    version: data.version,
-  }));
-  const [values, setValues] = useState(draft.base);
-  const valuesRef = useRef(values);
-  valuesRef.current = values;
-  const dirty = !sameValues(values, draft.base);
+  const [draft, setDraft] = useEditDraft(data, listingFormValuesOf);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const { values } = draft;
+  const dirty = isDirty(draft);
   const [outcome, setOutcome] = useState<Outcome | null>(
     created ? { kind: "draftSaved" } : null,
   );
   const [failure, setFailure] = useState<ListingFailure | null>(null);
   const [confirming, setConfirming] = useState<Confirming>(null);
+  const [resumed, setResumed] = useState(false);
   const [busy, startBusy] = useTransition();
   const duplicateAttempt = useRef<DuplicateAttempt | null>(null);
 
-  const restart = () => {
-    const fresh = listingFormValuesOf(latest.current);
-    setDraft({ base: fresh, version: latest.current.version });
-    setValues(fresh);
+  const begin = () => {
+    setFailure(null);
+    setDraft(settledDraft);
   };
-  /** After an own state change the content is unchanged, the version is not. */
-  const followVersion = () =>
-    setDraft((current) => ({ ...current, version: latest.current.version }));
+  /** Saves the form as it is; the reply's version is the one the next save sends. */
+  const saveValues = async () => {
+    const { values: submitted, version } = draftRef.current;
+    const saved = await updateListingFn({
+      data: {
+        listingId: data.id,
+        version,
+        content: toListingContent(submitted),
+      },
+    });
+    setDraft((current) => savedDraft(current, submitted, saved.version));
+  };
+  const moved = (reply: Readonly<{ version: number }> | null) => {
+    if (reply !== null)
+      setDraft((current) => movedDraft(current, reply.version));
+  };
 
   const fail = async (
     error: unknown,
@@ -163,23 +174,17 @@ export function ListingEditor({
       savedFirst,
     });
     if (state.kind === "premiseChanged" || savedFirst) {
+      if (!savedFirst) setDraft(followDraft);
       await reconcile();
-      if (savedFirst) restart();
-      else followVersion();
     }
   };
 
   const save = () =>
     startBusy(async () => {
-      setFailure(null);
+      begin();
+      setOutcome(null);
       try {
-        await updateListingFn({
-          data: {
-            listingId: data.id,
-            version: draft.version,
-            content: toListingContent(valuesRef.current),
-          },
-        });
+        await saveValues();
         setOutcome(
           data.publication.status === "draft"
             ? { kind: "draftSaved" }
@@ -189,7 +194,6 @@ export function ListingEditor({
               },
         );
         await reconcile();
-        restart();
       } catch (error) {
         await fail(error, "save");
       }
@@ -197,25 +201,21 @@ export function ListingEditor({
 
   const publish = () =>
     startBusy(async () => {
-      setFailure(null);
+      begin();
+      setOutcome(null);
       let savedFirst = false;
       try {
-        if (dirty) {
-          await updateListingFn({
-            data: {
-              listingId: data.id,
-              version: draft.version,
-              content: toListingContent(valuesRef.current),
-            },
-          });
+        if (isDirty(draftRef.current)) {
+          await saveValues();
           savedFirst = true;
         }
-        await transitionListingFn({
-          data: { listingId: data.id, transition: "publish" },
-        });
+        moved(
+          await transitionListingFn({
+            data: { listingId: data.id, transition: "publish" },
+          }),
+        );
         setOutcome({ kind: "published" });
         await reconcile();
-        restart();
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -224,14 +224,16 @@ export function ListingEditor({
   const transition = (kind: keyof typeof NOTICES) =>
     startBusy(async () => {
       setConfirming(null);
-      setFailure(null);
+      begin();
+      setOutcome(null);
       try {
-        await transitionListingFn({
-          data: { listingId: data.id, transition: kind },
-        });
+        moved(
+          await transitionListingFn({
+            data: { listingId: data.id, transition: kind },
+          }),
+        );
         setOutcome({ kind: "notice", ...NOTICES[kind] });
         await reconcile();
-        followVersion();
       } catch (error) {
         await fail(error, "operation");
       }
@@ -239,7 +241,7 @@ export function ListingEditor({
 
   const remove = () =>
     startBusy(async () => {
-      setFailure(null);
+      begin();
       try {
         await transitionListingFn({
           data: { listingId: data.id, transition: "delete" },
@@ -259,7 +261,7 @@ export function ListingEditor({
 
   const duplicate = () =>
     startBusy(async () => {
-      setFailure(null);
+      begin();
       duplicateAttempt.current ??= { id: newId() };
       try {
         const copy = await duplicateListingFn({
@@ -324,6 +326,7 @@ export function ListingEditor({
         variant="secondary"
         onClick={() => {
           setOutcome(null);
+          setResumed(true);
           if (created) {
             void navigate({
               to: "/manage/places/$placeId/listings/$listingId",
@@ -425,6 +428,19 @@ export function ListingEditor({
     );
   }
 
+  const statusLine = (
+    <ManageStatus
+      tone={
+        data.suspended || data.publication.reason === "photoTakedown"
+          ? "alert"
+          : published
+            ? "accent"
+            : "neutral"
+      }
+    >
+      {`${listingStateText(data.publication, data.suspended, status)} · ${data.place.name}`}
+    </ManageStatus>
+  );
   const unpublished = data.publication.status === "unpublished";
   const draftState = data.publication.status === "draft";
   const previewLink = (
@@ -451,7 +467,7 @@ export function ListingEditor({
       frame={frame}
       heading="掲載を編集"
       actions={
-        published || data.suspended ? (
+        published ? (
           saveButton
         ) : (
           <>
@@ -476,17 +492,7 @@ export function ListingEditor({
           save();
         }}
       >
-        <ManageStatus
-          tone={
-            data.suspended || data.publication.reason === "photoTakedown"
-              ? "alert"
-              : published
-                ? "accent"
-                : "neutral"
-          }
-        >
-          {`${listingStateText(data.publication, data.suspended, status)} · ${data.place.name}`}
-        </ManageStatus>
+        {resumed ? <FocusOnMount>{statusLine}</FocusOnMount> : statusLine}
         {failure === null ? null : (
           <ListingFailureAlert
             failure={failure}
@@ -495,8 +501,8 @@ export function ListingEditor({
             busy={busy}
             onReload={() =>
               startBusy(async () => {
+                setDraft(reloadDraft);
                 await reconcile();
-                restart();
                 setFailure(null);
               })
             }
@@ -513,13 +519,13 @@ export function ListingEditor({
             }
           />
         )}
-        {outcome?.kind === "notice" ? (
-          <div role="status">
+        <div role="status">
+          {outcome?.kind === "notice" ? (
             <Notice variant="manage" title={outcome.title}>
               {outcome.body}
             </Notice>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
         {copiedFrom === null ? null : (
           <div role="status">
             <Notice
@@ -571,7 +577,10 @@ export function ListingEditor({
         <ListingFormFields
           values={values}
           onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
+            setDraft((current) => ({
+              ...current,
+              values: { ...current.values, ...change },
+            }))
           }
           errors={failure?.fields ?? {}}
           categories={categories}

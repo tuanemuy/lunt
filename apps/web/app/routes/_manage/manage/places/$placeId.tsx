@@ -10,6 +10,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { classifyError } from "@/presentation/errorState";
 import { loadPlaceFrameFn } from "@/presentation/place";
+import { PLACE_PROXY_UNAVAILABLE } from "@/presentation/placeView";
 
 /**
  * The store management area (SM, and CM-03 of the store's listings): the
@@ -25,12 +26,35 @@ export const Route = createFileRoute("/_manage/manage/places/$placeId")({
   errorComponent: PlaceAreaError,
 });
 
-/** The guard refused or failed: CS-05, CS-17, or the common error states. */
+/**
+ * The guard refused or failed: CS-15 (an operator whose store has gained a
+ * steward), CS-05, CS-17, or the common error states.
+ */
 function PlaceAreaError({ error }: ErrorComponentProps) {
   const state = classifyError(error);
+  const { placeId } = Route.useParams();
   return (
     <ShopShell homeTo="/me">
-      {state.kind === "forbidden" ? (
+      {state.kind === "forbidden" && state.code === PLACE_PROXY_UNAVAILABLE ? (
+        <ManagePage title={null}>
+          <ManageBody>
+            <EmptyPanel
+              title="この店舗は代行できません"
+              headingLevel="h1"
+              actions={
+                <ButtonLink
+                  to="/ops/subjects/$kind/$id"
+                  params={{ kind: "place", id: placeId }}
+                >
+                  店舗の運営へ戻る
+                </ButtonLink>
+              }
+            >
+              この店舗には店舗管理者が就いています。不在の代行はできません。店舗の運営の画面で、管理者がいることを確かめてください。
+            </EmptyPanel>
+          </ManageBody>
+        </ManagePage>
+      ) : state.kind === "forbidden" ? (
         <ManagePage title={null}>
           <ManageBody>
             <EmptyPanel

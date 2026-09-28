@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { ManageBody } from "@/components/layout/ManageShell";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -42,8 +42,9 @@ function Retry() {
 
 /**
  * An SM screen's content that could not be read, drawn in the store's
- * frame: CS-17 when the target is gone, CS-05 when the viewer no longer
- * manages the store, CS-02 otherwise (retry).
+ * frame: CS-17 when the target is gone, CS-04 when the session ended, CS-05
+ * when the viewer no longer manages the store (CS-15 when an operator's
+ * store gained a steward), CS-02 otherwise (retry).
  */
 export function ShopProblem({
   kind,
@@ -52,6 +53,7 @@ export function ShopProblem({
   back,
 }: ShopProblemProps) {
   const frame = usePlaceFrame();
+  const here = useLocation({ select: (location) => location.href });
   const params = { placeId: frame.placeId };
   const body = (() => {
     switch (kind) {
@@ -75,9 +77,35 @@ export function ShopProblem({
             削除されたか、存在しない対象です。操作は反映していません。
           </EmptyPanel>
         );
-      case "forbidden":
       case "loginRequired":
         return (
+          <EmptyPanel
+            title="ログインが必要です"
+            actions={
+              <ButtonLink to="/login" search={{ next: here }}>
+                ログインする
+              </ButtonLink>
+            }
+          >
+            ログインの有効期限が切れました。ログインすると、この画面に戻ります。
+          </EmptyPanel>
+        );
+      case "forbidden":
+        return frame.basis === "proxy" ? (
+          <EmptyPanel
+            title="この店舗は代行できません"
+            actions={
+              <ButtonLink
+                to="/ops/subjects/$kind/$id"
+                params={{ kind: "place", id: frame.placeId }}
+              >
+                店舗の運営へ戻る
+              </ButtonLink>
+            }
+          >
+            この店舗には店舗管理者が就きました。不在の代行はできません。店舗の運営の画面で、管理者がいることを確かめてください。
+          </EmptyPanel>
+        ) : (
           <EmptyPanel
             title="この店舗を管理する権限がありません"
             actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}

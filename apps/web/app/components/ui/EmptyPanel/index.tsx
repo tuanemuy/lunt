@@ -4,6 +4,8 @@ type EmptyPanelProps = {
   title: string;
   /** `h1` when the panel stands in for the whole screen (no title band). */
   headingLevel?: "h1" | "h2";
+  /** The title's id, for a section labelled by it. */
+  titleId?: string;
   children?: ReactNode;
   actions?: ReactNode;
 };
@@ -15,12 +17,15 @@ type EmptyPanelProps = {
 export function EmptyPanel({
   title,
   headingLevel: Heading = "h2",
+  titleId,
   children,
   actions,
 }: EmptyPanelProps) {
   return (
     <div className="m-empty">
-      <Heading className="m-empty__title">{title}</Heading>
+      <Heading className="m-empty__title" id={titleId}>
+        {title}
+      </Heading>
       {children === undefined ? null : (
         <p className="m-empty__body">{children}</p>
       )}

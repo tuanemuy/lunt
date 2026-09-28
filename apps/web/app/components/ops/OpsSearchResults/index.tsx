@@ -1,6 +1,7 @@
 "use client";
 
-import { type RefObject, useCallback } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { type RefObject, useCallback, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChipLink } from "@/components/ui/ChipButton";
@@ -114,6 +115,7 @@ export function PlaceResults({
       <section className="m-section" aria-labelledby="om02-empty">
         <hr className="m-divider" />
         <EmptyPanel
+          titleId="om02-empty"
           title={`「${terms}」に合う店舗はありません`}
           actions={register}
         >
@@ -231,7 +233,10 @@ export function ListingResults({
     return (
       <section className="m-section" aria-labelledby="om02-empty">
         <hr className="m-divider" />
-        <EmptyPanel title={`「${keyword}」に合う掲載はありません`}>
+        <EmptyPanel
+          titleId="om02-empty"
+          title={`「${keyword}」に合う掲載はありません`}
+        >
           閲覧者に表示されていないものを含めて探しました。キーワードを変えて探し直してください。
         </EmptyPanel>
       </section>
@@ -308,6 +313,24 @@ export function ListingResults({
   );
 }
 
+function RetrySearch() {
+  const router = useRouter();
+  const [retrying, startRetry] = useTransition();
+  return (
+    <Button
+      variant="secondary"
+      disabled={retrying}
+      onClick={() =>
+        startRetry(async () => {
+          await router.invalidate({ sync: true });
+        })
+      }
+    >
+      {retrying ? "探しています…" : "もう一度探す"}
+    </Button>
+  );
+}
+
 /** A search the server could not run (CS-02, or a term it refused). */
 export function SearchFailure({
   kind,
@@ -318,7 +341,11 @@ export function SearchFailure({
 }) {
   return (
     <div role="alert">
-      <Notice variant="manage" title="探せませんでした">
+      <Notice
+        variant="manage"
+        title="探せませんでした"
+        {...(kind === "failed" ? { actions: <RetrySearch /> } : {})}
+      >
         {kind === "failed"
           ? "通信を確かめて、もう一度探してください。入力した内容は残っています。"
           : message}

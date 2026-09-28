@@ -1,11 +1,14 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
 import { TextLink } from "@/components/ui/TextButton";
-import type { ListingDetailData } from "@/presentation/detailView";
+import {
+  type ListingDetailData,
+  listingHeroOf,
+} from "@/presentation/detailView";
 import { DetailPhotos } from "../DetailPhotos";
 import { ListingCards } from "../ListingCard";
+import { ListingHeroText } from "../ListingHero";
 
 function PlaceNotice({ data }: { data: ListingDetailData }) {
   const { name, operating } = data.place;
@@ -43,34 +46,7 @@ export function ListingDetail({ data }: { data: ListingDetailData }) {
       <div className="detail detail--split">
         <DetailPhotos photos={data.photos} />
         <div className="detail__main">
-          <div className="hero__text">
-            <p className="hero__kind">{data.categoryName}</p>
-            <h1 className="hero__name">{data.name}</h1>
-            <p className="hero__place">{place.name}</p>
-            {offering.phase === "available" &&
-            place.operating === "open" ? null : (
-              <StatusTags>
-                {offering.phase === "upcoming" ? (
-                  <StatusTag>{`提供開始前・${offering.startsOn}から`}</StatusTag>
-                ) : null}
-                {offering.phase === "ended" ? (
-                  <StatusTag quiet>提供終了</StatusTag>
-                ) : null}
-                {place.operating === "temporarilyClosed" ? (
-                  <StatusTag quiet>お店は休業中</StatusTag>
-                ) : null}
-                {place.operating === "permanentlyClosed" ? (
-                  <StatusTag quiet>お店は閉店しました</StatusTag>
-                ) : null}
-              </StatusTags>
-            )}
-            {data.offeringText === null ? null : (
-              <p className="hero__place">{data.offeringText}</p>
-            )}
-            {data.description === null ? null : (
-              <p className="hero__description">{data.description}</p>
-            )}
-          </div>
+          <ListingHeroText hero={listingHeroOf(data)} />
 
           {offering.phase === "ended" ? (
             <Notice

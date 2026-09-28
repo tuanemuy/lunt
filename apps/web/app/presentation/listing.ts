@@ -146,11 +146,15 @@ export const transitionListingSchema = z.object({
   transition: z.enum(LISTING_TRANSITIONS),
 });
 
-/** Runs one `ListingTransition` (its usecase decides who may). */
+/**
+ * Runs one `ListingTransition` (its usecase decides who may) and answers the
+ * version it left the listing at (`null` after the deletion), which the
+ * editor sends with its next save.
+ */
 export const transitionListingFn = createServerFn({ method: "POST" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(transitionListingSchema))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<Readonly<{ version: number }> | null> => {
     const [{ getContainer }, { requireActor }, { listingIdOf }] =
       await Promise.all([
         import("@repo/core/application/di/containerStore"),
@@ -169,43 +173,37 @@ export const transitionListingFn = createServerFn({ method: "POST" })
         const { publishListing } = await import(
           "@repo/core/application/listing/publishListing"
         );
-        await publishListing(args);
-        return null;
+        return { version: (await publishListing(args)).version };
       }
       case "unpublish": {
         const { unpublishListing } = await import(
           "@repo/core/application/listing/unpublishListing"
         );
-        await unpublishListing(args);
-        return null;
+        return { version: (await unpublishListing(args)).version };
       }
       case "endOffering": {
         const { endListingOffering } = await import(
           "@repo/core/application/listing/endListingOffering"
         );
-        await endListingOffering(args);
-        return null;
+        return { version: (await endListingOffering(args)).version };
       }
       case "resumeOffering": {
         const { resumeListingOffering } = await import(
           "@repo/core/application/listing/resumeListingOffering"
         );
-        await resumeListingOffering(args);
-        return null;
+        return { version: (await resumeListingOffering(args)).version };
       }
       case "suspend": {
         const { suspendListing } = await import(
           "@repo/core/application/listing/suspendListing"
         );
-        await suspendListing(args);
-        return null;
+        return { version: (await suspendListing(args)).version };
       }
       case "unsuspend": {
         const { unsuspendListing } = await import(
           "@repo/core/application/listing/unsuspendListing"
         );
-        await unsuspendListing(args);
-        return null;
+        return { version: (await unsuspendListing(args)).version };
       }
       case "delete": {
         const { deleteListing } = await import(

@@ -63,6 +63,7 @@ export function InviteForm({
   targetName,
   stewardEmails,
   invitedEmails,
+  onAttempt,
   onOptimisticAdd,
   onInvited,
   onForbidden,
@@ -72,6 +73,8 @@ export function InviteForm({
   targetName: string;
   stewardEmails: readonly string[];
   invitedEmails: readonly string[];
+  /** A send starts: the previous outcome no longer describes the board. */
+  onAttempt: () => void;
   onOptimisticAdd: (invitationId: string, email: string) => void;
   onInvited: (email: string) => void;
   onForbidden: () => void;
@@ -86,6 +89,7 @@ export function InviteForm({
   const [state, invite, inviting] = useActionState(
     async (_previous: FormState, form: FormData): Promise<FormState> => {
       const typed = String(form.get("email") ?? "").trim();
+      onAttempt();
       if (stewardEmails.some((known) => sameAddress(known, typed))) {
         return {
           email: typed,

@@ -20,26 +20,14 @@ export type RoleHoldersView = Readonly<Record<Role, readonly RoleHolderItem[]>>;
 export const requireOperatorFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .handler(async () => {
-    const [{ getContainer }, { requireActor }, { getMyAuthority }, errors] =
+    const [{ getContainer }, { requireActor }, { requireOperator }] =
       await Promise.all([
         import("@repo/core/application/di/containerStore"),
         import("./actor"),
-        import("@repo/core/application/authority/getMyAuthority"),
-        import("@repo/core/application/errors"),
+        import("./operatorAccess"),
       ]);
     const container = await getContainer();
-    const actor = await requireActor(container);
-    const { roles } = await getMyAuthority({
-      container,
-      actor,
-      input: { pagination: { page: 1, limit: 1 } },
-    });
-    if (!roles.includes("operator")) {
-      throw new errors.ForbiddenError(
-        "OPERATOR_REQUIRED",
-        "Only operators may open this screen",
-      );
-    }
+    await requireOperator(container, await requireActor(container));
     return null;
   });
 

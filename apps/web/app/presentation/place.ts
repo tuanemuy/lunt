@@ -145,7 +145,10 @@ export const changeOperatingStatusSchema = z.object({
   status: z.enum(OPERATING_STATUSES),
 });
 
-/** SM-02: sets the operating status, separately from the profile (SHP-07). */
+/**
+ * SM-02: sets the operating status, separately from the profile (SHP-07),
+ * and answers the version the profile form saves with next.
+ */
 export const changeOperatingStatusFn = createServerFn({ method: "POST" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(changeOperatingStatusSchema))
@@ -174,7 +177,7 @@ export const changeOperatingStatusFn = createServerFn({ method: "POST" })
         status: data.status,
       },
     });
-    return { operatingStatus: place.operatingStatus };
+    return { operatingStatus: place.operatingStatus, version: place.version };
   });
 
 /** OM-03: suspends a store (MOD-08, MOD-09). */

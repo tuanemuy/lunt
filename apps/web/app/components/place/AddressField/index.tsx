@@ -114,14 +114,24 @@ export function AddressField({
       try {
         const found = await findTownsFn({ data: { postalCode: postal } });
         const [first] = found;
-        if (first === undefined) return;
+        if (first === undefined) {
+          // The town picked for another code no longer matches what was typed.
+          setCandidates([]);
+          onTownChange(null);
+          setLookupError(
+            "この郵便番号の町域は見つかりません。都道府県から町域を選んでください",
+          );
+          return;
+        }
         if (found.length === 1) {
           pick(first);
         } else {
+          onTownChange(null);
           setCandidates(found);
         }
       } catch (error) {
         setCandidates([]);
+        if (classifyError(error).kind !== "failed") onTownChange(null);
         setLookupError(lookupFailure(error));
       }
     });

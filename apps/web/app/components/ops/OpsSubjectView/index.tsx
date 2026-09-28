@@ -17,7 +17,7 @@ import {
 import { FramedPhoto } from "@/components/photo/FramedPhoto";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Notice } from "@/components/ui/Notice";
@@ -30,6 +30,7 @@ import {
   offeringPhaseLabel,
   publicationLabel,
 } from "@/presentation/listingView";
+import { invitedOnText } from "@/presentation/members";
 import type {
   ListingSubjectData,
   OpsSubjectData,
@@ -38,6 +39,7 @@ import type {
 import { suspendPlaceFn, unsuspendPlaceFn } from "@/presentation/place";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
+import { OpsSearchReturnLink } from "../OpsSearchReturn";
 import { OpsNav } from "../OpsShell";
 
 const KIND_LABEL = { place: "店舗", listing: "掲載" } as const;
@@ -45,9 +47,7 @@ const KIND_LABEL = { place: "店舗", listing: "掲載" } as const;
 function Title({ kind, name }: { kind: OpsSubjectData["kind"]; name: string }) {
   return (
     <ManageTitle>
-      <TextLink to="/ops/search" className="om03-back">
-        対象を探すへ戻る
-      </TextLink>
+      <OpsSearchReturnLink className="om03-back" />
       <p className="om-kind">{`${KIND_LABEL[kind]} · 対象の運営`}</p>
       <ManageHeading>{name}</ManageHeading>
     </ManageTitle>
@@ -75,6 +75,7 @@ function useSuspension(
   const [pending, startTransition] = useTransition();
   const change = (suspend: boolean) => {
     setConfirming(false);
+    setOutcome(null);
     startTransition(async () => {
       setShown(suspend);
       try {
@@ -133,7 +134,7 @@ function Missing({ kind }: { kind: OpsSubjectData["kind"] }) {
           ? "この掲載は削除されています"
           : "店舗が見つかりません"
       }
-      actions={<ButtonLink to="/ops/search">対象を探すへ戻る</ButtonLink>}
+      actions={<OpsSearchReturnLink variant="button" />}
     >
       運営する対象がありません。非公開と解除の操作は反映していません。
     </EmptyPanel>
@@ -159,8 +160,8 @@ function PlaceSubject({ data }: { data: PlaceSubjectData }) {
           <Missing kind="place" />
         ) : (
           <>
-            {outcome?.kind === "done" ? (
-              <div role="status">
+            <div role="status">
+              {outcome?.kind === "done" ? (
                 <Notice
                   variant="manage"
                   title={
@@ -173,8 +174,8 @@ function PlaceSubject({ data }: { data: PlaceSubjectData }) {
                     ? "店舗と掲載は、閲覧者に表示されていません。解除すると、再び閲覧できます。"
                     : "店舗は再び閲覧でき、掲載はそれぞれの現在の公開状態に従って表示されます。"}
                 </Notice>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             {outcome?.kind === "failed" ? (
               <FailureAlert
                 error={outcome.error}
@@ -274,9 +275,12 @@ function PlaceSubject({ data }: { data: PlaceSubjectData }) {
                   <dd>
                     {data.invitations.length === 0
                       ? "ありません"
-                      : data.invitations
-                          .map((invitation) => invitation.email)
-                          .join("、")}
+                      : `${data.invitations.length}件: ${data.invitations
+                          .map(
+                            (invitation) =>
+                              `${invitation.email}（${invitedOnText(invitation.invitedAt)}）`,
+                          )
+                          .join("、")}`}
                   </dd>
                 </div>
               </dl>
@@ -355,8 +359,8 @@ function ListingSubject({ data }: { data: ListingSubjectData }) {
           <Missing kind="listing" />
         ) : (
           <>
-            {outcome?.kind === "done" ? (
-              <div role="status">
+            <div role="status">
+              {outcome?.kind === "done" ? (
                 <Notice
                   variant="manage"
                   title={
@@ -369,8 +373,8 @@ function ListingSubject({ data }: { data: ListingSubjectData }) {
                     ? "掲載は、閲覧者が閲覧できません。管理者は情報を更新できますが、公開状態は変えられません。"
                     : `${name}は、非公開の前の公開状態「${pubLabel}」に戻りました。`}
                 </Notice>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             {outcome?.kind === "failed" ? (
               <FailureAlert
                 error={outcome.error}
@@ -529,7 +533,7 @@ export function OpsSubjectProblem({
         ) : (
           <EmptyPanel
             title="読み込めませんでした"
-            actions={<ButtonLink to="/ops/search">対象を探すへ戻る</ButtonLink>}
+            actions={<OpsSearchReturnLink variant="button" />}
           >
             通信を確かめて、もう一度開いてください。
           </EmptyPanel>

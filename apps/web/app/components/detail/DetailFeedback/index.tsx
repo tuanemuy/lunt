@@ -4,41 +4,17 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
 import { TextLink } from "@/components/ui/TextButton";
 
-// Plain paths: the exploration screens (VW) arrive in stage 4, and the
-// router only type-checks literal paths it already knows.
-const EXPLORE: Readonly<
-  Record<
-    "discover" | "search" | "map" | "regions" | "events" | "articles" | "saved",
-    string
-  >
-> = {
-  discover: "/",
-  search: "/search",
-  map: "/map",
-  regions: "/regions",
-  events: "/events",
-  articles: "/articles",
-  saved: "/saved",
-};
-
+// The exploration screens that lead on from a detail (VW-03 search, VW-04
+// map, regions, events, articles, VW-10 saved) arrive in stage 4; until
+// then only みつける exists, and the other ways are not offered.
 const UNAVAILABLE = {
   listing: {
     title: "この掲載は見られません。",
     body: "ほかの掲載を探してみてください。",
-    action: { to: EXPLORE.discover, label: "みつけるへ" },
-    links: [
-      { to: EXPLORE.search, label: "キーワードで探す" },
-      { to: EXPLORE.saved, label: "保存を見る" },
-    ],
   },
   place: {
     title: "このお店は見られません。",
     body: "ほかのお店を探してみてください。",
-    action: { to: EXPLORE.map, label: "地図で探す" },
-    links: [
-      { to: EXPLORE.search, label: "キーワードで探す" },
-      { to: EXPLORE.regions, label: "まちを探す" },
-    ],
   },
 } as const;
 
@@ -62,30 +38,16 @@ export function DetailUnavailable({ kind }: { kind: "listing" | "place" }) {
           </>
         }
         action={
-          <ButtonLink variant="secondary" to={words.action.to}>
-            {words.action.label}
+          <ButtonLink variant="secondary" to="/">
+            みつけるへ
           </ButtonLink>
         }
-        links={words.links.map((link) => (
-          <TextLink key={link.to} to={link.to}>
-            {link.label}
-          </TextLink>
-        ))}
       />
     </div>
   );
 }
 
-const OTHER_WAYS = [
-  { to: EXPLORE.search, label: "キーワードで探す" },
-  { to: EXPLORE.map, label: "地図で探す" },
-  { to: EXPLORE.regions, label: "まちを探す" },
-  { to: EXPLORE.events, label: "イベントを見る" },
-  { to: EXPLORE.articles, label: "読みものを見る" },
-  { to: EXPLORE.saved, label: "保存を見る" },
-] as const;
-
-/** CS-02 of a detail: reading failed; retry, or explore another way. */
+/** CS-02 of a detail: reading failed; retry, or go back to みつける. */
 export function DetailLoadError() {
   const router = useRouter();
   const [retrying, startRetry] = useTransition();
@@ -115,11 +77,7 @@ export function DetailLoadError() {
             {retrying ? "読み込んでいます…" : "もう一度読み込む"}
           </Button>
         }
-        links={OTHER_WAYS.map((link) => (
-          <TextLink key={link.to} to={link.to}>
-            {link.label}
-          </TextLink>
-        ))}
+        links={<TextLink to="/">みつけるへ</TextLink>}
       />
     </div>
   );

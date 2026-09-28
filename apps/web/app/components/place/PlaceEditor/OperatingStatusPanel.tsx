@@ -2,11 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { ManageStatus } from "@/components/layout/ManageShell";
+import { placePagePath } from "@/components/manage/ShopShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { TextLink } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { changeOperatingStatusFn } from "@/presentation/place";
 import {
@@ -16,13 +19,26 @@ import {
 } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
 
+const CHANGED_TEXT = {
+  open: "店舗と掲載は、営業中として表示されています。",
+  temporarilyClosed:
+    "店舗と掲載は、休業中として表示されています。掲載はフィードの対象のままです。",
+  permanentlyClosed:
+    "店舗と掲載は、フィード・地図・地域やイベントの一覧に表示されなくなりました。検索・保存・詳細では閉店として表示されます。",
+} as const satisfies Readonly<Record<OperatingStatus, string>>;
+
 type OperatingStatusPanelProps = {
   placeId: string;
-  /** The version the current status was read at. */
+  /** The version the editor's form was read at; the change moves it. */
   version: number;
   current: OperatingStatus;
   proxy: boolean;
-  onChanged: (status: OperatingStatus) => void;
+  /** The store is suspended (its viewers see nothing until it is lifted). */
+  suspended: boolean;
+  /** The change went through at `version`. */
+  onChanged: (version: number) => void;
+  /** 最新の内容を読み直す after CS-07: the editor starts again from the server's copy. */
+  onReload: () => void;
   onLostAccess: () => void;
 };
 
@@ -36,24 +52,29 @@ export function OperatingStatusPanel({
   version,
   current,
   proxy,
+  suspended,
   onChanged,
+  onReload,
   onLostAccess,
 }: OperatingStatusPanelProps) {
   const reconcile = useReconcile();
   const [picked, setPicked] = useState<OperatingStatus>(current);
   const [confirming, setConfirming] = useState(false);
   const [failure, setFailure] = useState<ErrorState | null>(null);
+  const [changed, setChanged] = useState<OperatingStatus | null>(null);
   const [changing, startChange] = useTransition();
 
   const change = () => {
     setConfirming(false);
+    setFailure(null);
+    setChanged(null);
     startChange(async () => {
       try {
-        await changeOperatingStatusFn({
+        const reply = await changeOperatingStatusFn({
           data: { placeId, version, status: picked },
         });
-        setFailure(null);
-        onChanged(picked);
+        onChanged(reply.version);
+        setChanged(reply.operatingStatus);
         await reconcile();
       } catch (error) {
         const state = classifyError(error);
@@ -71,6 +92,25 @@ export function OperatingStatusPanel({
       <SectionTitle variant="manage" id="sm02-status">
         営業状況
       </SectionTitle>
+      <div role="status">
+        {changed === null ? null : (
+          <Notice
+            variant="manage"
+            title={`営業状況を${OPERATING_STATUS_LABEL[changed]}にしました`}
+            {...(suspended
+              ? {}
+              : {
+                  actions: (
+                    <TextLink to={placePagePath(placeId)}>
+                      店舗ページを見る
+                    </TextLink>
+                  ),
+                })}
+          >
+            {CHANGED_TEXT[changed]}
+          </Notice>
+        )}
+      </div>
       {failure === null ? null : (
         <Alert
           title={
@@ -88,6 +128,7 @@ export function OperatingStatusPanel({
                     disabled={changing}
                     onClick={() =>
                       startChange(async () => {
+                        onReload();
                         await reconcile();
                         setFailure(null);
                       })
