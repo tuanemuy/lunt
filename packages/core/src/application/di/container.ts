@@ -69,11 +69,12 @@ const runtimeSchema = z
     (raw) => raw.devTools === "1" || raw.sessionSecret !== DEV_SESSION_SECRET,
     {
       message:
-        "SESSION_SECRET is the public development secret while DEV_TOOLS is off",
+        "SESSION_SECRET is the public development secret while the development tools are off (DEV_TOOLS, or a request to a host other than localhost without DEV_TOOLS_ALLOW_REMOTE)",
     },
   )
   .refine((raw) => raw.devTools === "1" || raw.opsToken !== DEV_OPS_TOKEN, {
-    message: "OPS_TOKEN is the public development token while DEV_TOOLS is off",
+    message:
+      "OPS_TOKEN is the public development token while the development tools are off (DEV_TOOLS, or a request to a host other than localhost without DEV_TOOLS_ALLOW_REMOTE)",
   });
 
 /**

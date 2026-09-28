@@ -32,6 +32,7 @@ import { presentationPorts } from "./presentation/ports";
 import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
 import { handlePhotoRequest, PHOTO_PATH_PREFIX } from "./worker/photos";
 import { handleQueueBatch } from "./worker/queue";
+import { refuseOversizedBody } from "./worker/requestSize";
 import { stateClient } from "./worker/stateClient";
 
 export { LuntStateObject };
@@ -90,6 +91,11 @@ export default {
           provisionInitialCategories({ container }),
       });
     }
+    const oversized = refuseOversizedBody(
+      request,
+      container.photoPolicy.maxBytes,
+    );
+    if (oversized !== null) return oversized;
     return storage.run(container, async () => defaultEntry.fetch(request));
   },
 
