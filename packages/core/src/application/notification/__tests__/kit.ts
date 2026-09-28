@@ -45,6 +45,7 @@ import {
 import { removeAllAuthorityOf } from "../../authority/withdrawal";
 import type { RequestContainer } from "../../di/types";
 import { TestContentDirectory } from "../../moderation/__tests__/testServices";
+import { suspendPlace as suspendPlaceUsecase } from "../../place/suspendPlace";
 import { deliverNotifications } from "../deliverNotifications";
 import { TestMailer } from "./testServices";
 
@@ -58,19 +59,24 @@ const FAR = { page: 1, limit: 100 } as const;
 /**
  * Usecase-test kit for Notification: the production-shaped test container
  * with a test `ContentDirectory` (targets and names a test sets, regions
- * and occasions included before their stage stores them) and a
- * `TestMailer`, preconditions written straight through the repositories
- * (no events), and readers for what was delivered.
+ * and occasions included before their stage stores them) — or, with
+ * `realDirectory`, the production one over the stored places and
+ * listings — and a `TestMailer`, preconditions written straight through
+ * the repositories (no events), and readers for what was delivered.
  */
 export function notificationKit(
   options: Readonly<{
     overrides?: (container: RequestContainer) => Partial<RequestContainer>;
+    realDirectory?: boolean;
   }> = {},
 ) {
   const directory = new TestContentDirectory();
   const mailer = new TestMailer();
   const t: TestContext = createTestContainer({
-    overrides: () => ({ contentDirectory: directory, mailer }),
+    overrides: () =>
+      options.realDirectory
+        ? { mailer }
+        : { contentDirectory: directory, mailer },
   });
   const base = t.container;
   const container: RequestContainer = {
@@ -124,6 +130,15 @@ export function notificationKit(
     );
     directory.add(ref, name);
     return ref;
+  }
+
+  /** `operator` suspends a stored place through Place's usecase. */
+  async function suspendPlace(place: PlaceRef, operator: Person) {
+    await suspendPlaceUsecase({
+      container: base,
+      actor: operator.actor,
+      input: { placeId: place.id },
+    });
   }
 
   const region = (
@@ -483,6 +498,7 @@ export function notificationKit(
     person,
     place,
     registeredPlace,
+    suspendPlace,
     region,
     occasion,
     applicationId,

@@ -110,12 +110,22 @@ describe("sendTakedownOutcome", () => {
   });
 
   it("sendTakedownOutcome#4 対象が閲覧できない（運営による非公開の）申立て Cl が対応済みになった / Cl の takedown_claim.resolved を消費する", async () => {
-    const k = notificationKit();
-    // The directory names content whether viewers can see it or not.
-    const P = k.place("非公開の店舗P");
-    const { e } = await resolvedClaim(k, P);
-    await consume(k, e);
-    expect(k.mailsTo(M)[0]?.body).toContain(`place:${P.id}="非公開の店舗P"`);
+    const k = notificationKit({ realDirectory: true });
+    const O = await k.person("o");
+    await k.operators(O);
+    const P = await k.registeredPlace("店舗P");
+    const Cl = await k.takedownClaim(P);
+    await k.suspendPlace(P, O);
+    expect(await k.container.referenceQueries.isViewable(P)).toBe(false);
+    await resolveTakedownClaim({
+      container: k.container,
+      actor: O.actor,
+      input: { claimId: Cl, outcome: DONE },
+    });
+    await consume(k, resolvedEvent(k, Cl));
+    const [mail] = k.mailsTo(M);
+    expect(mail?.body).toContain(`place:${P.id}="店舗P"`);
+    expect(mail?.body).toContain(DONE);
   });
 
   it("sendTakedownOutcome#5 Cl の結果のメールを送り、送信済みの記録がある / 同じ takedown_claim.resolved をもう一度消費する", async () => {

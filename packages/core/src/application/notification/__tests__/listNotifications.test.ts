@@ -412,16 +412,16 @@ describe("listNotifications", () => {
     "listNotifications#16 公開中の読みもの A1 が紹介する掲載 L が削除され、編集担当者 E に通知が届いた / E として読む",
   );
   it("listNotifications#17 店舗 P への取り下げの申立て Cl が受け付けられ、サービス運営者 O に通知が届いた。その後、P が非公開になった / O として読む", async () => {
-    const k = notificationKit();
+    const k = notificationKit({ realDirectory: true });
     const O = await k.person("o");
     await k.operators(O);
-    const P = k.place("店舗P");
+    const P = await k.registeredPlace("店舗P");
     const Cl = await k.takedownClaim(P);
     await k.consume(
       k.event(ModerationEvents.takedownClaimSubmitted(Cl, k.tick())),
     );
-    // The directory names content whether viewers can see it or not; the
-    // suspension itself is Place's (its notification is another row's).
+    await k.suspendPlace(P, O);
+    expect(await k.container.referenceQueries.isViewable(P)).toBe(false);
     const [item] = (await list(k, O.actor)).items;
     expect(item).toMatchObject({
       occurrence: {
@@ -431,7 +431,8 @@ describe("listNotifications", () => {
       labels: [{ ref: { kind: "takedownClaim", id: Cl }, label: "店舗P" }],
       destination: { kind: "takedownClaimHandling", claimId: Cl },
     });
-    const [described] = await k.directory.describe([P]);
+    const [described] = await k.container.contentDirectory.describe([P]);
+    expect(described?.name).toBe("店舗P");
     expect(item?.labels[0]?.label).toBe(described?.name);
   });
   it("listNotifications#18 カテゴリー K が移行先をカテゴリー K2 として廃止され、K を保存している掲載を持つ店舗 P の店舗管理者 A に通知が届いた / A として読む", async () => {
