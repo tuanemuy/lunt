@@ -8,6 +8,7 @@ import { expectCode, type Person } from "../../authority/__tests__/kit";
 import type { RequestContainer } from "../../di/types";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import type { GeneratedId } from "../../ports/idGenerator";
+import { deleteListing } from "../deleteListing";
 import { duplicateListing } from "../duplicateListing";
 import { updateListing } from "../updateListing";
 import { type ListingKit, listingKit, period } from "./kit";
@@ -217,6 +218,29 @@ describe("duplicateListing", () => {
     const copy = await duplicator(k)(m, source.id, k.newId(), deleting);
     expect((await k.stored(copy.id)).entity.content.name).toBe("元の掲載");
     expect(await k.findListing(source.id)).toBeNull();
+  });
+
+  it("answers a resend to a deleted duplicate's id with ConflictError and copies no photo", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const [p1] = await k.photos(m, 1);
+    if (p1 === undefined) throw new Error("photos");
+    const source = await k.published(m, a, { photos: [p1] });
+    const x = k.newId();
+    const copy = await duplicator(k)(m, source.id, x);
+    await deleteListing({
+      container: k.container,
+      actor: m.actor,
+      input: { listingId: copy.id },
+    });
+    const spy = spyCopies(k.container);
+
+    await expectCode(
+      duplicator(k)(m, source.id, x, spy.container),
+      ConflictError,
+    );
+    expect(spy.copies).toEqual([]);
   });
 
   it("duplicateListing#9 操作する人は店舗 A の管理権限を持たない利用者 / 店舗 A の掲載を複製する", async () => {

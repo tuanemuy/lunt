@@ -99,6 +99,7 @@ type Paged = Readonly<{ page: number; limit: number }>;
  */
 export type ListingQueries = {
   "listing.findById": QuerySpec<{ id: string }, ListingRecord | null>;
+  "listing.isDeleted": QuerySpec<{ id: string }, boolean>;
   /** Stored listings among `ids` (at most 100). */
   "listing.findByIds": QuerySpec<
     { ids: readonly string[] },

@@ -9,6 +9,7 @@ import {
 } from "../../authority/__tests__/kit";
 import type { RequestContainer } from "../../di/types";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { discardReleased } from "../../media/discardReleasedPhotos";
 import type { GeneratedId } from "../../ports/idGenerator";
 import { createListingDraft } from "../createListingDraft";
 import { deleteListing } from "../deleteListing";
@@ -344,6 +345,29 @@ describe("createListingDraft", () => {
       photoAssetRepository.findById(photo),
     );
     expect(photoAfter?.expectedVersion).toBe(photoBefore?.expectedVersion);
+  });
+
+  it("answers a resend to a deleted id with ConflictError even after the deleted listing's photos were discarded", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const photo = await k.photo(m);
+    const x = k.newId();
+    await creator(k)(m, a, { photos: [photo] }, x);
+    await deleteListing({
+      container: k.container,
+      actor: m.actor,
+      input: { listingId: ListingId.create(x) },
+    });
+    // The photos.released consumer has run, as it does seconds later.
+    await discardReleased(k.container, [photo]);
+    expect(
+      await k.run(({ photoAssetRepository }) =>
+        photoAssetRepository.findById(photo),
+      ),
+    ).toBeNull();
+
+    await expectCode(creator(k)(m, a, { photos: [photo] }, x), ConflictError);
   });
 
   it("createListingDraft#18 操作する人は店舗 A の店舗管理者。指定した写真の1枚が、すでに別の掲載を持ち主に持つ / その写真を含む下書きを作る", async () => {

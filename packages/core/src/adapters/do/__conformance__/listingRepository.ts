@@ -398,6 +398,27 @@ export function describeListingRepositoryContract(
       });
     });
 
+    describe("isDeleted (the memory insert checks)", () => {
+      it("answers true only for the id of a deleted listing", async () => {
+        const h = await makeHarness();
+        const f = listingFactory();
+        const place = f.place();
+        const [kept, removed] = [f.draft(place), f.draft(place)];
+        const never = f.draft(place);
+        await insertListings(h, kept, removed);
+        const read = await getListing(h, removed.id);
+        await deleteListing(h, removed.id, read.expectedVersion);
+
+        const answers = await h.uow.run(async ({ listingRepository }) => [
+          await listingRepository.isDeleted(kept.id),
+          await listingRepository.isDeleted(removed.id),
+          await listingRepository.isDeleted(never.id),
+        ]);
+
+        expect(answers).toEqual([false, true, false]);
+      });
+    });
+
     describe("findByIds", () => {
       it("listingRepository#19 掲載 X、Y、Z を insert している / X と Z の ID で findByIds する", async () => {
         const h = await makeHarness();

@@ -45,7 +45,16 @@ async function judge(
   access: TargetAccess,
 ): Promise<Judged> {
   const existing = await ctx.listingRepository.findById(id);
-  if (existing === null) return { kind: "new" };
+  if (existing === null) {
+    // A deleted duplicate's id: refuse before copying any photo.
+    if (await ctx.listingRepository.isDeleted(id)) {
+      throw new ConflictError(
+        LISTING_DUPLICATE_CONFLICT,
+        "The listing id belongs to a deleted listing",
+      );
+    }
+    return { kind: "new" };
+  }
   if (!Listing.isDuplicateOf(existing.entity, source, catalog)) {
     throw new ConflictError(
       LISTING_DUPLICATE_CONFLICT,

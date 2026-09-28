@@ -104,6 +104,12 @@ export class DoListingRepository implements ListingRepository {
     });
   }
 
+  isDeleted(id: ListingId): Promise<boolean> {
+    return mapDoError("Failed to read deleted listings", () =>
+      this.client.query("listing.isDeleted", { id }),
+    );
+  }
+
   findById(id: ListingId): Promise<Versioned<Listing> | null> {
     return mapDoError("Failed to find listing", async () => {
       const record = await this.client.query("listing.findById", { id });

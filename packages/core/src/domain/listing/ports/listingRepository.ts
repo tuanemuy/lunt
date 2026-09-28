@@ -25,6 +25,9 @@ export type ListingShelfCounts = Readonly<{
  *
  * - `insert`: `ConflictError` when the id is taken — including by a
  *   deleted listing (the port remembers deleted ids; B-27).
+ * - `isDeleted`: whether a listing with this id was deleted — the memory
+ *   `insert` checks, read before a create's other checks so a resend to a
+ *   deleted id answers `ConflictError` whatever became of its photos.
  * - `save` / `delete`: `ConflictError` on a version mismatch, `NotFoundError`
  *   when none is stored (deleted included). A deleted listing leaves every
  *   query.
@@ -48,6 +51,7 @@ export type ListingShelfCounts = Readonly<{
  */
 export interface ListingRepository
   extends TransactionalRepository<Listing, ListingId> {
+  isDeleted(id: ListingId): Promise<boolean>;
   findByIds(ids: readonly ListingId[]): Promise<readonly Listing[]>;
   findPageByPlace(
     placeId: PlaceId,

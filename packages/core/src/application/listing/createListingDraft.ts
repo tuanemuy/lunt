@@ -78,6 +78,14 @@ export async function createListingDraft({
       }
       return { ...view, access, listing: existing.entity };
     }
+    // Before the photo claim: the photos of a deleted listing may already
+    // be discarded, and the resend must still answer as a deleted id.
+    if (await ctx.listingRepository.isDeleted(id)) {
+      throw new ConflictError(
+        LISTING_ID_CONFLICT,
+        "The listing id belongs to a deleted listing",
+      );
+    }
     const { entity } = Listing.createDraft(
       { id, placeId: input.placeId, content },
       view.catalog,

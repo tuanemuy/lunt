@@ -387,6 +387,9 @@ const describeListing = (id: string): string => `Listing ${id}`;
 
 export const listingQueryHandlers: QueryHandlersOf<ListingQueries> = {
   "listing.findById": (sql, { id }) => findByIds(sql, [id])[0] ?? null,
+  "listing.isDeleted": (sql, { id }) =>
+    sql.exec("SELECT 1 AS ok FROM deleted_listings WHERE id = ?", id).toArray()
+      .length > 0,
   "listing.findByIds": (sql, { ids }) => findByIds(sql, ids),
   "listing.findPageByPlace": (sql, { placeId, shelf, today, page, limit }) =>
     pageOf(
