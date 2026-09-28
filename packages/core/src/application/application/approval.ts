@@ -14,8 +14,12 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import type { EventDraft } from "@repo/core/domain/common/event";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
-import type { ExpectedVersion } from "@repo/core/domain/common/transactionalRepository";
+import type {
+  ExpectedVersion,
+  Versioned,
+} from "@repo/core/domain/common/transactionalRepository";
 import type { Version } from "@repo/core/domain/common/version";
+import type { PhotoAsset } from "@repo/core/domain/media/photoAsset";
 import { PhotoOwnership } from "@repo/core/domain/media/photoOwnership";
 import type { RequestContainer } from "../di/types";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
@@ -81,21 +85,26 @@ function ofKind<K extends ApplicationKind>(
  * inside one unit of work, the application (`NotFoundError` also for
  * another kind), the approver's permission, the status, the stance and
  * the version; then the premise re-read (`Application.reassess`) — a
- * lapse commits alone and is returned; otherwise `reflect` writes the
- * target aggregate, the application's photos move to the reflected
- * target (`PhotoOwnership.transferAll`), and `Application.approve`
- * commits with the target's events.
+ * lapse commits alone and is returned. Otherwise every read ends before
+ * the first write (`spec/usecases/application.md` 「承認のユースケースに共通
+ * すること」): `load` reads the target aggregate, then the application's
+ * photos are read; only then does `reflect` write the target, the photos
+ * move to the reflected target (`PhotoOwnership.transferAll`), and
+ * `Application.approve` commits with the target's events.
  */
-export async function approveApplication<K extends ApplicationKind>(
+export async function approveApplication<K extends ApplicationKind, R>(
   args: Readonly<{
     container: RequestContainer;
     actor: Actor;
     input: ApproveApplicationInput;
     kind: K;
+    /** Reads what `reflect` needs; must not write. */
+    load: (ctx: UnitOfWorkContext, app: Approving<K>) => Promise<R>;
+    /** Writes the target aggregate from what `load` read; must not read. */
     reflect: (
       ctx: UnitOfWorkContext,
       app: Approving<K>,
-      premise: PremiseHolds,
+      loaded: R,
       now: Date,
     ) => Promise<Reflection>;
   }>,
@@ -116,9 +125,11 @@ export async function approveApplication<K extends ApplicationKind>(
     const { app, as } = requireDecision(typed, permission, input.version);
     const lapsed = await lapseIfBroken(ctx, app, found.expectedVersion, now);
     if (lapsed.kind === "lapsed") return lapsed.outcome;
-    const reflection = await args.reflect(ctx, app, lapsed.premise, now);
+    const loaded = await args.load(ctx, app);
     const reflected = Application.reflectedRef(app);
-    await transferOwnedPhotos(ctx, app, reflected);
+    const photos = await readOwnedPhotos(ctx, app);
+    const reflection = await args.reflect(ctx, app, loaded, now);
+    await transferOwnedPhotos(ctx, app, photos, reflected);
     const approved = approve(app, as, lapsed.premise, now);
     await ctx.applicationRepository.save(
       approved.entity,
@@ -171,18 +182,30 @@ async function lapseIfBroken(
   };
 }
 
+/** The stored records of every photo the application owns. */
+function readOwnedPhotos(
+  ctx: UnitOfWorkContext,
+  app: Application,
+): Promise<readonly Versioned<PhotoAsset>[]> {
+  const photoIds = ApplicationCase.ownedPhotoIds(app);
+  return photoIds.length === 0
+    ? Promise.resolve([])
+    : readPhotos(ctx, photoIds);
+}
+
 /**
- * Moves every photo the application owns to the reflected target
- * (`PhotoOwnership.transferAll`), in the approval's unit of work.
+ * Moves every photo the application owns (`read` before any write) to the
+ * reflected target (`PhotoOwnership.transferAll`), in the approval's unit
+ * of work.
  */
 async function transferOwnedPhotos(
   ctx: UnitOfWorkContext,
   app: Application,
+  read: readonly Versioned<PhotoAsset>[],
   to: ContentRef,
 ): Promise<void> {
   const photoIds = ApplicationCase.ownedPhotoIds(app);
   if (photoIds.length === 0) return;
-  const read = await readPhotos(ctx, photoIds);
   const versions = new Map(
     read.map(({ entity, expectedVersion }) => [entity.id, expectedVersion]),
   );

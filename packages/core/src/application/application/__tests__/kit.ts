@@ -530,12 +530,27 @@ export const absentApplicationId = (k: Pick<AppKit, "newId">): ApplicationId =>
 
 /** Asserts that `promise` settles with a lapse on `premises`. */
 export async function expectLapsed(
-  promise: Promise<
-    Readonly<{ outcome: string; brokenPremises?: readonly PremiseKey[] }>
+  k: Pick<AppKit, "mark" | "app" | "eventsSince">,
+  act: () => Promise<
+    Readonly<{
+      outcome: string;
+      application: Readonly<{ id: ApplicationId }>;
+      brokenPremises?: readonly PremiseKey[];
+    }>
   >,
   premises: readonly PremiseKey[],
 ): Promise<void> {
-  const result = await promise;
+  const mark = await k.mark();
+  const result = await act();
   expect(result.outcome).toBe("lapsed");
   expect(result.brokenPremises).toEqual(premises);
+  const { id } = result.application;
+  expect((await k.app(id)).status).toEqual({
+    kind: "lapsed",
+    brokenPremises: premises,
+  });
+  const lapsed = await k.eventsSince(mark, "application.lapsed");
+  expect(lapsed.map((e) => e.payload)).toEqual([
+    expect.objectContaining({ applicationId: id }),
+  ]);
 }

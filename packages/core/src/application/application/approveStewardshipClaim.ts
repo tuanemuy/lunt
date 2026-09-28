@@ -43,12 +43,15 @@ export async function approveStewardshipClaim({
     actor,
     input,
     kind: "stewardship",
-    reflect: async (ctx, app, _premise, now) => {
+    load: async (ctx, app) => {
       const ref: PlaceRef = { kind: "place", id: app.target.placeId };
       const [stewardship, account] = await Promise.all([
         ctx.stewardshipRepository.findById(ref),
         ctx.accountRepository.findById(app.target.applicant.accountId),
       ]);
+      return { ref, stewardship, account };
+    },
+    reflect: async (ctx, app, { ref, stewardship, account }, now) => {
       const appointee = Application.requireApplicantAccount(
         app,
         account === null

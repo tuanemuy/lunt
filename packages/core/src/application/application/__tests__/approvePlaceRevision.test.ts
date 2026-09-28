@@ -147,7 +147,7 @@ describe("approvePlaceRevision", () => {
     const before = await k.getPlace(p1);
     const mark = await k.mark();
 
-    await expectLapsed(k.approveAs(approvePlaceRevision, k.O, a1.id), [
+    await expectLapsed(k, () => k.approveAs(approvePlaceRevision, k.O, a1.id), [
       "placeHasNoSteward",
     ]);
 

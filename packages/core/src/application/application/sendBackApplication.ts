@@ -26,7 +26,6 @@ export type SendBackApplicationInput = Readonly<{
  * operator standing in for absent stewards returns as the approver; an
  * overdue proxy cannot return.
  *
- * - `APPLICATION_INVALID_RETURN_REQUEST`: blank request.
  * - `NotFoundError`; `ForbiddenError` (not an approver, nor an operator
  *   who may stand in).
  * - The status code when not under review (`APPLICATION_RETURNED`,
@@ -34,13 +33,14 @@ export type SendBackApplicationInput = Readonly<{
  *   `APPLICATION_REGISTRATION_PENDING`,
  *   `APPLICATION_OVERDUE_PROXY_CANNOT_RETURN`.
  * - `ConflictError` when the application changed since `version`.
+ * - `APPLICATION_INVALID_RETURN_REQUEST`: blank request (judged after
+ *   the common checks above).
  */
 export async function sendBackApplication({
   container,
   actor,
   input,
 }: ActorServiceArgs<SendBackApplicationInput>): Promise<ReviewedApplication> {
-  const request = ReturnRequest.create(input.request);
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
     const found = await requireApplication(ctx, input.applicationId);
@@ -52,6 +52,7 @@ export async function sendBackApplication({
       now,
     );
     const app = requireReturn(found.entity, permission, input.version);
+    const request = ReturnRequest.create(input.request);
     const { entity, eventDrafts } = Application.sendBack(
       app,
       "approver",

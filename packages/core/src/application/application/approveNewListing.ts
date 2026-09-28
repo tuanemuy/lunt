@@ -34,8 +34,8 @@ export async function approveNewListing({
     actor,
     input,
     kind: "listing",
-    reflect: async (ctx, app, _premise, now) => {
-      const catalog = await ctx.categoryCatalogRepository.find();
+    load: (ctx) => ctx.categoryCatalogRepository.find(),
+    reflect: async (ctx, app, catalog, now) => {
       const { entity, eventDrafts } = Listing.createPublished(
         {
           id: app.reservedListingId,

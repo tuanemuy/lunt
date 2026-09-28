@@ -86,6 +86,7 @@ describe("approveListingRevision", () => {
     expect(await k.photoOwner(ph3)).toEqual({ kind: "listing", id: l1 });
     const released = await k.eventsSince(mark, "photos.released");
     expect(released.map((e) => e.payload)).toEqual([{ photoIds: [ph2] }]);
+    expect(released.map((e) => e.aggregateId)).toEqual([l1]);
   });
 
   it("approveListingRevision#4 a2 の写真の項目は ph3、ph1。a2 の提出の後に、ph1 は申立てで l1 から削除された / O が a2 を承認する", async () => {
@@ -139,9 +140,11 @@ describe("approveListingRevision", () => {
     await k.remove(setup, l1);
     const mark = await k.mark();
 
-    await expectLapsed(k.approveAs(approveListingRevision, k.O, a1.id), [
-      "listingExists",
-    ]);
+    await expectLapsed(
+      k,
+      () => k.approveAs(approveListingRevision, k.O, a1.id),
+      ["listingExists"],
+    );
     expect((await k.eventsSince(mark)).map((e) => e.type)).toEqual([
       "application.lapsed",
     ]);
@@ -154,9 +157,11 @@ describe("approveListingRevision", () => {
     await k.appoint(placeRef(p1), S);
     const before = await k.listingOf(l1);
 
-    await expectLapsed(k.approveAs(approveListingRevision, k.O, a1.id), [
-      "placeHasNoSteward",
-    ]);
+    await expectLapsed(
+      k,
+      () => k.approveAs(approveListingRevision, k.O, a1.id),
+      ["placeHasNoSteward"],
+    );
     expect(await k.listingOf(l1)).toEqual(before);
   });
 

@@ -91,7 +91,8 @@ async function resubmitWith(
   app: ReturnedApplication,
   amended: ResubmissionContent,
   profile: DeferredProfile | null,
-  reply: ReturnReply | null,
+  /** Built after the content: the content's codes come first (l.470). */
+  reply: () => ReturnReply | null,
   premise: PremiseHolds,
   now: Date,
 ): Promise<Resubmitted> {
@@ -104,7 +105,7 @@ async function resubmitWith(
       const returned = app as Returned<ApplicationOf<"registration">>;
       return Application.resubmit(
         returned,
-        { content: requireProfile(), reply },
+        { content: requireProfile(), reply: reply() },
         premise,
         now,
       );
@@ -121,7 +122,7 @@ async function resubmitWith(
         returned,
         {
           content: PlaceRevision.between(place.entity, desired),
-          reply,
+          reply: reply(),
           desired,
         },
         premise,
@@ -132,7 +133,7 @@ async function resubmitWith(
       const returned = app as Returned<ApplicationOf<"stewardship">>;
       return Application.resubmit(
         returned,
-        { content: StewardshipClaim.create(amended), reply },
+        { content: StewardshipClaim.create(amended), reply: reply() },
         premise,
         now,
       );
@@ -144,7 +145,12 @@ async function resubmitWith(
       );
       const catalog = (await ctx.categoryCatalogRepository.find()).entity;
       CategoryCatalog.requireActive(catalog, content.categoryId);
-      return Application.resubmit(returned, { content, reply }, premise, now);
+      return Application.resubmit(
+        returned,
+        { content, reply: reply() },
+        premise,
+        now,
+      );
     }
     case "listingRevision": {
       const returned = app as Returned<ApplicationOf<"listingRevision">>;
@@ -157,7 +163,7 @@ async function resubmitWith(
         returned,
         {
           content: await listingPatchOf(ctx, listing.entity.content, desired),
-          reply,
+          reply: reply(),
           desired,
         },
         premise,
@@ -226,7 +232,7 @@ export async function resubmitApplication({
       returned,
       amended,
       profile,
-      input.reply === null ? null : ReturnReply.create(input.reply),
+      () => (input.reply === null ? null : ReturnReply.create(input.reply)),
       Premise.require(result),
       now,
     );

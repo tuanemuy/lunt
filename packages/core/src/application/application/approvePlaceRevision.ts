@@ -33,8 +33,8 @@ export async function approvePlaceRevision({
     actor,
     input,
     kind: "revision",
-    reflect: async (ctx, app, _premise, now) => {
-      const place = await requirePlace(ctx, app.target.placeId);
+    load: (ctx, app) => requirePlace(ctx, app.target.placeId),
+    reflect: async (ctx, app, place, now) => {
       const { entity, eventDrafts } = Place.applyRevision(
         place.entity,
         app.content,

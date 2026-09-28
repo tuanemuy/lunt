@@ -5,6 +5,7 @@ import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { period } from "../../listing/__tests__/kit";
 import { approveNewListing } from "../approveNewListing";
 import { expectLapsed } from "./kit";
 import { reviewKit } from "./reviewKit";
@@ -25,6 +26,8 @@ describe("approveNewListing", () => {
     if (ph1 === undefined || ph2 === undefined) throw new Error("photos");
     const a1 = await k.newListing(A, p1, {
       name: "季節のパフェ",
+      description: "桃のパフェ",
+      offering: period("2026-08-01", "2026-08-31"),
       photos: [ph1, ph2],
     });
     const l1 = a1.reservedListingId;
@@ -44,6 +47,13 @@ describe("approveNewListing", () => {
       firstPublishedAt: k.clock.now(),
     });
     expect(listing.content.name).toBe("季節のパフェ");
+    expect(listing.content.description).toBe("桃のパフェ");
+    expect(listing.content.categoryId).toBe(k.defaultCategory);
+    expect(listing.content.offering).toEqual({
+      kind: "period",
+      period: { start: "2026-08-01", end: "2026-08-31" },
+    });
+    expect(listing.suspension.suspended).toBe(false);
     expect(PhotoSet.photoIds(listing.content.photos)).toEqual([ph1, ph2]);
     expect(await k.photoOwner(ph1)).toEqual({ kind: "listing", id: l1 });
     expect(await k.photoOwner(ph2)).toEqual({ kind: "listing", id: l1 });
@@ -134,7 +144,7 @@ describe("approveNewListing", () => {
     await k.appoint(placeRef(p1), S);
     const mark = await k.mark();
 
-    await expectLapsed(k.approveAs(approveNewListing, k.O, a1.id), [
+    await expectLapsed(k, () => k.approveAs(approveNewListing, k.O, a1.id), [
       "placeHasNoSteward",
     ]);
 

@@ -29,19 +29,19 @@ export type RejectApplicationInput = Readonly<{
  * operator who opened it as the absence proxy rejects as the overdue
  * proxy once a steward took the seat and the period elapsed.
  *
- * - `APPLICATION_INVALID_REJECTION_REASON`: blank reason.
  * - `NotFoundError`; `ForbiddenError` (not an approver, nor an operator
  *   who may stand in).
  * - The status code when not under review, `APPLICATION_AWAITING_STEWARDS`,
  *   `APPLICATION_REGISTRATION_PENDING`.
  * - `ConflictError` when the application changed since `version`.
+ * - `APPLICATION_INVALID_REJECTION_REASON`: blank reason (judged after
+ *   the common checks above).
  */
 export async function rejectApplication({
   container,
   actor,
   input,
 }: ActorServiceArgs<RejectApplicationInput>): Promise<ReviewedApplication> {
-  const reason = RejectionReason.create(input.reason);
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
     const found = await requireApplication(ctx, input.applicationId);
@@ -57,6 +57,7 @@ export async function rejectApplication({
       permission,
       input.version,
     );
+    const reason = RejectionReason.create(input.reason);
     const { entity, eventDrafts } = Application.reject(app, as, reason, now);
     await ctx.applicationRepository.save(entity, found.expectedVersion);
     ctx.collectEvents(eventDrafts);

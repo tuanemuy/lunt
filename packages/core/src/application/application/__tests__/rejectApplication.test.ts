@@ -128,6 +128,36 @@ describe("rejectApplication", () => {
     expect((await k.app(r1.id)).status.kind).toBe("underReview");
   });
 
+  it("a blank reason is judged after the application, the approver, its status and the version", async () => {
+    const k = await reviewKit();
+    const A = await k.person("A");
+    const U = await k.person("U");
+    const { registration: r1 } = await k.register(A);
+    const read = await k.versionOf(r1.id);
+
+    await expectCode(
+      k.rejectAs(k.O, absentApplicationId(k), " ", {
+        version: Version.initial(),
+      }),
+      NotFoundError,
+    );
+    await expectCode(k.rejectAs(U, r1.id, " "), ForbiddenError);
+    await k.sendBackAs(k.O, r1.id);
+    await expectCode(
+      k.rejectAs(k.O, r1.id, " "),
+      BusinessRuleError,
+      "APPLICATION_RETURNED",
+    );
+    await k.resubmitAs(A, r1.id, {
+      kind: "registration",
+      profile: profileFields({ name: "新しい店（正式名称）" }),
+    });
+    await expectCode(
+      k.rejectAs(k.O, r1.id, " ", { version: read }),
+      ConflictError,
+    );
+  });
+
   it.todo(
     "rejectApplication#9 地域 Y に運営者がいない。Y への所属の申請 b5 は3日前から確認中。サービス運営者 O が不在の代行で b5 を確かめた後、否認の前に利用者 R が Y の運営者に就いた / O が b5 を否認する",
   );

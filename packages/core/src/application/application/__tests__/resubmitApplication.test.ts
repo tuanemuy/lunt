@@ -189,12 +189,18 @@ describe("resubmitApplication", () => {
   it("resubmitApplication#11 A の情報修正の申請 a3（店舗 p1）が差し戻しの間に、p1 に店舗管理者が就いた。前提の再評価はまだ届いていない / A が a3 を再提出する", async () => {
     const k = await applicationKit();
     const A = await k.person("a");
-    const { p1, a3 } = await returnedRevision(k, A);
+    const p1 = await k.place("喫茶ルント");
+    const added = await k.photo(A);
+    const submitted = await k.revise(A, p1, {
+      profile: { name: "喫茶ルント本店", photoIds: [added] },
+    });
+    const a3 = await k.sendBack(submitted.id);
+    expect(await k.photoOwner(added)).toEqual(k.applicationOwner(a3.id));
     await k.manager(p1);
     const mark = await k.mark();
     const result = await resubmit(k, A, a3, {
       kind: "revision",
-      profile: await k.fieldsOf(p1, { name: "喫茶ルント駅前店" }),
+      profile: await k.fieldsOf(p1, { name: "喫茶ルント駅前店", photoIds: [] }),
       operatingStatus: "open",
     });
     expect(result).toEqual({
@@ -211,6 +217,7 @@ describe("resubmitApplication", () => {
     expect((await k.eventsSince(mark)).map((e) => e.type)).toEqual([
       "application.lapsed",
     ]);
+    expect(await k.photoOwner(added)).toEqual(k.applicationOwner(a3.id));
   });
 
   it("resubmitApplication#12 A の情報修正の申請 a3 が差し戻しの間に、店舗 p1 がサービス運営者によって非公開になった / A が a3 を再提出する", async () => {
@@ -408,6 +415,18 @@ describe("resubmitApplication", () => {
       }),
       Error,
       "LISTING_CATEGORY_NOT_AVAILABLE",
+    );
+  });
+
+  it("checks the corrected content before the reply", async () => {
+    const k = await applicationKit();
+    const A = await k.person("a");
+    const a1 = await k.claim(A, { placeId: await k.place() });
+    const returned = await k.sendBack(a1.id);
+    await expectCode(
+      resubmit(k, A, returned, claimContent("03-1111-1111", " "), "  "),
+      Error,
+      "APPLICATION_INVALID_STEWARDSHIP_CLAIM",
     );
   });
 });

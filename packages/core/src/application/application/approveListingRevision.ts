@@ -37,11 +37,14 @@ export async function approveListingRevision({
     actor,
     input,
     kind: "listingRevision",
-    reflect: async (ctx, app, _premise, now) => {
+    load: async (ctx, app) => {
       const [listing, catalog] = await Promise.all([
         requireListing(ctx, app.target.listingId),
         ctx.categoryCatalogRepository.find(),
       ]);
+      return { listing, catalog };
+    },
+    reflect: async (ctx, app, { listing, catalog }, now) => {
       const { entity, eventDrafts } = Listing.applyPatch(
         listing.entity,
         app.content,

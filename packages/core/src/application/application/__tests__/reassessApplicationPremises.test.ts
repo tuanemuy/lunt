@@ -55,11 +55,16 @@ describe("reassessApplicationPremises", () => {
   );
 
   it("an appointment to a place without a steward lapses the individuals' stage-2 applications about it on placeHasNoSteward, keeping their photos", async () => {
-    const { k, A, B, S, p1, a1, a2, a3, photo } = await individualsAbout();
+    const { k, A, B, S, p1, l1, a1, a2, a3, photo } = await individualsAbout();
     await k.appoint(placeRef(p1), S);
+    const [place, listing] = [await k.getPlace(p1), await k.listingOf(l1)];
     const mark = await k.mark();
 
     await consume(k, appointed(k, p1, S.accountId));
+
+    expect(await k.getPlace(p1)).toEqual(place);
+    expect(await k.listingOf(l1)).toEqual(listing);
+    expect(await k.findListing(a2.reservedListingId)).toBeNull();
 
     for (const app of [a1, a2, a3]) {
       expect((await k.app(app.id)).status).toEqual({

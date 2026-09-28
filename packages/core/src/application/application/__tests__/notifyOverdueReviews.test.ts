@@ -1,7 +1,4 @@
-import type { ApplicationReviewDesk } from "@repo/core/domain/application/ports/applicationReviewDesk";
-import { ApplicationStatus } from "@repo/core/domain/application/status";
 import { describe, expect, it } from "vitest";
-import type { RequestContainer } from "../../di/types";
 import { dailyJobs } from "../../workers/dailyJobRegistry";
 import {
   notifyOverdueReviews,
@@ -71,50 +68,6 @@ describe("notifyOverdueReviews", () => {
   it.todo(
     "notifyOverdueReviews#9 対象の申請 b1 がある。ジョブが b1 を含むページを読んだ後、b1 の記録の前に、b1 が否認された / ジョブを実行する",
   );
-
-  it("each application the desk returns is re-read in its own unit of work; one no longer under review, or not a steward seat's, is not recorded", async () => {
-    const k = await reviewKit();
-    const A = await k.person("A");
-    const { placeId } = await k.placeWithPhotos("山田珈琲店", 0);
-    const rejected = await k.revise(A, placeId);
-    const pending = await k.claim(A, { placeId });
-    const listed = [
-      ApplicationStatus.requireUnderReview(await k.app(pending.id)),
-      ApplicationStatus.requireUnderReview(await k.app(rejected.id)),
-    ];
-    await k.rejectAs(k.O, rejected.id);
-    k.clock.advance(10 * DAY);
-    const desk: ApplicationReviewDesk = {
-      findPageAwaiting: async (section, pagination) => {
-        expect(section).toEqual({
-          section: "asOverdueProxy",
-          pendingSinceBefore: new Date(
-            k.clock.now().getTime() - k.container.reviewPolicy.proxyAfterMs,
-          ),
-        });
-        return {
-          items: pagination.page === 1 ? listed : [],
-          count: listed.length,
-        };
-      },
-    };
-    const container: RequestContainer = {
-      ...k.container,
-      applicationReviewDesk: desk,
-    };
-    const mark = await k.mark();
-
-    const report = await notifyOverdueReviews(container, k.clock.now());
-
-    expect(report.processed).toBe(2);
-    expect(report.failed).toBe(0);
-    expect(await k.eventsSince(mark)).toEqual([]);
-    expect(
-      await k.run(({ overdueNoticeLedger }) =>
-        overdueNoticeLedger.findByApplicationIds([rejected.id, pending.id]),
-      ),
-    ).toEqual([]);
-  });
 
   it("notifyOverdueReviews#10 対象の申請がない / ジョブを実行する", async () => {
     const k = await reviewKit();

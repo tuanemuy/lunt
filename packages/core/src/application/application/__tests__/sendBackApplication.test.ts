@@ -2,8 +2,9 @@ import { Version } from "@repo/core/domain/common/version";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
-import { ConflictError, ForbiddenError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { approveStewardshipClaim } from "../approveStewardshipClaim";
+import { absentApplicationId } from "./kit";
 import { reviewKit } from "./reviewKit";
 
 describe("sendBackApplication", () => {
@@ -74,6 +75,27 @@ describe("sendBackApplication", () => {
       "APPLICATION_INVALID_RETURN_REQUEST",
     );
     expect((await k.app(a1.id)).status.kind).toBe("underReview");
+  });
+
+  it("a blank request is judged after the application, the approver and its status", async () => {
+    const k = await reviewKit();
+    const A = await k.person("A");
+    const U = await k.person("U");
+    const { claim: a1 } = await k.claimOnPlace(A);
+
+    await expectCode(
+      k.sendBackAs(k.O, absentApplicationId(k), " ", {
+        version: Version.initial(),
+      }),
+      NotFoundError,
+    );
+    await expectCode(k.sendBackAs(U, a1.id, " "), ForbiddenError);
+    await k.withdrawAs(A, a1.id);
+    await expectCode(
+      k.sendBackAs(k.O, a1.id, " "),
+      BusinessRuleError,
+      "APPLICATION_ALREADY_WITHDRAWN",
+    );
   });
 
   it.todo(

@@ -42,8 +42,10 @@ export async function approvePlaceRegistration({
     actor,
     input,
     kind: "registration",
-    reflect: async (ctx, app, _premise, now) => {
+    load: async (ctx, app) => {
       companion = await readCompanion(ctx, app.id);
+    },
+    reflect: async (ctx, app, _loaded, now) => {
       const { entity, eventDrafts } = Place.register(
         { id: app.reservedPlaceId, profile: app.content },
         now,

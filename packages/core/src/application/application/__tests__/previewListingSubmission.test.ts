@@ -72,9 +72,7 @@ describe("previewListingSubmission", () => {
     }
   });
 
-  it.todo("previewListingSubmission#2 同上 / 見え方を確かめる"); // S3A: region affiliations (Region)
-
-  it("writes nothing: no application, no photo owner, no event", async () => {
+  it("previewListingSubmission#2 同上 / 見え方を確かめる", async () => {
     const k = await applicationKit();
     const A = await k.person("a");
     const p1 = await k.place();
@@ -152,6 +150,19 @@ describe("previewListingSubmission", () => {
     const p1 = await k.place();
     await k.suspendPlace(p1);
     await expectCode(preview(k, A, p1, k.content()), NotFoundError);
+  });
+
+  it("shows a retired category as the active one it resolves to", async () => {
+    const k = await applicationKit();
+    const A = await k.person("a");
+    const p1 = await k.place();
+    const retired = await k.addCategory("季節もの");
+    const successor = await k.category("買う");
+    await k.retireCategory(retired, successor);
+    const view = await preview(k, A, p1, k.content({ categoryId: retired }));
+    expect(view.category).toEqual({ id: successor, name: "買う" });
+    // The projection keeps the entered id; the caller resolves it.
+    expect(view.preview.detail.categoryId).toBe(retired);
   });
 
   it("answers a place that does not exist as not found", async () => {

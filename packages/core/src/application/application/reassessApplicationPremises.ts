@@ -5,6 +5,7 @@ import type { ApplicationId } from "@repo/core/domain/common/ids";
 import type { RequestContainer } from "../di/types";
 import { defineConsumer } from "../events/consumer";
 import type { LuntDomainEvent } from "../events/registry";
+import type { UnitOfWorkContext } from "../execution/unitOfWork";
 import { evaluatePremise } from "./facts";
 
 const PAGE_SIZE = 100;
@@ -21,13 +22,15 @@ type PremiseEvent = Extract<
   }
 >;
 
+type ApplicationReader = Pick<UnitOfWorkContext, "applicationRepository">;
+
 /**
  * The applications an event may break premises of: those about its place
  * (a place's stewardship changed), its listing (deleted), or the
  * registration it ended (a companion claim's `registrationStanding`).
  */
 async function subjectOf(
-  container: RequestContainer,
+  ctx: ApplicationReader,
   event: PremiseEvent,
 ): Promise<ApplicationSubject | null> {
   switch (event.type) {
@@ -41,10 +44,7 @@ async function subjectOf(
     case "application.rejected":
     case "application.withdrawn": {
       const { applicationId } = event.payload;
-      const found = await container.unitOfWorkProvider.run(
-        ({ applicationRepository }) =>
-          applicationRepository.findById(applicationId),
-      );
+      const found = await ctx.applicationRepository.findById(applicationId);
       return found?.entity.target.kind === "registration"
         ? { kind: "registration", id: applicationId }
         : null;
@@ -52,21 +52,34 @@ async function subjectOf(
   }
 }
 
-/** Every active application about `subject`, read to the last page before any write. */
+/** Every active application about `subject`, read to the last page. */
 async function activeAbout(
-  container: RequestContainer,
+  ctx: ApplicationReader,
   subject: ApplicationSubject,
 ): Promise<readonly ApplicationId[]> {
-  return container.unitOfWorkProvider.run(async ({ applicationRepository }) => {
-    const ids: ApplicationId[] = [];
-    for (let page = 1; ; page += 1) {
-      const result = await applicationRepository.findActiveBySubject(subject, {
-        page,
-        limit: PAGE_SIZE,
-      });
-      ids.push(...result.items.map(({ entity }) => entity.id));
-      if (result.items.length < PAGE_SIZE) return ids;
-    }
+  const ids: ApplicationId[] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await ctx.applicationRepository.findActiveBySubject(
+      subject,
+      { page, limit: PAGE_SIZE },
+    );
+    ids.push(...result.items.map(({ entity }) => entity.id));
+    if (result.items.length < PAGE_SIZE) return ids;
+  }
+}
+
+/**
+ * The one read-only unit of work before any write: the ended application
+ * (for `application.rejected` / `withdrawn`) and every active application
+ * about the event's subject, so lapses cannot shift the pages.
+ */
+function affected(
+  container: RequestContainer,
+  event: PremiseEvent,
+): Promise<readonly ApplicationId[]> {
+  return container.unitOfWorkProvider.run(async (ctx) => {
+    const subject = await subjectOf(ctx, event);
+    return subject === null ? [] : activeAbout(ctx, subject);
   });
 }
 
@@ -119,9 +132,7 @@ export const reassessApplicationPremises = defineConsumer(
     "listing.deleted",
   ],
   async (container, event) => {
-    const subject = await subjectOf(container, event);
-    if (subject === null) return;
-    const ids = await activeAbout(container, subject);
+    const ids = await affected(container, event);
     const failures: unknown[] = [];
     for (const id of ids) {
       try {

@@ -28,6 +28,11 @@ describe("submitNewListing", () => {
     expect(app.status.kind).toBe("underReview");
     expect(app.content.name).toBe("季節のパフェ");
     expect(app.content.categoryId).toBe(c1);
+    expect(app.content.description).toBe("果物をたっぷり");
+    expect(app.content.offering).toEqual({
+      kind: "period",
+      period: { start: "2026-07-01", end: "2026-08-31" },
+    });
     expect(app.content.photos.items).toEqual([
       { photoId: ph1, framing },
       { photoId: ph2, framing: null },

@@ -141,9 +141,11 @@ describe("approveStewardshipClaim", () => {
     if (s1 === null) throw new Error("no companion");
     await k.rejectAs(k.O, r1.id);
 
-    await expectLapsed(k.approveAs(approveStewardshipClaim, k.O, s1.id), [
-      "registrationStanding",
-    ]);
+    await expectLapsed(
+      k,
+      () => k.approveAs(approveStewardshipClaim, k.O, s1.id),
+      ["registrationStanding"],
+    );
     expect(await k.findStewardship(placeRef(r1.reservedPlaceId))).toBeNull();
   });
 
@@ -154,9 +156,11 @@ describe("approveStewardshipClaim", () => {
     await k.appoint(placeRef(p1), A);
     const mark = await k.mark();
 
-    await expectLapsed(k.approveAs(approveStewardshipClaim, k.O, a1.id), [
-      "applicantNotSteward",
-    ]);
+    await expectLapsed(
+      k,
+      () => k.approveAs(approveStewardshipClaim, k.O, a1.id),
+      ["applicantNotSteward"],
+    );
     expect((await k.eventsSince(mark)).map((e) => e.type)).toEqual([
       "application.lapsed",
     ]);

@@ -55,6 +55,8 @@ describe("prepareReapplication", () => {
       photos: [{ photoId: ph1, framing }, ph2],
       name: "季節のパフェ",
       categoryId: c1,
+      description: "果物をたっぷり",
+      offering: { kind: "dates", dates: ["2026-08-02", "2026-08-01"] },
     });
     const rejected = await k.reject(a1.id);
     const mark = await k.mark();
@@ -64,6 +66,8 @@ describe("prepareReapplication", () => {
     expect(r.content.content).toMatchObject({
       name: "季節のパフェ",
       categoryId: c1,
+      description: "果物をたっぷり",
+      offering: { kind: "dates", dates: ["2026-08-01", "2026-08-02"] },
     });
     const [d1, d2] = listingPhotos(r);
     if (d1 === undefined || d2 === undefined) throw new Error("duplicates");
@@ -147,11 +151,20 @@ describe("prepareReapplication", () => {
     const { profile } = r.content.desired;
     expect(profile.name).toBe("喫茶ルント本店");
     expect(profile.description).toBe("変わった紹介");
-    const [first, copy] = PhotoSet.photoIds(profile.photos);
+    const photoIds = PhotoSet.photoIds(profile.photos);
+    expect(photoIds).toHaveLength(2);
+    const [first, copy] = photoIds;
     expect(first).toBe(ph0);
     expect(copy).not.toBe(ph3);
     if (copy === undefined) throw new Error("no duplicate");
-    expect((await photoAsset(k, copy)).registeredBy).toBe(A.accountId);
+    const duplicate = await photoAsset(k, copy);
+    expect(duplicate.registeredBy).toBe(A.accountId);
+    expect(duplicate.consentedAt).toEqual(
+      (await photoAsset(k, ph3)).consentedAt,
+    );
+    expect(await k.photoOwner(copy)).toBeNull();
+    expect(r.photos.map((p) => p.photoId)).toEqual([ph0, copy]);
+    expect(await k.photoOwner(ph3)).toEqual(k.applicationOwner(a2.id));
     expect(await k.photoOwner(ph0)).toEqual({ kind: "place", id: p1 });
   });
 
