@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -41,6 +42,7 @@ type ListingFailureAlertProps = {
  */
 export function ListingFailureAlert(props: ListingFailureAlertProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const { failure } = props;
   const focusedFor = useRef<ListingFailure | null>(null);
   useEffect(() => {
@@ -48,6 +50,19 @@ export function ListingFailureAlert(props: ListingFailureAlertProps) {
     focusedFor.current = failure;
     ref.current?.focus();
   }, [failure]);
+  // A failure that reconciles (CS-08) re-renders the route, and the router's
+  // scroll restoration then puts the page back where the save was pressed.
+  // Its listener was subscribed first, so this one runs after it.
+  useEffect(
+    () =>
+      router.subscribe("onRendered", () => {
+        const alert = ref.current;
+        if (alert?.contains(document.activeElement)) {
+          alert.scrollIntoView({ block: "center" });
+        }
+      }),
+    [router],
+  );
   return (
     <div ref={ref} tabIndex={-1} className="outline-none">
       <FailureAlert {...props} />
