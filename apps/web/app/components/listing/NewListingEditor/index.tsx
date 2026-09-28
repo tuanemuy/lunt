@@ -15,10 +15,12 @@ import {
   EMPTY_LISTING_FORM,
   type ListingFormValues,
   listingFieldErrors,
+  REPICK_CODES,
   toListingContent,
 } from "@/presentation/listingForm";
 import type { CategoryOption } from "@/presentation/listingView";
 import { newId } from "@/presentation/newId";
+import { useReconcile } from "@/presentation/reconcile";
 import {
   type ListingFailure,
   ListingFailureAlert,
@@ -46,6 +48,7 @@ export function NewListingEditor({
   const router = useRouter();
   const navigate = useNavigate();
   const proxy = frame.basis === "proxy";
+  const reconcile = useReconcile();
   const [values, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
   const [failure, setFailure] = useState<ListingFailure | null>(null);
   const [lostAccess, setLostAccess] = useState(false);
@@ -86,6 +89,16 @@ export function NewListingEditor({
           fields: listingFieldErrors(state),
           attempt: "save",
         });
+        if (
+          state.kind === "premiseChanged" &&
+          state.code !== null &&
+          REPICK_CODES[state.code] !== undefined
+        ) {
+          // CS-08 for a retired category: keep the input, clear the retired
+          // choice, and reload the active categories to pick from.
+          setValues((current) => ({ ...current, categoryId: "" }));
+          await reconcile();
+        }
       }
     });
 

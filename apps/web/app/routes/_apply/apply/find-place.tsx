@@ -67,7 +67,7 @@ function FindPlacePage() {
         {searched ? null : <FindPlaceGuide />}
         <p className="my-lead">すでに掲載されているお店を探します。</p>
         <FindPlaceForm
-          key={terms}
+          key={`form:${terms}`}
           name={name ?? ""}
           address={address ?? ""}
           searched={searched}
@@ -76,7 +76,7 @@ function FindPlacePage() {
           // A new search starts from the skeleton (CS-01), not from the
           // previous search's rows.
           <Deferred
-            key={terms}
+            key={`matches:${terms}`}
             promise={Matches}
             fallback={<PlaceMatchesSkeleton />}
           />
@@ -115,7 +115,7 @@ function FindPlaceError() {
         </Alert>
         <p className="my-lead">すでに掲載されているお店を探します。</p>
         <FindPlaceForm
-          key={terms}
+          key={`form:${terms}`}
           name={name ?? ""}
           address={address ?? ""}
           searched

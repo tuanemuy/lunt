@@ -30,8 +30,8 @@ export const listingErrorCatalog = {
   LISTING_NOT_MANUALLY_ENDED: changed(
     "この掲載は、管理する人の操作による提供終了になっていません",
   ),
-  LISTING_CATEGORY_NOT_AVAILABLE: invalid(
-    "選んだカテゴリーは廃止されました。カテゴリーを選び直してください",
+  LISTING_CATEGORY_NOT_AVAILABLE: changed(
+    "選んだカテゴリーは、保存までに廃止されました。現役のカテゴリーから選び直してください",
   ),
   LISTING_CATEGORY_CATALOG_ESTABLISHED: changed(
     "カテゴリーは、すでに用意されています",

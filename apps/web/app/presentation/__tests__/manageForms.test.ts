@@ -1,5 +1,7 @@
+import { BusinessRuleError } from "@repo/core/domain/error";
+import { ListingErrorCode } from "@repo/core/domain/listing/errorCode";
 import { describe, expect, it } from "vitest";
-import type { ErrorState } from "../errorState";
+import { classifyError, type ErrorState } from "../errorState";
 import { controlsOf, framingOf } from "../framing";
 import {
   EMPTY_LISTING_FORM,
@@ -131,6 +133,27 @@ describe("toListingContent", () => {
 });
 
 describe("listingFieldErrors", () => {
+  it("points a category retired before the save (CS-08) at the category, keeping the state CS-08", () => {
+    const state = classifyError(
+      new BusinessRuleError(
+        ListingErrorCode.CategoryNotAvailable,
+        "The category was retired",
+      ),
+    );
+    expect(state.kind).toBe("premiseChanged");
+    expect(listingFieldErrors(state)).toEqual({
+      category:
+        "選んだカテゴリーは、保存までに廃止されました。現役のカテゴリーから選び直してください",
+    });
+    expect(
+      listingFieldErrors({
+        kind: "premiseChanged",
+        code: "LISTING_NOT_PUBLISHED",
+        message: "x",
+      }),
+    ).toEqual({});
+  });
+
   it("points an unmet publish condition at its fields", () => {
     expect(
       listingFieldErrors(

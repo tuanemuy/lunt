@@ -37,6 +37,7 @@ import {
 import {
   listingFieldErrors,
   listingFormValuesOf,
+  REPICK_CODES,
   toListingContent,
 } from "@/presentation/listingForm";
 import {
@@ -174,7 +175,20 @@ export function ListingEditor({
       savedFirst,
     });
     if (state.kind === "premiseChanged" || savedFirst) {
-      if (!savedFirst) setDraft(followDraft);
+      const repick =
+        state.kind === "premiseChanged" &&
+        state.code !== null &&
+        REPICK_CODES[state.code] !== undefined;
+      if (repick) {
+        // CS-08 for a retired category: keep the input, clear the
+        // retired choice, and reload the active categories to pick from.
+        setDraft((current) => ({
+          ...current,
+          values: { ...current.values, categoryId: "" },
+        }));
+      } else if (!savedFirst) {
+        setDraft(followDraft);
+      }
       await reconcile();
     }
   };

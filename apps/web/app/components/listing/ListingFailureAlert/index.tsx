@@ -79,9 +79,23 @@ export function ListingFailureAlert({
     );
   }
   if (state.kind === "premiseChanged") {
+    const repick = LISTING_FIELDS.filter(
+      (field) => fields[field] !== undefined,
+    );
     return (
-      <Alert title="操作を反映できませんでした">
-        {`${state.message}。現在の状態を示しています。`}
+      <Alert
+        title="操作を反映できませんでした"
+        list={repick.map((field) => (
+          <li key={field}>
+            <a className="text-button" href={`#${LISTING_FIELD_ANCHOR[field]}`}>
+              {LISTING_FIELD_LABEL[field]}
+            </a>
+          </li>
+        ))}
+      >
+        {repick.length > 0
+          ? `${state.message}。入力した内容は残しています。`
+          : `${state.message}。現在の状態を示しています。`}
       </Alert>
     );
   }

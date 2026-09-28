@@ -152,12 +152,28 @@ function fieldOfPath(path: string): ListingField | null {
 }
 
 /**
- * Which fields a failed save or publish points at (CS-10): the unmet
+ * The premise changes (CS-08) that leave the editor's input in place: the
+ * user re-picks one field instead of starting over from the stored
+ * listing (`spec/pages/shop.md` SM-04: 「廃止の場合は、現役のカテゴリーから
+ * 選び直す」).
+ */
+export const REPICK_CODES: Readonly<Record<string, ListingField>> = {
+  LISTING_CATEGORY_NOT_AVAILABLE: "category",
+};
+
+/**
+ * Which fields a failed save or publish points at: for CS-10 the unmet
  * publish conditions (`missing`), the transport's messages per path, or a
- * business code's field with the catalog's sentence.
+ * business code's field with the catalog's sentence; for a CS-08 that
+ * asks to re-pick a field (`REPICK_CODES`), that field.
  */
 export function listingFieldErrors(error: ErrorState): ListingFieldErrors {
   const errors: Partial<Record<ListingField, string>> = {};
+  if (error.kind === "premiseChanged") {
+    const field = error.code === null ? undefined : REPICK_CODES[error.code];
+    if (field !== undefined) errors[field] = error.message;
+    return errors;
+  }
   if (error.kind !== "invalidInput") return errors;
   for (const item of error.missing) {
     const entry = MISSING_MESSAGE[item];
