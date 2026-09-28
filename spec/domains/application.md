@@ -346,6 +346,8 @@ type ApplicationSubject =
 - 登録申請の `place`（`reservedPlaceId`）: その登録申請が承認されていない間
 - 登録申請に併せた管理権限の申請の `place`: 併せた登録申請（`target.registrationId`）が承認されていない間
 
+掲載の申請（`listing`）の掲載も、その申請が承認されていない間は「対象はまだない」として示す。掲載は `Application.subjects` に含まれない（枠と索引は店舗だけ）が、申請を示す読み取りと通知は、予約した `reservedListingId` の掲載を、内容の名称を添えて店舗の後に示す。
+
 ユースケースは、併せた登録申請の状態を `ApplicationRepository.findById`・`findByIds` で読んで判定する。
 
 ### ApproverSeat / SubmissionTarget

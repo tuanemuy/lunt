@@ -65,12 +65,14 @@
 - 受け付ける条件。前提の事実を読んで `Premise.evaluate` し、`SubmissionScope.targets` の対象ごとに閲覧できるかを確かめ（存在しない対象は閲覧できない。読み方は [../domains/application.md](../domains/application.md)「SubmissionScope」による。前提の事実または内容のために読む集約は各ユースケースが挙げ、ほかの対象は `ReferenceQueries.isViewable` を `run` の前に読む）、枠を持つ種類は `ApplicationSlot.of` の枠を `ApplicationRepository.findActiveBySlot` で読む。この3つを `SubmissionFindings` にして `SubmissionScope.admit` に渡す。枠の一意性は `ApplicationRepository.insert` が担保する
 - 冪等な作成。呼び出し側が `ApplicationId` を決めて送る。同じ ID の申請があれば、送られてきた入力と保存されている申請だけで判定する。受け付ける条件と、対象の現在の状態を使う内容の検査（`FieldPatch.between`、`ParticipationDetails.create`、`CategoryCatalog.requireActive`）を行わず、入力から `SubmissionRequest` を作って `Application.matchesSubmission` で比べる（[../domains/application.md](../domains/application.md)「SubmissionRequest」）。同じ内容なら書き込みもドメインイベントもなしに、保存されている申請を返し、違う内容なら `ConflictError`。再送の前に対象が変わっていても（別の承認で店舗が変わった、添えた掲載が一時非公開になった、カテゴリーが廃止された、申請が判断された）、判定は変わらない
 - 判定の順は、申請者の立場（`ForbiddenError`）、同じ ID の申請（冪等な作成）、前提、閲覧できない対象、重ねた申請、内容の値、写真の持ち主
+- 入力から内容の値を作れない（値オブジェクトの生成が失敗する）要求は、同じ ID の申請があれば `ConflictError`（保存されている申請と同じ内容になりえない）。なければ上の順に進み、内容の値の順で値の誤りを返す
 - 最初の提出は回答を持たない（回答は差し戻しの後の再提出にだけ添える）
 - 再申請は、`prepareReapplication` が返した内容から始まり、ほかの提出と同じ入力で送られる。前の申請の写真は、`prepareReapplication` が複製した持ち主のない写真として含まれ、提出がほかの写真と同じく持ち主を設定する
 - `claimedPhotoIds` の写真を `PhotoAssetRepository.findByIds` で読み、`PhotoOwnership.claimAll`（持ち主は `{ kind: "application"; id }`、`by` は `Actor`）の結果を `PhotoAssetRepository.save` する
 - 出力は、確認中になった申請
 - トランザクション境界
   - `run` を1つ使う。`ReferenceQueries.isViewable`（読む対象があるとき）と `AreaCatalog.findTown`（登録・情報修正）は `run` の前に呼ぶ。`run` の間に外部への副作用はない
+  - 登録申請を参照する管理権限の申請（併せた申請）は、閲覧できるかを読む対象（予約した店舗）が登録申請を読むまで分からないので、`isViewable` の前に、登録申請を読むだけの `run` を先に1つ使う。書き込みの `run` は登録申請を読み直して前提を確かめる
   - 書き込み: 申請の `insert`、写真の `save`、`application.submitted` の保存。事実の読み取りは、書き込みの前に終える
   - 失敗したときに残る状態: 申請者の立場・受け付ける条件が成り立たない、内容の値を作れない、写真の持ち主を設定できない、ID または枠の一意性の違反、楽観ロックの競合では、申請も写真の持ち主もドメインイベントも残らない
 - 共通のエラーケース
@@ -729,7 +731,7 @@
 
 種類ごとに、判断に要る事実を返す。
 
-- 登録申請: 併せた申請（「種類ごとの内容」の、`findPageBySubject` の並びの先頭の1件）とその状態と、名称・所在地が近い既存の店舗（非公開の店舗を含む）
+- 登録申請: 併せた申請（「種類ごとの内容」の、`findPageBySubject` の並びの先頭の1件）とその状態と、名称・所在地が近い既存の店舗（非公開の店舗を含む。申請の内容の名称または所在地で `PlaceRepository.match` を引いた並びの先頭 20 件。登録申請が予約した店舗は除く）
 - 管理権限の申請: 既存の店舗管理者の有無と、併せた登録申請
 - 情報修正と掲載の修正: 変更する項目ごとの、読んだ時点の対象の現在の値と申請の値（`FieldPatch.compare`）と、承認で反映される内容（`FieldPatch.preview` で読んだ時点の対象の現在の内容に重ねた内容）。提出の後に対象から外れた写真は、承認で反映される内容に現れない。掲載の修正で、重ねた内容に写真が1枚も残らないことも、この内容から分かる。対象の掲載が削除された申請は、`getMyApplication` と同じく申請の項目の値だけを返し、対象がないことを併せて返す
 - 参加の申請: 添えた掲載とその状態、参加日
