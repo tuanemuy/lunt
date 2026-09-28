@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -5,6 +6,15 @@ import viteReact from "@vitejs/plugin-react";
 import rsc from "@vitejs/plugin-rsc";
 import { defineConfig } from "vite";
 import { serverFnDiscovery } from "./vite/serverFnDiscovery.ts";
+
+// Several local servers can run side by side, each with its own Durable
+// Object, queue and R2 state (manual tests in parallel browsers):
+// `LUNT_STATE_DIR=.wrangler/state-b pnpm dev --port 3102`.
+const stateDir = process.env.LUNT_STATE_DIR;
+const persistState =
+  stateDir === undefined || stateDir === ""
+    ? true
+    : { path: fileURLToPath(new URL(stateDir, import.meta.url)) };
 
 // The Lunt Worker runs in workerd during `vite dev` through the
 // Cloudflare plugin, with the bindings declared in wrangler.jsonc.
@@ -16,6 +26,8 @@ export default defineConfig({
     tailwindcss(),
     cloudflare({
       configPath: "./wrangler.jsonc",
+      persistState,
+      ...(persistState === true ? {} : { inspectorPort: false }),
       // Declare `rsc` as a child of the workerd-backed `ssr` env so the
       // RSC plugin's module runner is initialised inside the worker.
       viteEnvironment: { name: "ssr", childEnvironments: ["rsc"] },

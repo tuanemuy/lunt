@@ -9,6 +9,10 @@
 3. Open the service: the first operator logs in once, then `POST /__ops/operators/establish` (`docs/runtime_cloudflare_do.md` 「Opening the service」).
 4. Record the settings the procedures ask for from `.dev.vars` (and `apps/web/wrangler.jsonc` for anything not overridden).
 
+## Several environments side by side
+
+Each server can keep its own state, so procedures that need an untouched environment can run in parallel: `cd apps/web && LUNT_STATE_DIR=.wrangler/state-b pnpm exec vite dev --port 3102 --strictPort` (any directory under `apps/web/.wrangler/`). `LUNT_STATE_DIR=.wrangler/state-b pnpm dev:reset` empties that one. The development tools answer on every port of `localhost`.
+
 ## What the procedures' wording maps to
 
 | Procedure says | Do |
