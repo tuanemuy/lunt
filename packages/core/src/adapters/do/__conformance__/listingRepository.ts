@@ -398,27 +398,6 @@ export function describeListingRepositoryContract(
       });
     });
 
-    describe("isDeleted (the memory insert checks)", () => {
-      it("answers true only for the id of a deleted listing", async () => {
-        const h = await makeHarness();
-        const f = listingFactory();
-        const place = f.place();
-        const [kept, removed] = [f.draft(place), f.draft(place)];
-        const never = f.draft(place);
-        await insertListings(h, kept, removed);
-        const read = await getListing(h, removed.id);
-        await deleteListing(h, removed.id, read.expectedVersion);
-
-        const answers = await h.uow.run(async ({ listingRepository }) => [
-          await listingRepository.isDeleted(kept.id),
-          await listingRepository.isDeleted(removed.id),
-          await listingRepository.isDeleted(never.id),
-        ]);
-
-        expect(answers).toEqual([false, true, false]);
-      });
-    });
-
     describe("findByIds", () => {
       it("listingRepository#19 掲載 X、Y、Z を insert している / X と Z の ID で findByIds する", async () => {
         const h = await makeHarness();
@@ -1495,6 +1474,27 @@ export function describeListingRepositoryContract(
           }),
         ).rejects.toBeInstanceOf(ConflictError);
         expect(await findListing(h, listing.id)).toBeNull();
+      });
+    });
+
+    describe("isDeleted", () => {
+      it("listingRepository#88 掲載 X を insert し、delete している。掲載 Y を insert している / isDeleted(X.id)、isDeleted(Y.id)、isDeleted（一度も作られていない ID）", async () => {
+        const h = await makeHarness();
+        const f = listingFactory();
+        const place = f.place();
+        const [x, y] = [f.draft(place), f.draft(place)];
+        const never = f.draft(place);
+        await insertListings(h, x, y);
+        const read = await getListing(h, x.id);
+        await deleteListing(h, x.id, read.expectedVersion);
+
+        const answers = await h.uow.run(async ({ listingRepository }) => [
+          await listingRepository.isDeleted(x.id),
+          await listingRepository.isDeleted(y.id),
+          await listingRepository.isDeleted(never.id),
+        ]);
+
+        expect(answers).toEqual([true, false, false]);
       });
     });
   });
