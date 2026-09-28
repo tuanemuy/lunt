@@ -23,7 +23,7 @@ import { Address } from "@repo/core/domain/common/address";
 import type { PlaceId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
-import { subjectTitle } from "./applicationSubjects";
+import { reviewerApplicantText, subjectTitle } from "./applicationSubjects";
 import { APPLICATION_KIND_TITLE } from "./applicationWords";
 import { classifyError } from "./errorState";
 import { publicationView } from "./listingData";
@@ -180,24 +180,22 @@ export async function loadInfoReportPage(
 
 // ---------------------------------------------------------------- OM-01
 
-function applicantText(summary: ApplicationSummary): string {
-  return summary.applicant.kind === "place"
-    ? `${summary.applicant.name ?? "店舗"}（店舗）`
-    : (summary.applicant.email ?? "退会した利用者");
-}
-
 function applicationRow(
   summary: ApplicationSummary,
   section: "asApprover" | "asOverdueProxy",
 ): InboxApplicationRow {
-  const notYet = summary.subjects.some((subject) => subject.notYet);
+  const notYet = summary.subjects
+    .filter((subject) => subject.notYet)
+    .map((subject) =>
+      subject.ref.kind === "listing"
+        ? "掲載はまだありません"
+        : "店舗はまだありません",
+    );
   const notes = [
     APPLICATION_KIND_TITLE[summary.kind],
     ...(summary.registrationId !== null && summary.kind === "stewardship"
       ? ["登録の申請に併せた申請"]
-      : notYet
-        ? ["店舗はまだありません"]
-        : []),
+      : notYet),
     ...(section === "asOverdueProxy" ? ["運営者が未確認"] : []),
   ];
   const { status } = summary;
@@ -211,7 +209,7 @@ function applicationRow(
     applicationId: summary.id,
     title: subjectTitle(summary.subjects),
     sub: notes.join(" · "),
-    applicant: applicantText(summary),
+    applicant: reviewerApplicantText(summary.applicant),
     status: statusText,
   };
 }

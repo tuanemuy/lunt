@@ -882,6 +882,10 @@
       z-index: 25;
       border-bottom: var(--border-1) solid var(--line);
     }
+    /* In-page links (a failure alert's 「カテゴリー」) land below the sticky band. */
+    .m-main [id] {
+      scroll-margin-top: calc(69px + var(--space-16));
+    }
     .m-main {
       grid-area: main;
       width: 100%;
