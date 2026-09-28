@@ -1,8 +1,16 @@
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import type { AccountId, ApplicationId } from "@repo/core/domain/common/ids";
+import type {
+  AccountId,
+  ApplicationId,
+  CategoryId,
+  InfoReportId,
+  TakedownClaimId,
+} from "@repo/core/domain/common/ids";
 import { ContentRef } from "@repo/core/domain/common/refs";
+import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import type { ContentDirectory } from "@repo/core/domain/moderation/ports/contentDirectory";
+import { InfoReportTarget } from "@repo/core/domain/moderation/values";
 import type {
   ApplicationLabel,
   RefLabel,
@@ -27,6 +35,14 @@ import {
 export type RepositoryLabels = Readonly<{
   accounts: ReadonlyMap<AccountId, EmailAddress>;
   applications: ReadonlyMap<ApplicationId, PendingApplicationLabel>;
+  /** The names of the referenced categories found in the catalog. */
+  categories: ReadonlyMap<CategoryId, string>;
+  /** The category catalog, when a category is referenced; else `null`. */
+  catalog: CategoryCatalog | null;
+  /** The targets of the referenced takedown claims that exist. */
+  claimTargets: ReadonlyMap<TakedownClaimId, ContentRef>;
+  /** The targets of the referenced info reports that exist. */
+  reportTargets: ReadonlyMap<InfoReportId, ContentRef>;
   /** Every content ref whose name the directory must resolve. */
   contents: readonly ContentRef[];
 }>;
@@ -35,6 +51,9 @@ export type RepositoryLabels = Readonly<{
 export type LabelBook = Readonly<{
   accounts: ReadonlyMap<AccountId, EmailAddress>;
   applications: ReadonlyMap<ApplicationId, ApplicationLabel>;
+  categories: ReadonlyMap<CategoryId, string>;
+  claimTargets: ReadonlyMap<TakedownClaimId, ContentRef>;
+  reportTargets: ReadonlyMap<InfoReportId, ContentRef>;
   contents: ReadonlyMap<string, string | null>;
 }>;
 
@@ -48,14 +67,57 @@ function distinctRefs(occurrences: readonly Occurrence[]) {
   return [...refs.values()];
 }
 
+async function readCategories(
+  ctx: UnitOfWorkContext,
+  ids: readonly CategoryId[],
+): Promise<
+  Readonly<{
+    catalog: CategoryCatalog | null;
+    names: ReadonlyMap<CategoryId, string>;
+  }>
+> {
+  const names = new Map<CategoryId, string>();
+  if (ids.length === 0) return { catalog: null, names };
+  const catalog = (await ctx.categoryCatalogRepository.find()).entity;
+  for (const id of ids) {
+    const category = CategoryCatalog.find(catalog, id);
+    if (category !== undefined) names.set(id, category.name);
+  }
+  return { catalog, names };
+}
+
+async function readClaimTargets(
+  ctx: UnitOfWorkContext,
+  ids: readonly TakedownClaimId[],
+): Promise<ReadonlyMap<TakedownClaimId, ContentRef>> {
+  const targets = new Map<TakedownClaimId, ContentRef>();
+  for (const id of ids) {
+    const found = await ctx.takedownClaimRepository.findById(id);
+    if (found !== null) targets.set(id, found.entity.ground.target);
+  }
+  return targets;
+}
+
+async function readReportTargets(
+  ctx: UnitOfWorkContext,
+  ids: readonly InfoReportId[],
+): Promise<ReadonlyMap<InfoReportId, ContentRef>> {
+  const targets = new Map<InfoReportId, ContentRef>();
+  for (const id of ids) {
+    const found = await ctx.infoReportRepository.findById(id);
+    if (found !== null) {
+      targets.set(id, InfoReportTarget.contentRef(found.entity.target));
+    }
+  }
+  return targets;
+}
+
 /**
  * Reads, inside `run`, what the repositories hold for the occurrences'
- * references: accounts' addresses (`AccountRepository.findByIds`) and
- * applications (`ApplicationRepository.findByIds`). Category, takedown
- * claim and info report references come only from later stages'
- * occurrences; their readers (Listing's `CategoryCatalogRepository`,
- * Moderation's `TakedownClaimRepository` / `InfoReportRepository`) join
- * here with those stages, and until then they read as `null`.
+ * references: accounts' addresses (`AccountRepository.findByIds`),
+ * applications (`ApplicationRepository.findByIds`), categories' names
+ * (`CategoryCatalogRepository.find`) and the targets of takedown claims and
+ * info reports (`findById`), whose names `ContentDirectory` resolves.
  */
 export async function readRepositoryLabels(
   ctx: UnitOfWorkContext,
@@ -64,6 +126,9 @@ export async function readRepositoryLabels(
   const refs = distinctRefs(occurrences);
   const accountIds: AccountId[] = [];
   const applicationIds: ApplicationId[] = [];
+  const categoryIds: CategoryId[] = [];
+  const claimIds: TakedownClaimId[] = [];
+  const reportIds: InfoReportId[] = [];
   const contents: ContentRef[] = [];
   for (const ref of refs) {
     switch (ref.kind) {
@@ -74,17 +139,26 @@ export async function readRepositoryLabels(
         applicationIds.push(ref.id);
         break;
       case "category":
+        categoryIds.push(ref.id);
+        break;
       case "takedownClaim":
+        claimIds.push(ref.id);
+        break;
       case "infoReport":
+        reportIds.push(ref.id);
         break;
       default:
         contents.push(ref);
     }
   }
-  const [accounts, applications] = await Promise.all([
-    findAccountsByIds(ctx.accountRepository, accountIds),
-    readApplicationLabels(ctx, applicationIds),
-  ]);
+  const [accounts, applications, categories, claimTargets, reportTargets] =
+    await Promise.all([
+      findAccountsByIds(ctx.accountRepository, accountIds),
+      readApplicationLabels(ctx, applicationIds),
+      readCategories(ctx, categoryIds),
+      readClaimTargets(ctx, claimIds),
+      readReportTargets(ctx, reportIds),
+    ]);
   const applicationContents = [...applications.values()].flatMap((label) =>
     label.subjects.flatMap((subject) =>
       subject.name.from === "directory" ? [subject.ref] : [],
@@ -95,7 +169,16 @@ export async function readRepositoryLabels(
       [...accounts.values()].map((account) => [account.id, account.email]),
     ),
     applications,
-    contents: [...contents, ...applicationContents],
+    categories: categories.names,
+    catalog: categories.catalog,
+    claimTargets,
+    reportTargets,
+    contents: [
+      ...contents,
+      ...applicationContents,
+      ...claimTargets.values(),
+      ...reportTargets.values(),
+    ],
   };
 }
 
@@ -139,12 +222,25 @@ export async function resolveLabels(
       })),
     });
   }
-  return { accounts: read.accounts, applications, contents };
+  return {
+    accounts: read.accounts,
+    applications,
+    categories: read.categories,
+    claimTargets: read.claimTargets,
+    reportTargets: read.reportTargets,
+    contents,
+  };
 }
+
+const nameOf = (book: LabelBook, target: ContentRef | undefined) =>
+  target === undefined
+    ? null
+    : (book.contents.get(ContentRef.key(target)) ?? null);
 
 /**
  * The occurrence's references with their names, in `Occurrence.refsOf`
- * order; a reference to something gone is labelled `null`.
+ * order; a reference to something gone is labelled `null`. A takedown
+ * claim or an info report is named after its target.
  */
 export function labelsOf(o: Occurrence, book: LabelBook): readonly RefLabel[] {
   return Occurrences.refsOf(o).map((ref): RefLabel => {
@@ -154,11 +250,13 @@ export function labelsOf(o: Occurrence, book: LabelBook): readonly RefLabel[] {
       case "account":
         return { ref, label: book.accounts.get(ref.id) ?? null };
       case "category":
+        return { ref, label: book.categories.get(ref.id) ?? null };
       case "takedownClaim":
+        return { ref, label: nameOf(book, book.claimTargets.get(ref.id)) };
       case "infoReport":
-        return { ref, label: null };
+        return { ref, label: nameOf(book, book.reportTargets.get(ref.id)) };
       default:
-        return { ref, label: book.contents.get(ContentRef.key(ref)) ?? null };
+        return { ref, label: nameOf(book, ref) };
     }
   });
 }

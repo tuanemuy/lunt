@@ -36,6 +36,9 @@ const NOWHERE_NOTE = "この通知から開く画面はありません";
 export function toNotificationItem(view: NotificationView): NotificationItem {
   const meta = [
     ...view.labels.map(refText),
+    ...(view.reassignedTo === null
+      ? []
+      : [`付け替え先: カテゴリー「${view.reassignedTo.name}」`]),
     ...(view.delivery === "proxy" ? [PROXY_NOTE] : []),
     ...(view.destination === null ? [NOWHERE_NOTE] : []),
   ];

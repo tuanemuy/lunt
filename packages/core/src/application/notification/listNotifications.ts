@@ -5,6 +5,7 @@ import {
   type PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import type { ContentRef, StewardedRef } from "@repo/core/domain/common/refs";
+import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import {
   DeliveredOccurrence,
   type Delivery,
@@ -40,12 +41,37 @@ export type NotificationView = Readonly<{
   destination: NotificationDestination | null;
   /**
    * `categories_reassigned` only: the category the retired one resolves to
-   * now. Listing's catalog lands in stage 2; until then always `null`.
+   * now (`CategoryCatalog.resolve`); `null` for every other occurrence.
    */
   reassignedTo: ReassignedCategory | null;
 }>;
 
 export type ListNotificationsOutput = PaginationResult<NotificationView>;
+
+/**
+ * The active category a `categories_reassigned` occurrence's retired
+ * category resolves to at display time. A retired category never leaves
+ * the catalog, so it resolves; an unlisted id reads as `null` rather than
+ * failing the whole list.
+ */
+function reassignedTo(
+  o: Occurrence,
+  catalog: CategoryCatalog | null,
+): ReassignedCategory | null {
+  if (
+    o.to !== "placeStewards" ||
+    o.subject.kind !== "place" ||
+    o.subject.matter.kind !== "categories_reassigned" ||
+    catalog === null
+  ) {
+    return null;
+  }
+  const active = CategoryCatalog.resolveOrNull(
+    catalog,
+    o.subject.matter.retiredCategoryId,
+  );
+  return active === null ? null : { id: active.id, name: active.name };
+}
 
 /**
  * The signed-in account's notifications, newest first (ACC-03, APP-05 /
@@ -91,7 +117,10 @@ export async function listNotifications({
         vacantTarget: DeliveredOccurrence.vacantTarget(notification),
         labels: labelsOf(notification.occurrence, book),
         destination: NotificationDestination.of(notification),
-        reassignedTo: null,
+        reassignedTo: reassignedTo(
+          notification.occurrence,
+          read.labels.catalog,
+        ),
       }),
     ),
     count: read.page.count,

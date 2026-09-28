@@ -13,14 +13,30 @@ import { type EventDraft, EventId } from "@repo/core/domain/common/event";
 import {
   type AccountId,
   ApplicationId,
+  CategoryId,
+  InfoReportId,
   InvitationId,
+  ListingId,
   OccasionId,
+  PhotoId,
   PlaceId,
   RegionId,
+  TakedownClaimId,
 } from "@repo/core/domain/common/ids";
-import type { StewardedRef } from "@repo/core/domain/common/refs";
+import { PhotoSet } from "@repo/core/domain/common/photoSet";
+import type { ContentRef, StewardedRef } from "@repo/core/domain/common/refs";
+import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
+import { ListingContent } from "@repo/core/domain/listing/content";
+import { Listing } from "@repo/core/domain/listing/listing";
+import { Offering } from "@repo/core/domain/listing/offering";
+import { CategoryName, ListingName } from "@repo/core/domain/listing/values";
+import { InfoReport } from "@repo/core/domain/moderation/infoReport";
+import { TakedownClaim } from "@repo/core/domain/moderation/takedownClaim";
+import type { InfoReportTarget } from "@repo/core/domain/moderation/values";
 import type { NotifiableEvent } from "@repo/core/domain/notification/announcement";
 import type { Notification } from "@repo/core/domain/notification/notification";
+import { Place } from "@repo/core/domain/place/place";
+import { sampleProfile } from "@repo/core/domain/place/testing/samples";
 import { expect } from "vitest";
 import {
   createTestContainer,
@@ -41,9 +57,10 @@ const FAR = { page: 1, limit: 100 } as const;
 
 /**
  * Usecase-test kit for Notification: the production-shaped test container
- * with a test `ContentDirectory` (no content kind has tables in stage 1)
- * and a `TestMailer`, preconditions written straight through the
- * repositories (no events), and readers for what was delivered.
+ * with a test `ContentDirectory` (targets and names a test sets, regions
+ * and occasions included before their stage stores them) and a
+ * `TestMailer`, preconditions written straight through the repositories
+ * (no events), and readers for what was delivered.
  */
 export function notificationKit(
   options: Readonly<{
@@ -92,6 +109,23 @@ export function notificationKit(
     directory.add(ref, name);
     return ref;
   };
+  /** A place stored in the place repository (viewable), named in the directory. */
+  async function registeredPlace(name = "店舗"): Promise<PlaceRef> {
+    const ref: PlaceRef = {
+      kind: "place",
+      id: PlaceId.create(idGenerator.next()),
+    };
+    const { entity } = Place.register(
+      { id: ref.id, profile: sampleProfile({ name }) },
+      tick(),
+    );
+    await base.unitOfWorkProvider.run(({ placeRepository }) =>
+      placeRepository.insert(entity),
+    );
+    directory.add(ref, name);
+    return ref;
+  }
+
   const region = (
     name: string | null = "地域",
   ): Extract<StewardedRef, { kind: "region" }> => {
@@ -113,6 +147,208 @@ export function notificationKit(
     return ref;
   };
   const applicationId = () => ApplicationId.create(idGenerator.next());
+
+  /**
+   * A draft listing of `place` written straight through the repository
+   * (its stored `categoryId` as given, even a retired one), named in the
+   * directory.
+   */
+  async function listing(
+    place: PlaceRef,
+    spec: Readonly<{ name?: string | null; categoryId?: CategoryId }> = {},
+  ): Promise<Extract<ContentRef, { kind: "listing" }>> {
+    const id = ListingId.create(idGenerator.next());
+    const name = spec.name === undefined ? "掲載" : spec.name;
+    const { entity } = Listing.createDraft(
+      {
+        id,
+        placeId: place.id,
+        content: {
+          name: name === null ? null : ListingName.create(name),
+          description: null,
+          categoryId: null,
+          photos: PhotoSet.of([], "LISTING"),
+          offering: Offering.none(),
+        },
+      },
+      CategoryCatalog.empty(),
+      tick(),
+    );
+    const stored = {
+      ...entity,
+      content: { ...entity.content, categoryId: spec.categoryId ?? null },
+    };
+    await base.unitOfWorkProvider.run(({ listingRepository }) =>
+      listingRepository.insert(stored),
+    );
+    const ref = { kind: "listing", id } as const;
+    directory.add(ref, name);
+    return ref;
+  }
+
+  /**
+   * A published listing of `place` with one photo, written straight
+   * through the repository (the catalog gets a category when it has
+   * none), named in the directory with its photo.
+   */
+  async function publishedListing(
+    place: PlaceRef,
+    name = "掲載",
+  ): Promise<
+    Readonly<{
+      ref: Extract<ContentRef, { kind: "listing" }>;
+      photoId: PhotoId;
+    }>
+  > {
+    const readCatalog = () =>
+      base.unitOfWorkProvider
+        .run(({ categoryCatalogRepository }) =>
+          categoryCatalogRepository.find(),
+        )
+        .then((read) => read.entity);
+    const [active] = CategoryCatalog.actives(await readCatalog());
+    const categoryId = active?.id ?? (await categories("食べる"))[0];
+    if (categoryId === undefined) throw new Error("no category");
+    const catalog = await readCatalog();
+    const id = ListingId.create(idGenerator.next());
+    const photoId = PhotoId.create(idGenerator.next());
+    const { entity } = Listing.createPublished(
+      {
+        id,
+        placeId: place.id,
+        content: ListingContent.toPublishable({
+          name: ListingName.create(name),
+          description: null,
+          categoryId,
+          photos: PhotoSet.of([{ photoId, framing: null }], "LISTING"),
+          offering: Offering.none(),
+        }),
+      },
+      catalog,
+      tick(),
+    );
+    await base.unitOfWorkProvider.run(({ listingRepository }) =>
+      listingRepository.insert(entity),
+    );
+    const ref = { kind: "listing", id } as const;
+    directory.add(ref, name, [photoId]);
+    return { ref, photoId };
+  }
+
+  async function writeCatalog(
+    change: (current: CategoryCatalog) => CategoryCatalog,
+  ): Promise<void> {
+    await base.unitOfWorkProvider.run(async ({ categoryCatalogRepository }) => {
+      const read = await categoryCatalogRepository.find();
+      await categoryCatalogRepository.save(
+        change(read.entity),
+        read.expectedVersion,
+      );
+    });
+  }
+
+  /** Establishes (first call) or extends the catalog with active categories. */
+  async function categories(
+    ...names: readonly [string, ...string[]]
+  ): Promise<readonly CategoryId[]> {
+    const added = names.map((name) => ({
+      id: CategoryId.create(idGenerator.next()),
+      name: CategoryName.create(name),
+    }));
+    await writeCatalog((current) => {
+      if (CategoryCatalog.isEmpty(current)) {
+        const [first, ...rest] = added;
+        if (first === undefined) return current;
+        return CategoryCatalog.establish(current, [first, ...rest], tick())
+          .entity;
+      }
+      return added.reduce(
+        (catalog, category) =>
+          CategoryCatalog.add(catalog, category, tick()).entity,
+        current,
+      );
+    });
+    return added.map((category) => category.id);
+  }
+
+  const retireCategory = (id: CategoryId, successorId: CategoryId) =>
+    writeCatalog(
+      (current) =>
+        CategoryCatalog.retire(current, id, successorId, tick()).entity,
+    );
+
+  const renameCategory = (id: CategoryId, name: string) =>
+    writeCatalog(
+      (current) =>
+        CategoryCatalog.rename(current, id, CategoryName.create(name), tick())
+          .entity,
+    );
+
+  /** An open takedown claim on `target` from `email`, stored directly. */
+  async function takedownClaim(
+    target: ContentRef,
+    email = "claimant@example.com",
+  ): Promise<TakedownClaimId> {
+    const id = TakedownClaimId.create(idGenerator.next());
+    const photoId = PhotoId.create(idGenerator.next());
+    const { entity } = TakedownClaim.submit(
+      {
+        id,
+        standing: "photoRightsHolder",
+        target,
+        photoIds: [photoId],
+        reason: "写真の権利を侵害しています",
+        email,
+      },
+      { viewable: true, photoIds: [photoId] },
+      tick(),
+    );
+    await base.unitOfWorkProvider.run(({ takedownClaimRepository }) =>
+      takedownClaimRepository.insert(entity),
+    );
+    return id;
+  }
+
+  /** Resolves a stored claim with `outcome` (no event is stored). */
+  async function resolveClaim(
+    id: TakedownClaimId,
+    outcome: string,
+  ): Promise<void> {
+    await base.unitOfWorkProvider.run(async ({ takedownClaimRepository }) => {
+      const found = await takedownClaimRepository.findById(id);
+      if (found === null) throw new Error("no claim");
+      await takedownClaimRepository.save(
+        TakedownClaim.resolve(found.entity, outcome, tick()).entity,
+        found.expectedVersion,
+      );
+    });
+  }
+
+  /** An open info report on `target` from `reporter`, stored directly. */
+  async function infoReport(
+    target: InfoReportTarget,
+    reporter: Person,
+  ): Promise<InfoReportId> {
+    const id = InfoReportId.create(idGenerator.next());
+    const { entity } = InfoReport.submit(
+      {
+        id,
+        target:
+          target.kind === "place"
+            ? target
+            : { kind: "listing", listingId: target.listingId },
+        category: "incorrectInfo",
+        content: "営業時間が違います",
+      },
+      reporter.actor,
+      { kind: "available", placeId: target.placeId, placeHasSteward: true },
+      tick(),
+    );
+    await base.unitOfWorkProvider.run(({ infoReportRepository }) =>
+      infoReportRepository.insert(entity),
+    );
+    return id;
+  }
   const invitationId = () => InvitationId.create(idGenerator.next());
 
   async function writeStewardship(
@@ -246,9 +482,18 @@ export function notificationKit(
     tick,
     person,
     place,
+    registeredPlace,
     region,
     occasion,
     applicationId,
+    listing,
+    publishedListing,
+    categories,
+    retireCategory,
+    renameCategory,
+    takedownClaim,
+    resolveClaim,
+    infoReport,
     invitationId,
     appoint,
     removeSteward,

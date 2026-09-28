@@ -8,8 +8,14 @@ import {
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import { type AccountId, NotificationId } from "@repo/core/domain/common/ids";
+import {
+  type AccountId,
+  type CategoryId,
+  NotificationId,
+  type PlaceId,
+} from "@repo/core/domain/common/ids";
 import { ContentRef } from "@repo/core/domain/common/refs";
+import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import {
   Addressing,
   type AddressingFacts,
@@ -28,6 +34,7 @@ import {
 } from "@repo/core/domain/notification/mail";
 import { Notification } from "@repo/core/domain/notification/notification";
 import { MailKey } from "@repo/core/domain/notification/occurrenceKey";
+import { PLACE_EVENT_TYPES } from "@repo/core/domain/place/events";
 import { findAccountsByIds } from "../authority/accounts";
 import type { RequestContainer } from "../di/types";
 import { defineConsumer } from "../events/consumer";
@@ -52,16 +59,61 @@ export type PlannedAnnouncement = Readonly<{
 }>;
 
 /**
- * Reads the facts each stage-1 event's announcements need — none. A later
- * stage's event that needs `AnnouncementFacts` (participating places, a
- * listing's place, the retired category's places, showcasing articles)
- * reads them here, inside the same read-only `run`.
+ * The places holding a listing whose stored category is the retired one
+ * or reaches it (`CategoryCatalog.predecessorsOf`), in any state, without
+ * duplicates.
+ */
+async function placesOfRetiredCategory(
+  ctx: UnitOfWorkContext,
+  categoryId: CategoryId,
+): Promise<readonly PlaceId[]> {
+  const catalog = (await ctx.categoryCatalogRepository.find()).entity;
+  const categoryIds = CategoryCatalog.predecessorsOf(catalog, categoryId);
+  const places = new Set<PlaceId>();
+  let seen = 0;
+  for (let page = 1; ; page += 1) {
+    const { items, count } = await ctx.listingRepository.findPageByCategories(
+      categoryIds,
+      { page, limit: IdBatch.maxSize },
+    );
+    for (const listing of items) places.add(listing.placeId);
+    seen += items.length;
+    if (items.length === 0 || seen >= count) return [...places];
+  }
+}
+
+/**
+ * Reads the facts the event's announcements need (`AnnouncementFacts`),
+ * inside the read-only `run`. The published articles showcasing what an
+ * event changed come from Article's repository, which lands in stage 5;
+ * until then no article showcases anything, and a place's listings (the
+ * candidates of its suspension or closure) need not be read.
  */
 async function readAnnouncementFacts(
-  _ctx: UnitOfWorkContext,
-  _event: NotifiableEvent,
+  ctx: UnitOfWorkContext,
+  event: NotifiableEvent,
 ): Promise<AnnouncementFacts> {
-  return AnnouncementFacts.none;
+  switch (event.type) {
+    case "content.photos_taken_down": {
+      const { owner } = event.payload;
+      if (owner.kind !== "listing") return AnnouncementFacts.none;
+      const found = await ctx.listingRepository.findById(owner.id);
+      return {
+        ...AnnouncementFacts.none,
+        ownerListingPlace: found?.entity.placeId ?? null,
+      };
+    }
+    case "category.retired":
+      return {
+        ...AnnouncementFacts.none,
+        placesOfRetiredCategory: await placesOfRetiredCategory(
+          ctx,
+          event.payload.categoryId,
+        ),
+      };
+    default:
+      return AnnouncementFacts.none;
+  }
 }
 
 /**
@@ -351,6 +403,17 @@ export const deliverNotifications = defineConsumer(
     "authority.role_granted",
     "authority.role_revoked",
     ...APPLICATION_EVENT_TYPES,
+    ...PLACE_EVENT_TYPES,
+    "listing.suspended",
+    "listing.unsuspended",
+    "listing.unpublished",
+    "listing.deleted",
+    "listing.offering_ended",
+    "category.retired",
+    "content.photos_taken_down",
+    "takedown_claim.submitted",
+    "info_report.submitted",
+    "info_report.confirmation_requested",
   ],
   (container, event) => deliverNotificationsOf(container, event),
 );

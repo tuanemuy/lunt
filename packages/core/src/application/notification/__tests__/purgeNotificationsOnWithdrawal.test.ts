@@ -2,6 +2,7 @@ import { Account } from "@repo/core/domain/account/entity";
 import { AccountEvents } from "@repo/core/domain/account/events";
 import { AuthorityEvents } from "@repo/core/domain/authority/events";
 import { EventId } from "@repo/core/domain/common/event";
+import { PlaceEvents } from "@repo/core/domain/place/events";
 import { describe, expect, it } from "vitest";
 import { listNotifications } from "../listNotifications";
 import { purgeNotificationsOnWithdrawal } from "../purgeNotificationsOnWithdrawal";
@@ -96,11 +97,27 @@ describe("purgeNotificationsOnWithdrawal", () => {
     expect(await k.notificationsOf(B)).toEqual(kept);
   });
 
-  // S2: place.suspended. The same mechanism (a withdrawn steward drops out
-  // of a later delivery) is covered below with a stage-1 event.
-  it.todo(
-    "purgeNotificationsOnWithdrawal#5 A の退会と通知の削除の後、A が店舗管理者だった店舗 P についての place.suspended が配送された / deliverNotifications で消費する",
-  );
+  it("purgeNotificationsOnWithdrawal#5 A の退会と通知の削除の後、A が店舗管理者だった店舗 P についての place.suspended が配送された / deliverNotifications で消費する", async () => {
+    const k = notificationKit();
+    const [A, B] = [await k.person("a"), await k.person("b")];
+    const P = k.place("店舗P");
+    await k.appoint(P, A, B);
+    await k.withdraw(A);
+    await purge(k, withdrawnEvent(k, A));
+    await k.consume(k.event(PlaceEvents.suspended(P.id, k.tick())));
+    expect(await k.notificationsOf(A)).toEqual([]);
+    expect(k.mailsTo(A)).toEqual([]);
+    expect(await k.notificationsOf(B)).toEqual([
+      expect.objectContaining({
+        occurrence: {
+          to: "contentManagers",
+          content: P,
+          matter: { kind: "suspended" },
+        },
+      }),
+    ]);
+    expect(k.mailsTo(B)).toHaveLength(1);
+  });
 
   it("purgeNotificationsOnWithdrawal#6 A の退会と通知の削除の後、同じメールアドレスで新しいアカウントが作られた / 新しいアカウントで listNotifications を読む", async () => {
     const k = notificationKit();

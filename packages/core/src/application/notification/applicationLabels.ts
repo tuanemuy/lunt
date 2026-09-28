@@ -1,12 +1,13 @@
 import {
   Application,
+  ApplicationCase,
   type ApplicationKind,
 } from "@repo/core/domain/application/application";
 import type { AnyApplication } from "@repo/core/domain/application/kind";
 import type { SubjectName } from "@repo/core/domain/application/subject";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
-import type { ContentRef } from "@repo/core/domain/common/refs";
+import { ContentRef } from "@repo/core/domain/common/refs";
 import type { ApplicationLabel } from "@repo/core/domain/notification/mail";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
 
@@ -73,10 +74,37 @@ export async function readApplicationLabels(
           null);
     labels.set(id, {
       applicationKind: Application.kindOf(app),
-      subjects: Application.namedSubjects(app, registration).map(
-        ({ subject, name }) => ({ kind: subject.kind, ref: subject, name }),
-      ),
+      subjects: labelSubjects(app, registration),
     });
   }
   return labels;
+}
+
+type LabelSubject = PendingApplicationLabel["subjects"][number];
+
+/**
+ * `Application.namedSubjects`, then what the application's content names
+ * that its subjects leave out — a listing application's new listing,
+ * which Application's 「申請の対象の名称」 names from the content although
+ * `Application.subjects` holds only its place.
+ */
+function labelSubjects(
+  app: AnyApplication,
+  registration: AnyApplication | null,
+): readonly LabelSubject[] {
+  const named: LabelSubject[] = Application.namedSubjects(
+    app,
+    registration,
+  ).map(({ subject, name }) => ({ kind: subject.kind, ref: subject, name }));
+  for (const entry of ApplicationCase.contentNames(app)) {
+    const { ref } = entry;
+    if (ref.kind === "article") continue;
+    if (named.some((subject) => ContentRef.equals(subject.ref, ref))) continue;
+    named.push({
+      kind: ref.kind,
+      ref,
+      name: { from: "content", value: entry.name },
+    });
+  }
+  return named;
 }

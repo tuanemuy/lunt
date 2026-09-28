@@ -2,9 +2,13 @@ import { ApplicationEvents } from "@repo/core/domain/application/events";
 import { AuthorityEvents } from "@repo/core/domain/authority/events";
 import type { Actor } from "@repo/core/domain/common/actor";
 import type { Pagination } from "@repo/core/domain/common/pagination";
+import { ListingEvents } from "@repo/core/domain/listing/events";
+import { ModerationEvents } from "@repo/core/domain/moderation/events";
+import { PlaceEvents } from "@repo/core/domain/place/events";
 import { describe, expect, it } from "vitest";
 import { UnauthorizedError } from "../../errors";
 import { listNotifications } from "../listNotifications";
+import { applicationFixtures } from "./applicationFixtures";
 import { type Kit, notificationKit, type Person } from "./kit";
 
 const PAGE: Pagination = { page: 1, limit: 20 };
@@ -27,6 +31,22 @@ async function stewardAddedTo(k: Kit, A: Person, who: Person) {
     ),
   );
   return P;
+}
+
+/**
+ * K is retired to K2 while P's listing stores K; the retirement reaches
+ * P's steward A.
+ */
+async function reassignedCategory(k: Kit) {
+  const A = await k.person("a");
+  const P = k.place("店舗P");
+  await k.appoint(P, A);
+  const [K, K2] = await k.categories("K", "K2");
+  if (K === undefined || K2 === undefined) throw new Error("no category");
+  await k.listing(P, { categoryId: K });
+  await k.retireCategory(K, K2);
+  await k.consume(k.event(ListingEvents.categoryRetired(K, k.tick())));
+  return { A, P, K, K2 };
 }
 
 describe("listNotifications", () => {
@@ -107,16 +127,84 @@ describe("listNotifications", () => {
   it.todo(
     "listNotifications#4 利用者 A は、店舗 P の店舗管理者、地域 R の地域運営者、編集担当者を兼ねる。それぞれの立場宛ての出来事と、A が個人として行った申請の承認が起きた / A として読む",
   );
-  // S2: place / listing suspensions. Filtering by recipient is covered below.
-  it.todo(
-    "listNotifications#5 利用者 A と利用者 B が店舗 P の店舗管理者で、店舗 P が運営による非公開になった。B には別の通知もある / A として読む",
-  );
-  it.todo(
-    "listNotifications#6 店舗 P の掲載 L が運営による非公開になり、店舗管理者 A に通知が届いた / A として読む",
-  );
-  it.todo(
-    "listNotifications#7 店舗管理者が不在の店舗 V の掲載 LV が運営による非公開になり、サービス運営者 O に通知が届いた / O として読む",
-  );
+  it("listNotifications#5 利用者 A と利用者 B が店舗 P の店舗管理者で、店舗 P が運営による非公開になった。B には別の通知もある / A として読む", async () => {
+    const k = notificationKit();
+    const [A, B] = [await k.person("a"), await k.person("b")];
+    const P = k.place("店舗P");
+    await k.appoint(P, A, B);
+    await k.consume(k.event(PlaceEvents.suspended(P.id, k.tick())));
+    await k.consume(
+      k.event(
+        AuthorityEvents.stewardRemoved(
+          k.place("店舗Q"),
+          B.accountId,
+          "revoked",
+          k.tick(),
+        ),
+      ),
+    );
+    const page = await list(k, A.actor);
+    expect(page.count).toBe(1);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      occurrence: {
+        to: "contentManagers",
+        content: P,
+        matter: { kind: "suspended" },
+      },
+      delivery: "direct",
+      pointedContent: P,
+      labels: [{ ref: P, label: "店舗P" }],
+      destination: {
+        kind: "placeManagement",
+        placeId: P.id,
+        facet: "overview",
+      },
+    });
+    expect((await list(k, B.actor)).count).toBe(2);
+  });
+  it("listNotifications#6 店舗 P の掲載 L が運営による非公開になり、店舗管理者 A に通知が届いた / A として読む", async () => {
+    const k = notificationKit();
+    const A = await k.person("a");
+    const P = k.place("店舗P");
+    await k.appoint(P, A);
+    const L = await k.listing(P, { name: "掲載L" });
+    await k.consume(k.event(ListingEvents.suspended(L.id, P.id, k.tick())));
+    const [item] = (await list(k, A.actor)).items;
+    expect(item).toMatchObject({
+      occurrence: {
+        to: "contentManagers",
+        content: L,
+        placeId: P.id,
+        matter: { kind: "suspended" },
+      },
+      delivery: "direct",
+      pointedContent: L,
+      vacantTarget: null,
+      destination: { kind: "listingManagement", listingId: L.id },
+    });
+    expect(item?.labels).toContainEqual({ ref: L, label: "掲載L" });
+  });
+  it("listNotifications#7 店舗管理者が不在の店舗 V の掲載 LV が運営による非公開になり、サービス運営者 O に通知が届いた / O として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const V = k.place("店舗V");
+    const LV = await k.listing(V, { name: "掲載LV" });
+    await k.consume(k.event(ListingEvents.suspended(LV.id, V.id, k.tick())));
+    const [item] = (await list(k, O.actor)).items;
+    expect(item).toMatchObject({
+      delivery: "proxy",
+      vacantTarget: V,
+      pointedContent: LV,
+      destination: {
+        kind: "proxyOperation",
+        target: V,
+        direct: { kind: "listingManagement", listingId: LV.id },
+      },
+    });
+    expect(item?.labels).toContainEqual({ ref: LV, label: "掲載LV" });
+  });
   it("listNotifications#8 店舗管理者として行った申請 Ap が、最後の店舗管理者の退会で失効し、サービス運営者 O に失効の通知が届いた / O として読む", async () => {
     const k = notificationKit();
     const O = await k.person("o");
@@ -147,26 +235,112 @@ describe("listNotifications", () => {
         direct: { kind: "ownApplication", applicationId: Ap },
       },
     });
-    // No application kind is registered before S2B, so Ap cannot be read
-    // and its label is `null`; its kind and subject names are the todo below.
+    // Ap stands for an application filed as a place's steward, a kind that
+    // lands in S3B (affiliation, leave, participation); here it is not
+    // stored, so its label is `null`. The todo below is the rest.
     expect(item?.labels).toEqual([
       { ref: Q, label: "店舗Q" },
       { ref: { kind: "application", id: Ap }, label: null },
     ]);
   });
-  // S2B: the application label's kind and subject names (row 8's last part).
+  // S3B: no stage-2 kind is filed as a place's steward. Labels of stored
+  // applications of the stage-2 kinds are rows 9–11.
   it.todo(
-    "row 8 of listNotifications: the labels carry Ap's kind and its subjects' names (S2B)",
+    "row 8 of listNotifications: the labels carry Ap's kind and its subjects' names (S3B)",
   );
-  it.todo(
-    "listNotifications#9 利用者 A の店舗の登録申請 Ap が否認され、A に通知が届いた。店舗は作られていない / A として読む",
-  );
-  it.todo(
-    "listNotifications#10 利用者 A の登録申請 Ap1 が承認されて店舗が作られ、その後に店舗の名称が変更された / A として読む",
-  );
-  it.todo(
-    "listNotifications#11 利用者 A の掲載の申請 Ap が承認され、A に通知が届いた / A として読む",
-  );
+  it("listNotifications#9 利用者 A の店舗の登録申請 Ap が否認され、A に通知が届いた。店舗は作られていない / A として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const A = await k.person("a");
+    const apps = applicationFixtures(k);
+    const { Ap1: Ap } = await apps.registration(A, "山田珈琲店");
+    await apps.reject(O, Ap);
+    await k.consume(
+      k.event(
+        ApplicationEvents.rejected(
+          Ap,
+          { kind: "individual", accountId: A.accountId },
+          k.tick(),
+        ),
+      ),
+    );
+    const [item] = (await list(k, A.actor)).items;
+    expect(item).toMatchObject({
+      occurrence: { to: "applicant", applicationId: Ap, matter: "rejected" },
+      labels: [
+        {
+          ref: { kind: "application", id: Ap },
+          label: {
+            applicationKind: "registration",
+            subjects: [{ kind: "place", name: "山田珈琲店" }],
+          },
+        },
+      ],
+      destination: { kind: "ownApplication", applicationId: Ap },
+    });
+  });
+  it("listNotifications#10 利用者 A の登録申請 Ap1 が承認されて店舗が作られ、その後に店舗の名称が変更された / A として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const A = await k.person("a");
+    const apps = applicationFixtures(k);
+    const { Ap1, placeId } = await apps.registration(A, "山田珈琲店");
+    await apps.approveRegistration(O, Ap1);
+    await k.consume(
+      k.event(
+        ApplicationEvents.approved(
+          Ap1,
+          { kind: "individual", accountId: A.accountId },
+          k.tick(),
+        ),
+      ),
+    );
+    k.directory.add({ kind: "place", id: placeId }, "やまだ珈琲");
+    const [item] = (await list(k, A.actor)).items;
+    expect(item?.labels).toEqual([
+      {
+        ref: { kind: "application", id: Ap1 },
+        label: {
+          applicationKind: "registration",
+          subjects: [{ kind: "place", name: "山田珈琲店" }],
+        },
+      },
+    ]);
+  });
+  it("listNotifications#11 利用者 A の掲載の申請 Ap が承認され、A に通知が届いた / A として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const A = await k.person("a");
+    const V = await k.registeredPlace("店舗V");
+    const apps = applicationFixtures(k);
+    const Ap = await apps.newListing(A, V, "季節のパフェ");
+    await apps.approveListing(O, Ap);
+    await k.consume(
+      k.event(
+        ApplicationEvents.approved(
+          Ap,
+          { kind: "individual", accountId: A.accountId },
+          k.tick(),
+        ),
+      ),
+    );
+    const [item] = (await list(k, A.actor)).items;
+    expect(item?.labels).toEqual([
+      {
+        ref: { kind: "application", id: Ap },
+        label: {
+          applicationKind: "listing",
+          subjects: [
+            { kind: "place", name: "店舗V" },
+            { kind: "listing", name: "季節のパフェ" },
+          ],
+        },
+      },
+    ]);
+  });
 
   it("listNotifications#12 地域運営者が不在の地域 RV への所属申請 Ap が提出され、サービス運営者 O に通知が届いた / O として読む", async () => {
     const k = notificationKit();
@@ -237,19 +411,75 @@ describe("listNotifications", () => {
   it.todo(
     "listNotifications#16 公開中の読みもの A1 が紹介する掲載 L が削除され、編集担当者 E に通知が届いた / E として読む",
   );
-  // S2: takedown claims; categories.
-  it.todo(
-    "listNotifications#17 店舗 P への取り下げの申立て Cl が受け付けられ、サービス運営者 O に通知が届いた。その後、P が非公開になった / O として読む",
-  );
-  it.todo(
-    "listNotifications#18 カテゴリー K が移行先をカテゴリー K2 として廃止され、K を保存している掲載を持つ店舗 P の店舗管理者 A に通知が届いた / A として読む",
-  );
-  it.todo(
-    "listNotifications#19 上の通知が届いた後、カテゴリー K2 の名称が変更された / A として読む",
-  );
-  it.todo(
-    "listNotifications#20 その後、カテゴリー K2 が移行先をカテゴリー K3 として廃止された / A として読む",
-  );
+  it("listNotifications#17 店舗 P への取り下げの申立て Cl が受け付けられ、サービス運営者 O に通知が届いた。その後、P が非公開になった / O として読む", async () => {
+    const k = notificationKit();
+    const O = await k.person("o");
+    await k.operators(O);
+    const P = k.place("店舗P");
+    const Cl = await k.takedownClaim(P);
+    await k.consume(
+      k.event(ModerationEvents.takedownClaimSubmitted(Cl, k.tick())),
+    );
+    // The directory names content whether viewers can see it or not; the
+    // suspension itself is Place's (its notification is another row's).
+    const [item] = (await list(k, O.actor)).items;
+    expect(item).toMatchObject({
+      occurrence: {
+        to: "operators",
+        matter: { kind: "takedown_claim_received", claimId: Cl },
+      },
+      labels: [{ ref: { kind: "takedownClaim", id: Cl }, label: "店舗P" }],
+      destination: { kind: "takedownClaimHandling", claimId: Cl },
+    });
+    const [described] = await k.directory.describe([P]);
+    expect(item?.labels[0]?.label).toBe(described?.name);
+  });
+  it("listNotifications#18 カテゴリー K が移行先をカテゴリー K2 として廃止され、K を保存している掲載を持つ店舗 P の店舗管理者 A に通知が届いた / A として読む", async () => {
+    const k = notificationKit();
+    const { A, P, K, K2 } = await reassignedCategory(k);
+    const [item] = (await list(k, A.actor)).items;
+    expect(item).toMatchObject({
+      occurrence: {
+        to: "placeStewards",
+        placeId: P.id,
+        subject: {
+          kind: "place",
+          matter: { kind: "categories_reassigned", retiredCategoryId: K },
+        },
+      },
+      labels: [
+        { ref: P, label: "店舗P" },
+        { ref: { kind: "category", id: K }, label: "K" },
+      ],
+      reassignedTo: { id: K2, name: "K2" },
+      destination: {
+        kind: "placeManagement",
+        placeId: P.id,
+        facet: "listings",
+      },
+    });
+  });
+  it("listNotifications#19 上の通知が届いた後、カテゴリー K2 の名称が変更された / A として読む", async () => {
+    const k = notificationKit();
+    const { A, K2 } = await reassignedCategory(k);
+    const [before] = (await list(k, A.actor)).items;
+    await k.renameCategory(K2, "K2改");
+    const [item] = (await list(k, A.actor)).items;
+    expect(item?.reassignedTo).toEqual({ id: K2, name: "K2改" });
+    expect(item?.occurrence).toEqual(before?.occurrence);
+  });
+  it("listNotifications#20 その後、カテゴリー K2 が移行先をカテゴリー K3 として廃止された / A として読む", async () => {
+    const k = notificationKit();
+    const { A, K2 } = await reassignedCategory(k);
+    const [before] = (await list(k, A.actor)).items;
+    await k.renameCategory(K2, "K2改");
+    const [K3] = await k.categories("K3");
+    if (K3 === undefined) throw new Error("no category");
+    await k.retireCategory(K2, K3);
+    const [item] = (await list(k, A.actor)).items;
+    expect(item?.reassignedTo).toEqual({ id: K3, name: "K3" });
+    expect(item?.occurrence).toEqual(before?.occurrence);
+  });
 
   it("listNotifications#21 管理権限の申請の承認で S3 が店舗 P の店舗管理者に加わり、A に通知が届いた / A として読む", async () => {
     const k = notificationKit();

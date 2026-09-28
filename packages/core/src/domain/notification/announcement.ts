@@ -13,12 +13,24 @@ import type {
   ListingId,
   PlaceId,
 } from "@repo/core/domain/common/ids";
+import type { PhotosTakenDownEvent } from "@repo/core/domain/common/photoEvents";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
+import type {
+  CategoryRetiredEvent,
+  ListingEvent,
+} from "@repo/core/domain/listing/events";
+import type {
+  InfoReportConfirmationRequestedEvent,
+  InfoReportSubmittedEvent,
+  TakedownClaimSubmittedEvent,
+} from "@repo/core/domain/moderation/events";
+import type { PlaceEvent } from "@repo/core/domain/place/events";
 import type {
   ApplicantMatter,
   ApproverMatter,
   DirectAudienceOccurrence,
   Occurrence,
+  ShowcaseChange,
 } from "./occurrence";
 
 /**
@@ -67,13 +79,20 @@ export type NotifiableEvent =
   | StewardRemovedEvent
   | RoleGrantedEvent
   | RoleRevokedEvent
-  | ApplicationEvent;
+  | ApplicationEvent
+  | PlaceEvent
+  | ListingEvent
+  | CategoryRetiredEvent
+  | PhotosTakenDownEvent
+  | TakedownClaimSubmittedEvent
+  | InfoReportSubmittedEvent
+  | InfoReportConfirmationRequestedEvent;
 
 export type NotifiableEventType = NotifiableEvent["type"];
 
 /**
  * Facts some events need before they turn into announcements, read by the
- * usecase at consumption time. No stage-1 event needs any of them.
+ * usecase at consumption time.
  */
 export type AnnouncementFacts = Readonly<{
   /** Places taking part in the event's occasion (`occasion.cancelled`, `occasion.period_changed`). */
@@ -82,7 +101,10 @@ export type AnnouncementFacts = Readonly<{
   ownerListingPlace: PlaceId | null;
   /** Places holding a listing of the retired category; no duplicates. */
   placesOfRetiredCategory: readonly PlaceId[];
-  /** Published articles showcasing any of `showcaseRefsOf`'s candidates. */
+  /**
+   * Articles published at consumption time that showcase any of
+   * `showcaseRefsOf`'s candidates, each with the candidates it showcases.
+   */
   showcasingArticles: readonly Readonly<{
     articleId: ArticleId;
     showcases: readonly ShowcaseRef[];
@@ -210,14 +232,15 @@ function fromApplicationEvent(
   }
 }
 
-/**
- * The announcements a domain event makes — the correspondence table of
- * `spec/domains/notification.md` 「ドメインイベント」, and the only place it
- * lives. An event outside the table's conditions announces nothing.
- */
-function from(
-  event: NotifiableEvent,
-  _facts: AnnouncementFacts,
+type AuthorityNotifiableEvent =
+  | InvitationIssuedEvent
+  | StewardAppointedEvent
+  | StewardRemovedEvent
+  | RoleGrantedEvent
+  | RoleRevokedEvent;
+
+function fromAuthorityEvent(
+  event: AuthorityNotifiableEvent,
 ): readonly Announcement[] {
   switch (event.type) {
     case "authority.invitation_issued":
@@ -300,27 +323,198 @@ function from(
             },
           ]
         : [];
+  }
+}
+
+type ListingChange = Extract<
+  ShowcaseChange,
+  { showcase: { kind: "listing" } }
+>["change"];
+type PlaceChange = Extract<
+  ShowcaseChange,
+  { showcase: { kind: "place" } }
+>["change"];
+
+/**
+ * How `event` changed `showcase`, one of its candidates; `null` for a
+ * showcase kind the event does not change. A place's suspension or
+ * closure changes the place and, through it, each of its listings.
+ */
+function showcaseChangeOf(
+  event: NotifiableEvent,
+  showcase: ShowcaseRef,
+): ShowcaseChange | null {
+  const ofListing = (change: ListingChange): ShowcaseChange | null =>
+    showcase.kind === "listing" ? { showcase, change } : null;
+  const ofPlace = (
+    own: PlaceChange,
+    listing: ListingChange,
+  ): ShowcaseChange | null => {
+    switch (showcase.kind) {
+      case "place":
+        return { showcase, change: own };
+      case "listing":
+        return { showcase, change: listing };
+      default:
+        return null;
+    }
+  };
+  switch (event.type) {
+    case "listing.suspended":
+      return ofListing("suspended");
+    case "listing.unpublished":
+      return ofListing("unpublished");
+    case "listing.deleted":
+      return ofListing("deleted");
+    case "listing.offering_ended":
+      return ofListing("offering_ended");
+    case "place.suspended":
+      return ofPlace("suspended", "place_suspended");
+    case "place.operating_status_changed":
+      return event.payload.to === "permanentlyClosed"
+        ? ofPlace("closed", "place_closed")
+        : null;
     default:
-      return fromApplicationEvent(event);
+      return null;
   }
 }
 
 /**
- * The showcase candidates an event changed: the event's own content for
- * listing / region / occasion events, the place and `placeListings` for a
- * place's suspension or closure. Empty for events that change no
- * showcase — every stage-1 event.
+ * The editors' announcements (P-96): one per published article and
+ * changed showcase it holds, as `facts.showcasingArticles` lists them.
  */
-function showcaseRefsOf(
+function showcaseAnnouncements(
   event: NotifiableEvent,
-  _placeListings: readonly ListingId[],
-): readonly ShowcaseRef[] {
+  facts: AnnouncementFacts,
+  origin: Origin,
+): readonly Announcement[] {
+  return facts.showcasingArticles.flatMap(({ articleId, showcases }) =>
+    showcases.flatMap((showcase): readonly Announcement[] => {
+      const change = showcaseChangeOf(event, showcase);
+      return change === null
+        ? []
+        : [
+            {
+              occurrence: {
+                to: "editors",
+                articleId,
+                matter: { kind: "showcase_changed", change },
+              },
+              origin,
+            },
+          ];
+    }),
+  );
+}
+
+function fromPhotosTakenDown(
+  event: PhotosTakenDownEvent,
+  facts: AnnouncementFacts,
+): readonly Announcement[] {
+  const origin = byEvent(event);
+  const matter = { kind: "photos_taken_down" } as const;
+  const { owner } = event.payload;
+  switch (owner.kind) {
+    case "listing":
+      return facts.ownerListingPlace === null
+        ? []
+        : [
+            {
+              occurrence: {
+                to: "contentManagers",
+                content: owner,
+                placeId: facts.ownerListingPlace,
+                matter,
+              },
+              origin,
+            },
+          ];
+    case "article":
+      return [
+        {
+          occurrence: { to: "contentManagers", content: owner, matter },
+          origin,
+        },
+      ];
+    default:
+      return [
+        {
+          occurrence: { to: "contentManagers", content: owner, matter },
+          origin,
+        },
+      ];
+  }
+}
+
+function fromContentEvent(
+  event: PlaceEvent | ListingEvent,
+  facts: AnnouncementFacts,
+): readonly Announcement[] {
+  const origin = byEvent(event);
+  switch (event.type) {
+    case "place.suspended":
+    case "place.unsuspended":
+      return [
+        {
+          occurrence: {
+            to: "contentManagers",
+            content: { kind: "place", id: event.payload.placeId },
+            matter: {
+              kind:
+                event.type === "place.suspended" ? "suspended" : "unsuspended",
+            },
+          },
+          origin,
+        },
+        ...showcaseAnnouncements(event, facts, origin),
+      ];
+    case "listing.suspended":
+    case "listing.unsuspended":
+      return [
+        {
+          occurrence: {
+            to: "contentManagers",
+            content: { kind: "listing", id: event.payload.listingId },
+            placeId: event.payload.placeId,
+            matter: {
+              kind:
+                event.type === "listing.suspended"
+                  ? "suspended"
+                  : "unsuspended",
+            },
+          },
+          origin,
+        },
+        ...showcaseAnnouncements(event, facts, origin),
+      ];
+    case "place.operating_status_changed":
+    case "listing.unpublished":
+    case "listing.deleted":
+      return showcaseAnnouncements(event, facts, origin);
+    case "listing.offering_ended":
+      return showcaseAnnouncements(event, facts, {
+        by: "content",
+        token: event.payload.observedOn,
+      });
+  }
+}
+
+/**
+ * The announcements a domain event makes — the correspondence table of
+ * `spec/domains/notification.md` 「ドメインイベント」, and the only place it
+ * lives. An event outside the table's conditions announces nothing.
+ */
+function from(
+  event: NotifiableEvent,
+  facts: AnnouncementFacts,
+): readonly Announcement[] {
   switch (event.type) {
     case "authority.invitation_issued":
     case "authority.steward_appointed":
     case "authority.steward_removed":
     case "authority.role_granted":
     case "authority.role_revoked":
+      return fromAuthorityEvent(event);
     case "application.submitted":
     case "application.resubmitted":
     case "application.withdrawn":
@@ -329,6 +523,115 @@ function showcaseRefsOf(
     case "application.rejected":
     case "application.lapsed":
     case "application.review_period_elapsed":
+      return fromApplicationEvent(event);
+    case "place.suspended":
+    case "place.unsuspended":
+    case "place.operating_status_changed":
+    case "listing.suspended":
+    case "listing.unsuspended":
+    case "listing.unpublished":
+    case "listing.deleted":
+    case "listing.offering_ended":
+      return fromContentEvent(event, facts);
+    case "category.retired": {
+      const origin = byEvent(event);
+      const { categoryId } = event.payload;
+      return facts.placesOfRetiredCategory.map(
+        (placeId): Announcement => ({
+          occurrence: {
+            to: "placeStewards",
+            placeId,
+            subject: {
+              kind: "place",
+              matter: {
+                kind: "categories_reassigned",
+                retiredCategoryId: categoryId,
+              },
+            },
+          },
+          origin,
+        }),
+      );
+    }
+    case "content.photos_taken_down":
+      return fromPhotosTakenDown(event, facts);
+    case "takedown_claim.submitted":
+      return [
+        {
+          occurrence: {
+            to: "operators",
+            matter: {
+              kind: "takedown_claim_received",
+              claimId: event.payload.claimId,
+            },
+          },
+          origin: byEvent(event),
+        },
+      ];
+    case "info_report.submitted":
+      return [
+        {
+          occurrence: {
+            to: "operators",
+            matter: {
+              kind: "info_report_received",
+              reportId: event.payload.reportId,
+            },
+          },
+          origin: byEvent(event),
+        },
+      ];
+    case "info_report.confirmation_requested": {
+      const { reportId, target } = event.payload;
+      const matter = { kind: "confirmation_requested", reportId } as const;
+      return [
+        {
+          occurrence: {
+            to: "placeStewards",
+            placeId: target.placeId,
+            subject:
+              target.kind === "listing"
+                ? { kind: "listing", listingId: target.listingId, matter }
+                : { kind: "place", matter },
+          },
+          origin: byEvent(event),
+        },
+      ];
+    }
+  }
+}
+
+const placeAndListings = (
+  placeId: PlaceId,
+  listings: readonly ListingId[],
+): readonly ShowcaseRef[] => [
+  { kind: "place", id: placeId },
+  ...listings.map((id): ShowcaseRef => ({ kind: "listing", id })),
+];
+
+/**
+ * The showcase candidates an event changed: the event's own content for
+ * listing / region / occasion events, the place and `placeListings` for a
+ * place's suspension or closure. Empty for events that change no
+ * showcase.
+ */
+function showcaseRefsOf(
+  event: NotifiableEvent,
+  placeListings: readonly ListingId[],
+): readonly ShowcaseRef[] {
+  switch (event.type) {
+    case "listing.suspended":
+    case "listing.unpublished":
+    case "listing.deleted":
+    case "listing.offering_ended":
+      return [{ kind: "listing", id: event.payload.listingId }];
+    case "place.suspended":
+      return placeAndListings(event.payload.placeId, placeListings);
+    case "place.operating_status_changed":
+      return event.payload.to === "permanentlyClosed"
+        ? placeAndListings(event.payload.placeId, placeListings)
+        : [];
+    default:
       return [];
   }
 }

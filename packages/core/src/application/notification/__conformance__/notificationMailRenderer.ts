@@ -1,6 +1,11 @@
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { EventId } from "@repo/core/domain/common/event";
+import { PhotoId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
+import {
+  type ResolvedTakedownClaim,
+  TakedownClaim,
+} from "@repo/core/domain/moderation/takedownClaim";
 import type { TakedownOutcome } from "@repo/core/domain/moderation/takedownOutcome";
 import type { Origin } from "@repo/core/domain/notification/announcement";
 import type { DeliveredOccurrence } from "@repo/core/domain/notification/delivery";
@@ -32,9 +37,9 @@ const origin: Origin = {
 };
 
 /**
- * Labels naming every reference of `delivered` (`name` or `null`). No
- * application kind is registered before S2B, so an application's label is
- * `null` (the application is not found).
+ * Labels naming every reference of `delivered` (`name` or `null`). An
+ * application reads as a listing application about a listing and its
+ * place, each named by `name`.
  */
 function labelsFor(
   delivered: DeliveredOccurrence,
@@ -43,7 +48,16 @@ function labelsFor(
   return Occurrence.refsOf(delivered.occurrence).map(
     (ref): RefLabel =>
       ref.kind === "application"
-        ? { ref, label: null }
+        ? {
+            ref,
+            label: {
+              applicationKind: "listing",
+              subjects: [
+                { kind: "listing", name: name(ref) },
+                { kind: "place", name: name(ref) },
+              ],
+            },
+          }
         : { ref, label: name(ref) },
   );
 }
@@ -487,13 +501,25 @@ export function describeNotificationMailRendererContract(
       const outcome = outcomeOf(
         "申し立てのあった写真2枚を削除しました。\n残りの写真は、権利者の確認がとれたため公開を続けます。",
       );
-      const claim = (target: ContentRef, text = outcome) => ({
-        id: ids.claim(),
-        email: M1,
-        target,
-        receivedAt,
-        outcome: text,
-      });
+      const claim = (
+        target: ContentRef,
+        text: string = outcome,
+      ): ResolvedTakedownClaim => {
+        const photoId = PhotoId.create(`photo-${ids.claim()}`);
+        const open = TakedownClaim.submit(
+          {
+            id: ids.claim(),
+            standing: "photoRightsHolder",
+            target,
+            photoIds: [photoId],
+            reason: "権利を侵害しています",
+            email: M1,
+          },
+          { viewable: true, photoIds: [photoId] },
+          receivedAt,
+        ).entity;
+        return TakedownClaim.resolve(open, text, receivedAt).entity;
+      };
 
       it("notificationMailRenderer#19 宛先 M1、対象が掲載・店舗・地域・イベント・読みもののそれぞれの TakedownOutcomeMail / それぞれ renderTakedownOutcome を呼ぶ", () => {
         const h = makeHarness();

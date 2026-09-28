@@ -1,7 +1,7 @@
 import type { ApplicationKind } from "@repo/core/domain/application/application";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
-import type { TakedownClaimId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
+import type { ResolvedTakedownClaim } from "@repo/core/domain/moderation/takedownClaim";
 import type { TakedownOutcome } from "@repo/core/domain/moderation/takedownOutcome";
 import type { Origin } from "./announcement";
 import type { DeliveredOccurrence } from "./delivery";
@@ -68,29 +68,25 @@ export const NotificationMail = {
   }),
 };
 
-/**
- * The parts of a resolved takedown claim the outcome mail carries.
- * Moderation's `ResolvedTakedownClaim` (stage 2) supplies them — `target`
- * is its ground's target.
- */
-export type ResolvedClaimFacts = Readonly<{
-  id: TakedownClaimId;
-  email: EmailAddress;
-  target: ContentRef;
-  receivedAt: Date;
-  outcome: TakedownOutcome;
-}>;
+const takedownOutcomeKey = (claim: ResolvedTakedownClaim): MailKey => ({
+  occurrenceKey: OccurrenceKey.ofTakedownOutcome(claim.id),
+  to: claim.email,
+});
 
 export const TakedownOutcomeMail = {
+  /** The outcome mail's key: one mail per claim, to the claim's address. */
+  keyOf: takedownOutcomeKey,
+
+  /**
+   * The outcome mail of a resolved claim, to its address; `targetLabel`
+   * is the name of the claim's target (`null`: none).
+   */
   compose: (
-    claim: ResolvedClaimFacts,
+    claim: ResolvedTakedownClaim,
     targetLabel: string | null,
   ): TakedownOutcomeMail => ({
-    key: {
-      occurrenceKey: OccurrenceKey.ofTakedownOutcome(claim.id),
-      to: claim.email,
-    },
-    target: { ref: claim.target, label: targetLabel },
+    key: takedownOutcomeKey(claim),
+    target: { ref: claim.ground.target, label: targetLabel },
     receivedAt: claim.receivedAt,
     outcome: claim.outcome,
   }),

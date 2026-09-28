@@ -2,6 +2,13 @@ import { ApplicationEvents } from "@repo/core/domain/application/events";
 import { AuthorityEvents } from "@repo/core/domain/authority/events";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { type EventDraft, EventId } from "@repo/core/domain/common/event";
+import { PhotoId } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
+import { PhotosTakenDownEvent } from "@repo/core/domain/common/photoEvents";
+import type { ContentRef, ShowcaseRef } from "@repo/core/domain/common/refs";
+import { ListingEvents } from "@repo/core/domain/listing/events";
+import { ModerationEvents } from "@repo/core/domain/moderation/events";
+import { PlaceEvents } from "@repo/core/domain/place/events";
 import { describe, expect, it } from "vitest";
 import {
   AnnouncementFacts,
@@ -125,5 +132,258 @@ describe("Announcements.from (stage 1)", () => {
         [],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("Announcements (stage 2)", () => {
+  const P = { kind: "place", id: ids.place() } as const;
+  const L = { kind: "listing", id: ids.listing() } as const;
+  const M = { kind: "listing", id: ids.listing() } as const;
+  const A = ids.article();
+  const B = ids.article();
+  const withArticles = (
+    ...articles: readonly Readonly<{
+      articleId: typeof A;
+      showcases: readonly ShowcaseRef[];
+    }>[]
+  ): AnnouncementFacts => ({
+    ...AnnouncementFacts.none,
+    showcasingArticles: articles,
+  });
+  const editors = (
+    articleId: typeof A,
+    change: Readonly<Record<string, unknown>>,
+  ) => ({
+    to: "editors",
+    articleId,
+    matter: { kind: "showcase_changed", change },
+  });
+  const occurrences = (e: NotifiableEvent, facts: AnnouncementFacts) =>
+    Announcements.from(e, facts).map((a) => a.occurrence);
+
+  it("announces a place's suspension to its managers and each showcasing article", () => {
+    const e = event(PlaceEvents.suspended(P.id, now));
+    expect(Announcements.showcaseRefsOf(e, [L.id, M.id])).toEqual([P, L, M]);
+    const all = Announcements.from(
+      e,
+      withArticles(
+        { articleId: A, showcases: [P, L] },
+        { articleId: B, showcases: [M] },
+      ),
+    );
+    expect(all.map((a) => a.occurrence)).toEqual([
+      { to: "contentManagers", content: P, matter: { kind: "suspended" } },
+      editors(A, { showcase: P, change: "suspended" }),
+      editors(A, { showcase: L, change: "place_suspended" }),
+      editors(B, { showcase: M, change: "place_suspended" }),
+    ]);
+    expect(new Set(all.map((a) => JSON.stringify(a.origin))).size).toBe(1);
+    expect(
+      occurrences(
+        event(PlaceEvents.unsuspended(P.id, now)),
+        withArticles({ articleId: A, showcases: [P] }),
+      ),
+    ).toEqual([
+      { to: "contentManagers", content: P, matter: { kind: "unsuspended" } },
+    ]);
+  });
+
+  it("announces only a closure among operating status changes, to editors only", () => {
+    const facts = withArticles({ articleId: A, showcases: [P, L] });
+    const closed = event(
+      PlaceEvents.operatingStatusChanged(
+        P.id,
+        "open",
+        "permanentlyClosed",
+        now,
+      ),
+    );
+    expect(occurrences(closed, facts)).toEqual([
+      editors(A, { showcase: P, change: "closed" }),
+      editors(A, { showcase: L, change: "place_closed" }),
+    ]);
+    const paused = event(
+      PlaceEvents.operatingStatusChanged(
+        P.id,
+        "open",
+        "temporarilyClosed",
+        now,
+      ),
+    );
+    expect(Announcements.showcaseRefsOf(paused, [L.id])).toEqual([]);
+    expect(occurrences(paused, facts)).toEqual([]);
+  });
+
+  it("announces a listing's suspension to the place's managers and its showcases' editors", () => {
+    const facts = withArticles({ articleId: A, showcases: [L] });
+    expect(
+      occurrences(event(ListingEvents.suspended(L.id, P.id, now)), facts),
+    ).toEqual([
+      {
+        to: "contentManagers",
+        content: L,
+        placeId: P.id,
+        matter: { kind: "suspended" },
+      },
+      editors(A, { showcase: L, change: "suspended" }),
+    ]);
+    expect(
+      occurrences(event(ListingEvents.unsuspended(L.id, P.id, now)), facts),
+    ).toEqual([
+      {
+        to: "contentManagers",
+        content: L,
+        placeId: P.id,
+        matter: { kind: "unsuspended" },
+      },
+    ]);
+    expect(
+      occurrences(
+        event(ListingEvents.unpublished(L.id, "photoTakedown", now)),
+        facts,
+      ),
+    ).toEqual([editors(A, { showcase: L, change: "unpublished" })]);
+    expect(occurrences(event(ListingEvents.deleted(L.id, now)), facts)).toEqual(
+      [editors(A, { showcase: L, change: "deleted" })],
+    );
+  });
+
+  it("keys a listing's end of offering by the day it was seen", () => {
+    const facts = withArticles({ articleId: A, showcases: [L] });
+    const day = LocalDate.parse("2026-09-28");
+    const [first] = Announcements.from(
+      event(ListingEvents.offeringEnded(L.id, day, now)),
+      facts,
+    );
+    const [again] = Announcements.from(
+      event(ListingEvents.offeringEnded(L.id, day, now)),
+      facts,
+    );
+    expect(first?.occurrence).toEqual(
+      editors(A, { showcase: L, change: "offering_ended" }),
+    );
+    expect(first?.origin).toEqual({ by: "content", token: day });
+    expect(again?.origin).toEqual(first?.origin);
+    expect(
+      Announcements.from(
+        event(ListingEvents.offeringEnded(L.id, day, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([]);
+  });
+
+  it("announces a retired category once per place holding it", () => {
+    const K = ids.category();
+    const Q = ids.place();
+    const e = event(ListingEvents.categoryRetired(K, now));
+    expect(
+      occurrences(e, {
+        ...AnnouncementFacts.none,
+        placesOfRetiredCategory: [P.id, Q],
+      }),
+    ).toEqual(
+      [P.id, Q].map((placeId) => ({
+        to: "placeStewards",
+        placeId,
+        subject: {
+          kind: "place",
+          matter: { kind: "categories_reassigned", retiredCategoryId: K },
+        },
+      })),
+    );
+    expect(occurrences(e, AnnouncementFacts.none)).toEqual([]);
+  });
+
+  it("announces a photo takedown to the owner's managers, a listing's through its place", () => {
+    const photo = PhotoId.create(ids.raw());
+    const takenDown = (owner: ContentRef) =>
+      event(
+        PhotosTakenDownEvent.draft(
+          { owner, photoIds: [photo], unpublished: true },
+          now,
+        ),
+      );
+    const matter = { kind: "photos_taken_down" };
+    expect(
+      occurrences(takenDown(L), {
+        ...AnnouncementFacts.none,
+        ownerListingPlace: P.id,
+      }),
+    ).toEqual([{ to: "contentManagers", content: L, placeId: P.id, matter }]);
+    expect(occurrences(takenDown(L), AnnouncementFacts.none)).toEqual([]);
+    for (const owner of [
+      P,
+      { kind: "region", id: ids.region() },
+      { kind: "occasion", id: ids.occasion() },
+      { kind: "article", id: A },
+    ] as const) {
+      expect(occurrences(takenDown(owner), AnnouncementFacts.none)).toEqual([
+        { to: "contentManagers", content: owner, matter },
+      ]);
+    }
+  });
+
+  it("announces claims and reports to the operators, and a confirmation request to the place's stewards", () => {
+    const Cl = ids.claim();
+    const Rp = ids.report();
+    expect(
+      occurrences(
+        event(ModerationEvents.takedownClaimSubmitted(Cl, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "operators",
+        matter: { kind: "takedown_claim_received", claimId: Cl },
+      },
+    ]);
+    expect(
+      occurrences(
+        event(ModerationEvents.infoReportSubmitted(Rp, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "operators",
+        matter: { kind: "info_report_received", reportId: Rp },
+      },
+    ]);
+    const matter = { kind: "confirmation_requested", reportId: Rp };
+    expect(
+      occurrences(
+        event(
+          ModerationEvents.infoReportConfirmationRequested(
+            Rp,
+            { kind: "place", placeId: P.id },
+            now,
+          ),
+        ),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "placeStewards",
+        placeId: P.id,
+        subject: { kind: "place", matter },
+      },
+    ]);
+    expect(
+      occurrences(
+        event(
+          ModerationEvents.infoReportConfirmationRequested(
+            Rp,
+            { kind: "listing", placeId: P.id, listingId: L.id },
+            now,
+          ),
+        ),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "placeStewards",
+        placeId: P.id,
+        subject: { kind: "listing", listingId: L.id, matter },
+      },
+    ]);
   });
 });
