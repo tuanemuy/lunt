@@ -390,6 +390,7 @@ OfferingWatch.detect(
 ```ts
 interface ListingRepository extends TransactionalRepository<Listing, ListingId> {
   findByIds(ids: readonly ListingId[]): Promise<readonly Listing[]>;
+  isDeleted(id: ListingId): Promise<boolean>;
   findPageByPlace(
     placeId: PlaceId,
     shelf: ListingShelf,
@@ -411,6 +412,7 @@ type ListingShelfCounts = Readonly<{
 | メソッド | 振る舞いの契約 |
 | --- | --- |
 | `insert`・`findById`・`save`・`delete` | index.md の共通の契約。ID の一意性はポートが担保する。`save`・`delete` は楽観ロック。`placeId` と `categoryId` の指す先があることは、呼び出し側が書き込みの前に確かめる。`delete` した掲載は、以後のどの問い合わせにも現れない。ポートは削除した掲載の ID を覚え、同じ ID の `insert` は `ConflictError` にする（削除した掲載は、作成の送り直しでも戻らない。B-27） |
+| `isDeleted` | その ID の掲載が削除済みなら `true`。掲載があるとき、その ID の掲載が一度も作られていないときは `false`。作成の送り直し（`createListingDraft`・`duplicateListing`）が、写真の持ち主の設定・写真の複製より先に、削除した ID を `ConflictError` にするために使う |
 | `findByIds` | 与えた ID のうち、存在する掲載を返す。順序は保証しない。存在しない ID は結果に現れない。ID は 0〜100件で、0件は空を返し、100件を超える入力は `BusinessRuleError`（`COMMON_INVALID_INPUT`。index.md）。他のドメインのユースケースが事実（店舗への紐づけ、公開状態、提供状態）を読むのに使う |
 | `findPageByPlace` | その店舗の掲載（下書き、一時非公開、運営による非公開を含む）のうち、`Listing.inShelf(listing, shelf, today)` が成り立つものを返す（`shelf` の2つの条件がどちらも `null` なら、すべての掲載。区分の判定は下の「区分の判定」）。並び順は `updatedAt` の新しい順、同順位は ID の昇順 |
 | `countByPlace` | その店舗の掲載の件数を、公開状態の区分ごと（`publication`）と、提供状態の段階ごと（`phase`）に返す（区分の判定は下の「区分の判定」）。`publication` の合計と `phase` の合計は、どちらもその店舗の掲載の総数に一致する |

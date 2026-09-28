@@ -23,6 +23,7 @@
 | 掲載がない | 存在しない ID で `delete` する | `NotFoundError` | |
 | 掲載を `delete` している | 同じ ID の掲載を `save` する | `NotFoundError` | |
 | 掲載 X を `insert` し、`delete` している | X と同じ ID の下書きを `insert` する | `ConflictError`。`findById` は `null` のまま（削除した掲載の ID は、作成に使えない） | |
+| 掲載 X を `insert` し、`delete` している。掲載 Y を `insert` している | `isDeleted(X.id)`、`isDeleted(Y.id)`、`isDeleted`（一度も作られていない ID） | `true`、`false`、`false` | |
 | 店舗 A の掲載を `insert` し、`delete` している | `findByIds`、`findPageByPlace`、`countByPlace`、`findPageAttachable`、`findPageByCategories`、`searchForOperation` で、その掲載に当たる条件を問い合わせる | どの問い合わせにも、削除した掲載は現れない。`countByPlace` の件数にも入らない | |
 
 ## findByIds
