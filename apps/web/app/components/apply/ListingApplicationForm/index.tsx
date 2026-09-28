@@ -643,8 +643,9 @@ export function ListingApplicationForm({ apply }: { apply: ListingApplyData }) {
       }
       {...(resubmit !== null
         ? {
-            actionsNote:
-              "再提出せずにやめると、申請は差し戻しのまま変わりません。",
+            actionsNote: dirty
+              ? "再提出していない変更があります。再提出せずに画面を離れると、変更は残らず、申請は差し戻しのまま変わりません。"
+              : "再提出せずにやめると、申請は差し戻しのまま変わりません。",
           }
         : dirty
           ? {

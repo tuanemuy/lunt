@@ -12,5 +12,6 @@ export async function MyApplicationsContent({
     page: 1,
     limit: MY_APPLICATIONS_PAGE_SIZE,
   });
-  return <MyApplicationList first={first} />;
+  // Another filter is another list: the island starts over from its first page.
+  return <MyApplicationList key={place ?? ""} first={first} />;
 }

@@ -128,7 +128,11 @@ export function NewListingEditor({
           {saving ? "保存しています…" : "下書きを保存"}
         </Button>
       }
-      actionsNote="保存すると下書きになり、続けて公開前の確認と公開へ進めます。"
+      actionsNote={
+        JSON.stringify(values) === JSON.stringify(EMPTY_LISTING_FORM)
+          ? "保存すると下書きになり、続けて公開前の確認と公開へ進めます。"
+          : "保存していない変更があります。保存せずに画面を離れると、変更は残りません。"
+      }
     >
       <form
         className="m-body"

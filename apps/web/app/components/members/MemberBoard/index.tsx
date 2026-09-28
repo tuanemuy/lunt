@@ -556,9 +556,7 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
                 {words.vacancy.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
-                {pendingInvitations === "" ? null : (
-                  <li>{`承諾前の招待（${pendingInvitations}）は有効のまま残り、承諾されると${words.role}が就きます`}</li>
-                )}
+                <li>{vacancyInvitationLine(pendingInvitations, words.role)}</li>
               </ul>
             </>
           ) : (
@@ -592,6 +590,16 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
   );
 }
 
+/**
+ * The vacancy's consequence for pending invitations (`spec/scenario/index.md`
+ * 「管理者不在」), stated whether or not any is pending.
+ */
+function vacancyInvitationLine(pending: string, role: string): string {
+  return pending === ""
+    ? `承諾前の招待は有効のまま残り、承諾されると${role}が就きます（いま承諾前の招待はありません）`
+    : `承諾前の招待（${pending}）は有効のまま残り、承諾されると${role}が就きます`;
+}
+
 function RevokeBody({
   member,
   remaining,
@@ -614,9 +622,7 @@ function RevokeBody({
           {words.vacancy.map((line) => (
             <li key={line}>{line}</li>
           ))}
-          {pendingInvitations === "" ? null : (
-            <li>{`承諾前の招待（${pendingInvitations}）は有効のまま残り、承諾されると${words.role}が就きます`}</li>
-          )}
+          <li>{vacancyInvitationLine(pendingInvitations, words.role)}</li>
         </ul>
       </>
     );

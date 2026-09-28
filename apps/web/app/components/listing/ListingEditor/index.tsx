@@ -58,8 +58,8 @@ import { ListingFormFields } from "../ListingFormFields";
 
 /** The last completed operation, shown in place of the form or above it (CS-13). */
 type Outcome =
-  | Readonly<{ kind: "draftSaved" }>
-  | Readonly<{ kind: "saved"; published: boolean }>
+  | Readonly<{ kind: "draftSaved"; offeringBefore: string | null }>
+  | Readonly<{ kind: "saved"; published: boolean; offeringBefore: string }>
   | Readonly<{ kind: "published" }>
   | Readonly<{ kind: "notice"; title: string; body: string }>
   | Readonly<{ kind: "missing" }>
@@ -124,7 +124,7 @@ export function ListingEditor({
   const { values } = draft;
   const dirty = isDirty(draft);
   const [outcome, setOutcome] = useState<Outcome | null>(
-    created ? { kind: "draftSaved" } : null,
+    created ? { kind: "draftSaved", offeringBefore: null } : null,
   );
   const [failure, setFailure] = useState<ListingFailure | null>(null);
   const [confirming, setConfirming] = useState<Confirming>(null);
@@ -197,15 +197,21 @@ export function ListingEditor({
     startBusy(async () => {
       begin();
       setOutcome(null);
+      const offeringBefore = offeringPhaseLabel(data.offeringStatus);
       try {
         await saveValues();
-        setOutcome(
-          data.publication.status === "draft"
-            ? { kind: "draftSaved" }
-            : {
-                kind: "saved",
-                published: data.publication.status === "published",
-              },
+        // Wrapped again after the await, so the outcome lands with the
+        // reconciled data it compares the offering status against.
+        startBusy(() =>
+          setOutcome(
+            data.publication.status === "draft"
+              ? { kind: "draftSaved", offeringBefore }
+              : {
+                  kind: "saved",
+                  published: data.publication.status === "published",
+                  offeringBefore,
+                },
+          ),
         );
         await reconcile();
       } catch (error) {
@@ -335,6 +341,13 @@ export function ListingEditor({
     outcome?.kind === "saved" ||
     outcome?.kind === "published"
   ) {
+    const offeringNow = offeringPhaseLabel(status);
+    const offeringChanged =
+      outcome.kind !== "published" &&
+      outcome.offeringBefore !== null &&
+      outcome.offeringBefore !== offeringNow
+        ? `提供状態が「${offeringNow}」に変わりました。`
+        : "";
     const keepEditing = (
       <Button
         variant="secondary"
@@ -370,10 +383,19 @@ export function ListingEditor({
                   >
                     公開前に確認
                   </ButtonLink>
+                  {data.suspended ? null : (
+                    <Button
+                      variant="secondary"
+                      disabled={busy}
+                      onClick={publish}
+                    >
+                      確認せずに公開する
+                    </Button>
+                  )}
                 </>
               }
             >
-              この掲載はまだ公開されていません。あとから続きを編集できます。
+              {`この掲載はまだ公開されていません。あとから続きを編集できます。${offeringChanged}`}
             </DonePanel>
           ) : outcome.kind === "saved" ? (
             <DonePanel
@@ -396,9 +418,15 @@ export function ListingEditor({
                 </>
               }
             >
-              {outcome.published
-                ? "公開中の掲載に変更を反映しました。"
-                : "この掲載は一時非公開のままです。"}
+              {`${
+                !outcome.published
+                  ? "この掲載は一時非公開のままです。"
+                  : data.suspended
+                    ? "変更を保存しました。この掲載は運営による非公開のため、閲覧者には表示されていません。"
+                    : data.place.suspended
+                      ? "変更を保存しました。店舗が非公開のため、閲覧者には表示されていません。"
+                      : "公開中の掲載に変更を反映しました。"
+              }${offeringChanged}`}
             </DonePanel>
           ) : (
             <DonePanel

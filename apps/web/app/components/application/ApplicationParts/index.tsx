@@ -168,41 +168,48 @@ export function CompareList({
 }
 
 /**
- * The content sections of an application: 申請した内容 (or 変更する項目
- * with 承認で反映される内容 for a revision; only the proposed values when
- * the listing is gone).
+ * The content sections of an application: 申請した内容, or only the
+ * changed items of a revision — against the target now while it is
+ * decided, as 反映された内容 once approved (only the proposed values when
+ * the listing is gone). The target with the items laid on is not part of
+ * it: CM-01 shows it in the approval's confirmation alone.
  */
 export function ContentSections({
   content,
   variant,
   idPrefix,
-  previewTitle,
+  approved,
 }: {
   content: ContentData;
   variant: Variant;
   idPrefix: string;
-  /** The title of the target with the items laid on. */
-  previewTitle: string;
+  approved: boolean;
 }) {
   const help = variant === "my" ? "my05-help" : "m-field__help";
+  if (content.compare !== null && approved) {
+    return (
+      <ManageSection id={`${idPrefix}-reflected`} title="反映された内容">
+        <p className={help}>
+          承認で反映した項目です。変更しなかった項目は示していません。
+        </p>
+        <ContentList
+          rows={content.compare.map((row) => ({
+            label: row.label,
+            value: row.proposed,
+          }))}
+          variant={variant}
+        />
+      </ManageSection>
+    );
+  }
   if (content.compare !== null) {
     return (
-      <>
-        <ManageSection id={`${idPrefix}-changes`} title="変更する項目">
-          <p className={help}>
-            変更する項目だけを、対象の現在の値と並べて示します。変更しない項目は示していません。
-          </p>
-          <CompareList rows={content.compare} variant={variant} />
-        </ManageSection>
-        {content.preview === null ? null : (
-          <ManageSection id={`${idPrefix}-preview`} title={previewTitle}>
-            <p className={help}>
-              対象の現在の内容に、申請の項目を重ねた内容です。
-            </p>
-            <ContentList rows={content.preview} variant={variant} />
-          </ManageSection>
-        )}
-      </>
+      <ManageSection id={`${idPrefix}-changes`} title="変更する項目">
+        <p className={help}>
+          変更する項目だけを、対象の現在の値と並べて示します。変更しない項目は示していません。
+        </p>
+        <CompareList rows={content.compare} variant={variant} />
+      </ManageSection>
     );
   }
   return (

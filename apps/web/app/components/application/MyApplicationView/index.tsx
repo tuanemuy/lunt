@@ -336,7 +336,7 @@ export function MyApplicationView({ data }: { data: MyApplicationData }) {
             content={data.content}
             variant="my"
             idPrefix="my05"
-            previewTitle="修正を重ねた内容"
+            approved={data.status.kind === "approved"}
           />
         </ManageBody>
       </ManagePage>

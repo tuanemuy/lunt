@@ -127,8 +127,9 @@ describe("claims and replies", () => {
     });
   });
 
-  it("sends a blank reply as none", () => {
-    expect(replyOf("  ")).toBeNull();
+  it("sends an empty reply as none and a spaces-only reply as it is", () => {
+    expect(replyOf("")).toBeNull();
+    expect(replyOf("  ")).toBe("  ");
     expect(replyOf("回答")).toBe("回答");
   });
 });

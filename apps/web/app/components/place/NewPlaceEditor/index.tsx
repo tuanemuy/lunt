@@ -81,6 +81,7 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
   // (edited or not) must reach the same id.
   const attemptId = useRef<string | null>(null);
   const [taken, setTaken] = useState<string | null>(null);
+  const dirty = JSON.stringify(values) !== JSON.stringify(EMPTY);
 
   const register = () =>
     startRegister(async () => {
@@ -176,6 +177,12 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
           {registering ? "登録しています…" : "登録する"}
         </Button>
       }
+      {...(dirty
+        ? {
+            actionsNote:
+              "登録していない入力があります。登録せずに画面を離れると、店舗は作られず、入力した内容は残りません。",
+          }
+        : {})}
     >
       <form
         className="m-body"

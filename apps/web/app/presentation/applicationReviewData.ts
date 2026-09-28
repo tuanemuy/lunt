@@ -61,12 +61,36 @@ function stanceOf(view: ApplicationForReview): ReviewStance {
 const VIEWABILITY_NOTE = {
   viewable: null,
   notViewable:
-    "閲覧者には表示されていません（非公開など）。申請は確認中のまま判断できます。",
+    "閲覧者には表示されていません（運営による非公開、または一時非公開）。申請は確認中のまま判断できます。",
   missing: "削除されていて、ありません。",
   notYet: null,
 } as const satisfies Readonly<
   Record<ReviewSubjectView["viewability"], string | null>
 >;
+
+/**
+ * A place is hidden from viewers only while suspended, and its listings
+ * with it; a listing's own reason (運営による非公開 or 一時非公開) is not
+ * in the review read.
+ */
+function viewabilityNote(
+  subject: ReviewSubjectView,
+  subjects: readonly ReviewSubjectView[],
+): string | null {
+  if (subject.viewability !== "notViewable") {
+    return VIEWABILITY_NOTE[subject.viewability];
+  }
+  if (subject.ref.kind === "place") {
+    return "店舗が運営による非公開で、閲覧者には表示されていません。申請は確認中のまま判断できます。";
+  }
+  const placeHidden = subjects.some(
+    ({ ref, viewability }) =>
+      ref.kind === "place" && viewability === "notViewable",
+  );
+  return placeHidden
+    ? "店舗が運営による非公開のため、閲覧者には表示されていません。申請は確認中のまま判断できます。"
+    : VIEWABILITY_NOTE.notViewable;
+}
 
 function facts(view: ApplicationForReview): ReviewFactsData {
   const { facts: read } = view;
@@ -174,9 +198,8 @@ function toData(view: ApplicationForReview): ApplicationReviewData {
     version: view.version,
     status: statusData(view.status),
     submittedAt: view.submittedAt.toISOString(),
-    subjects: subjectItems(
-      view.subjects,
-      (s) => VIEWABILITY_NOTE[s.viewability],
+    subjects: subjectItems(view.subjects, (s) =>
+      viewabilityNote(s, view.subjects),
     ),
     applicant: reviewerApplicantText(view.applicant),
     stance: stanceOf(view),

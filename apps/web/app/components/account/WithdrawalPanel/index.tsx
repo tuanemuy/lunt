@@ -19,7 +19,9 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { TextLink } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { MEMBER_ROUTE_SEGMENT } from "@/presentation/members";
 import { type WithdrawalView, withdrawFn } from "@/presentation/withdrawal";
 
 /** What the last attempt to withdraw ended in; `null` before any. */
@@ -46,6 +48,10 @@ const VACANCY_CONSEQUENCES = {
 } as const satisfies Record<StewardedKind, string>;
 
 const UNNAMED = "名称未設定";
+
+/** The target's CM-02, where its last steward invites a successor. */
+const membersPath = (kind: StewardedKind, id: string): string =>
+  `/manage/${MEMBER_ROUTE_SEGMENT[kind]}/${encodeURIComponent(id)}/members`;
 
 function Title({ back }: { back: boolean }) {
   return (
@@ -236,6 +242,9 @@ export function WithdrawalPanel({ view }: { view: WithdrawalView }) {
                   <p className="my07-orphan__body">
                     {VACANCY_CONSEQUENCES[target.kind]}
                   </p>
+                  <TextLink to={membersPath(target.kind, target.id)}>
+                    退会をやめて、後任を招待する
+                  </TextLink>
                 </div>
               ))}
             </div>

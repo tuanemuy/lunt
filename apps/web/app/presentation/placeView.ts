@@ -23,6 +23,17 @@ export const OPERATING_STATUS_TEXT = {
  */
 export const PLACE_PROXY_UNAVAILABLE = "PLACE_PROXY_UNAVAILABLE";
 
+/**
+ * The SM area's refusal of a stranger to a store viewers can see, by
+ * whether it has a steward: SM-02's CS-05 leads to the store's RQ-08 when
+ * it has one and to its RQ-02 revision when it has none. A store viewers
+ * cannot see keeps the usecase's own code.
+ */
+export const PLACE_NOT_MANAGED = {
+  stewarded: "PLACE_NOT_MANAGED_STEWARDED",
+  vacant: "PLACE_NOT_MANAGED_VACANT",
+} as const;
+
 export const OPERATING_STATUSES = [
   "open",
   "temporarilyClosed",

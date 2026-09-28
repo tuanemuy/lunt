@@ -170,27 +170,25 @@ export function ShopHomeView({ data }: { data: ShopHomeData }) {
         </ManageSection>
 
         <ManageSection id="sm01-listings" title="掲載">
+          <CountTabs label="掲載の区分">
+            {LISTING_SHELVES.map((shelf) => (
+              <CountTab
+                key={shelf}
+                to="/manage/places/$placeId/listings"
+                params={params}
+                search={{ status: shelf }}
+                count={data.listingCounts[shelf]}
+                activeOptions={{ exact: true, includeSearch: true }}
+              >
+                {LISTING_SHELF_LABEL[shelf]}
+              </CountTab>
+            ))}
+          </CountTabs>
           {data.listingCounts.all === 0 ? (
             <Notice variant="manage" tone="paper" title="掲載はまだありません">
-              商品や体験を掲載すると、ここに区分ごとの件数が並びます。「＋
-              掲載を追加」から始められます。
+              「＋ 掲載を追加」から始められます。
             </Notice>
-          ) : (
-            <CountTabs label="掲載の区分">
-              {LISTING_SHELVES.map((shelf) => (
-                <CountTab
-                  key={shelf}
-                  to="/manage/places/$placeId/listings"
-                  params={params}
-                  search={{ status: shelf }}
-                  count={data.listingCounts[shelf]}
-                  activeOptions={{ exact: true, includeSearch: true }}
-                >
-                  {LISTING_SHELF_LABEL[shelf]}
-                </CountTab>
-              ))}
-            </CountTabs>
-          )}
+          ) : null}
         </ManageSection>
 
         <ManageSection id="sm01-manage" title="店舗の管理">

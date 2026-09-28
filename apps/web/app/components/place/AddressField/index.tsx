@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { browseAreaFn, findTownsFn } from "@/presentation/area";
@@ -69,33 +69,45 @@ export function AddressField({
   const [municipalityCode, setMunicipalityCode] = useState(
     town?.municipalityCode ?? "",
   );
-  const [municipalities, setMunicipalities] = useState<readonly AreaOption[]>(
-    lists.municipalities,
+  // A town picked earlier in this form (the field remounts after RQ-02's
+  // review step) is missing from the lists the page started with: its own
+  // entries stand in until its municipality's lists arrive.
+  const [unlisted] = useState<TownOption | null>(() =>
+    town === null ||
+    lists.towns.some(
+      (option) =>
+        option.municipalityCode === town.municipalityCode &&
+        townKey(option) === townKey(town),
+    )
+      ? null
+      : town,
   );
-  const [towns, setTowns] = useState<readonly TownOption[]>(lists.towns);
+  const [municipalities, setMunicipalities] = useState<readonly AreaOption[]>(
+    unlisted === null
+      ? lists.municipalities
+      : [{ code: unlisted.municipalityCode, name: unlisted.municipalityName }],
+  );
+  const [towns, setTowns] = useState<readonly TownOption[]>(
+    unlisted === null ? lists.towns : [unlisted],
+  );
   const [candidates, setCandidates] = useState<readonly TownOption[]>([]);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [looking, startLookup] = useTransition();
   const [browsing, startBrowse] = useTransition();
 
-  /** Picks a postal code's town and fills the selects above it. */
-  const pick = (picked: TownOption) => {
-    setPrefectureCode(picked.prefectureCode);
-    setMunicipalityCode(picked.municipalityCode);
-    setCandidates([]);
-    setTowns([picked]);
-    onTownChange(picked);
+  /** Fills the selects above a town with its prefecture's and municipality's lists. */
+  const browseAround = (around: TownOption) =>
     startBrowse(async () => {
       try {
         const [municipalityList, townList] = await Promise.all([
           browseAreaFn({
             data: {
               level: "municipalities",
-              prefectureCode: picked.prefectureCode,
+              prefectureCode: around.prefectureCode,
             },
           }),
           browseAreaFn({
-            data: { level: "towns", municipalityCode: picked.municipalityCode },
+            data: { level: "towns", municipalityCode: around.municipalityCode },
           }),
         ]);
         if (municipalityList.level === "municipalities") {
@@ -106,6 +118,20 @@ export function AddressField({
         setLookupError(lookupFailure(error));
       }
     });
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, for the town the field mounted with
+  useEffect(() => {
+    if (unlisted !== null) browseAround(unlisted);
+  }, [unlisted]);
+
+  /** Picks a postal code's town and fills the selects above it. */
+  const pick = (picked: TownOption) => {
+    setPrefectureCode(picked.prefectureCode);
+    setMunicipalityCode(picked.municipalityCode);
+    setCandidates([]);
+    setTowns([picked]);
+    onTownChange(picked);
+    browseAround(picked);
   };
 
   const lookUp = () => {

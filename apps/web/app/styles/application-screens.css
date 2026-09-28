@@ -271,6 +271,20 @@
     gap: var(--space-8);
   }
 
+  /* CM-01 承認の確認 (CS-12): the target with a revision's items laid on */
+  .cm01-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    margin-top: var(--space-8);
+  }
+  .cm01-preview__title {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+
   @media (min-width: 768px) {
     .my-dl__row,
     .cm01-dl > div {

@@ -3,7 +3,12 @@
 import { viewMembers } from "@repo/core/application/authority/viewMembers";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
-import { ForbiddenError } from "@repo/core/application/errors";
+import { viewPlace } from "@repo/core/application/discovery/viewPlace";
+import {
+  ForbiddenError,
+  isForbiddenError,
+  isNotFoundError,
+} from "@repo/core/application/errors";
 import { listPlaceListings } from "@repo/core/application/listing/listPlaceListings";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
 import { listStewardedPlaces } from "@repo/core/application/place/listStewardedPlaces";
@@ -11,13 +16,14 @@ import type { PlaceProfileFields } from "@repo/core/application/place/profileInp
 import { TownRef } from "@repo/core/domain/area/townRef";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
-import { PhotoId } from "@repo/core/domain/common/ids";
+import { PhotoId, type PlaceId } from "@repo/core/domain/common/ids";
 import { requireActor } from "./actor";
 import { loadAreaLists, townOfAddress } from "./areaData";
 import { loadShopTodo } from "./moderationData";
 import type { PlaceProfileInput } from "./place";
 import {
   type AreaLists,
+  PLACE_NOT_MANAGED,
   PLACE_PROXY_UNAVAILABLE,
   type PlaceEditorData,
   type PlaceFrame,
@@ -49,7 +55,13 @@ export async function loadPlaceFrame(
   rawPlaceId: string,
 ): Promise<PlaceFrame> {
   const placeId = placeIdOf(rawPlaceId);
-  const view = await getManagedPlace({ container, actor, input: { placeId } });
+  const view = await getManagedPlace({
+    container,
+    actor,
+    input: { placeId },
+  }).catch(async (error: unknown) => {
+    throw await strangerRefusal(container, actor, placeId, error);
+  });
   requireManagement(view.management.allowed);
   const basis =
     view.management.allowed && view.management.basis === "steward"
@@ -75,6 +87,36 @@ export async function loadPlaceFrame(
     hasSteward: view.hasSteward,
     stewarded,
   };
+}
+
+/**
+ * A stranger's refusal named by the store's stewardship
+ * (`PLACE_NOT_MANAGED`), when viewers can see the store; any other error
+ * as it was.
+ */
+async function strangerRefusal(
+  container: RequestContainer,
+  actor: Actor,
+  placeId: PlaceId,
+  error: unknown,
+): Promise<unknown> {
+  if (!isForbiddenError(error)) return error;
+  const viewed = await viewPlace({
+    container,
+    actor,
+    input: { placeId },
+  }).catch((viewError: unknown) => {
+    if (isNotFoundError(viewError)) return null;
+    throw viewError;
+  });
+  if (viewed === null) return error;
+  return new ForbiddenError(
+    viewed.placeIsVacant
+      ? PLACE_NOT_MANAGED.vacant
+      : PLACE_NOT_MANAGED.stewarded,
+    error.message,
+    error,
+  );
 }
 
 /** The transport's profile as the usecases take it: ids and the town through their value objects. */

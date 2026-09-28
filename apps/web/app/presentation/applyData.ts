@@ -21,7 +21,7 @@ import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { viewListing } from "@repo/core/application/discovery/viewListing";
 import { viewPlace } from "@repo/core/application/discovery/viewPlace";
-import { NotFoundError } from "@repo/core/application/errors";
+import { isNotFoundError, NotFoundError } from "@repo/core/application/errors";
 import type { ApplicationKind } from "@repo/core/domain/application/application";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
@@ -170,7 +170,38 @@ async function checkRefusal(
     actor,
     input: { target },
   });
-  return { refusal: refusalOf(eligibility), eligibility };
+  const refusal = refusalOf(eligibility);
+  return {
+    refusal:
+      refusal?.kind === "hasSteward" && refusal.listingId !== null
+        ? await withListingPlace(container, refusal.listingId, refusal)
+        : refusal,
+    eligibility,
+  };
+}
+
+/**
+ * A listing revision's target names only the listing: its refusal for a
+ * store with a steward leads to that store (RQ-03, DT-02), read from the
+ * listing; a listing viewers cannot see is refused as unavailable.
+ */
+async function withListingPlace(
+  container: RequestContainer,
+  listingId: string,
+  refusal: Extract<ApplyRefusal, { kind: "hasSteward" }>,
+): Promise<ApplyRefusal> {
+  try {
+    const { listing } = await viewListing({
+      container,
+      input: { listingId: listingIdOf(listingId), otherListingsLimit: 1 },
+    });
+    return { ...refusal, placeId: listing.place.placeId };
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return { kind: "unavailable", subject: "listing" };
+    }
+    throw error;
+  }
 }
 
 /** `checkEligibilityFn`: the refusal a submission of `target` meets now. */

@@ -2,15 +2,20 @@ import {
   createFileRoute,
   type ErrorComponentProps,
   Outlet,
+  useMatchRoute,
 } from "@tanstack/react-router";
 import { RouteErrorContent } from "@/components/feedback/RouteErrorView";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { ShopShell } from "@/components/manage/ShopShell";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { infoReportPath } from "@/presentation/applyView";
 import { classifyError } from "@/presentation/errorState";
 import { loadPlaceFrameFn } from "@/presentation/place";
-import { PLACE_PROXY_UNAVAILABLE } from "@/presentation/placeView";
+import {
+  PLACE_NOT_MANAGED,
+  PLACE_PROXY_UNAVAILABLE,
+} from "@/presentation/placeView";
 
 /**
  * The store management area (SM, and CM-03 of the store's listings): the
@@ -27,12 +32,63 @@ export const Route = createFileRoute("/_manage/manage/places/$placeId")({
 });
 
 /**
+ * SM-02's CS-05 for a stranger to a store viewers can see: its DT-02, and
+ * the store's RQ-08 when it has a steward or its RQ-02 revision when it
+ * has none (SHP-06, SHP-07).
+ */
+function NotStewardOfPlace({
+  placeId,
+  vacant,
+}: {
+  placeId: string;
+  vacant: boolean;
+}) {
+  return (
+    <EmptyPanel
+      title="この店舗の店舗管理者ではありません"
+      headingLevel="h1"
+      actions={
+        <>
+          {vacant ? (
+            <ButtonLink
+              to="/apply/places/$placeId/revision"
+              params={{ placeId }}
+            >
+              情報の修正を申請する
+            </ButtonLink>
+          ) : (
+            <ButtonLink to={infoReportPath("place", placeId)}>
+              情報の誤り・閉店を連絡する
+            </ButtonLink>
+          )}
+          <ButtonLink
+            variant="secondary"
+            to="/places/$placeId"
+            params={{ placeId }}
+          >
+            店舗ページを見る
+          </ButtonLink>
+        </>
+      }
+    >
+      {vacant
+        ? "この店舗には店舗管理者がいません。情報の修正と営業状況の変更は、申請して運営の確認を受けます。"
+        : "この店舗の店舗情報は、店舗管理者だけが編集できます。情報の誤りや閉店に気づいたときは、運営に連絡できます。"}
+    </EmptyPanel>
+  );
+}
+
+/**
  * The guard refused or failed: CS-15 (an operator whose store has gained a
  * steward), CS-05, CS-17, or the common error states.
  */
 function PlaceAreaError({ error }: ErrorComponentProps) {
   const state = classifyError(error);
   const { placeId } = Route.useParams();
+  const matchRoute = useMatchRoute();
+  const onPlaceInfo =
+    matchRoute({ to: "/manage/places/$placeId/info", params: { placeId } }) !==
+    false;
   return (
     <ShopShell homeTo="/me">
       {state.kind === "forbidden" && state.code === PLACE_PROXY_UNAVAILABLE ? (
@@ -52,6 +108,18 @@ function PlaceAreaError({ error }: ErrorComponentProps) {
             >
               この店舗には店舗管理者が就いています。不在の代行はできません。店舗の運営の画面で、管理者がいることを確かめてください。
             </EmptyPanel>
+          </ManageBody>
+        </ManagePage>
+      ) : state.kind === "forbidden" &&
+        onPlaceInfo &&
+        (state.code === PLACE_NOT_MANAGED.vacant ||
+          state.code === PLACE_NOT_MANAGED.stewarded) ? (
+        <ManagePage title={null}>
+          <ManageBody>
+            <NotStewardOfPlace
+              placeId={placeId}
+              vacant={state.code === PLACE_NOT_MANAGED.vacant}
+            />
           </ManageBody>
         </ManagePage>
       ) : state.kind === "forbidden" ? (

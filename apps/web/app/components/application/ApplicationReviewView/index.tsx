@@ -44,7 +44,11 @@ import {
 } from "@/presentation/applicationWords";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { useReconcile } from "@/presentation/reconcile";
-import { ContentSections, SubjectValue } from "../ApplicationParts";
+import {
+  ContentList,
+  ContentSections,
+  SubjectValue,
+} from "../ApplicationParts";
 import { PlaceCandidates, PlaceMatchSearch } from "./PlaceMatchSearch";
 
 const PHOTOS_UNAVAILABLE = "LISTING_PATCH_PHOTOS_UNAVAILABLE";
@@ -344,7 +348,10 @@ function OutcomeAlert({
           );
         case "forbidden":
           return (
-            <Alert title={`${word}できませんでした`}>
+            <Alert
+              title={`${word}できませんでした`}
+              actions={<TextLink to="/me">マイページへ戻る</TextLink>}
+            >
               {`この申請を判断する立場がなくなったため、${word}は反映していません。`}
             </Alert>
           );
@@ -493,8 +500,13 @@ export function ApplicationReviewView({
   }, [outcome]);
   const kindTitle = REVIEW_KIND_TITLE[data.kind];
   const underReview = data.status.kind === "underReview";
+  // A decision refused for a lost standing (CS-05 / CS-15) leaves nothing
+  // to decide on this screen.
+  const standingLost =
+    outcome?.kind === "error" && outcome.error.kind === "forbidden";
   const canDecide =
     underReview &&
+    !standingLost &&
     (data.stance === "approver" || data.stance === "overdueProxy");
   const approvalBlocked =
     data.content.noPhotoLeft ||
@@ -509,41 +521,52 @@ export function ApplicationReviewView({
             ? "rejected"
             : "returned",
       );
+      // Updates after an `await` leave the transition unless wrapped again;
+      // wrapped, they commit with the optimistic revert and the reconciled
+      // data instead of beside the stale optimistic status.
+      const settle = (update: () => void) => startDecision(update);
       const base = { applicationId: data.id, version: data.version };
       try {
+        let next: Outcome;
         if (decision === "approve") {
           const result = await approveApplicationFn({
             data: { ...base, kind: data.kind },
           });
-          setOutcome(
+          next =
             result.outcome === "approved"
               ? { kind: "approved", result }
-              : { kind: "lapsed", premises: result.premises },
-          );
+              : { kind: "lapsed", premises: result.premises };
         } else if (decision === "reject") {
           const result = await rejectApplicationFn({
             data: { ...base, reason },
           });
-          setOutcome({ kind: "rejected", overdueProxy: result.overdueProxy });
+          next = { kind: "rejected", overdueProxy: result.overdueProxy };
         } else {
           await sendBackApplicationFn({ data: { ...base, request } });
-          setOutcome({ kind: "returned" });
+          next = { kind: "returned" };
         }
-        setDialog(null);
-        setFieldError(null);
+        settle(() => {
+          setOutcome(next);
+          setDialog(null);
+          setFieldError(null);
+        });
         await reconcile();
       } catch (error) {
         const state = classifyError(error);
         if (state.kind === "invalidInput") {
-          setFieldError(
-            state.fieldErrors.reason?.[0] ??
-              state.fieldErrors.request?.[0] ??
-              state.message,
+          settle(() =>
+            setFieldError(
+              state.fieldErrors.reason?.[0] ??
+                state.fieldErrors.request?.[0] ??
+                state.message,
+            ),
           );
           return;
         }
-        setDialog(null);
-        setOutcome({ kind: "error", decision, error: state });
+        settle(() => {
+          setDialog(null);
+          setOutcome({ kind: "error", decision, error: state });
+        });
         if (
           state.kind === "premiseChanged" &&
           state.code !== PHOTOS_UNAVAILABLE
@@ -599,17 +622,23 @@ export function ApplicationReviewView({
     );
 
   return (
-    <ManageShell context="サービス運営" homeTo={OPS_HOME}>
+    <ManageShell
+      context="サービス運営"
+      homeTo={standingLost ? "/me" : OPS_HOME}
+      solo={standingLost}
+    >
       <ManagePage
         title={
           <ManageTitle>
-            <TextLink to={OPS_HOME} className="cm01-back">
-              対応が必要なものへ戻る
-            </TextLink>
+            {standingLost ? null : (
+              <TextLink to={OPS_HOME} className="cm01-back">
+                対応が必要なものへ戻る
+              </TextLink>
+            )}
             <ManageHeading>申請の判断</ManageHeading>
           </ManageTitle>
         }
-        nav={<OpsNav />}
+        {...(standingLost ? {} : { nav: <OpsNav /> })}
         {...(actions === undefined
           ? {}
           : {
@@ -649,7 +678,7 @@ export function ApplicationReviewView({
               content={data.content}
               variant="cm"
               idPrefix="cm01"
-              previewTitle="承認で反映される内容"
+              approved={data.status.kind === "approved"}
             />
             {data.facts.kind === "registration" ? (
               <ManageSection
@@ -683,6 +712,20 @@ export function ApplicationReviewView({
             <li key={effect}>{effect}</li>
           ))}
         </ul>
+        {data.content.preview === null ? null : (
+          <section
+            className="cm01-preview"
+            aria-labelledby={`${textId}-preview`}
+          >
+            <h3 className="cm01-preview__title" id={`${textId}-preview`}>
+              承認で反映される内容
+            </h3>
+            <p className="m-field__help">
+              対象の現在の内容に、申請の項目を重ねた内容です。
+            </p>
+            <ContentList rows={data.content.preview} variant="cm" />
+          </section>
+        )}
       </ConfirmDialog>
       <ConfirmDialog
         open={dialog === "reject"}

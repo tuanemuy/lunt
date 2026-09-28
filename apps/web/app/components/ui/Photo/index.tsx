@@ -72,6 +72,11 @@ export function Photo({
       setNatural(null);
       return;
     }
+    // Likewise a failure before hydration fired its `error` event unheard.
+    if (element.complete && element.naturalWidth === 0) {
+      setFailed(true);
+      return;
+    }
     setNatural(
       element.complete && element.naturalWidth > 0
         ? { width: element.naturalWidth, height: element.naturalHeight }

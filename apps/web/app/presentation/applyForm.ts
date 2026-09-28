@@ -79,9 +79,13 @@ export function replyError(error: ErrorState): string | undefined {
   return error.fieldErrors.reply?.[0];
 }
 
-/** The reply as sent: blank is none. */
+/**
+ * The reply as sent: an empty field is none. Spaces only are sent as they
+ * are, so the reply's own check refuses them (CS-10) instead of the form
+ * dropping them as no reply.
+ */
 export const replyOf = (reply: string): string | null =>
-  reply.trim() === "" ? null : reply;
+  reply === "" ? null : reply;
 
 /** `〒100-0005 東京都千代田区丸の内1-1`. */
 export function addressText(town: TownOption | null, rest: string): string {
