@@ -9,11 +9,15 @@
  *   reading.
  * - A municipality without that row whose only row is `〇〇一円` (e.g.
  *   `御蔵島村一円`) takes that row as its whole-municipality town.
- * - Per-floor rows of buildings (`（１階）`, `（地階・階層不明）`) stay towns.
+ * - Per-floor rows of buildings (`（１階）`, `（地階・階層不明）`) stay towns,
+ *   and keep that note: it tells the building's towns apart.
+ * - Every other parenthesized note completing the place name's range
+ *   (`（次のビルを除く）`, `（その他）`, `（丁目）`, `（番地）`, lists of blocks
+ *   or districts) is dropped: `丸の内（次のビルを除く）` is `丸の内`. A name
+ *   the file splits over several records (an unclosed `（`) is joined
+ *   first.
  * - Rows repeating postal code, municipality and name (differing only in
- *   the reading) keep the first.
- *
- * Every other name is kept as published.
+ *   the reading, or only in a dropped note) keep the first.
  */
 import type { AreaMasterRow } from "./assetFormat";
 
@@ -31,6 +35,67 @@ const COLUMN_COUNT = 15;
 const WHOLE_MUNICIPALITY = "以下に掲載がない場合";
 const WHOLE_MUNICIPALITY_SUFFIX = "一円";
 const HALF_WIDTH_KATAKANA = /[｡-ﾟ]+/gu;
+
+/** An innermost parenthesized group (full- or half-width parentheses). */
+const INNERMOST_GROUP = /[（(][^（）()]*[）)]/gu;
+/** Notes naming a building's floor, in the name or in the reading. */
+const FLOOR_NOTE =
+  /^[（(](?:[０-９0-9]+(?:階|カイ)|地階・階層不明|チカイ・カイソウフメイ)[）)]$/u;
+
+function dropRangeNotes(text: string): string {
+  let current = text;
+  for (;;) {
+    const next = current.replace(INNERMOST_GROUP, (group) =>
+      FLOOR_NOTE.test(group) ? group : "",
+    );
+    if (next === current) return current.trim();
+    current = next;
+  }
+}
+
+/**
+ * The town name without its range notes (`spec/domains/area.md`
+ * 「ユビキタス言語」). A name that would be left empty is kept as published.
+ */
+export function townNameOf(name: string): string {
+  const dropped = dropRangeNotes(name);
+  return dropped === "" ? name : dropped;
+}
+
+/** The reading, with the notes dropped the same way as the name's. */
+export function townKanaOf(kana: string): string {
+  const dropped = dropRangeNotes(kana);
+  return dropped === "" ? kana : dropped;
+}
+
+const unclosed = (text: string): boolean =>
+  (text.match(/[（(]/gu)?.length ?? 0) > (text.match(/[）)]/gu)?.length ?? 0);
+
+/**
+ * Joins records the file split in the middle of a town name: while the
+ * name so far has an unclosed parenthesis, the next record of the same
+ * postal code and municipality continues it (name and reading).
+ */
+function joinSplitNames(records: readonly string[][]): string[][] {
+  const joined: string[][] = [];
+  for (const cells of records) {
+    const previous = joined.at(-1);
+    if (
+      previous !== undefined &&
+      unclosed(previous[Column.townName] ?? "") &&
+      previous[Column.postalCode] === cells[Column.postalCode] &&
+      previous[Column.municipalityCode] === cells[Column.municipalityCode]
+    ) {
+      previous[Column.townName] =
+        `${previous[Column.townName] ?? ""}${cells[Column.townName] ?? ""}`;
+      previous[Column.townKana] =
+        `${previous[Column.townKana] ?? ""}${cells[Column.townKana] ?? ""}`;
+      continue;
+    }
+    joined.push([...cells]);
+  }
+  return joined;
+}
 
 /** Splits CSV text into records (RFC 4180 quoting, CRLF or LF). */
 export function parseCsv(text: string): string[][] {
@@ -86,13 +151,16 @@ type ParsedRow = {
  * that is not the 15-column UTF-8 format, naming its line.
  */
 export function parseJapanPostCsv(text: string): AreaMasterRow[] {
-  const parsed: ParsedRow[] = parseCsv(text).map((cells, index) => {
-    const line = index + 1;
+  const records = parseCsv(text);
+  records.forEach((cells, index) => {
     if (cells.length !== COLUMN_COUNT) {
       throw new Error(
-        `Line ${line}: expected ${COLUMN_COUNT} columns of utf_ken_all.csv, got ${cells.length}`,
+        `Line ${index + 1}: expected ${COLUMN_COUNT} columns of utf_ken_all.csv, got ${cells.length}`,
       );
     }
+  });
+  const parsed: ParsedRow[] = joinSplitNames(records).map((cells, index) => {
+    const line = index + 1;
     const cell = (column: number): string => (cells[column] ?? "").trim();
     const municipalityCode = cell(Column.municipalityCode);
     const name = cell(Column.townName);
@@ -105,11 +173,13 @@ export function parseJapanPostCsv(text: string): AreaMasterRow[] {
         prefectureName: cell(Column.prefectureName),
         municipalityCode,
         municipalityName: cell(Column.municipalityName),
-        name: whole ? "" : name,
+        name: whole ? "" : townNameOf(name),
         kana: whole
           ? ""
-          : cell(Column.townKana).replace(HALF_WIDTH_KATAKANA, (run) =>
-              run.normalize("NFKC"),
+          : townKanaOf(
+              cell(Column.townKana).replace(HALF_WIDTH_KATAKANA, (run) =>
+                run.normalize("NFKC"),
+              ),
             ),
       },
     };
