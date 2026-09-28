@@ -10,7 +10,7 @@ import {
 } from "../listingForm";
 import { placeFieldErrors, toPlaceProfile } from "../placeForm";
 import type { TownOption } from "../placeView";
-import { placeStateText } from "../placeView";
+import { placeStateText, townOptionText } from "../placeView";
 
 const town: TownOption = {
   areaCode: "1000005",
@@ -205,5 +205,25 @@ describe("placeStateText", () => {
     expect(
       placeStateText({ operatingStatus: "temporarilyClosed", suspended: true }),
     ).toBe("休業 · 店舗は非公開");
+  });
+});
+
+describe("townOptionText", () => {
+  it("leads an unnamed town with its postal code so two of them stay apart", () => {
+    const okaya = {
+      ...town,
+      prefectureCode: "20",
+      prefectureName: "長野県",
+      municipalityCode: "20204",
+      municipalityName: "岡谷市",
+      name: "",
+    };
+    expect(townOptionText({ ...okaya, areaCode: "3940000" })).toBe(
+      "〒394-0000（町域の指定なし）",
+    );
+    expect(townOptionText({ ...okaya, areaCode: "3940091" })).toBe(
+      "〒394-0091（町域の指定なし）",
+    );
+    expect(townOptionText(town)).toBe(`${town.name}（100-0005）`);
   });
 });

@@ -88,9 +88,18 @@ export type AreaOption = Readonly<{ code: string; name: string }>;
 export const townKey = (town: Pick<TownOption, "areaCode" | "name">): string =>
   `${town.areaCode}|${town.name}`;
 
-/** How a town reads in a select: its name, or the municipality as a whole. */
-export const townOptionText = (town: TownOption): string =>
-  `${town.name === "" ? "（町域の指定なし）" : town.name}（${town.areaCode.slice(0, 3)}-${town.areaCode.slice(3)}）`;
+/**
+ * How a town reads in a select: its name and postal code. A town without a
+ * name (the whole municipality, or an address whose block number follows
+ * the municipality) leads with its postal code, the only thing telling two
+ * of them apart once a narrow select cuts the text.
+ */
+export const townOptionText = (town: TownOption): string => {
+  const postal = `${town.areaCode.slice(0, 3)}-${town.areaCode.slice(3)}`;
+  return town.name === ""
+    ? `〒${postal}（町域の指定なし）`
+    : `${town.name}（${postal}）`;
+};
 
 /** The address lists the form starts from. */
 export type AreaLists = Readonly<{

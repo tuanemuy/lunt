@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { ErrorState } from "@/presentation/errorState";
@@ -35,9 +35,27 @@ type ListingFailureAlertProps = {
 /**
  * The alert above SM-04's form after a failed save, publish or state
  * change: CS-15, CS-07, CS-08, CS-10 (the fields to fix, the publish
- * condition's missing items) and CS-02.
+ * condition's missing items) and CS-02. Each new failure takes focus,
+ * which also scrolls the alert into view — the form's save button sits at
+ * the bottom, far from the alert.
  */
-export function ListingFailureAlert({
+export function ListingFailureAlert(props: ListingFailureAlertProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { failure } = props;
+  const focusedFor = useRef<ListingFailure | null>(null);
+  useEffect(() => {
+    if (focusedFor.current === failure) return;
+    focusedFor.current = failure;
+    ref.current?.focus();
+  }, [failure]);
+  return (
+    <div ref={ref} tabIndex={-1} className="outline-none">
+      <FailureAlert {...props} />
+    </div>
+  );
+}
+
+function FailureAlert({
   failure,
   placeId,
   proxy,
