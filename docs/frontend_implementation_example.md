@@ -398,5 +398,6 @@ Everything under `/__dev/*` exists only while the server's `DEV_TOOLS` setting i
 | `/__dev/idp/authorize` | the fake external provider behind 「Google でログイン」: answer verified / unverified / no address / cancel (`apps/web/app/routes/[__dev]/idp/authorize.tsx`) |
 | `/__dev/session` | who the session belongs to; exercises the CS-04 guard |
 | `/__dev/errors/$kind` | each failure kind rendered as its common state |
+| `POST /__dev/seed` | seeds a manual-test fixture (`apps/web/app/worker/devSeed.ts`, intercepted in `server.ts` before TanStack; `docs/manual_test.md` 「Seeding the test data」) |
 
 MY-02 also shows 「開発用のログイン」 (sign in as any address without a mail, `DevSignInForm`) and MY-01 a development sign-out while the tools are on. The first operator is set with `POST /__ops/operators/establish` (`docs/runtime_cloudflare_do.md`).

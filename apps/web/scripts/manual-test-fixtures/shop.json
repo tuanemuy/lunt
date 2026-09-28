@@ -1,0 +1,286 @@
+{
+  "accounts": [
+    "user-a@example.com",
+    "user-b@example.com",
+    "user-c@example.com",
+    "owner-x@example.com",
+    "owner-y@example.com",
+    "owner-z@example.com",
+    "operator1@example.com",
+    "operator2@example.com"
+  ],
+  "operators": ["operator1@example.com", "operator2@example.com"],
+  "places": [
+    {
+      "key": "S1",
+      "name": "喫茶ひだまり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-1-1"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "photos": ["hidamari-1.jpg", "hidamari-2.jpg"],
+      "description": "自家焙煎のコーヒーと手作りケーキの喫茶店",
+      "businessHours": "9:00〜18:00（火曜定休）",
+      "contact": "03-1234-5678",
+      "members": [
+        {
+          "appoint": "owner-x@example.com"
+        },
+        {
+          "invite": "owner-y@example.com",
+          "by": "owner-x@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "ブレンドコーヒー",
+          "name": "ブレンドコーヒー",
+          "category": "食べる",
+          "photos": ["blend.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "S2",
+      "name": "ひだまり雑貨店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-3-5"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "photos": ["store-1.jpg"],
+      "members": [
+        {
+          "appoint": "owner-x@example.com"
+        },
+        {
+          "invite": "user-b@example.com",
+          "by": "owner-x@example.com",
+          "accept": true
+        },
+        {
+          "resign": "user-b@example.com"
+        }
+      ]
+    },
+    {
+      "key": "S3",
+      "name": "谷中みどり商店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-5-8"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7665
+      },
+      "photos": ["store-1.jpg"],
+      "businessHours": "10:00〜17:00",
+      "listings": [
+        {
+          "key": "手ぬぐい",
+          "name": "手ぬぐい",
+          "category": "買う",
+          "photos": ["tenugui.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "S4",
+      "name": "夕やけ団子",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-9-2"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7667
+      },
+      "listings": [
+        {
+          "key": "みたらし団子",
+          "name": "みたらし団子",
+          "category": "食べる",
+          "photos": ["dango.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "S5",
+      "name": "千駄木パン工房",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "1-2-3"
+      },
+      "location": {
+        "latitude": 35.7258,
+        "longitude": 139.7605
+      },
+      "photos": ["store-1.jpg"],
+      "operatingStatus": "temporarilyClosed"
+    },
+    {
+      "key": "S6",
+      "name": "根津古書店",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "2-4-6"
+      },
+      "location": {
+        "latitude": 35.7168,
+        "longitude": 139.7641
+      },
+      "photos": ["store-1.jpg"],
+      "operatingStatus": "permanentlyClosed"
+    },
+    {
+      "key": "S7",
+      "name": "旧谷中そば",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "5-1-1"
+      },
+      "location": {
+        "latitude": 35.7274,
+        "longitude": 139.7669
+      },
+      "photos": ["store-1.jpg"],
+      "suspended": true
+    },
+    {
+      "key": "S8",
+      "name": "谷中せんべい",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-2-1"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7678
+      },
+      "photos": ["store-1.jpg"],
+      "listings": [
+        {
+          "key": "醤油せんべい",
+          "name": "醤油せんべい",
+          "category": "食べる",
+          "photos": ["senbei.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "ざらめせんべい",
+          "name": "ざらめせんべい",
+          "state": "draft"
+        }
+      ]
+    },
+    {
+      "key": "S9",
+      "name": "あかり湯",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "6-1-1"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.768
+      },
+      "photos": ["store-1.jpg"]
+    },
+    {
+      "key": "S10",
+      "name": "よみせ金物店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-12-4"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7682
+      },
+      "photos": ["store-1.jpg"]
+    },
+    {
+      "key": "S11",
+      "name": "三崎坂ギャラリー",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "4-2-9"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7684
+      },
+      "photos": ["store-1.jpg"]
+    },
+    {
+      "key": "S12",
+      "name": "谷中はし店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "4-6-1"
+      },
+      "location": {
+        "latitude": 35.7274,
+        "longitude": 139.7686
+      },
+      "photos": ["store-1.jpg"]
+    },
+    {
+      "key": "S13",
+      "name": "谷中ねんど工房",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-3-3"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7695
+      },
+      "photos": ["store-1.jpg"],
+      "members": [
+        {
+          "appoint": "owner-z@example.com"
+        }
+      ]
+    },
+    {
+      "key": "S14",
+      "name": "谷中ひより堂",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "5-3-3"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7697
+      },
+      "photos": ["store-1.jpg"]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "accounts": [
+    "operator1@example.com",
+    "operator2@example.com",
+    "editor1@example.com",
+    "editor2@example.com",
+    "owner1@example.com",
+    "owner2@example.com",
+    "regionop@example.com",
+    "user1@example.com",
+    "user2@example.com",
+    "user3@example.com"
+  ],
+  "operators": ["operator1@example.com", "operator2@example.com"],
+  "editors": ["editor1@example.com", "editor2@example.com"],
+  "places": [
+    {
+      "key": "喫茶ひだまり",
+      "name": "喫茶ひだまり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-1-1"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "members": [
+        {
+          "appoint": "owner1@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "季節のフルーツサンド",
+          "name": "季節のフルーツサンド",
+          "category": "食べる",
+          "photos": ["sando.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "焼き菓子セット",
+          "name": "焼き菓子セット",
+          "category": "買う",
+          "photos": ["yakigashi.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "陶房つち",
+      "name": "陶房つち",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-2-2"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "members": [
+        {
+          "appoint": "owner2@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "陶芸体験",
+          "name": "陶芸体験",
+          "category": "体験",
+          "photos": ["tougei.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "絵付け体験",
+          "name": "絵付け体験",
+          "category": "体験",
+          "state": "draft"
+        },
+        {
+          "key": "藍染め体験",
+          "name": "藍染め体験",
+          "category": "体験",
+          "photos": ["aizome.jpg"],
+          "state": "unpublished"
+        },
+        {
+          "key": "夏の親子ろくろ教室",
+          "name": "夏の親子ろくろ教室",
+          "category": "体験",
+          "photos": ["rokuro.jpg"],
+          "state": "ended"
+        }
+      ]
+    },
+    {
+      "key": "古書ほおずき",
+      "name": "古書ほおずき",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "4-3-3"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7665
+      },
+      "listings": [
+        {
+          "key": "古地図の複製",
+          "name": "古地図の複製",
+          "category": "買う",
+          "photos": ["kochizu.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "谷中の夕焼けだんだん",
+      "name": "谷中の夕焼けだんだん",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-10-1"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7667
+      },
+      "listings": [
+        {
+          "key": "夕焼けの眺め",
+          "name": "夕焼けの眺め",
+          "category": "見る",
+          "photos": ["yuyake.jpg"],
+          "state": "published"
+        }
+      ]
+    }
+  ]
+}

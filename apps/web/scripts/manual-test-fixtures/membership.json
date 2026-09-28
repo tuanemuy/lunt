@@ -1,0 +1,161 @@
+{
+  "accounts": [
+    "owner-a@example.com",
+    "owner-b@example.com",
+    "lone@example.com",
+    "retire@example.com",
+    "region-a@example.com",
+    "ops1@example.com",
+    "ops2@example.com",
+    "event-o@example.com",
+    "former@example.com",
+    "user-a@example.com",
+    "user-b@example.com",
+    "staff-c@example.com",
+    "user-d@example.com",
+    "user-e@example.com",
+    "user-f@example.com",
+    "successor@example.com",
+    "heir@example.com",
+    "late-accept@example.com",
+    "kate@example.com",
+    "user-n@example.com",
+    "pending-1@example.com",
+    "event-invitee@example.com",
+    "user-t@example.com"
+  ],
+  "operators": ["ops1@example.com", "ops2@example.com"],
+  "places": [
+    {
+      "key": "喫茶こもれび",
+      "name": "喫茶こもれび",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-2-2"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "members": [
+        {
+          "appoint": "owner-a@example.com"
+        },
+        {
+          "invite": "owner-b@example.com",
+          "by": "owner-a@example.com",
+          "accept": true
+        },
+        {
+          "invite": "pending-1@example.com",
+          "by": "owner-a@example.com"
+        }
+      ]
+    },
+    {
+      "key": "根津珈琲舎",
+      "name": "根津珈琲舎",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.7168,
+        "longitude": 139.7641
+      },
+      "members": [
+        {
+          "appoint": "lone@example.com"
+        }
+      ]
+    },
+    {
+      "key": "団子坂茶房",
+      "name": "団子坂茶房",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "2-2-2"
+      },
+      "location": {
+        "latitude": 35.7258,
+        "longitude": 139.7605
+      },
+      "members": [
+        {
+          "appoint": "retire@example.com"
+        }
+      ]
+    },
+    {
+      "key": "谷中ベーカリー",
+      "name": "谷中ベーカリー",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-3-3"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "members": [
+        {
+          "appoint": "former@example.com"
+        },
+        {
+          "invite": "heir@example.com",
+          "by": "former@example.com"
+        },
+        {
+          "resign": "former@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "くるみパン",
+          "name": "くるみパン",
+          "category": "食べる",
+          "photos": ["kurumi.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "季節のスコーン",
+          "name": "季節のスコーン",
+          "state": "draft"
+        }
+      ]
+    },
+    {
+      "key": "千駄木文具店",
+      "name": "千駄木文具店",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "3-3-3"
+      },
+      "location": {
+        "latitude": 35.7264,
+        "longitude": 139.7607
+      },
+      "members": [
+        {
+          "appoint": "former@example.com"
+        },
+        {
+          "invite": "old-invitee@example.com",
+          "by": "former@example.com"
+        },
+        {
+          "invite": "late-accept@example.com",
+          "by": "former@example.com"
+        },
+        {
+          "resign": "former@example.com"
+        }
+      ]
+    }
+  ]
+}

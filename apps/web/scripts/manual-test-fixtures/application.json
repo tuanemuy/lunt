@@ -1,0 +1,204 @@
+{
+  "accounts": [
+    "ops1@example.com",
+    "ops2@example.com",
+    "region-a@example.com",
+    "region-b@example.com",
+    "event-a@example.com",
+    "owner-a@example.com",
+    "owner-b@example.com",
+    "owner-c@example.com",
+    "tea-1@example.com",
+    "tea-2@example.com",
+    "user-a@example.com",
+    "user-b@example.com",
+    "user-c@example.com",
+    "user-d@example.com"
+  ],
+  "operators": ["ops1@example.com", "ops2@example.com"],
+  "categories": ["カフェ", "パン・焼き菓子"],
+  "places": [
+    {
+      "key": "喫茶こもれび",
+      "name": "喫茶こもれび",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-2-2"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "members": [
+        {
+          "appoint": "owner-a@example.com"
+        },
+        {
+          "invite": "owner-b@example.com",
+          "by": "owner-a@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "ブレンドコーヒー",
+          "name": "ブレンドコーヒー",
+          "category": "カフェ",
+          "photos": ["blend.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "根津珈琲舎",
+      "name": "根津珈琲舎",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.7168,
+        "longitude": 139.7641
+      },
+      "members": [
+        {
+          "appoint": "owner-c@example.com"
+        }
+      ]
+    },
+    {
+      "key": "団子坂茶房",
+      "name": "団子坂茶房",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "2-2-2"
+      },
+      "location": {
+        "latitude": 35.7258,
+        "longitude": 139.7605
+      },
+      "members": [
+        {
+          "appoint": "tea-1@example.com"
+        },
+        {
+          "invite": "tea-2@example.com",
+          "by": "tea-1@example.com",
+          "accept": true
+        }
+      ]
+    },
+    {
+      "key": "谷中ベーカリー",
+      "name": "谷中ベーカリー",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-3-3"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "description": "下町のパン屋",
+      "businessHours": "7:00〜18:00",
+      "listings": [
+        {
+          "key": "くるみパン",
+          "name": "くるみパン",
+          "category": "パン・焼き菓子",
+          "photos": ["kurumi.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "あんぱん",
+          "name": "あんぱん",
+          "category": "パン・焼き菓子",
+          "photos": ["anpan.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "千駄木文具店",
+      "name": "千駄木文具店",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "3-3-3"
+      },
+      "location": {
+        "latitude": 35.7264,
+        "longitude": 139.7607
+      }
+    },
+    {
+      "key": "よみせ通り青果",
+      "name": "よみせ通り青果",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-11-1"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7665
+      }
+    },
+    {
+      "key": "三崎坂ギャラリー",
+      "name": "三崎坂ギャラリー",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "4-2-9"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7667
+      }
+    },
+    {
+      "key": "谷中銀座コロッケ",
+      "name": "谷中銀座コロッケ",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-13-2"
+      },
+      "location": {
+        "latitude": 35.7274,
+        "longitude": 139.7669
+      }
+    },
+    {
+      "key": "夕やけ団子",
+      "name": "夕やけ団子",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-9-2"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7678
+      }
+    },
+    {
+      "key": "へび道うつわ店",
+      "name": "へび道うつわ店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "2-5-5"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.768
+      }
+    }
+  ]
+}

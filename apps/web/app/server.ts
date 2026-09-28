@@ -1,5 +1,6 @@
 // The one Lunt Worker (design.md D-05): TanStack Start's fetch handler
-// (plus the operator endpoints under /__ops/), the events queue consumer,
+// (plus the operator endpoints under /__ops/ and the development seeding
+// endpoint /__dev/seed), the events queue consumer,
 // the dead-letter queue, and the daily Cron Trigger — all over the single Lunt state Durable Object, which this
 // module also exports so wrangler can bind it.
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -11,6 +12,7 @@ import type {
 } from "@cloudflare/workers-types";
 import { DoConsumerReceipts } from "@repo/core/adapters/do/consumerReceipts";
 import { establishFirstOperator } from "@repo/core/application/authority/establishFirstOperator";
+import { devSeed } from "@repo/core/application/dev/devSeed";
 import {
   dailyJobsRunAutomatically,
   requestClock,
@@ -29,6 +31,7 @@ import type { EventMessage } from "@repo/core/application/workers/eventDelivery"
 import { default as defaultEntry } from "@tanstack/react-start/server-entry";
 import { LuntStateObject } from "./durable-objects/luntState";
 import { presentationPorts } from "./presentation/ports";
+import { DEV_SEED_PATH, handleDevSeedRequest } from "./worker/devSeed";
 import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
 import { handlePhotoRequest, PHOTO_PATH_PREFIX } from "./worker/photos";
 import { handleQueueBatch } from "./worker/queue";
@@ -81,6 +84,12 @@ export default {
       await requestClock(env, client, hostname),
       hostname,
     );
+    if (pathname === DEV_SEED_PATH) {
+      return handleDevSeedRequest(request, {
+        devTools: container.runtime.devTools,
+        seed: (fixture) => devSeed({ container, input: fixture }),
+      });
+    }
     if (pathname.startsWith(OPS_PREFIX)) {
       return handleOpsRequest(request, {
         opsToken: container.runtime.opsToken,

@@ -1,0 +1,236 @@
+{
+  "accounts": [
+    "user-a@example.com",
+    "user-b@example.com",
+    "owner-x@example.com",
+    "owner-y@example.com",
+    "operator1@example.com",
+    "operator2@example.com"
+  ],
+  "operators": ["operator1@example.com", "operator2@example.com"],
+  "categories": [
+    "食べる",
+    "買う",
+    "体験",
+    "見る",
+    "廃止テスト1",
+    "廃止テスト2",
+    "廃止テスト3",
+    "廃止テスト4"
+  ],
+  "places": [
+    {
+      "key": "P1",
+      "name": "喫茶ひだまり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "members": [
+        {
+          "appoint": "owner-x@example.com"
+        },
+        {
+          "invite": "owner-y@example.com",
+          "by": "owner-x@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "L1",
+          "name": "ブレンドコーヒー",
+          "category": "食べる",
+          "photos": ["coffee-1.jpg", "coffee-2.jpg"],
+          "description": "自家焙煎豆のブレンド",
+          "state": "published"
+        },
+        {
+          "key": "L2",
+          "name": "季節のケーキ",
+          "state": "draft"
+        },
+        {
+          "key": "L3",
+          "name": "コーヒー教室",
+          "category": "体験",
+          "photos": ["coffee-3.jpg"],
+          "description": "毎回定員6名。予約は店頭で",
+          "offering": {
+            "kind": "dates",
+            "dates": ["today+7", "today+14"]
+          },
+          "state": "published"
+        },
+        {
+          "key": "L4",
+          "name": "夏のかき氷",
+          "category": "食べる",
+          "photos": ["cake-1.jpg"],
+          "offeringAfterPublish": {
+            "kind": "period",
+            "start": "today-30",
+            "end": "today-1"
+          },
+          "state": "published"
+        },
+        {
+          "key": "L5",
+          "name": "秋のモンブラン",
+          "category": "食べる",
+          "photos": ["cake-1.jpg"],
+          "offering": {
+            "kind": "period",
+            "start": "today+10",
+            "end": "today+40"
+          },
+          "state": "published"
+        },
+        {
+          "key": "L6",
+          "name": "焙煎豆の量り売り",
+          "category": "買う",
+          "photos": ["coffee-1.jpg"],
+          "suspended": true,
+          "state": "published"
+        },
+        {
+          "key": "L7",
+          "name": "レトロ喫茶の窓辺",
+          "category": "見る",
+          "photos": ["mado-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "P2",
+      "name": "ひだまり雑貨店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-2"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "members": [
+        {
+          "appoint": "owner-x@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "L8",
+          "name": "限定マグカップ",
+          "category": "買う",
+          "photos": ["mug-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "P3",
+      "name": "ひだまり工房",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-3"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7665
+      },
+      "members": [
+        {
+          "appoint": "owner-x@example.com"
+        }
+      ]
+    },
+    {
+      "key": "P4",
+      "name": "谷中みどり商店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-4"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7667
+      },
+      "listings": [
+        {
+          "key": "L9",
+          "name": "手ぬぐい",
+          "category": "買う",
+          "photos": ["tenugui-1.jpg", "tenugui-2.jpg"],
+          "description": "谷中の職人が染めた手ぬぐい",
+          "state": "published"
+        },
+        {
+          "key": "L10",
+          "name": "風鈴",
+          "category": "買う",
+          "photos": ["furin-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "P5",
+      "name": "夕やけ団子",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-5"
+      },
+      "location": {
+        "latitude": 35.7274,
+        "longitude": 139.7669
+      },
+      "listings": [
+        {
+          "key": "L11",
+          "name": "みたらし団子",
+          "category": "食べる",
+          "photos": ["dango-1.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "L12",
+          "name": "わらび餅",
+          "category": "食べる",
+          "state": "draft"
+        },
+        {
+          "key": "L13",
+          "name": "くず餅",
+          "category": "食べる",
+          "photos": ["kuzumochi-1.jpg"],
+          "suspended": true,
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "P6",
+      "name": "よみせ金物店",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "1-1-6"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7678
+      }
+    }
+  ]
+}

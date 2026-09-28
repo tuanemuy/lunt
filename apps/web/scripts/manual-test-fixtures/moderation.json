@@ -1,0 +1,152 @@
+{
+  "accounts": [
+    "operator1@example.com",
+    "operator2@example.com",
+    "owner1@example.com",
+    "owner2@example.com",
+    "owner3@example.com",
+    "regionop@example.com",
+    "eventop@example.com",
+    "editor1@example.com",
+    "user1@example.com"
+  ],
+  "operators": ["operator1@example.com", "operator2@example.com"],
+  "editors": ["editor1@example.com"],
+  "places": [
+    {
+      "key": "喫茶ひだまり",
+      "name": "喫茶ひだまり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "三丁目"
+      },
+      "location": {
+        "latitude": 35.725,
+        "longitude": 139.7661
+      },
+      "photos": ["hidamari-1.jpg", "hidamari-2.jpg", "hidamari-3.jpg"],
+      "businessHours": "9:00〜17:00",
+      "members": [
+        {
+          "appoint": "owner1@example.com"
+        },
+        {
+          "invite": "owner2@example.com",
+          "by": "owner1@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "季節のフルーツサンド",
+          "name": "季節のフルーツサンド",
+          "category": "食べる",
+          "photos": ["sand-1.jpg", "sand-2.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "ブレンドコーヒー",
+          "name": "ブレンドコーヒー",
+          "category": "食べる",
+          "photos": ["coffee-1.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "焼き菓子セット",
+          "name": "焼き菓子セット",
+          "category": "買う",
+          "photos": ["yakigashi-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "パン工房こむぎ",
+      "name": "パン工房こむぎ",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "五丁目"
+      },
+      "location": {
+        "latitude": 35.7256,
+        "longitude": 139.7663
+      },
+      "photos": ["komugi-1.jpg"],
+      "members": [
+        {
+          "appoint": "owner3@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "くるみパン",
+          "name": "くるみパン",
+          "category": "食べる",
+          "photos": ["kurumi-1.jpg", "kurumi-2.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "古書ほおずき",
+      "name": "古書ほおずき",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "二丁目"
+      },
+      "location": {
+        "latitude": 35.7168,
+        "longitude": 139.7641
+      },
+      "photos": ["hozuki-1.jpg"],
+      "listings": [
+        {
+          "key": "古地図の複製",
+          "name": "古地図の複製",
+          "category": "買う",
+          "photos": ["chizu-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "谷中せんべい本舗",
+      "name": "谷中せんべい本舗",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "七丁目"
+      },
+      "location": {
+        "latitude": 35.7262,
+        "longitude": 139.7665
+      },
+      "photos": ["senbei-1.jpg"],
+      "listings": [
+        {
+          "key": "手焼きせんべい",
+          "name": "手焼きせんべい",
+          "category": "食べる",
+          "photos": ["teyaki-1.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "谷中煎餅本舗",
+      "name": "谷中煎餅本舗",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "七丁目"
+      },
+      "location": {
+        "latitude": 35.7268,
+        "longitude": 139.7667
+      }
+    }
+  ]
+}
