@@ -52,19 +52,6 @@ function MatchRow({ item }: { item: PlaceMatchItem }) {
   );
 }
 
-/**
- * Registering a new store (RQ-02) arrives with the application stage
- * (S2B); until then the entry says so instead of leading anywhere.
- */
-function RegisterEntry() {
-  return (
-    <Notice variant="manage" tone="paper" title="見つからないお店の登録">
-      Lunt
-      にまだ無いお店は、新しく登録を申請できるようになります。登録の申請は、まもなく受け付けを始めます。
-    </Notice>
-  );
-}
-
 function termsText(name: string | null, address: string | null): string {
   return [name, address].filter((term) => term !== null).join("・");
 }
@@ -133,17 +120,14 @@ export function PlaceMatchList({
   }
   if (items.length === 0) {
     return (
-      <>
-        <div role="status">
-          <EmptyPanel
-            title={`「${termsText(name, address)}」に一致するお店はありません`}
-          >
-            店名か住所の語を変えて、探し直せます。Lunt
-            にまだ無いお店は、新しく登録を申請できます。
-          </EmptyPanel>
-        </div>
-        <RegisterEntry />
-      </>
+      <div role="status">
+        <EmptyPanel
+          title={`「${termsText(name, address)}」に一致するお店はありません`}
+        >
+          店名か住所の語を変えて、探し直せます。Lunt
+          にまだ無いお店は、新しく登録を申請できます。
+        </EmptyPanel>
+      </div>
     );
   }
   return (
@@ -191,7 +175,6 @@ export function PlaceMatchList({
           お店を選んで店舗ページを開き、「このお店を管理する」から管理権限を申請できます。
         </p>
       </div>
-      <RegisterEntry />
     </>
   );
 }

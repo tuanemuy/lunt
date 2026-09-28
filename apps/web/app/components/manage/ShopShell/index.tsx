@@ -12,7 +12,7 @@ import {
   TargetSwitcherItem,
   TargetSwitcherRule,
 } from "@/components/layout/ManageShell";
-import { OpsSearchReturnLink } from "@/components/ops/OpsSearchReturn";
+import { ProxyReturnLink } from "@/components/ops/ProxyReturn";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   frameStateText,
@@ -55,8 +55,9 @@ export type ShopNavItem = "home" | "listings" | "info";
 /**
  * 店舗側の管理ナビゲーション (D-07: ホーム / 掲載 / イベント / 店舗情報).
  * SM-06 (イベント) joins with its stage. While an operator stands in for
- * an absent steward (CS-14) the nav says so and leads back to OM-02; SM-01
- * is not opened by proxy, so ホーム is left out.
+ * an absent steward (CS-14) the nav says so and leads back to OM-02, or to
+ * OM-05 when the report being handled opened the proxy; SM-01 is not
+ * opened by proxy, so ホーム is left out.
  */
 export function ShopNav({ frame }: { frame: PlaceFrame }) {
   const params = { placeId: frame.placeId };
@@ -68,7 +69,7 @@ export function ShopNav({ frame }: { frame: PlaceFrame }) {
         ? {
             proxy: (
               <ProxyBanner label="不在の代行中">
-                <OpsSearchReturnLink />
+                <ProxyReturnLink placeId={frame.placeId} />
               </ProxyBanner>
             ),
           }

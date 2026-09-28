@@ -5,14 +5,17 @@ import {
   ManageSection,
   ManageStatus,
 } from "@/components/layout/ManageShell";
+import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { CountTab, CountTabs } from "@/components/ui/CountTabs";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
+import { TextLink } from "@/components/ui/TextButton";
 import {
   LISTING_SHELF_LABEL,
   LISTING_SHELVES,
 } from "@/presentation/listingView";
+import { dayText } from "@/presentation/moderation";
 import {
   OPERATING_STATUS_LABEL,
   type ShopHomeData,
@@ -21,9 +24,87 @@ import { placeMembersPath, placePagePath, ShopPage } from "../ShopShell";
 import { usePlaceFrame } from "../ShopShell/usePlaceFrame";
 
 /**
- * SM-01 店舗ホーム: the store's state, its listings per 区分, and the ways
- * into the other SM screens. Applications and check requests (対応が必要な
- * こと) arrive with their stage; until then there are none to show.
+ * 対応が必要なこと: the store's returned applications (MY-05) and its open
+ * confirmation requests (SM-07), each kind with its count.
+ */
+function ShopTodoList({
+  placeId,
+  todo,
+}: {
+  placeId: string;
+  todo: ShopHomeData["todo"];
+}) {
+  if (todo.returned.length === 0 && todo.requests.count === 0) {
+    return (
+      <Notice
+        variant="manage"
+        tone="paper"
+        title="対応が必要なことはありません"
+      >
+        差し戻しの申請も、確認依頼中の確認の依頼もありません。
+      </Notice>
+    );
+  }
+  return (
+    <div className="sm01-todo">
+      {todo.returned.length === 0 ? null : (
+        <Notice
+          variant="manage"
+          title={
+            <>
+              差し戻しの申請{" "}
+              <Badge tone="count">{`${todo.returned.length}件`}</Badge>
+            </>
+          }
+          actions={
+            <LinkList>
+              {todo.returned.map((item) => (
+                <li key={item.applicationId}>
+                  <ListRowLink
+                    to="/me/applications/$applicationId"
+                    params={{ applicationId: item.applicationId }}
+                    title={item.title}
+                    meta="差し戻し · 追加の確認に答えて再提出します"
+                  />
+                </li>
+              ))}
+            </LinkList>
+          }
+        />
+      )}
+      {todo.requests.count === 0 ? null : (
+        <Notice
+          variant="manage"
+          title={
+            <>
+              確認の依頼{" "}
+              <Badge tone="count">{`${todo.requests.count}件`}</Badge>
+            </>
+          }
+          actions={
+            <LinkList>
+              {todo.requests.items.map((item) => (
+                <li key={item.reportId}>
+                  <ListRowLink
+                    to="/manage/places/$placeId/checks/$reportId"
+                    params={{ placeId, reportId: item.reportId }}
+                    title={item.title}
+                    meta={`確認依頼中 · ${dayText(item.requestedAt)}`}
+                  />
+                </li>
+              ))}
+            </LinkList>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * SM-01 店舗ホーム: the store's state, what needs doing (returned
+ * applications, confirmation requests), its listings per 区分, and the
+ * ways into the other SM screens.
  */
 export function ShopHomeView({ data }: { data: ShopHomeData }) {
   const frame = usePlaceFrame();
@@ -82,13 +163,10 @@ export function ShopHomeView({ data }: { data: ShopHomeData }) {
         </div>
 
         <ManageSection id="sm01-todo" title="対応が必要なこと">
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="対応が必要なことはありません"
-          >
-            差し戻しの申請も、確認依頼中の確認の依頼もありません。
-          </Notice>
+          <ShopTodoList placeId={frame.placeId} todo={data.todo} />
+          <TextLink to="/me/applications" search={{ place: frame.placeId }}>
+            この店舗の申請をすべて見る
+          </TextLink>
         </ManageSection>
 
         <ManageSection id="sm01-listings" title="掲載">

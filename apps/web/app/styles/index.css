@@ -12,6 +12,8 @@
 @import "./pages.css";
 @import "./member-screens.css";
 @import "./manage-screens.css";
+@import "./application-screens.css";
+@import "./moderation-screens.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal
    feel slower than the load it follows. */

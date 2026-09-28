@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AccountRouteImport } from './routes/_account'
 import { Route as ApplyRouteImport } from './routes/_apply'
 import { Route as ManageRouteImport } from './routes/_manage'
+import { Route as ReportRouteImport } from './routes/_report'
 import { Route as ViewerRouteImport } from './routes/_viewer'
 import { Route as Char91__devChar93ClockRouteImport } from './routes/[__dev]/clock'
 import { Route as Char91__devChar93InboxRouteImport } from './routes/[__dev]/inbox'
@@ -37,16 +38,31 @@ import { Route as ManageOpsSearchRouteImport } from './routes/_manage/ops/search
 import { Route as ViewerListingsListingIdRouteImport } from './routes/_viewer/listings/$listingId'
 import { Route as ViewerPlacesPlaceIdRouteImport } from './routes/_viewer/places/$placeId'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
+import { Route as AccountMeApplicationsIndexRouteImport } from './routes/_account/me/applications/index'
+import { Route as AccountMeApplicationsApplicationIdRouteImport } from './routes/_account/me/applications/$applicationId'
+import { Route as ApplyApplyPlacesNewRouteImport } from './routes/_apply/apply/places/new'
+import { Route as ManageManageApplicationsApplicationIdRouteImport } from './routes/_manage/manage/applications/$applicationId'
+import { Route as ManageManageChecksReportIdRouteImport } from './routes/_manage/manage/checks/$reportId'
+import { Route as ManageManageListingsListingIdRouteImport } from './routes/_manage/manage/listings/$listingId'
 import { Route as ManageManagePlacesPlaceIdRouteImport } from './routes/_manage/manage/places/$placeId'
 import { Route as ManageManagePlacesNewRouteImport } from './routes/_manage/manage/places/new'
+import { Route as ManageOpsReportsReportIdRouteImport } from './routes/_manage/ops/reports/$reportId'
+import { Route as ManageOpsTakedownsClaimIdRouteImport } from './routes/_manage/ops/takedowns/$claimId'
+import { Route as ReportInfoReportKindIdRouteImport } from './routes/_report/info-report/$kind/$id'
+import { Route as ReportTakedownKindIdRouteImport } from './routes/_report/takedown/$kind/$id'
 import { Route as AccountLoginExternalProviderIndexRouteImport } from './routes/_account/login/external/$provider/index'
 import { Route as AccountLoginExternalProviderCallbackRouteImport } from './routes/_account/login/external/$provider/callback'
+import { Route as ApplyApplyListingsListingIdRevisionRouteImport } from './routes/_apply/apply/listings/$listingId/revision'
+import { Route as ApplyApplyPlacesPlaceIdRevisionRouteImport } from './routes/_apply/apply/places/$placeId/revision'
+import { Route as ApplyApplyPlacesPlaceIdStewardshipRouteImport } from './routes/_apply/apply/places/$placeId/stewardship'
 import { Route as ManageManageEventsOccasionIdMembersRouteImport } from './routes/_manage/manage/events/$occasionId_/members'
 import { Route as ManageManagePlacesPlaceIdIndexRouteImport } from './routes/_manage/manage/places/$placeId/index'
 import { Route as ManageManagePlacesPlaceIdInfoRouteImport } from './routes/_manage/manage/places/$placeId/info'
 import { Route as ManageManagePlacesPlaceIdMembersRouteImport } from './routes/_manage/manage/places/$placeId_/members'
 import { Route as ManageManageRegionsRegionIdMembersRouteImport } from './routes/_manage/manage/regions/$regionId_/members'
 import { Route as ManageOpsSubjectsKindIdRouteImport } from './routes/_manage/ops/subjects/$kind/$id'
+import { Route as ApplyApplyPlacesPlaceIdListingsNewRouteImport } from './routes/_apply/apply/places/$placeId/listings/new'
+import { Route as ManageManagePlacesPlaceIdChecksReportIdRouteImport } from './routes/_manage/manage/places/$placeId/checks/$reportId'
 import { Route as ManageManagePlacesPlaceIdListingsIndexRouteImport } from './routes/_manage/manage/places/$placeId/listings/index'
 import { Route as ManageManagePlacesPlaceIdListingsNewRouteImport } from './routes/_manage/manage/places/$placeId/listings/new'
 import { Route as ManageManagePlacesPlaceIdListingsListingIdIndexRouteImport } from './routes/_manage/manage/places/$placeId/listings/$listingId/index'
@@ -62,6 +78,10 @@ const ApplyRoute = ApplyRouteImport.update({
 } as any)
 const ManageRoute = ManageRouteImport.update({
   id: '/_manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportRoute = ReportRouteImport.update({
+  id: '/_report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ViewerRoute = ViewerRouteImport.update({
@@ -196,6 +216,41 @@ const AccountChar91__devChar93ManageErrorsKindRoute =
     path: '/__dev/manage-errors/$kind',
     getParentRoute: () => AccountRoute,
   } as any)
+const AccountMeApplicationsIndexRoute =
+  AccountMeApplicationsIndexRouteImport.update({
+    id: '/me/applications/',
+    path: '/me/applications/',
+    getParentRoute: () => AccountRoute,
+  } as any)
+const AccountMeApplicationsApplicationIdRoute =
+  AccountMeApplicationsApplicationIdRouteImport.update({
+    id: '/me/applications/$applicationId',
+    path: '/me/applications/$applicationId',
+    getParentRoute: () => AccountRoute,
+  } as any)
+const ApplyApplyPlacesNewRoute = ApplyApplyPlacesNewRouteImport.update({
+  id: '/apply/places/new',
+  path: '/apply/places/new',
+  getParentRoute: () => ApplyRoute,
+} as any)
+const ManageManageApplicationsApplicationIdRoute =
+  ManageManageApplicationsApplicationIdRouteImport.update({
+    id: '/manage/applications/$applicationId',
+    path: '/manage/applications/$applicationId',
+    getParentRoute: () => ManageRoute,
+  } as any)
+const ManageManageChecksReportIdRoute =
+  ManageManageChecksReportIdRouteImport.update({
+    id: '/manage/checks/$reportId',
+    path: '/manage/checks/$reportId',
+    getParentRoute: () => ManageRoute,
+  } as any)
+const ManageManageListingsListingIdRoute =
+  ManageManageListingsListingIdRouteImport.update({
+    id: '/manage/listings/$listingId',
+    path: '/manage/listings/$listingId',
+    getParentRoute: () => ManageRoute,
+  } as any)
 const ManageManagePlacesPlaceIdRoute =
   ManageManagePlacesPlaceIdRouteImport.update({
     id: '/manage/places/$placeId',
@@ -206,6 +261,28 @@ const ManageManagePlacesNewRoute = ManageManagePlacesNewRouteImport.update({
   id: '/manage/places/new',
   path: '/manage/places/new',
   getParentRoute: () => ManageRoute,
+} as any)
+const ManageOpsReportsReportIdRoute =
+  ManageOpsReportsReportIdRouteImport.update({
+    id: '/reports/$reportId',
+    path: '/reports/$reportId',
+    getParentRoute: () => ManageOpsRoute,
+  } as any)
+const ManageOpsTakedownsClaimIdRoute =
+  ManageOpsTakedownsClaimIdRouteImport.update({
+    id: '/takedowns/$claimId',
+    path: '/takedowns/$claimId',
+    getParentRoute: () => ManageOpsRoute,
+  } as any)
+const ReportInfoReportKindIdRoute = ReportInfoReportKindIdRouteImport.update({
+  id: '/info-report/$kind/$id',
+  path: '/info-report/$kind/$id',
+  getParentRoute: () => ReportRoute,
+} as any)
+const ReportTakedownKindIdRoute = ReportTakedownKindIdRouteImport.update({
+  id: '/takedown/$kind/$id',
+  path: '/takedown/$kind/$id',
+  getParentRoute: () => ReportRoute,
 } as any)
 const AccountLoginExternalProviderIndexRoute =
   AccountLoginExternalProviderIndexRouteImport.update({
@@ -218,6 +295,24 @@ const AccountLoginExternalProviderCallbackRoute =
     id: '/login/external/$provider/callback',
     path: '/login/external/$provider/callback',
     getParentRoute: () => AccountRoute,
+  } as any)
+const ApplyApplyListingsListingIdRevisionRoute =
+  ApplyApplyListingsListingIdRevisionRouteImport.update({
+    id: '/apply/listings/$listingId/revision',
+    path: '/apply/listings/$listingId/revision',
+    getParentRoute: () => ApplyRoute,
+  } as any)
+const ApplyApplyPlacesPlaceIdRevisionRoute =
+  ApplyApplyPlacesPlaceIdRevisionRouteImport.update({
+    id: '/apply/places/$placeId/revision',
+    path: '/apply/places/$placeId/revision',
+    getParentRoute: () => ApplyRoute,
+  } as any)
+const ApplyApplyPlacesPlaceIdStewardshipRoute =
+  ApplyApplyPlacesPlaceIdStewardshipRouteImport.update({
+    id: '/apply/places/$placeId/stewardship',
+    path: '/apply/places/$placeId/stewardship',
+    getParentRoute: () => ApplyRoute,
   } as any)
 const ManageManageEventsOccasionIdMembersRoute =
   ManageManageEventsOccasionIdMembersRouteImport.update({
@@ -254,6 +349,18 @@ const ManageOpsSubjectsKindIdRoute = ManageOpsSubjectsKindIdRouteImport.update({
   path: '/subjects/$kind/$id',
   getParentRoute: () => ManageOpsRoute,
 } as any)
+const ApplyApplyPlacesPlaceIdListingsNewRoute =
+  ApplyApplyPlacesPlaceIdListingsNewRouteImport.update({
+    id: '/apply/places/$placeId/listings/new',
+    path: '/apply/places/$placeId/listings/new',
+    getParentRoute: () => ApplyRoute,
+  } as any)
+const ManageManagePlacesPlaceIdChecksReportIdRoute =
+  ManageManagePlacesPlaceIdChecksReportIdRouteImport.update({
+    id: '/checks/$reportId',
+    path: '/checks/$reportId',
+    getParentRoute: () => ManageManagePlacesPlaceIdRoute,
+  } as any)
 const ManageManagePlacesPlaceIdListingsIndexRoute =
   ManageManagePlacesPlaceIdListingsIndexRouteImport.update({
     id: '/listings/',
@@ -304,9 +411,22 @@ export interface FileRoutesByFullPath {
   '/me/': typeof AccountMeIndexRoute
   '/ops/': typeof ManageOpsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
+  '/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
+  '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/manage/listings/$listingId': typeof ManageManageListingsListingIdRoute
   '/manage/places/$placeId': typeof ManageManagePlacesPlaceIdRouteWithChildren
   '/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
+  '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
+  '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
+  '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/me/applications/': typeof AccountMeApplicationsIndexRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
+  '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
+  '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
@@ -314,6 +434,8 @@ export interface FileRoutesByFullPath {
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
   '/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
   '/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
   '/manage/places/$placeId/listings/': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
@@ -343,8 +465,21 @@ export interface FileRoutesByTo {
   '/me': typeof AccountMeIndexRoute
   '/ops': typeof ManageOpsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
+  '/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
+  '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/manage/listings/$listingId': typeof ManageManageListingsListingIdRoute
   '/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
+  '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
+  '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
+  '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/me/applications': typeof AccountMeApplicationsIndexRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
+  '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
+  '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
@@ -352,6 +487,8 @@ export interface FileRoutesByTo {
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
   '/manage/places/$placeId': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
   '/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
   '/manage/places/$placeId/listings': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
@@ -362,6 +499,7 @@ export interface FileRoutesById {
   '/_account': typeof AccountRouteWithChildren
   '/_apply': typeof ApplyRouteWithChildren
   '/_manage': typeof ManageRouteWithChildren
+  '/_report': typeof ReportRouteWithChildren
   '/_viewer': typeof ViewerRouteWithChildren
   '/__dev/clock': typeof Char91__devChar93ClockRoute
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
@@ -387,9 +525,22 @@ export interface FileRoutesById {
   '/_account/me/': typeof AccountMeIndexRoute
   '/_manage/ops/': typeof ManageOpsIndexRoute
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
+  '/_account/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
+  '/_apply/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/_manage/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
+  '/_manage/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/_manage/manage/listings/$listingId': typeof ManageManageListingsListingIdRoute
   '/_manage/manage/places/$placeId': typeof ManageManagePlacesPlaceIdRouteWithChildren
   '/_manage/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/_manage/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
+  '/_manage/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
+  '/_report/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
+  '/_report/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/_account/me/applications/': typeof AccountMeApplicationsIndexRoute
   '/_account/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
+  '/_apply/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
+  '/_apply/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
+  '/_apply/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
   '/_manage/manage/events/$occasionId_/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/_manage/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
   '/_manage/manage/places/$placeId_/members': typeof ManageManagePlacesPlaceIdMembersRoute
@@ -397,6 +548,8 @@ export interface FileRoutesById {
   '/_manage/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
   '/_manage/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/_apply/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/_manage/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
   '/_manage/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
   '/_manage/manage/places/$placeId/listings/': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/_manage/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
@@ -429,9 +582,22 @@ export interface FileRouteTypes {
     | '/me/'
     | '/ops/'
     | '/__dev/manage-errors/$kind'
+    | '/me/applications/$applicationId'
+    | '/apply/places/new'
+    | '/manage/applications/$applicationId'
+    | '/manage/checks/$reportId'
+    | '/manage/listings/$listingId'
     | '/manage/places/$placeId'
     | '/manage/places/new'
+    | '/ops/reports/$reportId'
+    | '/ops/takedowns/$claimId'
+    | '/info-report/$kind/$id'
+    | '/takedown/$kind/$id'
+    | '/me/applications/'
     | '/login/external/$provider/callback'
+    | '/apply/listings/$listingId/revision'
+    | '/apply/places/$placeId/revision'
+    | '/apply/places/$placeId/stewardship'
     | '/manage/events/$occasionId/members'
     | '/manage/places/$placeId/info'
     | '/manage/places/$placeId/members'
@@ -439,6 +605,8 @@ export interface FileRouteTypes {
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider/'
     | '/manage/places/$placeId/'
+    | '/apply/places/$placeId/listings/new'
+    | '/manage/places/$placeId/checks/$reportId'
     | '/manage/places/$placeId/listings/new'
     | '/manage/places/$placeId/listings/'
     | '/manage/places/$placeId/listings/$listingId/preview'
@@ -468,8 +636,21 @@ export interface FileRouteTypes {
     | '/me'
     | '/ops'
     | '/__dev/manage-errors/$kind'
+    | '/me/applications/$applicationId'
+    | '/apply/places/new'
+    | '/manage/applications/$applicationId'
+    | '/manage/checks/$reportId'
+    | '/manage/listings/$listingId'
     | '/manage/places/new'
+    | '/ops/reports/$reportId'
+    | '/ops/takedowns/$claimId'
+    | '/info-report/$kind/$id'
+    | '/takedown/$kind/$id'
+    | '/me/applications'
     | '/login/external/$provider/callback'
+    | '/apply/listings/$listingId/revision'
+    | '/apply/places/$placeId/revision'
+    | '/apply/places/$placeId/stewardship'
     | '/manage/events/$occasionId/members'
     | '/manage/places/$placeId/info'
     | '/manage/places/$placeId/members'
@@ -477,6 +658,8 @@ export interface FileRouteTypes {
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider'
     | '/manage/places/$placeId'
+    | '/apply/places/$placeId/listings/new'
+    | '/manage/places/$placeId/checks/$reportId'
     | '/manage/places/$placeId/listings/new'
     | '/manage/places/$placeId/listings'
     | '/manage/places/$placeId/listings/$listingId/preview'
@@ -486,6 +669,7 @@ export interface FileRouteTypes {
     | '/_account'
     | '/_apply'
     | '/_manage'
+    | '/_report'
     | '/_viewer'
     | '/__dev/clock'
     | '/__dev/inbox'
@@ -511,9 +695,22 @@ export interface FileRouteTypes {
     | '/_account/me/'
     | '/_manage/ops/'
     | '/_account/__dev/manage-errors/$kind'
+    | '/_account/me/applications/$applicationId'
+    | '/_apply/apply/places/new'
+    | '/_manage/manage/applications/$applicationId'
+    | '/_manage/manage/checks/$reportId'
+    | '/_manage/manage/listings/$listingId'
     | '/_manage/manage/places/$placeId'
     | '/_manage/manage/places/new'
+    | '/_manage/ops/reports/$reportId'
+    | '/_manage/ops/takedowns/$claimId'
+    | '/_report/info-report/$kind/$id'
+    | '/_report/takedown/$kind/$id'
+    | '/_account/me/applications/'
     | '/_account/login/external/$provider/callback'
+    | '/_apply/apply/listings/$listingId/revision'
+    | '/_apply/apply/places/$placeId/revision'
+    | '/_apply/apply/places/$placeId/stewardship'
     | '/_manage/manage/events/$occasionId_/members'
     | '/_manage/manage/places/$placeId/info'
     | '/_manage/manage/places/$placeId_/members'
@@ -521,6 +718,8 @@ export interface FileRouteTypes {
     | '/_manage/ops/subjects/$kind/$id'
     | '/_account/login/external/$provider/'
     | '/_manage/manage/places/$placeId/'
+    | '/_apply/apply/places/$placeId/listings/new'
+    | '/_manage/manage/places/$placeId/checks/$reportId'
     | '/_manage/manage/places/$placeId/listings/new'
     | '/_manage/manage/places/$placeId/listings/'
     | '/_manage/manage/places/$placeId/listings/$listingId/preview'
@@ -531,6 +730,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRouteWithChildren
   ApplyRoute: typeof ApplyRouteWithChildren
   ManageRoute: typeof ManageRouteWithChildren
+  ReportRoute: typeof ReportRouteWithChildren
   ViewerRoute: typeof ViewerRouteWithChildren
   Char91__devChar93ClockRoute: typeof Char91__devChar93ClockRoute
   Char91__devChar93InboxRoute: typeof Char91__devChar93InboxRoute
@@ -563,6 +763,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_report': {
+      id: '/_report'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_viewer': {
@@ -740,6 +947,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountChar91__devChar93ManageErrorsKindRouteImport
       parentRoute: typeof AccountRoute
     }
+    '/_account/me/applications/': {
+      id: '/_account/me/applications/'
+      path: '/me/applications'
+      fullPath: '/me/applications/'
+      preLoaderRoute: typeof AccountMeApplicationsIndexRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/me/applications/$applicationId': {
+      id: '/_account/me/applications/$applicationId'
+      path: '/me/applications/$applicationId'
+      fullPath: '/me/applications/$applicationId'
+      preLoaderRoute: typeof AccountMeApplicationsApplicationIdRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_apply/apply/places/new': {
+      id: '/_apply/apply/places/new'
+      path: '/apply/places/new'
+      fullPath: '/apply/places/new'
+      preLoaderRoute: typeof ApplyApplyPlacesNewRouteImport
+      parentRoute: typeof ApplyRoute
+    }
+    '/_manage/manage/applications/$applicationId': {
+      id: '/_manage/manage/applications/$applicationId'
+      path: '/manage/applications/$applicationId'
+      fullPath: '/manage/applications/$applicationId'
+      preLoaderRoute: typeof ManageManageApplicationsApplicationIdRouteImport
+      parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/checks/$reportId': {
+      id: '/_manage/manage/checks/$reportId'
+      path: '/manage/checks/$reportId'
+      fullPath: '/manage/checks/$reportId'
+      preLoaderRoute: typeof ManageManageChecksReportIdRouteImport
+      parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/listings/$listingId': {
+      id: '/_manage/manage/listings/$listingId'
+      path: '/manage/listings/$listingId'
+      fullPath: '/manage/listings/$listingId'
+      preLoaderRoute: typeof ManageManageListingsListingIdRouteImport
+      parentRoute: typeof ManageRoute
+    }
     '/_manage/manage/places/$placeId': {
       id: '/_manage/manage/places/$placeId'
       path: '/manage/places/$placeId'
@@ -754,6 +1003,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageManagePlacesNewRouteImport
       parentRoute: typeof ManageRoute
     }
+    '/_manage/ops/reports/$reportId': {
+      id: '/_manage/ops/reports/$reportId'
+      path: '/reports/$reportId'
+      fullPath: '/ops/reports/$reportId'
+      preLoaderRoute: typeof ManageOpsReportsReportIdRouteImport
+      parentRoute: typeof ManageOpsRoute
+    }
+    '/_manage/ops/takedowns/$claimId': {
+      id: '/_manage/ops/takedowns/$claimId'
+      path: '/takedowns/$claimId'
+      fullPath: '/ops/takedowns/$claimId'
+      preLoaderRoute: typeof ManageOpsTakedownsClaimIdRouteImport
+      parentRoute: typeof ManageOpsRoute
+    }
+    '/_report/info-report/$kind/$id': {
+      id: '/_report/info-report/$kind/$id'
+      path: '/info-report/$kind/$id'
+      fullPath: '/info-report/$kind/$id'
+      preLoaderRoute: typeof ReportInfoReportKindIdRouteImport
+      parentRoute: typeof ReportRoute
+    }
+    '/_report/takedown/$kind/$id': {
+      id: '/_report/takedown/$kind/$id'
+      path: '/takedown/$kind/$id'
+      fullPath: '/takedown/$kind/$id'
+      preLoaderRoute: typeof ReportTakedownKindIdRouteImport
+      parentRoute: typeof ReportRoute
+    }
     '/_account/login/external/$provider/': {
       id: '/_account/login/external/$provider/'
       path: '/login/external/$provider'
@@ -767,6 +1044,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/login/external/$provider/callback'
       preLoaderRoute: typeof AccountLoginExternalProviderCallbackRouteImport
       parentRoute: typeof AccountRoute
+    }
+    '/_apply/apply/listings/$listingId/revision': {
+      id: '/_apply/apply/listings/$listingId/revision'
+      path: '/apply/listings/$listingId/revision'
+      fullPath: '/apply/listings/$listingId/revision'
+      preLoaderRoute: typeof ApplyApplyListingsListingIdRevisionRouteImport
+      parentRoute: typeof ApplyRoute
+    }
+    '/_apply/apply/places/$placeId/revision': {
+      id: '/_apply/apply/places/$placeId/revision'
+      path: '/apply/places/$placeId/revision'
+      fullPath: '/apply/places/$placeId/revision'
+      preLoaderRoute: typeof ApplyApplyPlacesPlaceIdRevisionRouteImport
+      parentRoute: typeof ApplyRoute
+    }
+    '/_apply/apply/places/$placeId/stewardship': {
+      id: '/_apply/apply/places/$placeId/stewardship'
+      path: '/apply/places/$placeId/stewardship'
+      fullPath: '/apply/places/$placeId/stewardship'
+      preLoaderRoute: typeof ApplyApplyPlacesPlaceIdStewardshipRouteImport
+      parentRoute: typeof ApplyRoute
     }
     '/_manage/manage/events/$occasionId_/members': {
       id: '/_manage/manage/events/$occasionId_/members'
@@ -810,6 +1108,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageOpsSubjectsKindIdRouteImport
       parentRoute: typeof ManageOpsRoute
     }
+    '/_apply/apply/places/$placeId/listings/new': {
+      id: '/_apply/apply/places/$placeId/listings/new'
+      path: '/apply/places/$placeId/listings/new'
+      fullPath: '/apply/places/$placeId/listings/new'
+      preLoaderRoute: typeof ApplyApplyPlacesPlaceIdListingsNewRouteImport
+      parentRoute: typeof ApplyRoute
+    }
+    '/_manage/manage/places/$placeId/checks/$reportId': {
+      id: '/_manage/manage/places/$placeId/checks/$reportId'
+      path: '/checks/$reportId'
+      fullPath: '/manage/places/$placeId/checks/$reportId'
+      preLoaderRoute: typeof ManageManagePlacesPlaceIdChecksReportIdRouteImport
+      parentRoute: typeof ManageManagePlacesPlaceIdRoute
+    }
     '/_manage/manage/places/$placeId/listings/': {
       id: '/_manage/manage/places/$placeId/listings/'
       path: '/listings'
@@ -849,6 +1161,8 @@ interface AccountRouteChildren {
   AccountLoginIndexRoute: typeof AccountLoginIndexRoute
   AccountMeIndexRoute: typeof AccountMeIndexRoute
   AccountChar91__devChar93ManageErrorsKindRoute: typeof AccountChar91__devChar93ManageErrorsKindRoute
+  AccountMeApplicationsApplicationIdRoute: typeof AccountMeApplicationsApplicationIdRoute
+  AccountMeApplicationsIndexRoute: typeof AccountMeApplicationsIndexRoute
   AccountLoginExternalProviderCallbackRoute: typeof AccountLoginExternalProviderCallbackRoute
   AccountLoginExternalProviderIndexRoute: typeof AccountLoginExternalProviderIndexRoute
 }
@@ -862,6 +1176,9 @@ const AccountRouteChildren: AccountRouteChildren = {
   AccountMeIndexRoute: AccountMeIndexRoute,
   AccountChar91__devChar93ManageErrorsKindRoute:
     AccountChar91__devChar93ManageErrorsKindRoute,
+  AccountMeApplicationsApplicationIdRoute:
+    AccountMeApplicationsApplicationIdRoute,
+  AccountMeApplicationsIndexRoute: AccountMeApplicationsIndexRoute,
   AccountLoginExternalProviderCallbackRoute:
     AccountLoginExternalProviderCallbackRoute,
   AccountLoginExternalProviderIndexRoute:
@@ -873,10 +1190,23 @@ const AccountRouteWithChildren =
 
 interface ApplyRouteChildren {
   ApplyApplyFindPlaceRoute: typeof ApplyApplyFindPlaceRoute
+  ApplyApplyPlacesNewRoute: typeof ApplyApplyPlacesNewRoute
+  ApplyApplyListingsListingIdRevisionRoute: typeof ApplyApplyListingsListingIdRevisionRoute
+  ApplyApplyPlacesPlaceIdRevisionRoute: typeof ApplyApplyPlacesPlaceIdRevisionRoute
+  ApplyApplyPlacesPlaceIdStewardshipRoute: typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  ApplyApplyPlacesPlaceIdListingsNewRoute: typeof ApplyApplyPlacesPlaceIdListingsNewRoute
 }
 
 const ApplyRouteChildren: ApplyRouteChildren = {
   ApplyApplyFindPlaceRoute: ApplyApplyFindPlaceRoute,
+  ApplyApplyPlacesNewRoute: ApplyApplyPlacesNewRoute,
+  ApplyApplyListingsListingIdRevisionRoute:
+    ApplyApplyListingsListingIdRevisionRoute,
+  ApplyApplyPlacesPlaceIdRevisionRoute: ApplyApplyPlacesPlaceIdRevisionRoute,
+  ApplyApplyPlacesPlaceIdStewardshipRoute:
+    ApplyApplyPlacesPlaceIdStewardshipRoute,
+  ApplyApplyPlacesPlaceIdListingsNewRoute:
+    ApplyApplyPlacesPlaceIdListingsNewRoute,
 }
 
 const ApplyRouteWithChildren = ApplyRoute._addFileChildren(ApplyRouteChildren)
@@ -886,6 +1216,8 @@ interface ManageOpsRouteChildren {
   ManageOpsRolesRoute: typeof ManageOpsRolesRoute
   ManageOpsSearchRoute: typeof ManageOpsSearchRoute
   ManageOpsIndexRoute: typeof ManageOpsIndexRoute
+  ManageOpsReportsReportIdRoute: typeof ManageOpsReportsReportIdRoute
+  ManageOpsTakedownsClaimIdRoute: typeof ManageOpsTakedownsClaimIdRoute
   ManageOpsSubjectsKindIdRoute: typeof ManageOpsSubjectsKindIdRoute
 }
 
@@ -894,6 +1226,8 @@ const ManageOpsRouteChildren: ManageOpsRouteChildren = {
   ManageOpsRolesRoute: ManageOpsRolesRoute,
   ManageOpsSearchRoute: ManageOpsSearchRoute,
   ManageOpsIndexRoute: ManageOpsIndexRoute,
+  ManageOpsReportsReportIdRoute: ManageOpsReportsReportIdRoute,
+  ManageOpsTakedownsClaimIdRoute: ManageOpsTakedownsClaimIdRoute,
   ManageOpsSubjectsKindIdRoute: ManageOpsSubjectsKindIdRoute,
 }
 
@@ -904,6 +1238,7 @@ const ManageOpsRouteWithChildren = ManageOpsRoute._addFileChildren(
 interface ManageManagePlacesPlaceIdRouteChildren {
   ManageManagePlacesPlaceIdInfoRoute: typeof ManageManagePlacesPlaceIdInfoRoute
   ManageManagePlacesPlaceIdIndexRoute: typeof ManageManagePlacesPlaceIdIndexRoute
+  ManageManagePlacesPlaceIdChecksReportIdRoute: typeof ManageManagePlacesPlaceIdChecksReportIdRoute
   ManageManagePlacesPlaceIdListingsNewRoute: typeof ManageManagePlacesPlaceIdListingsNewRoute
   ManageManagePlacesPlaceIdListingsIndexRoute: typeof ManageManagePlacesPlaceIdListingsIndexRoute
   ManageManagePlacesPlaceIdListingsListingIdPreviewRoute: typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
@@ -914,6 +1249,8 @@ const ManageManagePlacesPlaceIdRouteChildren: ManageManagePlacesPlaceIdRouteChil
   {
     ManageManagePlacesPlaceIdInfoRoute: ManageManagePlacesPlaceIdInfoRoute,
     ManageManagePlacesPlaceIdIndexRoute: ManageManagePlacesPlaceIdIndexRoute,
+    ManageManagePlacesPlaceIdChecksReportIdRoute:
+      ManageManagePlacesPlaceIdChecksReportIdRoute,
     ManageManagePlacesPlaceIdListingsNewRoute:
       ManageManagePlacesPlaceIdListingsNewRoute,
     ManageManagePlacesPlaceIdListingsIndexRoute:
@@ -931,6 +1268,9 @@ const ManageManagePlacesPlaceIdRouteWithChildren =
 
 interface ManageRouteChildren {
   ManageOpsRoute: typeof ManageOpsRouteWithChildren
+  ManageManageApplicationsApplicationIdRoute: typeof ManageManageApplicationsApplicationIdRoute
+  ManageManageChecksReportIdRoute: typeof ManageManageChecksReportIdRoute
+  ManageManageListingsListingIdRoute: typeof ManageManageListingsListingIdRoute
   ManageManagePlacesPlaceIdRoute: typeof ManageManagePlacesPlaceIdRouteWithChildren
   ManageManagePlacesNewRoute: typeof ManageManagePlacesNewRoute
   ManageManageEventsOccasionIdMembersRoute: typeof ManageManageEventsOccasionIdMembersRoute
@@ -940,6 +1280,10 @@ interface ManageRouteChildren {
 
 const ManageRouteChildren: ManageRouteChildren = {
   ManageOpsRoute: ManageOpsRouteWithChildren,
+  ManageManageApplicationsApplicationIdRoute:
+    ManageManageApplicationsApplicationIdRoute,
+  ManageManageChecksReportIdRoute: ManageManageChecksReportIdRoute,
+  ManageManageListingsListingIdRoute: ManageManageListingsListingIdRoute,
   ManageManagePlacesPlaceIdRoute: ManageManagePlacesPlaceIdRouteWithChildren,
   ManageManagePlacesNewRoute: ManageManagePlacesNewRoute,
   ManageManageEventsOccasionIdMembersRoute:
@@ -951,6 +1295,19 @@ const ManageRouteChildren: ManageRouteChildren = {
 
 const ManageRouteWithChildren =
   ManageRoute._addFileChildren(ManageRouteChildren)
+
+interface ReportRouteChildren {
+  ReportInfoReportKindIdRoute: typeof ReportInfoReportKindIdRoute
+  ReportTakedownKindIdRoute: typeof ReportTakedownKindIdRoute
+}
+
+const ReportRouteChildren: ReportRouteChildren = {
+  ReportInfoReportKindIdRoute: ReportInfoReportKindIdRoute,
+  ReportTakedownKindIdRoute: ReportTakedownKindIdRoute,
+}
+
+const ReportRouteWithChildren =
+  ReportRoute._addFileChildren(ReportRouteChildren)
 
 interface ViewerRouteChildren {
   ViewerIndexRoute: typeof ViewerIndexRoute
@@ -971,6 +1328,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRouteWithChildren,
   ApplyRoute: ApplyRouteWithChildren,
   ManageRoute: ManageRouteWithChildren,
+  ReportRoute: ReportRouteWithChildren,
   ViewerRoute: ViewerRouteWithChildren,
   Char91__devChar93ClockRoute: Char91__devChar93ClockRoute,
   Char91__devChar93InboxRoute: Char91__devChar93InboxRoute,

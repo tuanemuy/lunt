@@ -88,10 +88,7 @@ function targetHome(target: MyPageTarget): string | null {
   }
 }
 
-/**
- * What every logged-in account has (「マイページからの入口」 ログインしている).
- * MY-04 (自分の申請) joins with the application stage.
- */
+/** What every logged-in account has (「マイページからの入口」 ログインしている). */
 const INBOX_SECTION: MyPageSection = {
   id: "my-inbox",
   title: "お知らせと申請",
@@ -101,6 +98,12 @@ const INBOX_SECTION: MyPageSection = {
       title: "通知",
       meta: "申請の結果、招待、確認の依頼など",
       to: "/me/notifications",
+    },
+    {
+      key: "applications",
+      title: "自分の申請",
+      meta: "個人として、店舗管理者として行った申請",
+      to: "/me/applications",
     },
   ],
 };

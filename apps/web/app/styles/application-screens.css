@@ -1,0 +1,318 @@
+/*
+  Page-specific rules of MY-04 自分の申請の一覧, MY-05 申請の詳細 and CM-01
+  申請の判断, after the 「MY 共通」 / 「MY-04 固有」 / 「MY-05 固有」 /
+  「CM-01 固有」 blocks of spec/design/pages. The design's `m-badge` /
+  `m-btn` / `m-link` are `.badge` / `.button` / `.text-button` here.
+*/
+@layer components {
+  /* Title band status line (badge and date) */
+  .my-state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+
+  /* Items and values (MY-05 申請の概要・内容). Vertical on mobile, side by side from md */
+  .my-dl,
+  .cm01-dl {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--border-1) solid var(--line);
+  }
+  .my-dl__row,
+  .cm01-dl > div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-12) 0;
+    border-bottom: var(--border-1) solid var(--line);
+    min-width: 0;
+  }
+  .my-dl dt,
+  .cm01-dl dt {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .my-dl dd,
+  .cm01-dl dd {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-8);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .my-dl dd .m-row__sub,
+  .cm01-dl dd .m-row__sub {
+    display: block;
+  }
+
+  .my-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .my-skel-row {
+    height: 64px;
+  }
+  .my-skel-block {
+    height: 150px;
+  }
+
+  /* MY-04 */
+  .my04-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .my04-filter__label {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .my04-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: var(--light);
+    border-color: var(--light);
+  }
+  .my04-list .m-list__item {
+    align-items: flex-start;
+  }
+  .my04-chev {
+    flex: none;
+    margin-top: var(--space-8);
+    color: var(--muted);
+  }
+  .my04-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .my04-end {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* MY-05 */
+  .my05-cmp {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-4) var(--space-12);
+    align-items: baseline;
+  }
+  .my05-cmp__label {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  .my05-cmp__old {
+    color: var(--secondary);
+  }
+  .my05-cmp__new {
+    color: var(--ink);
+    font-weight: var(--weight-medium);
+  }
+  .my05-reason {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-left: var(--space-12);
+    border-left: var(--border-2) solid var(--line);
+  }
+  .my05-reason__label {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .my05-reason__text {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .my05-help {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  /* A notice holding a reason block: the manage notice's column, not its paragraph */
+  .my05-notice {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  /* CM-01 */
+  .cm01-back {
+    align-self: flex-start;
+  }
+  .cm01-quote {
+    align-self: stretch;
+    padding: var(--space-12);
+    background: var(--paper);
+    border-radius: var(--radius-2);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    white-space: pre-wrap;
+  }
+  .cm01-diff {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--border-1) solid var(--line);
+  }
+  .cm01-diff__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-12) 0;
+    border-bottom: var(--border-1) solid var(--line);
+  }
+  .cm01-diff__pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+  .cm01-diff__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-12);
+    border-radius: var(--radius-2);
+    background: var(--paper);
+    min-width: 0;
+  }
+  .cm01-diff__side[data-side="new"] {
+    background: var(--light);
+  }
+  .cm01-diff__label {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--secondary);
+  }
+  .cm01-diff__value {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .cm01-thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+  .cm01-thumb {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    flex: none;
+    border-radius: var(--radius-2);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .cm01-thumb .photo {
+    width: 100%;
+    height: 100%;
+  }
+  .cm01-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .cm01-thumb[data-removed] img {
+    opacity: 0.4;
+  }
+  .cm01-thumb .badge {
+    position: absolute;
+    left: var(--space-4);
+    bottom: var(--space-4);
+  }
+  .cm01-pair {
+    display: flex;
+    gap: var(--space-8);
+  }
+  .cm01-pair > .button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .cm01-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-12);
+  }
+  .cm01-skel-row {
+    height: 44px;
+  }
+  .cm01-skel-block {
+    height: 88px;
+  }
+  .cm01-dl dd > .m-row,
+  .cm01-dl dd > .m-rows {
+    align-self: stretch;
+  }
+  .cm01-notes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  @media (min-width: 768px) {
+    .my-dl__row,
+    .cm01-dl > div {
+      flex-direction: row;
+      gap: var(--space-16);
+    }
+    .my-dl dt,
+    .cm01-dl dt {
+      width: 160px;
+      flex: none;
+      padding-top: var(--space-4);
+    }
+    .my-dl dd,
+    .cm01-dl dd {
+      flex: 1;
+    }
+    .cm01-diff__pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .cm01-search {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .cm01-search > .button {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .my-buttons {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .my-buttons .button {
+      width: auto;
+      min-width: 200px;
+      padding-inline: var(--space-24);
+    }
+    .cm01-pair > .button {
+      flex: none;
+      width: auto;
+      min-width: 200px;
+      padding-inline: var(--space-24);
+    }
+  }
+}

@@ -59,6 +59,44 @@ export const renderOpsSubject = createServerFn({ method: "GET" })
     };
   });
 
+/** OM-01's four lists, as an RSC payload. */
+export const renderOpsInbox = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .handler(async () => {
+    const { OpsInboxContent } = await import(
+      "@/components/ops/OpsInboxContent"
+    );
+    return { Inbox: renderServerComponent(<OpsInboxContent />) };
+  });
+
+const moderationRef = z.object({ id: z.string().trim().min(1).max(128) });
+
+/** OM-04's claim, as an RSC payload. */
+export const renderTakedownClaim = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(moderationRef))
+  .handler(async ({ data }) => {
+    const { TakedownClaimContent } = await import(
+      "@/components/ops/TakedownClaimContent"
+    );
+    return {
+      Claim: renderServerComponent(<TakedownClaimContent claimId={data.id} />),
+    };
+  });
+
+/** OM-05's report, as an RSC payload. */
+export const renderInfoReport = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(moderationRef))
+  .handler(async ({ data }) => {
+    const { InfoReportContent } = await import(
+      "@/components/ops/InfoReportContent"
+    );
+    return {
+      Report: renderServerComponent(<InfoReportContent reportId={data.id} />),
+    };
+  });
+
 /** OM-06's categories, as an RSC payload. */
 export const renderCategories = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])

@@ -123,6 +123,11 @@
     flex-direction: column;
     gap: var(--space-24);
   }
+  .procedures__links {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-8);
+  }
 
   /* 続きの読み込み (CF-05) */
   .more-status {

@@ -30,6 +30,24 @@ export const renderShopHome = createServerFn({ method: "GET" })
     };
   });
 
+/** SM-07. */
+export const renderConfirmationRequest = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(placeRef.extend({ reportId: idField })))
+  .handler(async ({ data }) => {
+    const { ConfirmationRequestContent } = await import(
+      "@/components/manage/ConfirmationRequestContent"
+    );
+    return {
+      Content: renderServerComponent(
+        <ConfirmationRequestContent
+          placeId={data.placeId}
+          reportId={data.reportId}
+        />,
+      ),
+    };
+  });
+
 /** SM-02 (編集). */
 export const renderPlaceEditor = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])

@@ -1,12 +1,13 @@
 "use client";
 
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import type { OpsSearch } from "@/presentation/opsSearch";
 import { useRememberOpsSearch } from "../OpsSearchReturn";
+import { forgetReportProxy } from "../ProxyReturn";
 
 /**
  * OM-02's two searches: stores by name and / or address, listings by
@@ -16,6 +17,8 @@ import { useRememberOpsSearch } from "../OpsSearchReturn";
 export function OpsSearchForms({ search }: { search: OpsSearch }) {
   const navigate = useNavigate();
   useRememberOpsSearch(search);
+  // A proxy opened from OM-02 leads back here, not to a report.
+  useEffect(forgetReportProxy, []);
   const [name, setName] = useState(search.name ?? "");
   const [address, setAddress] = useState(search.address ?? "");
   const [keyword, setKeyword] = useState(search.q ?? "");

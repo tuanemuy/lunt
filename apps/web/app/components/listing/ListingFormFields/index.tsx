@@ -1,10 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { FramedPhoto } from "@/components/photo/FramedPhoto";
 import { PhotoField } from "@/components/photo/PhotoField";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import type {
+  ListingField,
   ListingFieldErrors,
   ListingFormValues,
 } from "@/presentation/listingForm";
@@ -18,6 +20,16 @@ type ListingFormFieldsProps = {
   categories: readonly CategoryOption[];
   place: Readonly<{ id: string; name: string; address: string }>;
   disabled?: boolean;
+  /**
+   * `required` on an application (RQ-04), which is submitted only when it
+   * meets the publish condition; `publish` (the default) on SM-04, whose
+   * drafts may leave it unmet.
+   */
+  requirement?: "publish" | "required";
+  /** Stands in for the 掲載する店舗 block (RQ-04 shows the application's target above the form). */
+  target?: ReactNode;
+  /** A line after a field, e.g. a revision application's 「変更」 with the current value. */
+  notes?: Readonly<Partial<Record<ListingField, ReactNode>>>;
 };
 
 const optionalError = (message: string | undefined) =>
@@ -36,6 +48,9 @@ export function ListingFormFields({
   categories,
   place,
   disabled = false,
+  requirement = "publish",
+  target,
+  notes = {},
 }: ListingFormFieldsProps) {
   const [cover] = values.photos;
   return (
@@ -55,18 +70,23 @@ export function ListingFormFields({
         id="photos"
         items={values.photos}
         onChange={(photos) => onChange({ photos })}
-        requirement="publish"
+        requirement={requirement}
         addLabel="写真を追加"
         help="1枚目が代表写真になります。写真ごとに、閲覧者に見せる範囲を調整できます。自分で撮影した写真か、許諾を得た写真だけを登録できます。"
         withFraming
         disabled={disabled}
         {...optionalError(errors.photos)}
       />
+      {notes.photos}
       <Field
         id="listing-name"
         label="名称"
-        requirement="publish"
-        help="写真・名称・カテゴリーがあれば公開できます。下書きは、空の項目があっても保存できます。"
+        requirement={requirement}
+        help={
+          requirement === "publish"
+            ? "写真・名称・カテゴリーがあれば公開できます。下書きは、空の項目があっても保存できます。"
+            : "写真・名称・カテゴリーは、提出に必要です。"
+        }
         {...optionalError(errors.name)}
       >
         {(control) => (
@@ -80,10 +100,11 @@ export function ListingFormFields({
           />
         )}
       </Field>
+      {notes.name}
       <Field
         id="listing-category"
         label="カテゴリー"
-        requirement="publish"
+        requirement={requirement}
         {...optionalError(errors.category)}
       >
         {(control) => (
@@ -105,6 +126,7 @@ export function ListingFormFields({
           </Select>
         )}
       </Field>
+      {notes.category}
       <Field
         id="listing-description"
         label="紹介文"
@@ -124,28 +146,34 @@ export function ListingFormFields({
           />
         )}
       </Field>
+      {notes.description}
       <OfferingField
         value={values.offering}
         onChange={(offering) => onChange({ offering })}
         disabled={disabled}
         {...optionalError(errors.offering)}
       />
-      <div className="m-field">
-        <p className="m-field__label">掲載する店舗</p>
-        <LinkList>
-          <li>
-            <ListRowLink
-              to="/manage/places/$placeId/info"
-              params={{ placeId: place.id }}
-              title={place.name}
-              meta={place.address}
-            />
-          </li>
-        </LinkList>
-        <p className="m-field__help">
-          所在地と所属地域は、店舗情報から引いて示します。
-        </p>
-      </div>
+      {notes.offering}
+      {target !== undefined ? (
+        target
+      ) : (
+        <div className="m-field">
+          <p className="m-field__label">掲載する店舗</p>
+          <LinkList>
+            <li>
+              <ListRowLink
+                to="/manage/places/$placeId/info"
+                params={{ placeId: place.id }}
+                title={place.name}
+                meta={place.address}
+              />
+            </li>
+          </LinkList>
+          <p className="m-field__help">
+            所在地と所属地域は、店舗情報から引いて示します。
+          </p>
+        </div>
+      )}
     </>
   );
 }

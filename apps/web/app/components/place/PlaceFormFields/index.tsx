@@ -1,8 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { PhotoField } from "@/components/photo/PhotoField";
 import { Field, Fieldset, Input, Textarea } from "@/components/ui/Field";
 import type {
+  PlaceField,
   PlaceFieldErrors,
   PlaceFormValues,
 } from "@/presentation/placeForm";
@@ -15,6 +17,11 @@ type PlaceFormFieldsProps = {
   errors: PlaceFieldErrors;
   lists: AreaLists;
   disabled?: boolean;
+  /**
+   * A line after a field, e.g. a revision application's 「変更」 with the
+   * current value (RQ-02). The address takes `town`'s note.
+   */
+  notes?: Readonly<Partial<Record<PlaceField, ReactNode>>>;
 };
 
 /** Where CS-10's list of fields to fix leads (in-page anchors). */
@@ -44,6 +51,7 @@ export function PlaceFormFields({
   errors,
   lists,
   disabled = false,
+  notes = {},
 }: PlaceFormFieldsProps) {
   return (
     <>
@@ -74,6 +82,7 @@ export function PlaceFormFields({
         disabled={disabled}
         {...optionalError(errors.photos)}
       />
+      {notes.photos}
       <Field
         id="place-name"
         label="店舗名"
@@ -92,6 +101,7 @@ export function PlaceFormFields({
           />
         )}
       </Field>
+      {notes.name}
       <AddressField
         town={values.town}
         rest={values.addressRest}
@@ -104,6 +114,7 @@ export function PlaceFormFields({
           ? {}
           : { restError: errors.addressRest })}
       />
+      {notes.town}
       <Fieldset
         id="location"
         legend="位置"
@@ -146,6 +157,7 @@ export function PlaceFormFields({
           </Field>
         </div>
       </Fieldset>
+      {notes.location}
       <Field
         id="place-hours"
         label="営業時間"
@@ -165,6 +177,7 @@ export function PlaceFormFields({
           />
         )}
       </Field>
+      {notes.businessHours}
       <Field
         id="place-description"
         label="お店の紹介"
@@ -184,6 +197,7 @@ export function PlaceFormFields({
           />
         )}
       </Field>
+      {notes.description}
       <Field
         id="place-contact"
         label="連絡先"
@@ -204,6 +218,7 @@ export function PlaceFormFields({
           />
         )}
       </Field>
+      {notes.contact}
     </>
   );
 }

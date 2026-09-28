@@ -14,6 +14,7 @@ import { Address } from "@repo/core/domain/common/address";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { requireActor } from "./actor";
 import { loadAreaLists, townOfAddress } from "./areaData";
+import { loadShopTodo } from "./moderationData";
 import type { PlaceProfileInput } from "./place";
 import {
   type AreaLists,
@@ -101,7 +102,7 @@ export async function loadShopHome(rawPlaceId: string): Promise<ShopHomeData> {
   const placeId = placeIdOf(rawPlaceId);
   const view = await getManagedPlace({ container, actor, input: { placeId } });
   requireManagement(view.management.allowed);
-  const [listings, members] = await Promise.all([
+  const [listings, members, todo] = await Promise.all([
     listPlaceListings({
       container,
       actor,
@@ -116,6 +117,7 @@ export async function loadShopHome(rawPlaceId: string): Promise<ShopHomeData> {
       actor,
       input: { target: { kind: "place", id: placeId } },
     }),
+    loadShopTodo(container, actor, placeId),
   ]);
   const [cover] = view.photos;
   const { publication, phase } = listings.counts;
@@ -136,6 +138,7 @@ export async function loadShopHome(rawPlaceId: string): Promise<ShopHomeData> {
       ended: phase.ended,
     },
     stewardCount: members.stewards.length,
+    todo,
   };
 }
 

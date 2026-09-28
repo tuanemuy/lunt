@@ -1,0 +1,248 @@
+/*
+  Page-specific rules of the claim and report screens (RQ-07, RQ-08), the
+  operators' inbox and handling (OM-01, OM-04, OM-05), and the stewards'
+  confirmation requests (SM-01's 対応が必要なこと, SM-07), after the `固有`
+  blocks of spec/design/pages.
+*/
+@layer components {
+  /* RQ-07 削除を求める写真 */
+  .rq07-photos {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-12);
+  }
+  .rq07-photo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+    cursor: pointer;
+  }
+  .rq07-photo input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .rq07-photo__img {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: var(--radius-2);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .rq07-photo__img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter var(--transition-default);
+  }
+  .rq07-photo__cap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .rq07-photo__mark {
+    display: none;
+    align-items: center;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-2);
+    background: var(--light);
+    color: var(--green);
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    font-weight: var(--weight-medium);
+  }
+  .rq07-photo input:checked ~ .rq07-photo__img {
+    box-shadow: 0 0 0 var(--border-2) var(--green);
+  }
+  .rq07-photo input:checked ~ .rq07-photo__cap {
+    color: var(--ink);
+  }
+  .rq07-photo input:checked ~ .rq07-photo__cap .rq07-photo__mark {
+    display: inline-flex;
+  }
+  .rq07-photo input:focus-visible ~ .rq07-photo__img {
+    outline: var(--border-2) solid var(--focus);
+    outline-offset: var(--space-4);
+  }
+  .rq07-photo input:active ~ .rq07-photo__img img {
+    filter: brightness(0.88);
+  }
+  .rq07-photos[aria-invalid="true"] .rq07-photo__img {
+    box-shadow: 0 0 0 var(--border-1) var(--focus);
+  }
+  @media (hover: hover) {
+    .rq07-photo:hover .rq07-photo__img img {
+      filter: brightness(0.92);
+    }
+  }
+
+  /* RQ-07 写真が外された */
+  .rq07-removed-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+  .rq07-removed {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+  }
+  .rq07-removed__thumb {
+    width: 88px;
+    height: 88px;
+    flex: none;
+    border-radius: var(--radius-2);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .rq07-removed__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+  }
+  .rq07-removed__text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  /* OM-01 行の対象から、対応する画面へ */
+  a.om-table__title {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    min-height: var(--size-touch);
+    margin-block: calc(-1 * var(--space-12));
+    border-radius: var(--radius-2);
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: var(--space-4);
+    transition: text-decoration-color var(--transition-default);
+  }
+  a.om-table__title:active {
+    color: var(--green);
+  }
+  @media (hover: hover) {
+    a.om-table__title:hover {
+      text-decoration-color: currentColor;
+    }
+  }
+
+  /* RQ-08 掲載とその店舗 */
+  .rq08-targets {
+    gap: var(--space-16);
+  }
+
+  /* OM-04 / OM-05 */
+  .om04-back,
+  .om05-back {
+    align-self: flex-start;
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+  }
+  .om04-result {
+    min-height: 120px;
+  }
+  .om04-text,
+  .om05-body {
+    white-space: pre-wrap;
+  }
+  .m-photos__thumb > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .m-photos__text .badge {
+    align-self: flex-start;
+  }
+  .om05-text {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+  }
+  .om05-proxy {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+  .om05-proxy .chip-button {
+    flex: 1 1 auto;
+  }
+
+  /* SM-01 対応が必要なこと */
+  .sm01-todo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .sm01-todo .notice__title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .sm01-todo .notice__actions {
+    align-items: stretch;
+  }
+  .sm01-todo .m-list {
+    border-top: var(--border-1) solid var(--line);
+  }
+  .sm01-todo .m-list__item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  /* SM-07 依頼の内容 */
+  .p-dl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .p-dl__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .p-dl dt {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .p-dl dd {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .p-quote {
+    padding: var(--space-16);
+    background: var(--paper);
+    border-radius: var(--radius-2);
+    white-space: pre-wrap;
+  }
+
+  @media (min-width: 768px) {
+    .rq07-photos {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .om05-proxy .chip-button {
+      flex: none;
+    }
+  }
+}

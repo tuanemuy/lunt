@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import {
   ManageBody,
   ManageHeading,
@@ -41,6 +41,7 @@ import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
 import { OpsSearchReturnLink } from "../OpsSearchReturn";
 import { OpsNav } from "../OpsShell";
+import { forgetReportProxy } from "../ProxyReturn";
 
 const KIND_LABEL = { place: "店舗", listing: "掲載" } as const;
 
@@ -507,6 +508,8 @@ function ListingSubject({ data }: { data: ListingSubjectData }) {
  * OM-03 has no absence-proxy entry; OM-02 has them.
  */
 export function OpsSubjectView({ data }: { data: OpsSubjectData }) {
+  // CM-02 opened from here leads back here, not to a report.
+  useEffect(forgetReportProxy, []);
   return data.kind === "place" ? (
     <PlaceSubject data={data} />
   ) : (

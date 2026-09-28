@@ -4,7 +4,7 @@ import { useId, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipButton } from "@/components/ui/ChipButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Fieldset } from "@/components/ui/Field";
+import { type FieldRequirement, Fieldset } from "@/components/ui/Field";
 import { classifyError } from "@/presentation/errorState";
 import type { Framing } from "@/presentation/listingView";
 import { newId } from "@/presentation/newId";
@@ -23,8 +23,11 @@ type PhotoFieldProps = {
   id: string;
   items: readonly PhotoFieldItem[];
   onChange: (items: readonly PhotoFieldItem[]) => void;
-  /** `publish` (公開に必須) on listings; stores' photos are optional. */
-  requirement: "optional" | "publish";
+  /**
+   * `publish` (公開に必須) on listings; stores' photos are optional; an
+   * application's listing needs them to be submitted (`required`).
+   */
+  requirement: FieldRequirement;
   addLabel: string;
   help: string;
   /** Offer 範囲 (見せる範囲) per photo: listings only (CF-01). */

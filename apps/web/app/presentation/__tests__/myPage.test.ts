@@ -5,11 +5,12 @@ const titles = (sections: ReturnType<typeof myPageSections>) =>
   sections.map((section) => section.title);
 
 describe("myPageSections", () => {
-  it("shows only the notifications for an account without authority", () => {
+  it("shows only the notifications and applications for an account without authority", () => {
     const sections = myPageSections([], []);
     expect(titles(sections)).toEqual(["お知らせと申請"]);
     expect(sections[0]?.entries).toEqual([
       expect.objectContaining({ title: "通知", to: "/me/notifications" }),
+      expect.objectContaining({ title: "自分の申請", to: "/me/applications" }),
     ]);
   });
 

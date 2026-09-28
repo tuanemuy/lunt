@@ -13,7 +13,7 @@ import {
 import { FindPlaceGuide } from "@/components/request/FindPlaceGuide";
 import { PlaceMatchesSkeleton } from "@/components/request/PlaceMatchesSkeleton";
 import { Alert } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import { findPlaceSearchSchema } from "@/presentation/findPlace";
 import { renderPlaceMatches } from "./-render";
@@ -48,11 +48,19 @@ function Title() {
   );
 }
 
-function SearchButton() {
+/** お店を探す, and — once searched, whatever the results — the way to register a new place (RQ-02). */
+function Actions({ searched }: { searched: boolean }) {
   return (
-    <Button type="submit" form={FIND_PLACE_FORM_ID}>
-      お店を探す
-    </Button>
+    <>
+      <Button type="submit" form={FIND_PLACE_FORM_ID}>
+        お店を探す
+      </Button>
+      {searched ? (
+        <ButtonLink variant="secondary" to="/apply/places/new">
+          見つからないので新規登録
+        </ButtonLink>
+      ) : null}
+    </>
   );
 }
 
@@ -62,7 +70,7 @@ function FindPlacePage() {
   const searched = Matches !== null;
   const terms = `${name ?? ""}\u0000${address ?? ""}`;
   return (
-    <ManagePage title={<Title />} actions={<SearchButton />}>
+    <ManagePage title={<Title />} actions={<Actions searched={searched} />}>
       <ManageBody>
         {searched ? null : <FindPlaceGuide />}
         <p className="my-lead">すでに掲載されているお店を探します。</p>
@@ -93,7 +101,7 @@ function FindPlaceError() {
   const { name, address } = Route.useSearch();
   const terms = `${name ?? ""}\u0000${address ?? ""}`;
   return (
-    <ManagePage title={<Title />} actions={<SearchButton />}>
+    <ManagePage title={<Title />} actions={<Actions searched />}>
       <ManageBody>
         <Alert
           title="お店を探せませんでした"

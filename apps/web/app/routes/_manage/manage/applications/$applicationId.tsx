@@ -1,0 +1,159 @@
+import {
+  createFileRoute,
+  type ErrorComponentProps,
+  useRouter,
+} from "@tanstack/react-router";
+import { type ReactNode, useTransition } from "react";
+import { ApplicationReviewView } from "@/components/application/ApplicationReviewView";
+import { ApplicationDetailSkeleton } from "@/components/application/ApplicationSkeleton";
+import { RouteErrorContent } from "@/components/feedback/RouteErrorView";
+import {
+  ManageBody,
+  ManageHeading,
+  ManagePage,
+  ManageShell,
+  ManageTitle,
+} from "@/components/layout/ManageShell";
+import { OPS_HOME, OpsNav } from "@/components/ops/OpsShell";
+import { Alert } from "@/components/ui/Alert";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { TextLink } from "@/components/ui/TextButton";
+import { loadApplicationReviewFn } from "@/presentation/applicationReview";
+import { classifyError } from "@/presentation/errorState";
+
+/**
+ * CM-01 申請の判断. The management layout requires a login (CS-04); the
+ * loader returns plain data so that a viewer who is not the approver
+ * (CS-05) and a missing application (CS-17) reach the error view
+ * classified. In stage 2 every kind is the operators' to decide, so the
+ * frame is the service-operation one; the region and event navs join
+ * with their kinds (S3B).
+ */
+export const Route = createFileRoute(
+  "/_manage/manage/applications/$applicationId",
+)({
+  loader: ({ params }) =>
+    loadApplicationReviewFn({
+      data: { applicationId: params.applicationId },
+    }),
+  head: () => ({ meta: [{ title: "申請の判断 — Lunt" }] }),
+  pendingComponent: ReviewPending,
+  component: ReviewPage,
+  errorComponent: ReviewError,
+});
+
+function Frame({ nav, children }: { nav: boolean; children: ReactNode }) {
+  return (
+    <ManageShell context="サービス運営" homeTo={OPS_HOME} solo={!nav}>
+      <ManagePage
+        title={
+          <ManageTitle>
+            {nav ? (
+              <TextLink to={OPS_HOME} className="cm01-back">
+                対応が必要なものへ戻る
+              </TextLink>
+            ) : null}
+            <ManageHeading>申請の判断</ManageHeading>
+          </ManageTitle>
+        }
+        {...(nav ? { nav: <OpsNav /> } : {})}
+      >
+        {children}
+      </ManagePage>
+    </ManageShell>
+  );
+}
+
+function ReviewPending() {
+  return (
+    <Frame nav>
+      <ApplicationDetailSkeleton />
+    </Frame>
+  );
+}
+
+function ReviewPage() {
+  const data = Route.useLoaderData();
+  return <ApplicationReviewView key={data.id} data={data} />;
+}
+
+/** CS-05 (not its approver), CS-17 (no such application), CS-02 with retry. */
+function ReviewError({ error }: ErrorComponentProps) {
+  const router = useRouter();
+  const [retrying, startRetry] = useTransition();
+  const state = classifyError(error);
+  switch (state.kind) {
+    case "loginRequired":
+      return (
+        <ManageShell context="サービス運営" homeTo="/me" solo>
+          <RouteErrorContent problem={{ kind: "error", error }} inManageShell />
+        </ManageShell>
+      );
+    case "forbidden":
+      return (
+        <Frame nav={false}>
+          <ManageBody>
+            <EmptyPanel
+              title="この申請の承認者ではありません"
+              actions={
+                <>
+                  <ButtonLink to="/me">マイページへ戻る</ButtonLink>
+                  <ButtonLink variant="secondary" to="/me/notifications">
+                    通知へ戻る
+                  </ButtonLink>
+                </>
+              }
+            >
+              申請の判断は、その申請の承認者だけが行えます。管理する店舗・地域・イベントは、マイページから開けます。
+            </EmptyPanel>
+          </ManageBody>
+        </Frame>
+      );
+    case "notFound":
+      return (
+        <Frame nav>
+          <ManageBody>
+            <EmptyPanel
+              title="申請が見つかりません"
+              actions={
+                <>
+                  <ButtonLink to={OPS_HOME}>対応が必要なものへ戻る</ButtonLink>
+                  <ButtonLink variant="secondary" to="/me/notifications">
+                    通知へ戻る
+                  </ButtonLink>
+                </>
+              }
+            >
+              開いた申請はありません。申請の一覧から、もう一度選んでください。
+            </EmptyPanel>
+          </ManageBody>
+        </Frame>
+      );
+    default:
+      return (
+        <Frame nav>
+          <ManageBody>
+            <Alert
+              title="申請を読み込めませんでした"
+              actions={
+                <Button
+                  variant="secondary"
+                  disabled={retrying}
+                  onClick={() =>
+                    startRetry(async () => {
+                      await router.invalidate({ sync: true });
+                    })
+                  }
+                >
+                  {retrying ? "読み込んでいます…" : "もう一度読み込む"}
+                </Button>
+              }
+            >
+              通信を確かめて、もう一度読み込んでください。
+            </Alert>
+          </ManageBody>
+        </Frame>
+      );
+  }
+}

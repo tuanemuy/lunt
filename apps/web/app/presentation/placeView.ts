@@ -1,4 +1,5 @@
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
+import type { ShopTodo } from "./moderation";
 
 export type { OperatingStatus };
 
@@ -123,6 +124,8 @@ export type ShopHomeData = Readonly<{
     ended: number;
   }>;
   stewardCount: number;
+  /** 対応が必要なこと. */
+  todo: ShopTodo;
 }>;
 
 /** What SM-02 edits: the whole profile, the status and the lists the address starts from. */

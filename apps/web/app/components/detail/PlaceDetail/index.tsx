@@ -2,6 +2,8 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
+import { TextLink } from "@/components/ui/TextButton";
+import { infoReportPath, takedownPath } from "@/presentation/applyView";
 import type { PlaceDetailPage } from "@/presentation/detail";
 import type { PlaceDetailData } from "@/presentation/detailView";
 import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
@@ -48,6 +50,63 @@ function PlaceMap({ data }: { data: PlaceDetailData }) {
       <span className="map-pin" aria-hidden="true">
         店
       </span>
+    </div>
+  );
+}
+
+/**
+ * 「詳細の手続きの入口」 of DT-02 (`spec/pages/index.md`): the management
+ * (SM-01) for its steward, otherwise 「このお店を管理する」 (RQ-03); the
+ * applications of a place without a steward (RQ-02, RQ-04) or the report
+ * for one with a steward (RQ-08); the takedown claim (RQ-07) always. The
+ * affiliation application (RQ-05) and the save toggle (CF-04) join with
+ * their stages.
+ */
+function PlaceProcedures({ data }: { data: PlaceDetailData }) {
+  const { placeId } = data;
+  return (
+    <div className="procedures">
+      <hr className="divider" />
+      {data.viewerIsSteward ? (
+        <ButtonLink variant="secondary" to={shopHomePath(placeId)}>
+          お店の管理へ
+        </ButtonLink>
+      ) : (
+        <ButtonLink
+          variant="secondary"
+          to="/apply/places/$placeId/stewardship"
+          params={{ placeId }}
+        >
+          このお店を管理する
+        </ButtonLink>
+      )}
+      <div className="procedures__links">
+        {data.placeIsVacant ? (
+          <>
+            <TextLink
+              quiet
+              to="/apply/places/$placeId/revision"
+              params={{ placeId }}
+            >
+              お店の情報の修正を申請する
+            </TextLink>
+            <TextLink
+              quiet
+              to="/apply/places/$placeId/listings/new"
+              params={{ placeId }}
+            >
+              掲載を申請する
+            </TextLink>
+          </>
+        ) : (
+          <TextLink quiet to={infoReportPath("place", placeId)}>
+            情報の誤り・閉店を連絡する
+          </TextLink>
+        )}
+        <TextLink quiet to={takedownPath("place", placeId)}>
+          このお店の取り下げを申し立てる
+        </TextLink>
+      </div>
     </div>
   );
 }
@@ -120,14 +179,7 @@ export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
             <PlaceMap data={data} />
           </section>
 
-          {data.viewerIsSteward ? (
-            <div className="procedures">
-              <hr className="divider" />
-              <ButtonLink variant="secondary" to={shopHomePath(data.placeId)}>
-                お店の管理へ
-              </ButtonLink>
-            </div>
-          ) : null}
+          <PlaceProcedures data={data} />
         </div>
       </div>
     </div>
