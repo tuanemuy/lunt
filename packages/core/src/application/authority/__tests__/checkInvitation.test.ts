@@ -100,12 +100,14 @@ describe("checkInvitation", () => {
   it("checkInvitation#8 C は店舗 P の管理者（C 宛ての招待の後、管理権限の申請が先に承認された） / C を Actor として、その招待の InvitationId で確認する", async () => {
     const k = authorityKit();
     const [A, C] = [await k.person(), await k.person()];
-    const P = k.place();
+    const P = k.place("喫茶ルント");
     await k.appoint(P, A);
     const invitation = await k.invite(P, C.email);
     await k.appoint(P, C);
     expect(await check(k, C, P, invitation)).toEqual({
       status: "already_steward",
+      target: P,
+      name: "喫茶ルント",
     });
   });
 

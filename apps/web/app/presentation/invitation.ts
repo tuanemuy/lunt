@@ -41,7 +41,7 @@ export type InvitationView =
   | Readonly<{ status: "not_found" }>
   | Readonly<{
       status: "already_steward";
-      target: Readonly<{ kind: StewardedKind; id: string }>;
+      target: InvitationTarget;
     }>;
 
 export const checkInvitationSchema = z.object({
@@ -99,7 +99,10 @@ export const checkInvitationFn = createServerFn({ method: "GET" })
       case "addressed_to_other":
         return { status: "addressed_to_other", email: account.email };
       case "already_steward":
-        return { status: "already_steward", target: { kind, id } };
+        return {
+          status: "already_steward",
+          target: { kind, id, name: result.name },
+        };
       case "not_found":
         return { status: "not_found" };
     }

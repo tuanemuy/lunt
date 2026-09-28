@@ -244,7 +244,7 @@ export function InvitationScreen({
           <ManageBody>
             <FocusOnMount role="status">
               <EmptyPanel
-                title={`すでにこの${words.target}の${words.role}です`}
+                title={`すでに${displayName(shown.target)}の${words.role}です`}
                 actions={
                   <ButtonLink
                     to={managementHomePath(shown.target.kind, shown.target.id)}
