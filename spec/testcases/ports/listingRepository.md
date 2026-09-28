@@ -23,7 +23,6 @@
 | 掲載がない | 存在しない ID で `delete` する | `NotFoundError` | |
 | 掲載を `delete` している | 同じ ID の掲載を `save` する | `NotFoundError` | |
 | 掲載 X を `insert` し、`delete` している | X と同じ ID の下書きを `insert` する | `ConflictError`。`findById` は `null` のまま（削除した掲載の ID は、作成に使えない） | |
-| 掲載 X を `insert` し、`delete` している。掲載 Y を `insert` している | `isDeleted(X.id)`、`isDeleted(Y.id)`、`isDeleted`（一度も作られていない ID） | `true`、`false`、`false` | |
 | 店舗 A の掲載を `insert` し、`delete` している | `findByIds`、`findPageByPlace`、`countByPlace`、`findPageAttachable`、`findPageByCategories`、`searchForOperation` で、その掲載に当たる条件を問い合わせる | どの問い合わせにも、削除した掲載は現れない。`countByPlace` の件数にも入らない | |
 
 ## findByIds
@@ -135,3 +134,9 @@
 | 掲載 X を `insert` している | `run` の中で X を `delete` した後に、例外を投げる | ロールバックされる。X は残り、すべての問い合わせに現れる | |
 | 掲載 X と Y を `insert` している | `run` の中で X を `save` し、Y を古い `expectedVersion` で `save` する | 遅くともコミットの時点で `ConflictError` になり、X の `save` も反映されない | |
 | 掲載がない | `run` の中で、同じ ID の掲載を2回 `insert` する | 遅くともコミットの時点で `ConflictError` になり、掲載は1件も残らない | |
+
+## isDeleted
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| 掲載 X を `insert` し、`delete` している。掲載 Y を `insert` している | `isDeleted(X.id)`、`isDeleted(Y.id)`、`isDeleted`（一度も作られていない ID） | `true`、`false`、`false` | |
