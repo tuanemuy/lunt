@@ -1,6 +1,7 @@
 import type { ListingId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
+import { affiliateWithRegions } from "../../discovery/__tests__/regionTies";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { previewListing } from "../previewListing";
 import { type ListingKit, listingKit, period } from "./kit";
@@ -13,13 +14,11 @@ const previewer = (k: ListingKit) => (who: Person, listingId: ListingId) =>
   });
 
 describe("previewListing", () => {
-  it.todo(
-    "previewListing#1 店舗 A の下書きに、写真2枚（1枚目に見せる範囲）、名称、カテゴリー、説明、提供期間がある。店舗 A は公開中の地域 R に所属している。操作する人は店舗 A の店舗管理者 / 見え方を確認する",
-  ); // S3: region affiliations (Region)
-
-  it("projects a draft's photos, framing, names, category, description and period the way viewers would see them, without price or tagline", async () => {
+  it("previewListing#1 店舗 A の下書きに、写真2枚（1枚目に見せる範囲）、名称、カテゴリー、説明、提供期間がある。店舗 A は公開中の地域 R に所属している。操作する人は店舗 A の店舗管理者 / 見え方を確認する", async () => {
     const k = await listingKit();
     const a = await k.place("山田商店");
+    const [R] = await affiliateWithRegions(k, a, [{ name: "谷中" }]);
+    if (R === undefined) throw new Error("a region");
     const m = await k.manager(a);
     const [p1, p2] = await k.photos(m, 2);
     if (p1 === undefined || p2 === undefined) throw new Error("photos");
@@ -37,7 +36,7 @@ describe("previewListing", () => {
       cover: { photoId: p1, framing },
       listingName: "りんご飴",
       placeName: "山田商店",
-      region: null,
+      region: "谷中",
     });
     expect(view.preview.detail).toMatchObject({
       name: "りんご飴",
@@ -50,7 +49,7 @@ describe("previewListing", () => {
         kind: "period",
         period: { start: "2026-07-20", end: "2026-08-31" },
       },
-      regions: [],
+      regions: [expect.objectContaining({ regionId: R.id, name: "谷中" })],
     });
     expect(view.category).toMatchObject({ name: "食べる" });
     expect(view.photoRefs.size).toBe(2);
@@ -74,9 +73,22 @@ describe("previewListing", () => {
     expect(view.publication.status).toBe("unpublished");
   });
 
-  it.todo(
-    "previewListing#3 店舗 A の代表地域は公開を取り下げていて、店舗 A はほかに公開中の地域 S に所属している / 見え方を確認する",
-  ); // S3: region affiliations and region publication (Region)
+  it("previewListing#3 店舗 A の代表地域は公開を取り下げていて、店舗 A はほかに公開中の地域 S に所属している / 見え方を確認する", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const [, S] = await affiliateWithRegions(
+      k,
+      a,
+      [{ name: "谷中", state: "unpublished" }, { name: "根津" }],
+      0,
+    );
+    if (S === undefined) throw new Error("two regions");
+    const m = await k.manager(a);
+    const draft = await k.draft(m, a);
+    const view = await previewer(k)(m, draft.id);
+    expect(view.preview.summary.region).toBe("根津");
+    expect(view.preview.detail.regions.map((r) => r.regionId)).toEqual([S.id]);
+  });
 
   it("previewListing#4 店舗 A はどの地域にも所属していない / 見え方を確認する", async () => {
     const k = await listingKit();

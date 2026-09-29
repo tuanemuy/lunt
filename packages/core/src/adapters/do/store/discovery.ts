@@ -1,36 +1,63 @@
+import { Address } from "@repo/core/domain/common/address";
+import { AreaCode } from "@repo/core/domain/common/areaCode";
+import {
+  KeywordRelevance,
+  SearchKeyword,
+} from "@repo/core/domain/common/searchKeyword";
+import { ListingMatching } from "@repo/core/domain/listing/listingMatching";
+import { Occasion } from "@repo/core/domain/occasion/occasion";
+import { PlaceMatching } from "@repo/core/domain/place/matching";
+import { Place } from "@repo/core/domain/place/place";
+import { Region } from "@repo/core/domain/region/region";
 import type {
   DiscoveryCommand,
   DiscoveryQueries,
   ListingEntryRecord,
+  ParticipantEntryRecord,
   PlaceEntryRecord,
   ReferenceResolutionRecord,
   RefRecord,
+  ScoredRecord,
   SubstituteCoverRecord,
 } from "../protocol/discovery";
 import type { ListingRecord, OfferingRecord } from "../protocol/listing";
+import type { OccasionRecord } from "../protocol/occasion";
+import type { PlaceRecord } from "../protocol/place";
+import type { PlaceAffiliationsRecord, RegionRecord } from "../protocol/region";
 import type { SqlExec, SqlRow } from "../sql";
 import type { CommandHandlersOf } from "./commands";
 import { LISTING_PHASE_SQL } from "./listing";
+import {
+  OCCASION_COLUMNS,
+  type OccasionRow,
+  occasionRowToRecord,
+  participationRowToRecord,
+} from "./occasion";
 import { PLACE_COLUMNS, type PlaceRow, placeRowToRecord } from "./place";
 import type { QueryHandlersOf } from "./queries";
+import { REGION_COLUMNS, type RegionRow, regionRowToRecord } from "./region";
 import type { Migration } from "./schema";
 
 /**
- * Discovery keeps no state of its own: every read is computed from Place's
- * and Listing's tables (`store/place.ts`, `store/listing.ts` document the
- * columns), so it has no migration. Migration 13 stays reserved for
- * Discovery should a read ever need an index.
+ * Discovery keeps no state of its own: every read is computed from Place's,
+ * Listing's, Region's, Occasion's and Authority's tables (their store
+ * modules document the columns), so it has no migration. Migration 13
+ * stays reserved for Discovery should a read ever need an index.
  */
 export const DISCOVERY_MIGRATIONS: readonly Migration[] = [];
 
 /*
- * The SQL forms of `VisibilityPolicy` over `places p` and `listings l`
- * (`domain/discovery/visibilityPolicy.ts`). They compare stored flags only;
- * the conformance suites check them against the pure functions.
+ * The SQL forms of `VisibilityPolicy` over `places p`, `listings l`,
+ * `regions r` and `occasions o` (`domain/discovery/visibilityPolicy.ts`).
+ * They compare stored flags and calendar days only; the conformance suites
+ * check them against the pure functions.
  */
 
 /** `isPlaceViewable`: not suspended. */
 const PLACE_VIEWABLE = "p.suspended = 0";
+
+/** `admits("discovery", Standing.ofPlace(…))`: not permanently closed. */
+const PLACE_DISCOVERABLE = "p.operating_status <> 'permanentlyClosed'";
 
 /** `isListingViewable`: published, not suspended, at a viewable place. */
 const LISTING_VIEWABLE = `l.publication_status = 'published'
@@ -41,12 +68,48 @@ const LISTING_VIEWABLE = `l.publication_status = 'published'
  * twice, at a place not permanently closed.
  */
 const LISTING_DISCOVERABLE = `(${LISTING_PHASE_SQL}) = 'available'
-  AND p.operating_status <> 'permanentlyClosed'`;
+  AND ${PLACE_DISCOVERABLE}`;
 
 /** 「店舗の掲載の順」: available, upcoming, ended; newest first; id. Binds the day twice. */
 const LISTINGS_OF_PLACE_ORDER = `CASE (${LISTING_PHASE_SQL})
     WHEN 'available' THEN 0 WHEN 'upcoming' THEN 1 ELSE 2 END,
   l.first_published_at DESC, l.id`;
+
+/** `isRegionViewable`: published and not suspended. */
+const REGION_VIEWABLE =
+  "r.publication_status = 'published' AND r.suspended = 0";
+
+/** `isOccasionViewable`: published and not suspended. */
+const OCCASION_VIEWABLE =
+  "o.publication_status = 'published' AND o.suspended = 0";
+
+/**
+ * `admits("discovery", Standing.ofOccasion(…))` of a published occasion
+ * (which has a period): not cancelled and not over on the day bound once
+ * — upcoming or ongoing.
+ */
+const OCCASION_OPEN = "o.cancelled = 0 AND o.period_end >= ?";
+
+/** 「開催日の順」: period start, then end, then id. */
+const OCCASION_ORDER = "o.period_start, o.period_end, o.id";
+
+/**
+ * `Stewardship.isVacant` of the place `p`: no stored stewardship, or a
+ * stored vacant one.
+ */
+const PLACE_VACANT = `NOT EXISTS (SELECT 1 FROM stewardships s
+  WHERE s.target_kind = 'place' AND s.target_id = p.id
+    AND s.status <> 'vacant')`;
+
+/** `REGION_COLUMNS` qualified by the alias `r`. */
+const R_COLUMNS = REGION_COLUMNS.split(",")
+  .map((column) => `r.${column.trim()}`)
+  .join(", ");
+
+/** `PLACE_COLUMNS` qualified by the alias `p`. */
+const P_COLUMNS = PLACE_COLUMNS.split(",")
+  .map((column) => `p.${column.trim()}`)
+  .join(", ");
 
 type ListingRow = Readonly<{
   id: string;
@@ -100,10 +163,45 @@ const listingRowToRecord = (row: ListingRow): ListingRecord => ({
   version: Number(row.version),
 });
 
+type ParticipationRow = Parameters<typeof participationRowToRecord>[0];
+
+const PARTICIPATION_COLUMNS = `op.occasion_id, op.place_id, op.listing_ids,
+  op.dates, op.participated_at, op.updated_at, op.version`;
+
+type AffiliationsRow = Readonly<{
+  place_id: string;
+  affiliations: string;
+  chosen_representative: string | null;
+  updated_at: number;
+  version: number;
+}> &
+  SqlRow;
+
 type CountRow = Readonly<{ n: number }> & SqlRow;
 type PhotosRow = Readonly<{ id: string; photos: string }> & SqlRow;
+type Page<T> = Readonly<{ items: readonly T[]; count: number }>;
 
 const idsParam = (ids: readonly string[]): string => JSON.stringify(ids);
+
+const byCodePoint = (a: string, b: string): number =>
+  a < b ? -1 : a > b ? 1 : 0;
+
+const offsetOf = (page: number, limit: number): number => (page - 1) * limit;
+
+const countOf = (sql: SqlExec, from: string, ...bindings: unknown[]) =>
+  Number(
+    sql.exec<CountRow>(`SELECT COUNT(*) AS n ${from}`, ...bindings).toArray()[0]
+      ?.n ?? 0,
+  );
+
+/** The JSON column as stored; the request side refuses a malformed one. */
+function parseLoose<T>(raw: string): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return raw as T;
+  }
+}
 
 function viewablePlaceRows(
   sql: SqlExec,
@@ -142,21 +240,94 @@ function substituteCoverOf(
   return photo === undefined ? null : { listingId: newest.id, photo };
 }
 
+/** Stored affiliations of `placeIds`, keyed by place id. */
+function affiliationsOf(
+  sql: SqlExec,
+  placeIds: readonly string[],
+): ReadonlyMap<string, PlaceAffiliationsRecord> {
+  if (placeIds.length === 0) return new Map();
+  const rows = sql
+    .exec<AffiliationsRow>(
+      `SELECT place_id, affiliations, chosen_representative, updated_at,
+              version
+         FROM place_affiliations
+         WHERE place_id IN (SELECT value FROM json_each(?))`,
+      idsParam(placeIds),
+    )
+    .toArray();
+  return new Map(
+    rows.map((row) => [
+      row.place_id,
+      {
+        placeId: row.place_id,
+        affiliations: parseLoose<PlaceAffiliationsRecord["affiliations"]>(
+          row.affiliations,
+        ),
+        chosenRepresentative: row.chosen_representative,
+        updatedAt: Number(row.updated_at),
+        version: Number(row.version),
+      },
+    ]),
+  );
+}
+
+/** The viewable regions each of `placeIds` is affiliated with, by place id. */
+function viewableRegionsOfPlaces(
+  sql: SqlExec,
+  placeIds: readonly string[],
+): ReadonlyMap<string, readonly RegionRecord[]> {
+  const byPlace = new Map<string, RegionRecord[]>();
+  if (placeIds.length === 0) return byPlace;
+  const rows = sql
+    .exec<RegionRow & Readonly<{ affiliated_place_id: string }>>(
+      `SELECT ra.place_id AS affiliated_place_id, ${R_COLUMNS}
+         FROM region_affiliations ra JOIN regions r ON r.id = ra.region_id
+         WHERE ra.place_id IN (SELECT value FROM json_each(?))
+           AND ${REGION_VIEWABLE}
+         ORDER BY ra.affiliated_at, r.id`,
+      idsParam(placeIds),
+    )
+    .toArray();
+  for (const row of rows) {
+    const regions = byPlace.get(row.affiliated_place_id);
+    const record = regionRowToRecord(row);
+    if (regions === undefined) byPlace.set(row.affiliated_place_id, [record]);
+    else regions.push(record);
+  }
+  return byPlace;
+}
+
 /** Entries of the viewable places among `ids`, keyed by id. */
 function placeEntries(
   sql: SqlExec,
   ids: readonly string[],
 ): ReadonlyMap<string, PlaceEntryRecord> {
+  const rows = viewablePlaceRows(sql, [...new Set(ids)]);
+  const placeIds = rows.map((row) => row.id);
+  const affiliations = affiliationsOf(sql, placeIds);
+  const regions = viewableRegionsOfPlaces(sql, placeIds);
   return new Map(
-    viewablePlaceRows(sql, [...new Set(ids)]).map((row) => [
+    rows.map((row) => [
       row.id,
       {
         place: placeRowToRecord(row),
+        affiliations: affiliations.get(row.id) ?? null,
+        regions: regions.get(row.id) ?? [],
         substituteCover: substituteCoverOf(sql, row),
       },
     ]),
   );
 }
+
+/** `ids` in their order, each looked up in `found`; missing ones dropped. */
+const inOrder = <T>(
+  ids: readonly string[],
+  found: ReadonlyMap<string, T>,
+): readonly T[] =>
+  ids.flatMap((id) => {
+    const value = found.get(id);
+    return value === undefined ? [] : [value];
+  });
 
 function listingEntries(
   sql: SqlExec,
@@ -174,24 +345,74 @@ function listingEntries(
   });
 }
 
+function viewableListingRows(
+  sql: SqlExec,
+  ids: readonly string[],
+): readonly ListingRow[] {
+  if (ids.length === 0) return [];
+  return sql
+    .exec<ListingRow>(
+      `SELECT ${LISTING_COLUMNS} FROM listings l
+         JOIN places p ON p.id = l.place_id
+         WHERE l.id IN (SELECT value FROM json_each(?)) AND ${LISTING_VIEWABLE}`,
+      idsParam([...new Set(ids)]),
+    )
+    .toArray();
+}
+
 /** The viewable listings among `ids`, keyed by id. */
 function viewableListings(
   sql: SqlExec,
   ids: readonly string[],
 ): ReadonlyMap<string, ListingEntryRecord> {
-  if (ids.length === 0) return new Map();
-  const rows = sql
-    .exec<ListingRow>(
-      `SELECT ${LISTING_COLUMNS} FROM listings l
-         JOIN places p ON p.id = l.place_id
-         WHERE l.id IN (SELECT value FROM json_each(?)) AND ${LISTING_VIEWABLE}`,
-      idsParam(ids),
-    )
-    .toArray();
   return new Map(
-    listingEntries(sql, rows).map((entry) => [entry.listing.id, entry]),
+    listingEntries(sql, viewableListingRows(sql, ids)).map((entry) => [
+      entry.listing.id,
+      entry,
+    ]),
   );
 }
+
+function viewableRegionRecords(
+  sql: SqlExec,
+  ids: readonly string[],
+): ReadonlyMap<string, RegionRecord> {
+  if (ids.length === 0) return new Map();
+  return new Map(
+    sql
+      .exec<RegionRow>(
+        `SELECT ${R_COLUMNS} FROM regions r
+           WHERE r.id IN (SELECT value FROM json_each(?)) AND ${REGION_VIEWABLE}`,
+        idsParam(ids),
+      )
+      .toArray()
+      .map((row) => [row.id, regionRowToRecord(row)]),
+  );
+}
+
+function viewableOccasionRecords(
+  sql: SqlExec,
+  ids: readonly string[],
+): ReadonlyMap<string, OccasionRecord> {
+  if (ids.length === 0) return new Map();
+  return new Map(
+    sql
+      .exec<OccasionRow>(
+        `SELECT ${OCCASION_COLUMNS} FROM occasions o
+           WHERE o.id IN (SELECT value FROM json_each(?))
+             AND ${OCCASION_VIEWABLE}`,
+        idsParam(ids),
+      )
+      .toArray()
+      .map((row) => [row.id, occasionRowToRecord(row)]),
+  );
+}
+
+const isRegionViewable = (sql: SqlExec, regionId: string): boolean =>
+  viewableRegionRecords(sql, [regionId]).has(regionId);
+
+const isOccasionViewable = (sql: SqlExec, occasionId: string): boolean =>
+  viewableOccasionRecords(sql, [occasionId]).has(occasionId);
 
 const refKey = (ref: RefRecord): string => `${ref.kind}:${ref.id}`;
 
@@ -206,18 +427,42 @@ function resolve(
     distinct.filter((ref) => ref.kind === kind).map((ref) => ref.id);
   const listings = viewableListings(sql, idsOf("listing"));
   const places = placeEntries(sql, idsOf("place"));
+  const regions = viewableRegionRecords(sql, idsOf("region"));
+  const occasions = viewableOccasionRecords(sql, idsOf("occasion"));
   return distinct.map((ref): ReferenceResolutionRecord => {
-    const { kind, id } = ref;
-    if (kind === "listing") {
-      const entry = listings.get(id);
-      if (entry !== undefined) {
-        return { ref, viewable: true, target: { kind, entry } };
+    const { id } = ref;
+    switch (ref.kind) {
+      case "listing": {
+        const entry = listings.get(id);
+        if (entry !== undefined) {
+          return { ref, viewable: true, target: { kind: "listing", entry } };
+        }
+        break;
       }
-    }
-    if (kind === "place") {
-      const entry = places.get(id);
-      if (entry !== undefined) {
-        return { ref, viewable: true, target: { kind, entry } };
+      case "place": {
+        const entry = places.get(id);
+        if (entry !== undefined) {
+          return { ref, viewable: true, target: { kind: "place", entry } };
+        }
+        break;
+      }
+      case "region": {
+        const region = regions.get(id);
+        if (region !== undefined) {
+          return { ref, viewable: true, target: { kind: "region", region } };
+        }
+        break;
+      }
+      case "occasion": {
+        const occasion = occasions.get(id);
+        if (occasion !== undefined) {
+          return {
+            ref,
+            viewable: true,
+            target: { kind: "occasion", occasion },
+          };
+        }
+        break;
       }
     }
     return { ref, viewable: false };
@@ -228,20 +473,360 @@ function isViewable(sql: SqlExec, ref: RefRecord): boolean {
   switch (ref.kind) {
     case "place":
       return viewablePlaceRows(sql, [ref.id]).length > 0;
-    case "listing": {
-      const row = sql
-        .exec<CountRow>(
-          `SELECT COUNT(*) AS n FROM listings l
-             JOIN places p ON p.id = l.place_id
-             WHERE l.id = ? AND ${LISTING_VIEWABLE}`,
-          ref.id,
-        )
-        .toArray()[0];
-      return Number(row?.n ?? 0) > 0;
-    }
+    case "listing":
+      return viewableListingRows(sql, [ref.id]).length > 0;
+    case "region":
+      return isRegionViewable(sql, ref.id);
+    case "occasion":
+      return isOccasionViewable(sql, ref.id);
     default:
       return false;
   }
+}
+
+function findOccasionsRelatedTo(
+  sql: SqlExec,
+  subject: DiscoveryQueries["discovery.findOccasionsRelatedTo"]["args"]["subject"],
+  today: string,
+): readonly OccasionRecord[] {
+  const open = `${OCCASION_VIEWABLE} AND ${OCCASION_OPEN}`;
+  const read = (from: string, ...bindings: unknown[]) =>
+    sql
+      .exec<OccasionRow>(
+        `SELECT DISTINCT ${OCCASION_COLUMNS} ${from} AND ${open}
+           ORDER BY ${OCCASION_ORDER}`,
+        ...bindings,
+        today,
+      )
+      .toArray()
+      .map(occasionRowToRecord);
+  switch (subject.kind) {
+    case "listing":
+      if (viewableListingRows(sql, [subject.id]).length === 0) return [];
+      return read(
+        `FROM occasions o
+           JOIN occasion_participations op ON op.occasion_id = o.id
+           WHERE EXISTS (SELECT 1 FROM json_each(op.listing_ids) j
+                           WHERE j.value = ?)`,
+        subject.id,
+      );
+    case "place":
+      if (viewablePlaceRows(sql, [subject.id]).length === 0) return [];
+      return read(
+        `FROM occasions o
+           JOIN occasion_participations op ON op.occasion_id = o.id
+           WHERE op.place_id = ?`,
+        subject.id,
+      );
+    case "region":
+      if (!isRegionViewable(sql, subject.id)) return [];
+      return read(
+        `FROM occasions o
+           JOIN occasion_region_links k ON k.occasion_id = o.id
+           WHERE k.region_id = ? AND k.status = 'linked'`,
+        subject.id,
+      );
+  }
+}
+
+function findParticipants(
+  sql: SqlExec,
+  occasionId: string,
+): readonly ParticipantEntryRecord[] {
+  if (!isOccasionViewable(sql, occasionId)) return [];
+  const participations = sql
+    .exec<ParticipationRow>(
+      `SELECT ${PARTICIPATION_COLUMNS}
+         FROM occasion_participations op JOIN places p ON p.id = op.place_id
+         WHERE op.occasion_id = ? AND ${PLACE_VIEWABLE}
+         ORDER BY op.participated_at, op.place_id`,
+      occasionId,
+    )
+    .toArray()
+    .map(participationRowToRecord);
+  const places = placeEntries(
+    sql,
+    participations.map((participation) => participation.placeId),
+  );
+  const listings = new Map(
+    viewableListingRows(
+      sql,
+      participations.flatMap((participation) => participation.listingIds),
+    ).map((row) => [row.id, listingRowToRecord(row)]),
+  );
+  return participations.flatMap((participation) => {
+    const place = places.get(participation.placeId);
+    return place === undefined
+      ? []
+      : [
+          {
+            place,
+            participation,
+            listings: inOrder(participation.listingIds, listings),
+          },
+        ];
+  });
+}
+
+function findRegionsOfOccasion(
+  sql: SqlExec,
+  occasionId: string,
+): readonly RegionRecord[] {
+  if (!isOccasionViewable(sql, occasionId)) return [];
+  return sql
+    .exec<RegionRow>(
+      `SELECT ${R_COLUMNS}
+         FROM occasion_region_links k JOIN regions r ON r.id = k.region_id
+         WHERE k.occasion_id = ? AND k.status = 'linked' AND ${REGION_VIEWABLE}
+         ORDER BY k.linked_at, r.id`,
+      occasionId,
+    )
+    .toArray()
+    .map(regionRowToRecord);
+}
+
+function findPlacesOfRegion(
+  sql: SqlExec,
+  regionId: string,
+  page: number,
+  limit: number,
+): Page<PlaceEntryRecord> {
+  if (!isRegionViewable(sql, regionId)) return { items: [], count: 0 };
+  const from = `FROM region_affiliations ra JOIN places p ON p.id = ra.place_id
+    WHERE ra.region_id = ? AND ${PLACE_VIEWABLE} AND ${PLACE_DISCOVERABLE}`;
+  const ids = sql
+    .exec<Readonly<{ id: string }> & SqlRow>(
+      `SELECT p.id ${from}
+         ORDER BY ra.affiliated_at DESC, p.id LIMIT ? OFFSET ?`,
+      regionId,
+      limit,
+      offsetOf(page, limit),
+    )
+    .toArray()
+    .map((row) => row.id);
+  return {
+    items: inOrder(ids, placeEntries(sql, ids)),
+    count: countOf(sql, from, regionId),
+  };
+}
+
+function findListingsOfRegion(
+  sql: SqlExec,
+  args: DiscoveryQueries["discovery.findListingsOfRegion"]["args"],
+): Page<ListingEntryRecord> {
+  const { regionId, excludingPlaceId, today, page, limit } = args;
+  if (!isRegionViewable(sql, regionId)) return { items: [], count: 0 };
+  const from = `FROM listings l JOIN places p ON p.id = l.place_id
+    JOIN region_affiliations ra ON ra.place_id = p.id AND ra.region_id = ?
+    WHERE ${LISTING_VIEWABLE} AND ${LISTING_DISCOVERABLE}
+      AND (? IS NULL OR l.place_id <> ?)`;
+  const bindings = [regionId, today, today, excludingPlaceId, excludingPlaceId];
+  const rows = sql
+    .exec<ListingRow>(
+      `SELECT ${LISTING_COLUMNS} ${from}
+         ORDER BY l.first_published_at DESC, l.id LIMIT ? OFFSET ?`,
+      ...bindings,
+      limit,
+      offsetOf(page, limit),
+    )
+    .toArray();
+  return {
+    items: listingEntries(sql, rows),
+    count: countOf(sql, from, ...bindings),
+  };
+}
+
+type Ranked = Readonly<{ id: string; relevance: number; newest: number }>;
+
+/**
+ * Matches (relevance ≥ 1) ranked by relevance descending, then newest
+ * first, then id — 「関連度の高い順」.
+ */
+function rank(candidates: readonly Ranked[]): readonly Ranked[] {
+  return candidates
+    .filter((candidate) => candidate.relevance >= 1)
+    .sort(
+      (a, b) =>
+        b.relevance - a.relevance ||
+        b.newest - a.newest ||
+        byCodePoint(a.id, b.id),
+    );
+}
+
+/** One page of `ranked`, each id looked up in `load(pageIds)`. */
+function scoredPage<T>(
+  ranked: readonly Ranked[],
+  page: number,
+  limit: number,
+  load: (ids: readonly string[]) => ReadonlyMap<string, T>,
+): Page<ScoredRecord<T>> {
+  const slice = ranked.slice(offsetOf(page, limit), page * limit);
+  const found = load(slice.map((candidate) => candidate.id));
+  return {
+    items: slice.flatMap((candidate) => {
+      const entry = found.get(candidate.id);
+      return entry === undefined
+        ? []
+        : [{ entry, relevance: candidate.relevance }];
+    }),
+    count: ranked.length,
+  };
+}
+
+const keywordOf = (terms: readonly string[]) =>
+  SearchKeyword.parse(terms.join(" "));
+
+/** The place a stored row holds (`Place.reconstruct` of its record). */
+const placeOf = (record: PlaceRecord): Place =>
+  Place.reconstruct({
+    ...record,
+    registeredAt: new Date(record.registeredAt),
+    updatedAt: new Date(record.updatedAt),
+  });
+
+// Matching is each domain's function, not SQL: texts are compared after
+// NFKC / case / whitespace normalisation, which a LIKE cannot express.
+// Every viewable candidate is scored in the object.
+
+function searchPlaces(
+  sql: SqlExec,
+  args: DiscoveryQueries["discovery.searchPlaces"]["args"],
+): Page<ScoredRecord<PlaceEntryRecord>> {
+  const keyword = keywordOf(args.terms);
+  if (keyword === null) return { items: [], count: 0 };
+  const rows = sql
+    .exec<PlaceRow>(
+      `SELECT ${P_COLUMNS} FROM places p WHERE ${PLACE_VIEWABLE}
+         ${args.vacantOnly ? `AND ${PLACE_VACANT}` : ""}`,
+    )
+    .toArray();
+  const ranked = rank(
+    rows.map((row) => {
+      const record = placeRowToRecord(row);
+      return {
+        id: row.id,
+        relevance: KeywordRelevance.relevance(
+          PlaceMatching.searchableText(placeOf(record)),
+          keyword,
+        ),
+        newest: record.registeredAt,
+      };
+    }),
+  );
+  return scoredPage(ranked, args.page, args.limit, (ids) =>
+    placeEntries(sql, ids),
+  );
+}
+
+function searchListings(
+  sql: SqlExec,
+  args: DiscoveryQueries["discovery.searchListings"]["args"],
+): Page<ScoredRecord<ListingEntryRecord>> {
+  const keyword = keywordOf(args.terms);
+  if (keyword === null) return { items: [], count: 0 };
+  const rows = sql
+    .exec<
+      Readonly<{
+        id: string;
+        name: string | null;
+        description: string | null;
+        first_published_at: number;
+      }> &
+        SqlRow
+    >(
+      `SELECT l.id, l.name, l.description, l.first_published_at
+         FROM listings l JOIN places p ON p.id = l.place_id
+         WHERE ${LISTING_VIEWABLE}`,
+    )
+    .toArray();
+  const ranked = rank(
+    rows.map((row) => ({
+      id: row.id,
+      relevance: KeywordRelevance.relevance(
+        ListingMatching.textOf(row.name, row.description),
+        keyword,
+      ),
+      newest: Number(row.first_published_at),
+    })),
+  );
+  return scoredPage(ranked, args.page, args.limit, (ids) =>
+    viewableListings(sql, ids),
+  );
+}
+
+const regionAddressOf = (row: RegionRow): Address | null =>
+  row.area_code === null ||
+  row.prefecture === null ||
+  row.municipality === null ||
+  row.town === null ||
+  row.address_rest === null
+    ? null
+    : Address.of(
+        {
+          areaCode: AreaCode.create(row.area_code),
+          prefecture: row.prefecture,
+          municipality: row.municipality,
+          town: row.town,
+        },
+        row.address_rest,
+      );
+
+function searchRegions(
+  sql: SqlExec,
+  args: DiscoveryQueries["discovery.searchRegions"]["args"],
+): Page<ScoredRecord<RegionRecord>> {
+  const keyword = keywordOf(args.terms);
+  if (keyword === null) return { items: [], count: 0 };
+  const rows = sql
+    .exec<RegionRow>(
+      `SELECT ${R_COLUMNS} FROM regions r WHERE ${REGION_VIEWABLE}`,
+    )
+    .toArray();
+  const records = new Map(rows.map((row) => [row.id, regionRowToRecord(row)]));
+  const ranked = rank(
+    rows.map((row) => ({
+      id: row.id,
+      relevance: KeywordRelevance.relevance(
+        Region.searchableTextOf({
+          name: row.name,
+          tagline: row.tagline,
+          description: row.description,
+          address: regionAddressOf(row),
+        }),
+        keyword,
+      ),
+      newest: Number(row.first_published_at),
+    })),
+  );
+  return scoredPage(ranked, args.page, args.limit, () => records);
+}
+
+function searchOccasions(
+  sql: SqlExec,
+  args: DiscoveryQueries["discovery.searchOccasions"]["args"],
+): Page<ScoredRecord<OccasionRecord>> {
+  const keyword = keywordOf(args.terms);
+  if (keyword === null) return { items: [], count: 0 };
+  const records = sql
+    .exec<OccasionRow>(
+      `SELECT ${OCCASION_COLUMNS} FROM occasions o WHERE ${OCCASION_VIEWABLE}
+         ${args.openOnly ? `AND ${OCCASION_OPEN}` : ""}`,
+      ...(args.openOnly ? [args.today] : []),
+    )
+    .toArray()
+    .map(occasionRowToRecord);
+  const byId = new Map(records.map((record) => [record.id, record]));
+  const ranked = rank(
+    records.map((record) => ({
+      id: record.id,
+      relevance: KeywordRelevance.relevance(
+        Occasion.searchableText(Occasion.reconstruct(record)),
+        keyword,
+      ),
+      newest: record.publication.firstPublishedAt?.getTime() ?? 0,
+    })),
+  );
+  return scoredPage(ranked, args.page, args.limit, () => byId);
 }
 
 export const discoveryQueryHandlers: QueryHandlersOf<DiscoveryQueries> = {
@@ -250,6 +835,12 @@ export const discoveryQueryHandlers: QueryHandlersOf<DiscoveryQueries> = {
 
   "discovery.findPlace": (sql, { placeId }) =>
     placeEntries(sql, [placeId]).get(placeId) ?? null,
+
+  "discovery.findRegion": (sql, { regionId }) =>
+    viewableRegionRecords(sql, [regionId]).get(regionId) ?? null,
+
+  "discovery.findOccasion": (sql, { occasionId }) =>
+    viewableOccasionRecords(sql, [occasionId]).get(occasionId) ?? null,
 
   "discovery.findListingsOfPlace": (
     sql,
@@ -270,21 +861,34 @@ export const discoveryQueryHandlers: QueryHandlersOf<DiscoveryQueries> = {
         today,
         today,
         limit,
-        (page - 1) * limit,
+        offsetOf(page, limit),
       )
       .toArray();
-    const count = sql
-      .exec<CountRow>(
-        `SELECT COUNT(*) AS n ${from}`,
-        placeId,
-        ...admittedBindings,
-      )
-      .toArray()[0];
     return {
       items: rows.map((row) => ({ listing: listingRowToRecord(row), place })),
-      count: Number(count?.n ?? 0),
+      count: countOf(sql, from, placeId, ...admittedBindings),
     };
   },
+
+  "discovery.findOccasionsRelatedTo": (sql, { subject, today }) =>
+    findOccasionsRelatedTo(sql, subject, today),
+
+  "discovery.findParticipants": (sql, { occasionId }) =>
+    findParticipants(sql, occasionId),
+
+  "discovery.findRegionsOfOccasion": (sql, { occasionId }) =>
+    findRegionsOfOccasion(sql, occasionId),
+
+  "discovery.findPlacesOfRegion": (sql, { regionId, page, limit }) =>
+    findPlacesOfRegion(sql, regionId, page, limit),
+
+  "discovery.findListingsOfRegion": (sql, args) =>
+    findListingsOfRegion(sql, args),
+
+  "discovery.searchPlaces": (sql, args) => searchPlaces(sql, args),
+  "discovery.searchListings": (sql, args) => searchListings(sql, args),
+  "discovery.searchRegions": (sql, args) => searchRegions(sql, args),
+  "discovery.searchOccasions": (sql, args) => searchOccasions(sql, args),
 
   "discovery.resolve": (sql, { refs }) => resolve(sql, refs),
 

@@ -11,7 +11,9 @@ import type {
   ListingEvent,
 } from "@repo/core/domain/listing/events";
 import type { ModerationEvent } from "@repo/core/domain/moderation/events";
+import type { OccasionEvent } from "@repo/core/domain/occasion/events";
 import type { PlaceEvent } from "@repo/core/domain/place/events";
+import type { RegionEvent } from "@repo/core/domain/region/events";
 import { accountEventDecoders } from "../account/eventDecoders";
 import { applicationEventDecoders } from "../application/eventDecoders";
 import { authorityEventDecoders } from "../authority/eventDecoders";
@@ -21,7 +23,9 @@ import {
   contentPhotoEventDecoders,
   moderationEventDecoders,
 } from "../moderation/eventDecoders";
+import { occasionEventDecoders } from "../occasion/eventDecoders";
 import { placeEventDecoders } from "../place/eventDecoders";
+import { regionEventDecoders } from "../region/eventDecoders";
 
 /**
  * Every domain event Lunt persists to the outbox. A type joins this
@@ -39,7 +43,9 @@ export type LuntDomainEvent =
   | ListingEvent
   | CategoryEvent
   | ModerationEvent
-  | PhotosTakenDownEvent;
+  | PhotosTakenDownEvent
+  | RegionEvent
+  | OccasionEvent;
 
 export type LuntEventType = LuntDomainEvent["type"];
 
@@ -65,4 +71,6 @@ export const eventDecoders = {
   ...listingEventDecoders,
   ...moderationEventDecoders,
   ...contentPhotoEventDecoders,
+  ...regionEventDecoders,
+  ...occasionEventDecoders,
 } satisfies DefaultEventDecoderRegistry;

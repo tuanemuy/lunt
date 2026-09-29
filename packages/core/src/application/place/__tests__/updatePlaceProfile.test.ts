@@ -1,7 +1,9 @@
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import { Version } from "@repo/core/domain/common/version";
 import { BusinessRuleError } from "@repo/core/domain/error";
+import { Participation } from "@repo/core/domain/occasion/participation";
 import type { Place } from "@repo/core/domain/place/place";
+import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import { describe, expect, it } from "vitest";
 import {
   commitAfter,
@@ -209,12 +211,48 @@ describe("updatePlaceProfile", () => {
     await expectUnchanged(k, p1, mark);
   });
 
-  it.todo(
-    "updatePlaceProfile#12 店舗 p1 は地域 X に所属している。利用者 R は X の地域運営者で、店舗の管理権限を持たない / R が p1 の店舗情報を更新する",
-  );
-  it.todo(
-    "updatePlaceProfile#13 店舗 p1 はイベント E に参加している。利用者 V は E のイベント運営者で、店舗の管理権限を持たない / V が p1 の店舗情報を更新する",
-  );
+  it("updatePlaceProfile#12 店舗 p1 は地域 X に所属している。利用者 R は X の地域運営者で、店舗の管理権限を持たない / R が p1 の店舗情報を更新する", async () => {
+    const { k, p1 } = await stewardedPlace();
+    const X = k.region("地域 X");
+    await k.container.unitOfWorkProvider.run(
+      ({ placeAffiliationsRepository }) =>
+        placeAffiliationsRepository.insert(
+          PlaceAffiliations.affiliate(
+            PlaceAffiliations.empty(p1.id, k.tick()),
+            X.id,
+            k.tick(),
+          ).entity,
+        ),
+    );
+    const R = await k.person("region");
+    await k.appoint(X, R);
+    const mark = await k.mark();
+    await expectCode(update(k, R, p1, { name: "地域から" }), ForbiddenError);
+    await expectUnchanged(k, p1, mark);
+  });
+  it("updatePlaceProfile#13 店舗 p1 はイベント E に参加している。利用者 V は E のイベント運営者で、店舗の管理権限を持たない / V が p1 の店舗情報を更新する", async () => {
+    const { k, p1 } = await stewardedPlace();
+    const E = k.occasion("イベント E");
+    await k.container.unitOfWorkProvider.run(({ participationRepository }) =>
+      participationRepository.insert(
+        Participation.establish(
+          {
+            key: { occasionId: E.id, placeId: p1.id },
+            details: { listingIds: [], dates: [] },
+          },
+          k.tick(),
+        ).entity,
+      ),
+    );
+    const V = await k.person("occasion");
+    await k.appoint(E, V);
+    const mark = await k.mark();
+    await expectCode(
+      update(k, V, p1, { name: "イベントから" }),
+      ForbiddenError,
+    );
+    await expectUnchanged(k, p1, mark);
+  });
 
   it("a steward of a region or an occasion cannot update a place (stage-2 stand-in for #12, #13)", async () => {
     const { k, p1 } = await stewardedPlace();

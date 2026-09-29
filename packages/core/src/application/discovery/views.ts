@@ -4,7 +4,9 @@ import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { CoverPhoto } from "@repo/core/domain/discovery/entry";
 import type {
   ListingSummary,
+  OccasionSummary,
   PlaceSummary,
+  RegionSummary,
 } from "@repo/core/domain/discovery/viewProjection";
 import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
 import type { RequestContainer } from "../di/types";
@@ -46,3 +48,11 @@ export const listingSummaryPhotoIds = (
 export const placeSummaryPhotoIds = (
   summary: PlaceSummary,
 ): readonly PhotoId[] => coverPhotoIds(summary.cover);
+
+export const regionSummaryPhotoIds = (
+  summary: RegionSummary,
+): readonly PhotoId[] => [summary.cover.photoId];
+
+export const occasionSummaryPhotoIds = (
+  summary: OccasionSummary,
+): readonly PhotoId[] => [summary.cover.photoId];

@@ -1,15 +1,25 @@
-import { CategoryId, ListingId, PlaceId } from "@repo/core/domain/common/ids";
+import {
+  CategoryId,
+  ListingId,
+  OccasionId,
+  PlaceId,
+  RegionId,
+} from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { OccasionSubject } from "@repo/core/domain/discovery/ports/detailQueries";
 import type { Scene } from "@repo/core/domain/discovery/scene";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { CategoryName } from "@repo/core/domain/listing/values";
+import type { Participation } from "@repo/core/domain/occasion/participation";
 import { Place } from "@repo/core/domain/place/place";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import {
   type DiscoveryHarnessFactory,
   discoveryWorld,
   listingIdsOf,
+  PERIODS,
   TODAY,
 } from "./discoveryFixtures";
 import { day, period } from "./listingFixtures";
@@ -21,12 +31,17 @@ const UNKNOWN_LISTING = ListingId.create(
   "ffffffff-ffff-7fff-8fff-00000fffffff",
 );
 const UNKNOWN_PLACE = PlaceId.create("ffffffff-ffff-7fff-8fff-00000ffffffe");
+const UNKNOWN_REGION = RegionId.create("ffffffff-ffff-7fff-8fff-00000ffffffd");
+const UNKNOWN_OCCASION = OccasionId.create(
+  "ffffffff-ffff-7fff-8fff-00000ffffffc",
+);
+
+const idsOf = (items: readonly Readonly<{ id: string }>[]) =>
+  items.map((item) => item.id);
 
 /**
  * `DetailQueries` contract (`spec/testcases/ports/detailQueries.md`).
- * Stage 2 covers the place and listing reads; rows that need regions,
- * occasions or articles stay `todo` until stage 3 (Region, Occasion) or
- * stage 5 (Article).
+ * Rows that need articles stay `todo` until stage 5 (Article).
  */
 export function describeDetailQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
@@ -49,15 +64,26 @@ export function describeDetailQueriesContract(
         pagination,
       );
 
+    const related = (
+      h: Awaited<ReturnType<typeof setup>>["h"],
+      subject: OccasionSubject,
+      today: LocalDate = TODAY,
+    ) =>
+      h.detailQueries
+        .findOccasionsRelatedTo(subject, today)
+        .then((found) => idsOf(found));
+
     describe("対象1件の読み取り", () => {
       it.todo(
         "detailQueries#1 どの集約も保存されていない / findListing・findPlace・findRegion・findOccasion・findArticle を、それぞれ任意の ID で呼ぶ",
       );
 
-      it("findListing and findPlace return null when nothing is stored (stage 2 part of #1)", async () => {
+      it("findListing, findPlace, findRegion and findOccasion return null when nothing is stored (#1 without findArticle)", async () => {
         const { h } = await setup();
         expect(await h.detailQueries.findListing(UNKNOWN_LISTING)).toBeNull();
         expect(await h.detailQueries.findPlace(UNKNOWN_PLACE)).toBeNull();
+        expect(await h.detailQueries.findRegion(UNKNOWN_REGION)).toBeNull();
+        expect(await h.detailQueries.findOccasion(UNKNOWN_OCCASION)).toBeNull();
       });
 
       it("detailQueries#2 営業中の店舗 P の、published で提供中の掲載 L / findListing を呼ぶ", async () => {
@@ -175,14 +201,36 @@ export function describeDetailQueriesContract(
         expect(await h.detailQueries.findPlace(P.id)).toBeNull();
       });
 
-      it.todo(
-        "detailQueries#9 店舗 P が、公開中の地域 X・Y・Z にこの順に所属し、代表地域に Z を選んでいる / findPlace を呼ぶ",
-      );
-      it.todo(
-        "detailQueries#10 上の Z を unpublish して保存した / findPlace を呼ぶ",
-      );
+      it("detailQueries#9 店舗 P が、公開中の地域 X・Y・Z にこの順に所属し、代表地域に Z を選んでいる / findPlace を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const X = await w.region();
+        const Y = await w.region();
+        const Z = await w.region();
+        const affiliations = await w.affiliate(P.id, [X.id, Y.id, Z.id], Z.id);
+        const entry = await h.detailQueries.findPlace(P.id);
+        expect(entry?.regions).toEqual([Z, X, Y]);
+        expect(entry).toEqual(
+          w.entryOf(P, [], { affiliations, regions: [X, Y, Z] }),
+        );
+      });
 
-      it("a place's regions read as empty in stage 2", async () => {
+      it("detailQueries#10 上の Z を unpublish して保存した / findPlace を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const X = await w.region();
+        const Y = await w.region();
+        const Z = await w.region();
+        const affiliations = await w.affiliate(P.id, [X.id, Y.id, Z.id], Z.id);
+        const hidden = await w.unpublishRegion(Z);
+        const entry = await h.detailQueries.findPlace(P.id);
+        expect(entry?.regions).toEqual([X, Y]);
+        expect(entry).toEqual(
+          w.entryOf(P, [], { affiliations, regions: [X, Y, hidden] }),
+        );
+      });
+
+      it("a place without affiliations has no regions", async () => {
         const { h, w } = await setup();
         const P = await w.place();
         expect((await h.detailQueries.findPlace(P.id))?.regions).toEqual([]);
@@ -232,16 +280,41 @@ export function describeDetailQueriesContract(
         expect(entry).toEqual(w.entryOf(P, [L]));
       });
 
-      it.todo("detailQueries#15 published の地域 / findRegion を呼ぶ");
-      it.todo(
-        "detailQueries#16 draft・unpublished・運営による非公開の地域 / それぞれ findRegion を呼ぶ",
-      );
-      it.todo(
-        "detailQueries#17 開催前・開催中・終了・中止の公開中のイベント / それぞれ findOccasion を呼ぶ",
-      );
-      it.todo(
-        "detailQueries#18 draft・unpublished・運営による非公開のイベント / それぞれ findOccasion を呼ぶ",
-      );
+      it("detailQueries#15 published の地域 / findRegion を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        expect(await h.detailQueries.findRegion(R.id)).toEqual(R);
+      });
+
+      it("detailQueries#16 draft・unpublished・運営による非公開の地域 / それぞれ findRegion を呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          const R = await w.region({ state });
+          expect(await h.detailQueries.findRegion(R.id)).toBeNull();
+        }
+      });
+
+      it("detailQueries#17 開催前・開催中・終了・中止の公開中のイベント / それぞれ findOccasion を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const occasions = [
+          await w.occasion({ period: PERIODS.upcoming }),
+          await w.occasion({ period: PERIODS.ongoing }),
+          await w.occasion({ period: PERIODS.ended }),
+          await w.occasion({ state: "cancelled" }),
+        ];
+        for (const E of occasions) {
+          expect(await h.detailQueries.findOccasion(E.id)).toEqual(E);
+        }
+      });
+
+      it("detailQueries#18 draft・unpublished・運営による非公開のイベント / それぞれ findOccasion を呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          const E = await w.occasion({ state });
+          expect(await h.detailQueries.findOccasion(E.id)).toBeNull();
+        }
+      });
+
       it.todo(
         "detailQueries#19 published の読みもの。紹介先はすべて閲覧できない / findArticle を呼ぶ",
       );
@@ -414,58 +487,442 @@ export function describeDetailQueriesContract(
     });
 
     describe("findOccasionsRelatedTo", () => {
-      for (const name of [
-        "detailQueries#33 店舗 P が、開催前のイベント E1 に掲載 L を添えて、開催前のイベント E2 に L を添えずに参加中 / listing の L で呼ぶ",
-        "detailQueries#34 上と同じ / place の P で呼ぶ",
-        "detailQueries#35 地域 R が、開催前のイベント E1 に linked で、開催前のイベント E2 に detached で関連づけられている / region の R で呼ぶ",
-        "detailQueries#36 上の E2 との関連づけを restore して保存した / region の R で呼ぶ",
-        "detailQueries#37 店舗 P が、開催前・開催中・終了・中止のイベントに1つずつ参加中 / place の P で呼ぶ",
-        "detailQueries#38 店舗 P が参加中のイベントの開催期間の終了が 5/10 / place の P で、today を 5/10 にして呼ぶ。別に 5/11 にして呼ぶ",
-        "detailQueries#39 店舗 P が参加中の開催前のイベントが、draft・unpublished・運営による非公開のいずれか / place の P で呼ぶ",
-        "detailQueries#40 店舗 P が参加中のイベント E1（5/1〜5/5）、E2（4/28〜5/2）、E3（5/1〜5/3） / place の P で呼ぶ",
-        "detailQueries#41 店舗 P が参加中の、開催期間が同じイベントが2つ / place の P で呼ぶ",
-        "detailQueries#42 店舗 P の参加を ParticipationRepository.delete で解除した / place の P で呼ぶ",
-        "detailQueries#43 対象に結びつくイベントがない。または、その ID の対象がない / 3つの種類でそれぞれ呼ぶ",
-        "detailQueries#44 開催前の公開中のイベントに結びつく、unpublished の掲載（参加に添えられている）、非公開の店舗（参加中）、unpublished の地域（linked） / listing・place・region のそれぞれで呼ぶ",
-        "detailQueries#45 店舗 P が、開催前のイベント12個に参加中 / place の P で呼ぶ",
-      ]) {
-        it.todo(name);
-      }
+      it("detailQueries#33 店舗 P が、開催前のイベント E1 に掲載 L を添えて、開催前のイベント E2 に L を添えずに参加中 / listing の L で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        const E1 = await w.occasion();
+        const E2 = await w.occasion();
+        await w.participate(E1.id, P.id, { listingIds: [L.id] });
+        await w.participate(E2.id, P.id);
+        expect(await related(h, { kind: "listing", id: L.id })).toEqual([
+          E1.id,
+        ]);
+      });
+
+      it("detailQueries#34 上と同じ / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        const E1 = await w.occasion();
+        const E2 = await w.occasion();
+        await w.participate(E1.id, P.id, { listingIds: [L.id] });
+        await w.participate(E2.id, P.id);
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([
+          E1.id,
+          E2.id,
+        ]);
+      });
+
+      it("detailQueries#35 地域 R が、開催前のイベント E1 に linked で、開催前のイベント E2 に detached で関連づけられている / region の R で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        const E1 = await w.occasion();
+        const E2 = await w.occasion();
+        await w.link(E1.id, R.id);
+        await w.link(E2.id, R.id, { detached: true });
+        expect(await related(h, { kind: "region", id: R.id })).toEqual([E1.id]);
+      });
+
+      it("detailQueries#36 上の E2 との関連づけを restore して保存した / region の R で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        const E1 = await w.occasion();
+        const E2 = await w.occasion();
+        await w.link(E1.id, R.id);
+        await w.restoreLink(await w.link(E2.id, R.id, { detached: true }));
+        expect(await related(h, { kind: "region", id: R.id })).toEqual([
+          E1.id,
+          E2.id,
+        ]);
+      });
+
+      it("detailQueries#37 店舗 P が、開催前・開催中・終了・中止のイベントに1つずつ参加中 / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const upcoming = await w.occasion({ period: PERIODS.upcoming });
+        const ongoing = await w.occasion({ period: PERIODS.ongoing });
+        const ended = await w.occasion({ period: PERIODS.ended });
+        const cancelled = await w.occasion({ state: "cancelled" });
+        for (const E of [upcoming, ongoing, ended, cancelled]) {
+          await w.participate(E.id, P.id);
+        }
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([
+          ongoing.id,
+          upcoming.id,
+        ]);
+      });
+
+      it("detailQueries#38 店舗 P が参加中のイベントの開催期間の終了が 5/10 / place の P で、today を 5/10 にして呼ぶ。別に 5/11 にして呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const E = await w.occasion({ period: ["2026-05-01", "2026-05-10"] });
+        await w.participate(E.id, P.id);
+        const subject = { kind: "place", id: P.id } as const;
+        expect(await related(h, subject, day("2026-05-10"))).toEqual([E.id]);
+        expect(await related(h, subject, day("2026-05-11"))).toEqual([]);
+      });
+
+      it("detailQueries#39 店舗 P が参加中の開催前のイベントが、draft・unpublished・運営による非公開のいずれか / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          await w.participate((await w.occasion({ state })).id, P.id);
+        }
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([]);
+      });
+
+      it("detailQueries#40 店舗 P が参加中のイベント E1（5/1〜5/5）、E2（4/28〜5/2）、E3（5/1〜5/3） / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const E1 = await w.occasion({ period: ["2026-05-01", "2026-05-05"] });
+        const E2 = await w.occasion({ period: ["2026-04-28", "2026-05-02"] });
+        const E3 = await w.occasion({ period: ["2026-05-01", "2026-05-03"] });
+        for (const E of [E1, E2, E3]) await w.participate(E.id, P.id);
+        expect(
+          await related(h, { kind: "place", id: P.id }, day("2026-04-01")),
+        ).toEqual([E2.id, E3.id, E1.id]);
+      });
+
+      it("detailQueries#41 店舗 P が参加中の、開催期間が同じイベントが2つ / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const first = await w.occasion();
+        const second = await w.occasion();
+        await w.participate(second.id, P.id);
+        await w.participate(first.id, P.id);
+        expect(first.id < second.id).toBe(true);
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([
+          first.id,
+          second.id,
+        ]);
+      });
+
+      it("detailQueries#42 店舗 P の参加を ParticipationRepository.delete で解除した / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const E = await w.occasion();
+        await w.dissolveParticipation(await w.participate(E.id, P.id));
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([]);
+      });
+
+      it("detailQueries#43 対象に結びつくイベントがない。または、その ID の対象がない / 3つの種類でそれぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        const R = await w.region();
+        await w.occasion();
+        for (const subject of [
+          { kind: "listing", id: L.id },
+          { kind: "place", id: P.id },
+          { kind: "region", id: R.id },
+          { kind: "listing", id: UNKNOWN_LISTING },
+          { kind: "place", id: UNKNOWN_PLACE },
+          { kind: "region", id: UNKNOWN_REGION },
+        ] as const) {
+          expect(await related(h, subject)).toEqual([]);
+        }
+      });
+
+      it("detailQueries#44 開催前の公開中のイベントに結びつく、unpublished の掲載（参加に添えられている）、非公開の店舗（参加中）、unpublished の地域（linked） / listing・place・region のそれぞれで呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.unpublished(P.id);
+        const hidden = await w.place({ suspended: true });
+        const R = await w.region({ state: "unpublished" });
+        const E = await w.occasion();
+        await w.participate(E.id, P.id, { listingIds: [L.id] });
+        await w.participate(E.id, hidden.id);
+        await w.link(E.id, R.id);
+        expect(await related(h, { kind: "listing", id: L.id })).toEqual([]);
+        expect(await related(h, { kind: "place", id: hidden.id })).toEqual([]);
+        expect(await related(h, { kind: "region", id: R.id })).toEqual([]);
+      });
+
+      it("detailQueries#45 店舗 P が、開催前のイベント12個に参加中 / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const all = [];
+        for (let i = 0; i < 12; i += 1) {
+          const E = await w.occasion();
+          await w.participate(E.id, P.id);
+          all.push(E.id);
+        }
+        expect(await related(h, { kind: "place", id: P.id })).toEqual(all);
+      });
     });
 
     describe("findParticipants", () => {
-      for (const name of [
-        "detailQueries#46 公開中のイベント E に参加がない / E で呼ぶ",
-        "detailQueries#47 E に、店舗 P（participatedAt が T1）、Q（T2）、S（T3）が参加中 / E で呼ぶ",
-        "detailQueries#48 E に、同じ participatedAt で店舗が2つ参加中 / E で呼ぶ",
-        "detailQueries#49 E に、休業中の店舗、閉店した店舗、非公開の店舗が参加中 / E で呼ぶ",
-        "detailQueries#50 店舗 P の参加の listingIds が l3、l1、l2 の順。どれも published で提供中 / E で呼ぶ",
-        "detailQueries#51 店舗 P の参加に添えた掲載に、提供開始前の掲載と提供終了の掲載がある / E で呼ぶ",
-        "detailQueries#52 店舗 P の参加に添えた掲載に、unpublished の掲載、運営による非公開の掲載、delete した掲載がある / E で呼ぶ",
-        "detailQueries#53 店舗 P の参加が、掲載を添えていない / E で呼ぶ",
-        "detailQueries#54 参加日に、開催期間の外になった日付が残っている参加 / E で呼ぶ",
-        "detailQueries#55 終了したイベントと、中止のイベントに参加がある / それぞれで呼ぶ",
-        "detailQueries#56 イベントが unpublished、または運営による非公開。または、その ID のイベントがない / そのイベントで呼ぶ",
-        "detailQueries#57 別のイベント F の参加がある / E で呼ぶ",
-        "detailQueries#58 E に、店舗30個が参加中 / E で呼ぶ",
-      ]) {
-        it.todo(name);
-      }
+      const placeIdsOf = (
+        entries: readonly Readonly<{ place: { place: Place } }>[],
+      ) => entries.map((entry) => entry.place.place.id);
+
+      it("detailQueries#46 公開中のイベント E に参加がない / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        expect(await h.detailQueries.findParticipants(E.id)).toEqual([]);
+      });
+
+      it("detailQueries#47 E に、店舗 P（participatedAt が T1）、Q（T2）、S（T3）が参加中 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const places = [await w.place(), await w.place(), await w.place()];
+        const [P, Q, S] = places;
+        const participations: Participation[] = [];
+        for (const place of [P, Q, S]) {
+          if (place === undefined) throw new Error("three places");
+          participations.push(await w.participate(E.id, place.id));
+        }
+        expect(await h.detailQueries.findParticipants(E.id)).toEqual(
+          places.map((place, i) => ({
+            place: w.entryOf(place),
+            participation: participations[i],
+            listings: [],
+          })),
+        );
+      });
+
+      it("detailQueries#48 E に、同じ participatedAt で店舗が2つ参加中 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const first = await w.place();
+        const second = await w.place();
+        const at = w.f.tick();
+        await w.participate(E.id, second.id, {}, at);
+        await w.participate(E.id, first.id, {}, at);
+        expect(
+          placeIdsOf(await h.detailQueries.findParticipants(E.id)),
+        ).toEqual([first.id, second.id]);
+      });
+
+      it("detailQueries#49 E に、休業中の店舗、閉店した店舗、非公開の店舗が参加中 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const resting = await w.place({ status: "temporarilyClosed" });
+        const closed = await w.place({ status: "permanentlyClosed" });
+        const hidden = await w.place({ suspended: true });
+        for (const place of [resting, closed, hidden]) {
+          await w.participate(E.id, place.id);
+        }
+        expect(
+          placeIdsOf(await h.detailQueries.findParticipants(E.id)),
+        ).toEqual([resting.id, closed.id]);
+      });
+
+      it("detailQueries#50 店舗 P の参加の listingIds が l3、l1、l2 の順。どれも published で提供中 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        const l1 = await w.available(P.id);
+        const l2 = await w.available(P.id);
+        const l3 = await w.available(P.id);
+        await w.participate(E.id, P.id, { listingIds: [l3.id, l1.id, l2.id] });
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.listings).toEqual([l3, l1, l2]);
+      });
+
+      it("detailQueries#51 店舗 P の参加に添えた掲載に、提供開始前の掲載と提供終了の掲載がある / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        const upcoming = await w.upcoming(P.id);
+        const ended = await w.endedBySchedule(P.id);
+        await w.participate(E.id, P.id, {
+          listingIds: [upcoming.id, ended.id],
+        });
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.listings).toEqual([upcoming, ended]);
+      });
+
+      it("detailQueries#52 店舗 P の参加に添えた掲載に、unpublished の掲載、運営による非公開の掲載、delete した掲載がある / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        const kept = await w.available(P.id);
+        const unpublished = await w.unpublished(P.id);
+        const suspended = await w.suspendedListing(P.id);
+        const deleted = await w.available(P.id);
+        const listingIds = [unpublished.id, kept.id, suspended.id, deleted.id];
+        await w.participate(E.id, P.id, { listingIds });
+        await w.deleteListing(deleted);
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.place.place.id).toBe(P.id);
+        expect(entry?.listings).toEqual([kept]);
+        expect(entry?.participation.details.listingIds).toEqual(listingIds);
+      });
+
+      it("detailQueries#53 店舗 P の参加が、掲載を添えていない / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        await w.participate(E.id, P.id);
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.place.place.id).toBe(P.id);
+        expect(entry?.listings).toEqual([]);
+      });
+
+      it("detailQueries#54 参加日に、開催期間の外になった日付が残っている参加 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion({ period: PERIODS.upcoming });
+        const P = await w.place();
+        const dates = [day("2026-07-21"), day("2026-07-25")];
+        await w.participate(E.id, P.id, { dates });
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.participation.details.dates).toEqual(dates);
+      });
+
+      it("detailQueries#55 終了したイベントと、中止のイベントに参加がある / それぞれで呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        for (const E of [
+          await w.occasion({ period: PERIODS.ended }),
+          await w.occasion({ state: "cancelled" }),
+        ]) {
+          await w.participate(E.id, P.id);
+          expect(
+            placeIdsOf(await h.detailQueries.findParticipants(E.id)),
+          ).toEqual([P.id]);
+        }
+      });
+
+      it("detailQueries#56 イベントが unpublished、または運営による非公開。または、その ID のイベントがない / そのイベントで呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        for (const state of ["unpublished", "suspended"] as const) {
+          const E = await w.occasion({ state });
+          await w.participate(E.id, P.id);
+          expect(await h.detailQueries.findParticipants(E.id)).toEqual([]);
+        }
+        expect(
+          await h.detailQueries.findParticipants(UNKNOWN_OCCASION),
+        ).toEqual([]);
+      });
+
+      it("detailQueries#57 別のイベント F の参加がある / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const F = await w.occasion();
+        const P = await w.place();
+        const Q = await w.place();
+        await w.participate(E.id, P.id);
+        await w.participate(F.id, Q.id);
+        expect(
+          placeIdsOf(await h.detailQueries.findParticipants(E.id)),
+        ).toEqual([P.id]);
+      });
+
+      it("detailQueries#58 E に、店舗30個が参加中 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const all = [];
+        for (let i = 0; i < 30; i += 1) {
+          const place = await w.place();
+          await w.participate(E.id, place.id);
+          all.push(place.id);
+        }
+        expect(
+          placeIdsOf(await h.detailQueries.findParticipants(E.id)),
+        ).toEqual(all);
+      });
     });
 
     describe("findRegionsOfOccasion", () => {
-      for (const name of [
-        "detailQueries#59 イベント E に関連づけがない / E で呼ぶ",
-        "detailQueries#60 E に、地域 X（linkedAt が T1）、Y（T2）が linked で関連づけられている / E で呼ぶ",
-        "detailQueries#61 E に、同じ linkedAt で地域が2つ関連づけられている / E で呼ぶ",
-        "detailQueries#62 E と地域 Z の関連づけが detached / E で呼ぶ",
-        "detailQueries#63 上の関連づけを restore して保存した / E で呼ぶ",
-        "detailQueries#64 E に linked で関連づけられた地域が、unpublished、または運営による非公開 / E で呼ぶ",
-        "detailQueries#65 イベント E が unpublished、または運営による非公開。または、その ID のイベントがない。E には公開中の地域が linked で関連づけられている / E で呼ぶ",
-        "detailQueries#66 E と地域 X の関連づけを RegionLinkRepository.delete で外した / E で呼ぶ",
-      ]) {
-        it.todo(name);
-      }
+      const regionsOf = (
+        h: Awaited<ReturnType<typeof setup>>["h"],
+        occasionId: OccasionId,
+      ) =>
+        h.detailQueries
+          .findRegionsOfOccasion(occasionId)
+          .then((found) => idsOf(found));
+
+      it("detailQueries#59 イベント E に関連づけがない / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        expect(await h.detailQueries.findRegionsOfOccasion(E.id)).toEqual([]);
+      });
+
+      it("detailQueries#60 E に、地域 X（linkedAt が T1）、Y（T2）が linked で関連づけられている / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const Y = await w.region();
+        const X = await w.region();
+        await w.link(E.id, X.id);
+        await w.link(E.id, Y.id);
+        expect(await h.detailQueries.findRegionsOfOccasion(E.id)).toEqual([
+          X,
+          Y,
+        ]);
+      });
+
+      it("detailQueries#61 E に、同じ linkedAt で地域が2つ関連づけられている / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const first = await w.region();
+        const second = await w.region();
+        const at = w.f.tick();
+        await w.link(E.id, second.id, { at });
+        await w.link(E.id, first.id, { at });
+        expect(await regionsOf(h, E.id)).toEqual([first.id, second.id]);
+      });
+
+      it("detailQueries#62 E と地域 Z の関連づけが detached / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const X = await w.region();
+        const Z = await w.region();
+        await w.link(E.id, X.id);
+        await w.link(E.id, Z.id, { detached: true });
+        expect(await regionsOf(h, E.id)).toEqual([X.id]);
+      });
+
+      it("detailQueries#63 上の関連づけを restore して保存した / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const X = await w.region();
+        const Z = await w.region();
+        const Y = await w.region();
+        await w.link(E.id, X.id);
+        const detached = await w.link(E.id, Z.id, { detached: true });
+        await w.link(E.id, Y.id);
+        await w.restoreLink(detached);
+        expect(await regionsOf(h, E.id)).toEqual([X.id, Z.id, Y.id]);
+      });
+
+      it("detailQueries#64 E に linked で関連づけられた地域が、unpublished、または運営による非公開 / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const X = await w.region();
+        const unpublished = await w.region();
+        const suspended = await w.region();
+        for (const R of [X, unpublished, suspended]) await w.link(E.id, R.id);
+        await w.unpublishRegion(unpublished);
+        await w.updateRegion(
+          suspended,
+          (stored) => Region.suspend(stored, w.f.tick()).entity,
+        );
+        expect(await regionsOf(h, E.id)).toEqual([X.id]);
+      });
+
+      it("detailQueries#65 イベント E が unpublished、または運営による非公開。または、その ID のイベントがない。E には公開中の地域が linked で関連づけられている / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        for (const state of ["unpublished", "suspended"] as const) {
+          const E = await w.occasion({ state });
+          await w.link(E.id, R.id);
+          expect(await h.detailQueries.findRegionsOfOccasion(E.id)).toEqual([]);
+        }
+        expect(
+          await h.detailQueries.findRegionsOfOccasion(UNKNOWN_OCCASION),
+        ).toEqual([]);
+      });
+
+      it("detailQueries#66 E と地域 X の関連づけを RegionLinkRepository.delete で外した / E で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const X = await w.region();
+        await w.unlink(await w.link(E.id, X.id));
+        expect(await regionsOf(h, E.id)).toEqual([]);
+      });
     });
 
     describe("findArticlesShowcasing", () => {
@@ -528,12 +985,25 @@ export function describeDetailQueriesContract(
         ).toBe("permanentlyClosed");
       });
 
-      it.todo(
-        "detailQueries#80 公開中のイベント E と、参加していない店舗 P / 参加を insert してコミットし、直後に findParticipants と、place の P の findOccasionsRelatedTo を呼ぶ",
-      );
-      it.todo(
-        "detailQueries#81 公開中のイベント E と地域 R / 関連づけを insert してコミットし、直後に findRegionsOfOccasion と、region の R の findOccasionsRelatedTo を呼ぶ",
-      );
+      it("detailQueries#80 公開中のイベント E と、参加していない店舗 P / 参加を insert してコミットし、直後に findParticipants と、place の P の findOccasionsRelatedTo を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        await w.participate(E.id, P.id);
+        const [entry] = await h.detailQueries.findParticipants(E.id);
+        expect(entry?.place.place.id).toBe(P.id);
+        expect(await related(h, { kind: "place", id: P.id })).toEqual([E.id]);
+      });
+
+      it("detailQueries#81 公開中のイベント E と地域 R / 関連づけを insert してコミットし、直後に findRegionsOfOccasion と、region の R の findOccasionsRelatedTo を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const R = await w.region();
+        await w.link(E.id, R.id);
+        expect(await h.detailQueries.findRegionsOfOccasion(E.id)).toEqual([R]);
+        expect(await related(h, { kind: "region", id: R.id })).toEqual([E.id]);
+      });
+
       it.todo(
         "detailQueries#82 draft の読みもの A が店舗 P を紹介先に持つ（公開条件を満たす） / publish して save してコミットし、直後に findArticle と findArticlesShowcasing を呼ぶ",
       );
@@ -556,9 +1026,18 @@ export function describeDetailQueriesContract(
         expect((await h.detailQueries.findListing(L.id))?.listing).toEqual(L);
       });
 
-      it.todo(
-        "detailQueries#84 公開中のイベント E と、参加していない店舗 P / UnitOfWork の中で参加を insert した後に、fn が例外を投げる",
-      );
+      it("detailQueries#84 公開中のイベント E と、参加していない店舗 P / UnitOfWork の中で参加を insert した後に、fn が例外を投げる", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        await expect(
+          h.uow.run(async ({ participationRepository }) => {
+            await participationRepository.insert(w.o.participation(E.id, P.id));
+            throw new Error("abort");
+          }),
+        ).rejects.toThrow("abort");
+        expect(await h.detailQueries.findParticipants(E.id)).toEqual([]);
+      });
     });
   });
 }

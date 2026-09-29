@@ -1,67 +1,60 @@
 import { StewardedTargetOrder } from "@repo/core/domain/authority/stewardedTarget";
-import { OccasionId, RegionId } from "@repo/core/domain/common/ids";
+import { RegionId } from "@repo/core/domain/common/ids";
+import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { describe, expect, it } from "vitest";
 import { authorityIds } from "../__conformance__/authorityFixtures";
+import { insertOccasions } from "../__conformance__/occasionFixtures";
 import { insertPlaces, newPlace } from "../__conformance__/placeFixtures";
 import {
-  CONFORMANCE_TARGET_LOOKUPS,
-  describeStewardedTargetDirectoryContract,
-  seedConformanceTargets,
-} from "../__conformance__/stewardedTargetDirectory";
-import type { LuntStateClient } from "../protocol/client";
+  insertRegions,
+  newRegion,
+  regionContent,
+} from "../__conformance__/regionFixtures";
+import { describeStewardedTargetDirectoryContract } from "../__conformance__/stewardedTargetDirectory";
 import { DoStewardedTargetDirectory } from "../stewardedTargetDirectory";
+import { occasionStewardedTargetLookup } from "../store/occasion";
 import { placeStewardedTargetLookup } from "../store/place";
-import {
-  describeStewardedTargets,
-  STEWARDED_TARGET_LOOKUPS,
-} from "../store/stewardedTargetLookups";
+import { regionStewardedTargetLookup } from "../store/region";
+import { STEWARDED_TARGET_LOOKUPS } from "../store/stewardedTargetLookups";
 import { createNodeHarness } from "../testing/nodeHarness";
 
-// Node backend: the directory adapter and the object's lookup mechanism on
-// `node:sqlite` — places through Place's real repository and lookup,
-// regions and occasions through the conformance-only lookups until S3A.
-// The same suite runs against the real object in the Workers pool.
+// Node backend: the directory adapter and the object's lookups on
+// `node:sqlite` — places, regions and occasions through their real
+// repositories. The same suite runs against the real object in the Workers
+// pool.
 describeStewardedTargetDirectoryContract(async () => {
   const { state, uow } = createNodeHarness();
-  const { sql } = state.storage;
-  const client: Pick<LuntStateClient, "query"> = {
-    query: async (name, args) => {
-      if (name !== "authority.describeTargets") {
-        return state.client.query(name, args);
-      }
-      const { targets } = args as {
-        targets: readonly { kind: string; id: string }[];
-      };
-      return structuredClone(
-        describeStewardedTargets(sql, targets, CONFORMANCE_TARGET_LOOKUPS),
-      ) as never;
-    },
-  };
-  return {
-    directory: new DoStewardedTargetDirectory(client),
-    uow,
-    seed: async (targets) => seedConformanceTargets(sql, targets),
-  };
+  return { directory: new DoStewardedTargetDirectory(state.client), uow };
 });
 
-describe("StewardedTargetDirectory in stage 2", () => {
-  it("registers the place lookup; regions and occasions read as absent", async () => {
+describe("StewardedTargetDirectory in stage 3", () => {
+  it("registers the place, region and occasion lookups and describes stored ones through the object's own lookups", async () => {
     expect(STEWARDED_TARGET_LOOKUPS.place).toBe(placeStewardedTargetLookup);
-    expect(STEWARDED_TARGET_LOOKUPS.region).toBeUndefined();
-    expect(STEWARDED_TARGET_LOOKUPS.occasion).toBeUndefined();
+    expect(STEWARDED_TARGET_LOOKUPS.region).toBe(regionStewardedTargetLookup);
+    expect(STEWARDED_TARGET_LOOKUPS.occasion).toBe(
+      occasionStewardedTargetLookup,
+    );
 
     const h = createNodeHarness();
     const ids = authorityIds();
-    const P1 = ids.place();
+    const [P1, R1, O1] = [ids.place(), ids.region(), ids.occasion()];
+    const f = occasionFactory();
     await insertPlaces(h, newPlace(P1.id, { name: "喫茶ルント" }));
+    await insertRegions(h, newRegion(R1.id, regionContent({ name: "谷中" })));
+    await insertOccasions(h, f.draft({ name: "夏祭り" }, f.tick(), O1.id));
     const directory = new DoStewardedTargetDirectory(h.state.client);
     expect(
       await directory.describe([
+        O1,
+        R1,
         { kind: "region", id: RegionId.create(ids.region().id) },
-        { kind: "occasion", id: OccasionId.create(ids.occasion().id) },
         P1,
       ]),
-    ).toEqual([{ target: P1, name: "喫茶ルント" }]);
+    ).toEqual([
+      { target: P1, name: "喫茶ルント" },
+      { target: R1, name: "谷中" },
+      { target: O1, name: "夏祭り" },
+    ]);
     expect(StewardedTargetOrder.kinds).toEqual(["place", "region", "occasion"]);
   });
 });

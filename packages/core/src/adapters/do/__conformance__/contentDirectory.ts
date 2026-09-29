@@ -8,7 +8,10 @@ import type {
   ContentSummary,
 } from "@repo/core/domain/moderation/ports/contentDirectory";
 import { notificationIds } from "@repo/core/domain/notification/testing/samples";
+import { Occasion } from "@repo/core/domain/occasion/occasion";
+import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { Place } from "@repo/core/domain/place/place";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import type { SqlExec, SqlRow } from "../sql";
 import type { ContentLookup, ContentLookups } from "../store/contentLookups";
@@ -22,6 +25,7 @@ import {
   listingFactory,
   saveListing,
 } from "./listingFixtures";
+import { insertOccasions } from "./occasionFixtures";
 import {
   insertPlaces,
   newPlace,
@@ -29,12 +33,22 @@ import {
   placeProfile,
   updatePlace,
 } from "./placeFixtures";
+import {
+  emptyRegionContent,
+  insertRegions,
+  newRegion,
+  publishedRegion,
+  regionContent,
+  regionIds,
+  ticker,
+  updateRegion,
+} from "./regionFixtures";
 
 /**
- * A fresh store and the directory over it. Listings and places are stored
- * through their own repositories; regions and occasions (S3A) and articles
- * (S5) have no storage yet, so their rows stay `todo` and the extra tests
- * (without `#n`) exercise the same rule on listings and places.
+ * A fresh store and the directory over it. Listings, places, regions and
+ * occasions are stored through their own repositories; the rows that also
+ * need articles (S5) stay `todo` and the extra tests (without `#n`)
+ * exercise the same rule on the stored kinds.
  */
 export type ContentDirectoryHarness = ConformanceHarness &
   Readonly<{ directory: ContentDirectory }>;
@@ -59,6 +73,28 @@ const placeSummary = (place: Place): ContentSummary => ({
   target: placeRef(place),
   name: place.profile.name,
   photoIds: PhotoSet.photoIds(place.profile.photos),
+});
+
+const regionRef = (region: Region): ContentRef => ({
+  kind: "region",
+  id: region.id,
+});
+
+const regionSummary = (region: Region): ContentSummary => ({
+  target: regionRef(region),
+  name: region.content.name,
+  photoIds: PhotoSet.photoIds(region.content.photos),
+});
+
+const occasionRef = (occasion: Occasion): ContentRef => ({
+  kind: "occasion",
+  id: occasion.id,
+});
+
+const occasionSummary = (occasion: Occasion): ContentSummary => ({
+  target: occasionRef(occasion),
+  name: occasion.content.name,
+  photoIds: PhotoSet.photoIds(occasion.content.photos),
 });
 
 /** Places and listings built through their domains, ids ascending in mint order. */
@@ -99,6 +135,44 @@ export function describeContentDirectoryContract(
         expect(
           await h.directory.describe([placeRef(P1), listingRef(L1)]),
         ).toEqual([listingSummary(L1), placeSummary(P1)]);
+      });
+
+      it("orders a stored listing, place and published region by kind, whatever the request order (#1 with a region)", async () => {
+        const h = await makeHarness();
+        const w = world(h);
+        const P1 = await w.place(1, "一号店");
+        const L1 = await w.store(
+          w.f.published(P1.id, { name: "限定メニュー" }),
+        );
+        const ids = regionIds();
+        const R1 = publishedRegion(ids.region(), [ids.photo(), ids.photo()]);
+        await insertRegions(h, R1);
+        expect(
+          await h.directory.describe([
+            regionRef(R1),
+            placeRef(P1),
+            listingRef(L1),
+          ]),
+        ).toEqual([listingSummary(L1), placeSummary(P1), regionSummary(R1)]);
+      });
+
+      it("orders a stored place, region and occasion by kind, whatever the request order (#1 with an occasion)", async () => {
+        const h = await makeHarness();
+        const w = world(h);
+        const P1 = await w.place(1, "一号店");
+        const ids = regionIds();
+        const R1 = publishedRegion(ids.region(), [ids.photo()]);
+        await insertRegions(h, R1);
+        const o = occasionFactory();
+        const O1 = o.published({ name: "夏祭り", photos: 2 });
+        await insertOccasions(h, O1);
+        expect(
+          await h.directory.describe([
+            occasionRef(O1),
+            regionRef(R1),
+            placeRef(P1),
+          ]),
+        ).toEqual([placeSummary(P1), regionSummary(R1), occasionSummary(O1)]);
       });
 
       it("contentDirectory#2 店舗 P2、P1 が保存されている / describe([P2, P1])", async () => {
@@ -191,6 +265,68 @@ export function describeContentDirectoryContract(
         ]);
       });
 
+      it("returns an unpublished region and a suspended region with name and photos (#8 with regions)", async () => {
+        const h = await makeHarness();
+        const ids = regionIds();
+        const tick = ticker();
+        const unpublished = Region.unpublish(
+          publishedRegion(ids.region(), [ids.photo()], {
+            name: "取り下げた地域",
+          }),
+          tick(),
+        ).entity;
+        const suspended = Region.suspend(
+          publishedRegion(ids.region(), [ids.photo()], {
+            name: "非公開の地域",
+          }),
+          tick(),
+        ).entity;
+        await insertRegions(h, unpublished, suspended);
+        expect(
+          await h.directory.describe([
+            regionRef(suspended),
+            regionRef(unpublished),
+          ]),
+        ).toEqual([regionSummary(unpublished), regionSummary(suspended)]);
+      });
+
+      it("returns a suspended, an unpublished, a cancelled and a draft occasion with name and photos (#8 with occasions)", async () => {
+        const h = await makeHarness();
+        const o = occasionFactory();
+        const suspended = o.suspended(
+          o.published({ name: "非公開のイベント" }),
+        );
+        const unpublished = o.unpublished({ name: "取り下げたイベント" });
+        const cancelled = o.cancelled(o.published({ name: "中止のイベント" }));
+        const unnamed = o.bareDraft({ photos: 1 });
+        const all = [suspended, unpublished, cancelled, unnamed];
+        await insertOccasions(h, ...all);
+        expect(
+          await h.directory.describe([...all].reverse().map(occasionRef)),
+        ).toEqual(all.map(occasionSummary));
+        expect(
+          (await h.directory.describe([occasionRef(unnamed)]))[0]?.name,
+        ).toBeNull();
+      });
+
+      it("shows an occasion's photos after a committed takedown (#14 on an occasion)", async () => {
+        const h = await makeHarness();
+        const o = occasionFactory();
+        const [X, Y] = [o.photo(), o.photo()];
+        const O1 = o.published({ photos: [X, Y] });
+        await insertOccasions(h, O1);
+        await h.uow.run(async ({ occasionRepository }) => {
+          const read = await occasionRepository.findById(O1.id);
+          if (read === null) throw new Error("no occasion");
+          await occasionRepository.save(
+            Occasion.takeDownPhotos(read.entity, [X], o.tick()).entity,
+            read.expectedVersion,
+          );
+        });
+        const [summary] = await h.directory.describe([occasionRef(O1)]);
+        expect(summary?.photoIds).toEqual([Y]);
+      });
+
       it("contentDirectory#9 非公開の店舗 P1 に紐づく公開中の掲載 L1 が保存されている / describe([L1])", async () => {
         const h = await makeHarness();
         const w = world(h);
@@ -218,6 +354,15 @@ export function describeContentDirectoryContract(
             name: null,
             photoIds: listingSummary(L1).photoIds,
           },
+        ]);
+      });
+
+      it("returns an unnamed draft region with name null (#10 with a region)", async () => {
+        const h = await makeHarness();
+        const R1 = newRegion(regionIds().region(), emptyRegionContent());
+        await insertRegions(h, R1);
+        expect(await h.directory.describe([regionRef(R1)])).toEqual([
+          { target: regionRef(R1), name: null, photoIds: [] },
         ]);
       });
 
@@ -274,9 +419,26 @@ export function describeContentDirectoryContract(
         expect(summary?.photoIds).toEqual([Y.photoId]);
       });
 
-      it.todo(
-        "contentDirectory#15 写真 X を持つ地域 R1 が保存されている / UnitOfWork の中で、写真 Y を加えた R1 を save してコミットし、直後に describe([R1])",
-      );
+      it("contentDirectory#15 写真 X を持つ地域 R1 が保存されている / UnitOfWork の中で、写真 Y を加えた R1 を save してコミットし、直後に describe([R1])", async () => {
+        const h = await makeHarness();
+        const ids = regionIds();
+        const [X, Y] = [ids.photo(), ids.photo()];
+        const R1 = publishedRegion(ids.region(), [X]);
+        await insertRegions(h, R1);
+        await updateRegion(
+          h,
+          R1.id,
+          (region) =>
+            Region.updateContent(
+              region,
+              regionContent({ photoIds: [X, Y] }),
+              ticker()(),
+            ).entity,
+        );
+        expect(await h.directory.describe([regionRef(R1)])).toEqual([
+          { target: regionRef(R1), name: "谷中", photoIds: [X, Y] },
+        ]);
+      });
 
       it("shows a photo added by a committed save (#15 on a listing)", async () => {
         const h = await makeHarness();

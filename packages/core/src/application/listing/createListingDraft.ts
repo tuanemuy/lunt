@@ -6,6 +6,7 @@ import {
 } from "@repo/core/domain/listing/content";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { authorizeOnTarget } from "../authority/access";
+import { readPlaceRegions } from "../discovery/placeRegions";
 import { ConflictError, NotFoundError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
 import type { ActorServiceArgs } from "../types";
@@ -64,6 +65,7 @@ export async function createListingDraft({
     const view = {
       catalog: (await ctx.categoryCatalogRepository.find()).entity,
       place: place.entity,
+      ...(await readPlaceRegions(ctx, input.placeId)),
     };
     const existing = await ctx.listingRepository.findById(id);
     if (existing !== null) {

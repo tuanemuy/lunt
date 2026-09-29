@@ -2,6 +2,7 @@ import { PlaceId } from "@repo/core/domain/common/ids";
 import type { ListingContentInput } from "@repo/core/domain/listing/content";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
+import { affiliateWithRegions } from "../../discovery/__tests__/regionTies";
 import { NotFoundError } from "../../errors";
 import { period } from "../../listing/__tests__/kit";
 import { previewListingSubmission } from "../previewListingSubmission";
@@ -22,14 +23,12 @@ const preview = (
 const framing = { x: 0.1, y: 0.1, width: 0.8, height: 0.8 };
 
 describe("previewListingSubmission", () => {
-  it.todo(
-    "previewListingSubmission#1 店舗 p1 は公開されていて、公開中の地域 X に所属している。利用者 A が登録した写真 ph1、ph2 がある / A が、p1 と、写真 ph1・ph2（見せる範囲を含む）、名称、カテゴリー、説明、提供期間を入力して、見え方を確かめる",
-  ); // S3A: region affiliations (Region)
-
-  it("projects the entered photos, framing, names, category, description and period the way viewers would see them, without price or tagline", async () => {
+  it("previewListingSubmission#1 店舗 p1 は公開されていて、公開中の地域 X に所属している。利用者 A が登録した写真 ph1、ph2 がある / A が、p1 と、写真 ph1・ph2（見せる範囲を含む）、名称、カテゴリー、説明、提供期間を入力して、見え方を確かめる", async () => {
     const k = await applicationKit();
     const A = await k.person("a");
     const p1 = await k.place("山田商店");
+    const [X] = await affiliateWithRegions(k, p1, [{ name: "谷中" }]);
+    if (X === undefined) throw new Error("a region");
     const [ph1, ph2] = await k.photos(A, 2);
     if (ph1 === undefined || ph2 === undefined) throw new Error("photos");
     const view = await preview(
@@ -48,7 +47,7 @@ describe("previewListingSubmission", () => {
       cover: { photoId: ph1, framing },
       listingName: "りんご飴",
       placeName: "山田商店",
-      region: null,
+      region: "谷中",
       standing: { kind: "listing", offering: { phase: "upcoming" } },
     });
     expect(view.preview.detail).toMatchObject({
@@ -62,7 +61,7 @@ describe("previewListingSubmission", () => {
         kind: "period",
         period: { start: "2026-07-20", end: "2026-08-31" },
       },
-      regions: [],
+      regions: [expect.objectContaining({ regionId: X.id, name: "谷中" })],
     });
     expect(view.category).toMatchObject({ name: "食べる" });
     expect([...view.photoRefs.keys()]).toEqual([ph1, ph2]);
@@ -113,9 +112,24 @@ describe("previewListingSubmission", () => {
     expect(await k.findListing(l1)).toEqual(before);
   });
 
-  it.todo(
-    "previewListingSubmission#4 店舗 p1 は、公開中の地域 X と、公開を取り下げた地域 Z に所属している / A が見え方を確かめる",
-  ); // S3A: region affiliations and region publication (Region)
+  it("previewListingSubmission#4 店舗 p1 は、公開中の地域 X と、公開を取り下げた地域 Z に所属している / A が見え方を確かめる", async () => {
+    const k = await applicationKit();
+    const A = await k.person("a");
+    const p1 = await k.place();
+    const [X] = await affiliateWithRegions(k, p1, [
+      { name: "谷中" },
+      { name: "根津", state: "unpublished" },
+    ]);
+    if (X === undefined) throw new Error("two regions");
+    const view = await preview(
+      k,
+      A,
+      p1,
+      k.content({ photos: [await k.photo(A)] }),
+    );
+    expect(view.preview.summary.region).toBe("谷中");
+    expect(view.preview.detail.regions.map((r) => r.name)).toEqual(["谷中"]);
+  });
 
   it("previewListingSubmission#5 店舗 p1 はどの地域にも所属していない / A が見え方を確かめる", async () => {
     const k = await applicationKit();

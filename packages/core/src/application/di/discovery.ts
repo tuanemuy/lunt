@@ -1,4 +1,6 @@
 import { DoDetailQueries } from "@repo/core/adapters/do/detailQueries";
+import { DoExplorationQueries } from "@repo/core/adapters/do/explorationQueries";
+import { DoKeywordSearchQueries } from "@repo/core/adapters/do/keywordSearchQueries";
 import { DoReferenceQueries } from "@repo/core/adapters/do/referenceQueries";
 import type { DiscoveryServices } from "../discovery/services";
 import type { ServiceDeps } from "./serviceDeps";
@@ -10,11 +12,12 @@ export function createDiscoveryServices(
   _env: DiscoveryEnv,
   deps: ServiceDeps,
 ): DiscoveryServices {
+  const { client } = deps;
+  const { idGenerator } = deps.shared;
   return {
-    detailQueries: new DoDetailQueries(deps.client, deps.shared.idGenerator),
-    referenceQueries: new DoReferenceQueries(
-      deps.client,
-      deps.shared.idGenerator,
-    ),
+    detailQueries: new DoDetailQueries(client, idGenerator),
+    referenceQueries: new DoReferenceQueries(client, idGenerator),
+    explorationQueries: new DoExplorationQueries(client, idGenerator),
+    keywordSearchQueries: new DoKeywordSearchQueries(client, idGenerator),
   };
 }

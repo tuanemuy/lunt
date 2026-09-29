@@ -1,6 +1,9 @@
+import { regionContent } from "@repo/core/adapters/do/__conformance__/regionFixtures";
 import type { PhotoId, PlaceId } from "@repo/core/domain/common/ids";
 import { Version } from "@repo/core/domain/common/version";
 import { Place } from "@repo/core/domain/place/place";
+import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
 import { ForbiddenError, NotFoundError } from "../../errors";
@@ -87,9 +90,37 @@ describe("getManagedPlace", () => {
     expect(view.place.operatingStatus).toBe("open");
   });
 
-  it.todo(
-    "getManagedPlace#2 利用者 A は店舗 p1 の店舗管理者。p1 は地域 X に、次に地域 Y に所属している / A が、掲載の作成を始めるために p1 を読む",
-  );
+  it("getManagedPlace#2 利用者 A は店舗 p1 の店舗管理者。p1 は地域 X に、次に地域 Y に所属している / A が、掲載の作成を始めるために p1 を読む", async () => {
+    const { k, A, p1 } = await stewardedPlace();
+    const [X, Y] = ["谷中", "根津"].map(
+      (name) =>
+        Region.register(
+          { id: k.region(name).id, content: regionContent({ name }) },
+          k.tick(),
+        ).entity,
+    );
+    if (X === undefined || Y === undefined) throw new Error("two regions");
+    await k.container.unitOfWorkProvider.run(
+      async ({ regionRepository, placeAffiliationsRepository }) => {
+        await regionRepository.insert(Y);
+        await regionRepository.insert(X);
+        const intoX = PlaceAffiliations.affiliate(
+          PlaceAffiliations.empty(p1.id, k.tick()),
+          X.id,
+          k.tick(),
+        ).entity;
+        await placeAffiliationsRepository.insert(
+          PlaceAffiliations.affiliate(intoX, Y.id, k.tick()).entity,
+        );
+      },
+    );
+    const view = await read(k, A, p1.id);
+    expect(view.place.profile.address).toEqual(p1.profile.address);
+    expect(view.regions).toEqual([
+      { id: X.id, name: "谷中" },
+      { id: Y.id, name: "根津" },
+    ]);
+  });
 
   it("getManagedPlace#3 利用者 A は店舗 p1 の店舗管理者。p1 はどの地域にも所属していない / A が p1 を読む", async () => {
     const { k, A, p1 } = await stewardedPlace();

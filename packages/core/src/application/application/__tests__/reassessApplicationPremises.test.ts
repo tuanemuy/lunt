@@ -252,11 +252,11 @@ describe("reassessApplicationPremises", () => {
 
   it.todo(
     "reassessApplicationPremises#11 店舗 p2 の地域 X への所属の申請が、A のもの（b3）と B のもの（b4）、どちらも確認中だった。b3 が承認されて所属が成立した / region.affiliation_established を消費する",
-  );
+  ); // S3B: affiliation applications and the consumer's region.affiliation_established subscription
 
   it.todo(
     "reassessApplicationPremises#12 店舗 p1 の X からの離脱の申請 b5 が確認中。X の運営者が p1 を除外した / region.affiliation_dissolved を消費する",
-  );
+  ); // S3B: leave applications and the consumer's region.affiliation_dissolved subscription
 
   it.todo(
     "reassessApplicationPremises#13 イベント e1 への参加の申請 c1（確認中）と c2（差し戻し）がある。e1 が中止になった / e1 の occasion.cancelled を消費する",
@@ -288,7 +288,7 @@ describe("reassessApplicationPremises", () => {
 
   it.todo(
     "reassessApplicationPremises#20 情報修正の申請 a1 の対象の店舗 p1（店舗管理者がいない）が、サービス運営者によって非公開になった。その後、p1 の地域への所属が成立した / p1 の region.affiliation_established を消費する",
-  );
+  ); // S3B: the consumer's region.affiliation_established subscription (reassessApplicationPremises@S3B)
 
   it("a suspended place is no premise: its revision stays under review when an event about the place is consumed", async () => {
     const { k, p1, a1 } = await individualsAbout();

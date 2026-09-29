@@ -1,6 +1,7 @@
 import type { ListingId, PhotoId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
+import { affiliateWithRegions } from "../../discovery/__tests__/regionTies";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { getManagedListing } from "../getManagedListing";
 import { updateListing } from "../updateListing";
@@ -46,13 +47,14 @@ async function saveWith(
 }
 
 describe("getManagedListing", () => {
-  it.todo(
-    "getManagedListing#1 店舗 A の公開中の掲載がある。店舗 A は地域 R、地域 S の順に所属している。操作する人は店舗 A の店舗管理者 / 掲載を読む",
-  ); // S3: region affiliations (Region)
-
-  it("returns a published listing's content, state, offering status and place for its steward (regions empty until Region's stage)", async () => {
+  it("getManagedListing#1 店舗 A の公開中の掲載がある。店舗 A は地域 R、地域 S の順に所属している。操作する人は店舗 A の店舗管理者 / 掲載を読む", async () => {
     const k = await listingKit();
     const a = await k.place("山田商店");
+    const [R, S] = await affiliateWithRegions(k, a, [
+      { name: "谷中" },
+      { name: "根津" },
+    ]);
+    if (R === undefined || S === undefined) throw new Error("two regions");
     const m = await k.manager(a);
     const [p1, p2] = await k.photos(m, 2);
     if (p1 === undefined || p2 === undefined) throw new Error("photos");
@@ -85,7 +87,10 @@ describe("getManagedListing", () => {
           town: "大手町",
         },
         suspended: false,
-        regions: [],
+        regions: [
+          { id: R.id, name: "谷中" },
+          { id: S.id, name: "根津" },
+        ],
       },
       access: { hasSteward: true, manageable: true },
     });
@@ -273,17 +278,18 @@ describe("getManagedListing", () => {
     expect(a1.access).toEqual({ hasSteward: true, manageable: true });
   });
 
-  it.todo(
-    "getManagedListing#15 店舗 B に店舗管理者がいない。店舗 B は地域 R に所属している。操作する人はサービス運営者 / 店舗 B の掲載を読む",
-  ); // S3: region affiliations (Region)
-
-  it("an operator standing in for an absent steward reads the place's name and address and may manage the listing", async () => {
+  it("getManagedListing#15 店舗 B に店舗管理者がいない。店舗 B は地域 R に所属している。操作する人はサービス運営者 / 店舗 B の掲載を読む", async () => {
     const k = await listingKit();
     const b = await k.place("無人の店舗");
+    const [R] = await affiliateWithRegions(k, b, [{ name: "谷中" }]);
+    if (R === undefined) throw new Error("a region");
     const op = await k.operator();
     const listing = await k.published(op, b);
     const view = await reader(k)(op, listing.id);
-    expect(view.place).toMatchObject({ name: "無人の店舗", regions: [] });
+    expect(view.place).toMatchObject({
+      name: "無人の店舗",
+      regions: [{ id: R.id, name: "谷中" }],
+    });
     expect(view.place.address.town).toBe("大手町");
     expect(view.access).toEqual({ hasSteward: false, manageable: true });
   });

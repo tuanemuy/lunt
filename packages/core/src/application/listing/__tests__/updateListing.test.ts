@@ -1,6 +1,8 @@
 import type { ListingId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
 import { BusinessRuleError } from "@repo/core/domain/error";
+import { Participation } from "@repo/core/domain/occasion/participation";
+import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import { describe, expect, it } from "vitest";
 import {
   commitAfter,
@@ -447,13 +449,57 @@ describe("updateListing", () => {
     expect((await k.stored(listing.id)).entity).toEqual(before.entity);
   });
 
-  it.todo(
-    "updateListing#23 店舗 A は地域 X に所属している。操作する人は X の地域運営者で、店舗の管理権限を持たない / 店舗 A の掲載の内容を変えて保存する",
-  ); // S3: region affiliations (Region)
+  it("updateListing#23 店舗 A は地域 X に所属している。操作する人は X の地域運営者で、店舗の管理権限を持たない / 店舗 A の掲載の内容を変えて保存する", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const listing = await k.published(m, a);
+    const X = k.region("地域 X");
+    await k.run(({ placeAffiliationsRepository }) =>
+      placeAffiliationsRepository.insert(
+        PlaceAffiliations.affiliate(
+          PlaceAffiliations.empty(a, k.tick()),
+          X.id,
+          k.tick(),
+        ).entity,
+      ),
+    );
+    const R = await k.person("region");
+    await k.appoint(X, R);
+    const before = await k.stored(listing.id);
+    await expectCode(
+      saver(k)(R, listing.id, { ...(await specOf(k, listing.id)), name: "x" }),
+      ForbiddenError,
+    );
+    expect((await k.stored(listing.id)).entity).toEqual(before.entity);
+  });
 
-  it.todo(
-    "updateListing#24 店舗 A はイベント O に参加している。操作する人は O のイベント運営者で、店舗の管理権限を持たない / 店舗 A の掲載の内容を変えて保存する",
-  ); // S3: participations (Occasion)
+  it("updateListing#24 店舗 A はイベント O に参加している。操作する人は O のイベント運営者で、店舗の管理権限を持たない / 店舗 A の掲載の内容を変えて保存する", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const listing = await k.published(m, a);
+    const E = k.occasion("イベント O");
+    await k.run(({ participationRepository }) =>
+      participationRepository.insert(
+        Participation.establish(
+          {
+            key: { occasionId: E.id, placeId: a },
+            details: { listingIds: [], dates: [] },
+          },
+          k.tick(),
+        ).entity,
+      ),
+    );
+    const V = await k.person("occasion");
+    await k.appoint(E, V);
+    const before = await k.stored(listing.id);
+    await expectCode(
+      saver(k)(V, listing.id, { ...(await specOf(k, listing.id)), name: "x" }),
+      ForbiddenError,
+    );
+    expect((await k.stored(listing.id)).entity).toEqual(before.entity);
+  });
 
   it("a steward of another target (a region or an occasion) cannot save a place's listing", async () => {
     const k = await listingKit();

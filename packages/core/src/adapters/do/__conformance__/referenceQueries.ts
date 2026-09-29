@@ -13,13 +13,16 @@ import type {
 } from "@repo/core/domain/common/refs";
 import type { ReferenceResolution } from "@repo/core/domain/discovery/entry";
 import { Listing } from "@repo/core/domain/listing/listing";
+import type { Occasion } from "@repo/core/domain/occasion/occasion";
 import type { Place } from "@repo/core/domain/place/place";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import { expectBusinessRuleError } from "./assertions";
 import {
   type DiscoveryHarness,
   type DiscoveryHarnessFactory,
   discoveryWorld,
+  PERIODS,
 } from "./discoveryFixtures";
 import { insertListings } from "./listingFixtures";
 import { insertPlaces } from "./placeFixtures";
@@ -30,6 +33,10 @@ const listingRef = (listing: Pick<Listing, "id">) =>
   ({ kind: "listing", id: listing.id }) as const;
 const placeRef = (place: Pick<Place, "id">) =>
   ({ kind: "place", id: place.id }) as const;
+const regionRef = (region: Pick<Region, "id">) =>
+  ({ kind: "region", id: region.id }) as const;
+const occasionRef = (occasion: Pick<Occasion, "id">) =>
+  ({ kind: "occasion", id: occasion.id }) as const;
 
 /** `ref` and whether it resolved, for order and viewability checks. */
 const shapeOf = (resolutions: readonly ReferenceResolution[]) =>
@@ -37,9 +44,7 @@ const shapeOf = (resolutions: readonly ReferenceResolution[]) =>
 
 /**
  * `ReferenceQueries` contract (`spec/testcases/ports/referenceQueries.md`).
- * Stage 2 resolves and judges listings and places; rows that need regions,
- * occasions or articles stay `todo` until stage 3 (Region, Occasion) or
- * stage 5 (Article).
+ * Rows that need articles stay `todo` until stage 5 (Article).
  */
 export function describeReferenceQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
@@ -77,9 +82,45 @@ export function describeReferenceQueriesContract(
         ]);
       });
 
-      it.todo(
-        "referenceQueries#3 イベント E、掲載 L、地域 R、店舗 P / E、L、R、P の順の参照で resolve を呼ぶ",
-      );
+      it("referenceQueries#3 イベント E、掲載 L、地域 R、店舗 P / E、L、R、P の順の参照で resolve を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const E = await w.occasion();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        const R = await w.region();
+        expect(
+          await h.referenceQueries.resolve([
+            occasionRef(E),
+            listingRef(L),
+            regionRef(R),
+            placeRef(P),
+          ]),
+        ).toEqual([
+          {
+            ref: occasionRef(E),
+            viewable: true,
+            target: { kind: "occasion", occasion: E },
+          },
+          {
+            ref: listingRef(L),
+            viewable: true,
+            target: {
+              kind: "listing",
+              entry: { listing: L, place: w.entryOf(P, [L]) },
+            },
+          },
+          {
+            ref: regionRef(R),
+            viewable: true,
+            target: { kind: "region", region: R },
+          },
+          {
+            ref: placeRef(P),
+            viewable: true,
+            target: { kind: "place", entry: w.entryOf(P, [L]) },
+          },
+        ]);
+      });
 
       it("referenceQueries#4 閲覧できる掲載 L1・L3 と、unpublished の掲載 L2 / L1、L2、L3 の順の参照で呼ぶ", async () => {
         const { h, w } = await setup();
@@ -150,15 +191,39 @@ export function describeReferenceQueriesContract(
         ]);
       });
 
-      it.todo(
-        "referenceQueries#8 draft・unpublished・運営による非公開の地域とイベント / それぞれの参照で呼ぶ",
-      );
-      it.todo(
-        "referenceQueries#9 提供開始前の掲載、提供終了の掲載、休業中の店舗、閉店した店舗とその掲載、終了したイベント、中止のイベント / それぞれの参照で呼ぶ",
-      );
-
-      it("resolves upcoming and ended listings and temporarily or permanently closed places with their target (stage 2 part of #9)", async () => {
+      it("referenceQueries#8 draft・unpublished・運営による非公開の地域とイベント / それぞれの参照で呼ぶ", async () => {
         const { h, w } = await setup();
+        const refs: ShowcaseRef[] = [];
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          refs.push(regionRef(await w.region({ state })));
+          refs.push(occasionRef(await w.occasion({ state })));
+        }
+        expect(await h.referenceQueries.resolve(refs)).toEqual(
+          refs.map((ref) => ({ ref, viewable: false })),
+        );
+      });
+
+      it("referenceQueries#9 提供開始前の掲載、提供終了の掲載、休業中の店舗、閉店した店舗とその掲載、終了したイベント、中止のイベント / それぞれの参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const ended = await w.occasion({ period: PERIODS.ended });
+        const cancelled = await w.occasion({ state: "cancelled" });
+        expect(
+          await h.referenceQueries.resolve([
+            occasionRef(ended),
+            occasionRef(cancelled),
+          ]),
+        ).toEqual([
+          {
+            ref: occasionRef(ended),
+            viewable: true,
+            target: { kind: "occasion", occasion: ended },
+          },
+          {
+            ref: occasionRef(cancelled),
+            viewable: true,
+            target: { kind: "occasion", occasion: cancelled },
+          },
+        ]);
         const open = await w.place();
         const resting = await w.place({ status: "temporarilyClosed" });
         const closed = await w.place({ status: "permanentlyClosed" });
@@ -237,9 +302,28 @@ export function describeReferenceQueriesContract(
         ]);
       });
 
-      it.todo(
-        "referenceQueries#12 店舗 P が、公開中の地域 X・Y にこの順に所属し、代表地域は Y。unpublished の地域 Z にも所属している / P の参照で呼ぶ",
-      );
+      it("referenceQueries#12 店舗 P が、公開中の地域 X・Y にこの順に所属し、代表地域は Y。unpublished の地域 Z にも所属している / P の参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const X = await w.region();
+        const Y = await w.region();
+        const Z = await w.region({ state: "unpublished" });
+        const affiliations = await w.affiliate(P.id, [X.id, Y.id, Z.id], Y.id);
+        const [result] = await h.referenceQueries.resolve([placeRef(P)]);
+        expect(result).toEqual({
+          ref: placeRef(P),
+          viewable: true,
+          target: {
+            kind: "place",
+            entry: w.entryOf(P, [], { affiliations, regions: [X, Y, Z] }),
+          },
+        });
+        expect(
+          result?.viewable === true && result.target.kind === "place"
+            ? result.target.entry.regions
+            : null,
+        ).toEqual([Y, X]);
+      });
 
       it("referenceQueries#13 写真のない店舗 P に、published の掲載 L1（firstPublishedAt が T1）・L2（T2。T1 < T2）がある / P の参照で呼ぶ", async () => {
         const { h, w } = await setup();
@@ -372,16 +456,41 @@ export function describeReferenceQueriesContract(
         expect(await viewable(h, listingRef(L))).toBe(false);
       });
 
-      it.todo("referenceQueries#23 published の地域 / region の参照で呼ぶ");
-      it.todo(
-        "referenceQueries#24 draft・unpublished・運営による非公開の地域 / それぞれ呼ぶ",
-      );
-      it.todo(
-        "referenceQueries#25 公開中のイベントで、開催前・開催中・終了・中止のもの / それぞれ occasion の参照で呼ぶ",
-      );
-      it.todo(
-        "referenceQueries#26 draft・unpublished・運営による非公開のイベント / それぞれ呼ぶ",
-      );
+      it("referenceQueries#23 published の地域 / region の参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        expect(await viewable(h, regionRef(R))).toBe(true);
+      });
+
+      it("referenceQueries#24 draft・unpublished・運営による非公開の地域 / それぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          expect(await viewable(h, regionRef(await w.region({ state })))).toBe(
+            false,
+          );
+        }
+      });
+
+      it("referenceQueries#25 公開中のイベントで、開催前・開催中・終了・中止のもの / それぞれ occasion の参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const E of [
+          await w.occasion({ period: PERIODS.upcoming }),
+          await w.occasion({ period: PERIODS.ongoing }),
+          await w.occasion({ period: PERIODS.ended }),
+          await w.occasion({ state: "cancelled" }),
+        ]) {
+          expect(await viewable(h, occasionRef(E))).toBe(true);
+        }
+      });
+
+      it("referenceQueries#26 draft・unpublished・運営による非公開のイベント / それぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished", "suspended"] as const) {
+          expect(
+            await viewable(h, occasionRef(await w.occasion({ state }))),
+          ).toBe(false);
+        }
+      });
       it.todo(
         "referenceQueries#27 published の読みもの / article の参照で呼ぶ",
       );
@@ -463,9 +572,19 @@ export function describeReferenceQueriesContract(
         expect(await viewable(h, listingRef(L))).toBe(true);
       });
 
-      it.todo(
-        "referenceQueries#35 published の地域 R / unpublish した R を save してコミットし、直後に isViewable と resolve を呼ぶ",
-      );
+      it("referenceQueries#35 published の地域 R / unpublish した R を save してコミットし、直後に isViewable と resolve を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region();
+        expect(await viewable(h, regionRef(R))).toBe(true);
+        await w.updateRegion(
+          R,
+          (stored) => Region.unpublish(stored, w.f.tick()).entity,
+        );
+        expect(await viewable(h, regionRef(R))).toBe(false);
+        expect(await h.referenceQueries.resolve([regionRef(R)])).toEqual([
+          { ref: regionRef(R), viewable: false },
+        ]);
+      });
 
       it("referenceQueries#36 保存されていない店舗 P / UnitOfWork の中で P を insert してコミットし、直後に isViewable を呼ぶ", async () => {
         const { h, w } = await setup();

@@ -3,13 +3,11 @@ import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { ListingId } from "@repo/core/domain/common/ids";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import type { ListingEntry } from "@repo/core/domain/discovery/entry";
-import type {
-  OccasionSummary,
-  RegionSummary,
-} from "@repo/core/domain/discovery/stagedKinds";
 import {
   type ListingDetail,
   type ListingSummary,
+  type OccasionSummary,
+  type RegionSummary,
   ViewProjection,
 } from "@repo/core/domain/discovery/viewProjection";
 import { BusinessRuleError } from "@repo/core/domain/error";
@@ -21,9 +19,11 @@ import { NotFoundError } from "../errors";
 import type { ServiceArgs } from "../types";
 import {
   listingSummaryPhotoIds,
+  occasionSummaryPhotoIds,
   type PhotoRefs,
   photoRefsOf,
   placeSummaryPhotoIds,
+  regionSummaryPhotoIds,
   todayOf,
 } from "./views";
 
@@ -46,9 +46,15 @@ export type ViewListingOutput = Readonly<{
   /** The listing as viewers see it, its category resolved to the active one. */
   listing: Omit<ListingDetail, "categoryId" | "regions"> &
     Readonly<{ category: ActiveCategory }>;
-  /** Every viewable region of the place, the displayed one first (stage 3). */
+  /**
+   * Every viewable region of the place: the displayed one first, then in
+   * first-affiliated order.
+   */
   regions: readonly RegionSummary[];
-  /** Open and upcoming occasions this listing is attached to (stage 3). */
+  /**
+   * Upcoming and ongoing viewable occasions this listing is attached to, in
+   * 「開催日の順」 (discovery scene).
+   */
   occasions: readonly OccasionSummary[];
   /** `ViewProjection.pickOtherListings`, in discovery scene. */
   otherListings: readonly ListingSummary[];
@@ -65,7 +71,7 @@ export type ViewListingOutput = Readonly<{
  *
  * Other listings are the place's (read one more than the limit, so dropping
  * this listing still fills it) followed by those of other places in the
- * displayed region. Stage 2 has no regions, so they are the place's only.
+ * displayed region; without a displayed region, the place's only.
  *
  * @throws NotFoundError `LISTING_NOT_FOUND` when the listing is a draft,
  *   unpublished, suspended, deleted, at a suspended place, or missing —
@@ -110,9 +116,16 @@ export async function viewListing({
     { placeId: place.place.id, scene: "discovery", today },
     { page: 1, limit: input.otherListingsLimit + 1 },
   );
-  // Stage 3 reads the displayed region's listings here
-  // (`ExplorationQueries.findListingsOfRegion`); stage 2 has no regions.
-  const sameRegion: readonly ListingEntry[] = [];
+  const [displayed] = place.regions;
+  const sameRegion: readonly ListingEntry[] =
+    displayed === undefined
+      ? []
+      : (
+          await container.explorationQueries.findListingsOfRegion(
+            { regionId: displayed.id, excludingPlaceId: place.place.id, today },
+            { page: 1, limit: input.otherListingsLimit },
+          )
+        ).items;
   const otherListings = ViewProjection.pickOtherListings(
     listing.id,
     samePlace.items,
@@ -121,15 +134,22 @@ export async function viewListing({
   ).map((other) =>
     ViewProjection.listingSummary(other, { kind: "displayed" }, today),
   );
+  const occasions = (
+    await container.detailQueries.findOccasionsRelatedTo(
+      { kind: "listing", id: listing.id },
+      today,
+    )
+  ).map((occasion) => ViewProjection.occasionSummary(occasion, today));
 
-  const {
-    categoryId,
-    regions: _regions,
-    ...detail
-  } = ViewProjection.listingDetail(entry, today);
+  const { categoryId, regions, ...detail } = ViewProjection.listingDetail(
+    entry,
+    today,
+  );
   const photos = await photoRefsOf(container, [
     ...detail.photos.map((photo) => photo.photoId),
     ...placeSummaryPhotoIds(detail.place),
+    ...regions.flatMap(regionSummaryPhotoIds),
+    ...occasions.flatMap(occasionSummaryPhotoIds),
     ...otherListings.flatMap(listingSummaryPhotoIds),
   ]);
   return {
@@ -137,8 +157,8 @@ export async function viewListing({
       ...detail,
       category: CategoryCatalog.resolve(catalog, categoryId),
     },
-    regions: [],
-    occasions: [],
+    regions,
+    occasions,
     otherListings,
     placeIsVacant: Stewardship.isVacant(stewardship),
     photos,

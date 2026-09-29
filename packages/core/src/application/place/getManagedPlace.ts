@@ -3,10 +3,15 @@ import {
   AccessPolicy,
 } from "@repo/core/domain/authority/accessPolicy";
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
-import type { PlaceId, RegionId } from "@repo/core/domain/common/ids";
+import type { PlaceId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
 import { Place } from "@repo/core/domain/place/place";
 import { authorizeOnTarget } from "../authority/access";
+import {
+  type AffiliatedRegionView,
+  affiliatedRegionViews,
+  readPlaceRegions,
+} from "../discovery/placeRegions";
 import type { ActorServiceArgs } from "../types";
 import { displayRefsOf, type PhotoView, photoView } from "./photos";
 import { requirePlace } from "./places";
@@ -24,12 +29,8 @@ export type ManagedPlaceView = Readonly<{
   hasSteward: boolean;
   /** `manage_target` for the actor: whether, and as what, they may manage it. */
   management: AccessDecision;
-  /**
-   * Regions the place belongs to, first affiliation first. Region lands
-   * in stage 3; until then always empty (`spec/domains/index.md`
-   * 「開発の順序との対応」).
-   */
-  regions: readonly Readonly<{ id: RegionId; name: string }>[];
+  /** Regions the place belongs to (any state), first affiliation first. */
+  regions: readonly AffiliatedRegionView[];
 }>;
 
 /**
@@ -54,6 +55,9 @@ export async function getManagedPlace({
     const found = await requirePlace(ctx, input.placeId);
     return {
       place: found.entity,
+      regions: affiliatedRegionViews(
+        await readPlaceRegions(ctx, input.placeId),
+      ),
       hasSteward: !Stewardship.isVacant(access.stewardship),
       management: AccessPolicy.decide(access.authority, {
         kind: "manage_target",
@@ -70,6 +74,6 @@ export async function getManagedPlace({
     photosTakenDown: read.place.profile.photos.takenDown,
     hasSteward: read.hasSteward,
     management: read.management,
-    regions: [],
+    regions: read.regions,
   };
 }

@@ -12,6 +12,7 @@ import {
 } from "@repo/core/domain/listing/content";
 import { ManualEnd } from "@repo/core/domain/listing/offering";
 import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
+import { readPlaceRegions } from "../discovery/placeRegions";
 import { NotFoundError } from "../errors";
 import { type CategoryView, displayRefsOf } from "../listing/managedListing";
 import { PLACE_NOT_FOUND } from "../place/places";
@@ -56,16 +57,15 @@ export async function previewListingSubmission({
       throw new NotFoundError(PLACE_NOT_FOUND, "The place is not viewable");
     }
     const catalog = (await ctx.categoryCatalogRepository.find()).entity;
-    return { place, catalog };
+    return { place, catalog, ...(await readPlaceRegions(ctx, place.id)) };
   });
   const preview = ViewProjection.previewListing(
     {
       content,
       manualEnd: ManualEnd.none(),
       place: read.place,
-      // Region affiliations land with Region (stage 3); until then none.
-      affiliations: null,
-      regions: [],
+      affiliations: read.affiliations,
+      regions: read.regions,
     },
     LocalDate.fromInstant(container.clock.now()),
   );

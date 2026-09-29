@@ -1,5 +1,10 @@
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { Suspension } from "@repo/core/domain/common/suspension";
+import type {
+  Occasion,
+  PublishedOccasion,
+} from "@repo/core/domain/occasion/occasion";
+import type { PublishedRegion, Region } from "@repo/core/domain/region/region";
 import type { Scene } from "./scene";
 import type { Standing } from "./standing";
 
@@ -7,25 +12,34 @@ import type { Standing } from "./standing";
 export type PlaceExposure = Readonly<{ suspension: Suspension }>;
 
 /**
- * The facts a listing's visibility rests on
- * (`Pick<Listing, "publication" | "suspension">`).
+ * The facts a listing's, region's or occasion's visibility rests on
+ * (`Pick<…, "publication" | "suspension">`).
  */
-export type ListingExposure = Readonly<{
+export type PublicationExposure = Readonly<{
   publication: Publication;
   suspension: Suspension;
 }>;
 
+/** The facts a listing's own visibility rests on. */
+export type ListingExposure = PublicationExposure;
+
 const isPlaceViewable = (place: PlaceExposure): boolean =>
   !place.suspension.suspended;
+
+const isPublishedAndShown = (target: PublicationExposure): boolean =>
+  target.publication.status === "published" && !target.suspension.suspended;
 
 const isListingViewable = (
   listing: ListingExposure,
   place: PlaceExposure | null,
 ): boolean =>
-  listing.publication.status === "published" &&
-  !listing.suspension.suspended &&
-  place !== null &&
-  isPlaceViewable(place);
+  isPublishedAndShown(listing) && place !== null && isPlaceViewable(place);
+
+const isRegionViewable = (region: PublicationExposure): boolean =>
+  isPublishedAndShown(region);
+
+const isOccasionViewable = (occasion: PublicationExposure): boolean =>
+  isPublishedAndShown(occasion);
 
 const isDiscoverable = (standing: Standing): boolean => {
   switch (standing.kind) {
@@ -36,6 +50,10 @@ const isDiscoverable = (standing: Standing): boolean => {
       );
     case "place":
       return standing.operating !== "permanentlyClosed";
+    case "occasion":
+      return standing.holding === "upcoming" || standing.holding === "ongoing";
+    case "region":
+      return true;
   }
 };
 
@@ -48,10 +66,10 @@ const admits = (scene: Scene, standing: Standing): boolean =>
  * target iff it is viewable and `admits(scene, standing)` holds; there are
  * no per-scene or per-screen exceptions. Viewability depends only on the
  * publication state, the operator suspension and the place's suspension —
- * never on the date or the operating status.
+ * never on the date, the operating status, the holding status or the
+ * cancellation.
  *
- * Region, occasion and article kinds join with their stages
- * (`spec/domains/index.md` 「開発の順序との対応」).
+ * Articles join with stage 5 (`spec/domains/index.md` 「開発の順序との対応」).
  */
 export const VisibilityPolicy = {
   /** Not suspended by the operator. */
@@ -61,9 +79,20 @@ export const VisibilityPolicy = {
    * listing whose place is missing is not viewable.
    */
   isListingViewable,
+  /** `published` and not suspended by the operator. */
+  isRegionViewable,
+  /** `published` and not suspended; cancellation and holding status do not matter. */
+  isOccasionViewable,
+  /** `isRegionViewable` as a guard to the published variant. */
+  viewableRegion: (region: Region): region is PublishedRegion =>
+    region.publication.status === "published" && isRegionViewable(region),
+  /** `isOccasionViewable` as a guard to the published variant. */
+  viewableOccasion: (occasion: Occasion): occasion is PublishedOccasion =>
+    occasion.publication.status === "published" && isOccasionViewable(occasion),
   /**
    * A listing is discoverable while `available` at a place that is not
-   * permanently closed; a place while not permanently closed.
+   * permanently closed; a place while not permanently closed; an occasion
+   * while upcoming or ongoing; a region always.
    */
   isDiscoverable,
   /** `reference` admits every standing; `discovery` only discoverable ones. */

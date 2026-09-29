@@ -5,6 +5,12 @@ import {
   describeContentLookupMechanism,
   seedConformanceContent,
 } from "@repo/core/adapters/do/__conformance__/contentDirectory";
+import { insertOccasions } from "@repo/core/adapters/do/__conformance__/occasionFixtures";
+import {
+  insertRegions,
+  publishedRegion,
+  regionIds,
+} from "@repo/core/adapters/do/__conformance__/regionFixtures";
 import { DoContentDirectory } from "@repo/core/adapters/do/contentDirectory";
 import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import type {
@@ -16,7 +22,7 @@ import type { SqlExec } from "@repo/core/adapters/do/sql";
 import { describeContent } from "@repo/core/adapters/do/store/contentLookups";
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
-import { RegionId } from "@repo/core/domain/common/ids";
+import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { describe, expect, it } from "vitest";
 
 const DESCRIBE = "moderation.describeContent";
@@ -33,7 +39,7 @@ function isDescribe(
   return name === DESCRIBE;
 }
 
-// The real object: listings and places stored through their repositories,
+// The real object: listings, places and regions stored through their repositories,
 // the directory reading the object's own lookups.
 describeContentDirectoryContract(async () => {
   const stub = freshStub();
@@ -84,18 +90,51 @@ describeContentLookupMechanism(async () => {
   };
 });
 
-describe("ContentDirectory in stage 2 (real object)", () => {
-  it("registers only the kinds whose tables exist, so a region still reads as absent", async () => {
-    const directory = new DoContentDirectory(
-      freshStub() as unknown as LuntStateClient,
+describe("ContentDirectory in stage 3 (real object)", () => {
+  it("describes a stored region through the object's own lookups; an absent one reads as absent", async () => {
+    const client = freshStub() as unknown as LuntStateClient;
+    const ids = regionIds();
+    const photo = ids.photo();
+    const R1 = publishedRegion(ids.region(), [photo]);
+    await insertRegions(
+      { uow: new DoUnitOfWorkProvider(client, UuidV7Generator) },
+      R1,
     );
     expect(
-      await directory.describe([
-        {
-          kind: "region",
-          id: RegionId.create("ffffffff-ffff-7fff-8fff-000000000001"),
-        },
+      await new DoContentDirectory(client).describe([
+        { kind: "region", id: ids.region() },
+        { kind: "region", id: R1.id },
       ]),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        target: { kind: "region", id: R1.id },
+        name: "谷中",
+        photoIds: [photo],
+      },
+    ]);
+  });
+
+  it("describes a stored occasion through the object's own lookups", async () => {
+    const client = freshStub() as unknown as LuntStateClient;
+    const f = occasionFactory();
+    const O1 = f.unpublished({ name: "夏祭り" });
+    await insertOccasions(
+      {
+        uow: new DoUnitOfWorkProvider(client, UuidV7Generator),
+        savedEvents: async () => [],
+      },
+      O1,
+    );
+    expect(
+      await new DoContentDirectory(client).describe([
+        { kind: "occasion", id: O1.id },
+      ]),
+    ).toEqual([
+      {
+        target: { kind: "occasion", id: O1.id },
+        name: "夏祭り",
+        photoIds: O1.content.photos.items.map((photo) => photo.photoId),
+      },
+    ]);
   });
 });

@@ -4,6 +4,11 @@ import {
   type PublishedListing,
 } from "@repo/core/domain/listing/listing";
 import type { OfferingStatus } from "@repo/core/domain/listing/offering";
+import {
+  type Cancellation,
+  HoldingStatus,
+} from "@repo/core/domain/occasion/holdingStatus";
+import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { Place } from "@repo/core/domain/place/place";
 
@@ -18,13 +23,25 @@ export type PlaceStanding = Readonly<{
   operating: OperatingStatus;
 }>;
 
+export type OccasionStanding = Readonly<{
+  kind: "occasion";
+  holding: HoldingStatus;
+}>;
+
+export type RegionStanding = Readonly<{ kind: "region" }>;
+
 /**
  * What the scene rules look at and what viewers are shown: a listing's
  * offering status (an upcoming one carries its start day) and its place's
- * operating status; a place's operating status. Occasions (holding status)
- * join in stage 3; regions and articles have no standing.
+ * operating status; a place's operating status; an occasion's holding
+ * status. Regions have no standing that changes with the scene (articles
+ * join in stage 5).
  */
-export type Standing = ListingStanding | PlaceStanding;
+export type Standing =
+  | ListingStanding
+  | PlaceStanding
+  | OccasionStanding
+  | RegionStanding;
 
 const ofListing = (
   listing: PublishedListing,
@@ -41,4 +58,33 @@ const ofPlace = (place: Pick<Place, "operatingStatus">): PlaceStanding => ({
   operating: place.operatingStatus,
 });
 
-export const Standing = { ofListing, ofPlace };
+/**
+ * `Occasion.holdingStatus` of a published occasion, which always has a
+ * period — so the status is always decided.
+ */
+const ofOccasion = (
+  occasion: Readonly<{
+    content: Pick<PublishedOccasion["content"], "period">;
+    cancellation: Cancellation;
+  }>,
+  today: LocalDate,
+): OccasionStanding => {
+  const holding = HoldingStatus.of(
+    occasion.content.period,
+    occasion.cancellation,
+    today,
+  );
+  if (holding === null) {
+    throw new TypeError("A published occasion's holding status is decided");
+  }
+  return { kind: "occasion", holding };
+};
+
+const REGION: RegionStanding = { kind: "region" };
+
+export const Standing = {
+  ofListing,
+  ofPlace,
+  ofOccasion,
+  ofRegion: (): RegionStanding => REGION,
+};

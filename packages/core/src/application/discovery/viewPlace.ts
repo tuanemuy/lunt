@@ -1,17 +1,21 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { Actor } from "@repo/core/domain/common/actor";
 import type { PlaceId } from "@repo/core/domain/common/ids";
-import type {
-  OccasionSummary,
-  RegionSummary,
-} from "@repo/core/domain/discovery/stagedKinds";
 import {
+  type OccasionSummary,
   type PlaceDetail,
+  type RegionSummary,
   ViewProjection,
 } from "@repo/core/domain/discovery/viewProjection";
 import { NotFoundError } from "../errors";
 import type { ServiceArgs } from "../types";
-import { type PhotoRefs, photoRefsOf } from "./views";
+import {
+  occasionSummaryPhotoIds,
+  type PhotoRefs,
+  photoRefsOf,
+  regionSummaryPhotoIds,
+  todayOf,
+} from "./views";
 
 /** Thrown for a place that is suspended or does not exist (not told apart). */
 export const PLACE_NOT_FOUND = "PLACE_NOT_FOUND";
@@ -21,9 +25,15 @@ export type ViewPlaceInput = Readonly<{ placeId: PlaceId }>;
 export type ViewPlaceOutput = Readonly<{
   /** The place's own content — a place without photos shows none. */
   place: Omit<PlaceDetail, "regions">;
-  /** Every viewable region of the place, the displayed one first (stage 3). */
+  /**
+   * Every viewable region of the place: the displayed one first, then in
+   * first-affiliated order.
+   */
   regions: readonly RegionSummary[];
-  /** Upcoming and ongoing occasions the place takes part in (stage 3). */
+  /**
+   * Upcoming and ongoing viewable occasions the place takes part in, in
+   * 「開催日の順」 (discovery scene).
+   */
   occasions: readonly OccasionSummary[];
   /** Whether the place has no steward. */
   placeIsVacant: boolean;
@@ -48,6 +58,7 @@ export async function viewPlace({
   input,
 }: ServiceArgs<ViewPlaceInput> &
   Readonly<{ actor: Actor | null }>): Promise<ViewPlaceOutput> {
+  const today = todayOf(container);
   const entry = await container.detailQueries.findPlace(input.placeId);
   if (entry === null) {
     throw new NotFoundError(PLACE_NOT_FOUND, "The place is not viewable");
@@ -60,17 +71,24 @@ export async function viewPlace({
         target,
       ),
   );
-  const { regions: _regions, ...place } = ViewProjection.placeDetail(entry);
+  const occasions = (
+    await container.detailQueries.findOccasionsRelatedTo(
+      { kind: "place", id: entry.place.id },
+      today,
+    )
+  ).map((occasion) => ViewProjection.occasionSummary(occasion, today));
+  const { regions, ...place } = ViewProjection.placeDetail(entry);
   return {
     place,
-    regions: [],
-    occasions: [],
+    regions,
+    occasions,
     placeIsVacant: Stewardship.isVacant(stewardship),
     viewerIsSteward:
       actor !== null && Stewardship.isSteward(stewardship, actor.accountId),
-    photos: await photoRefsOf(
-      container,
-      place.photos.map((photo) => photo.photoId),
-    ),
+    photos: await photoRefsOf(container, [
+      ...place.photos.map((photo) => photo.photoId),
+      ...regions.flatMap(regionSummaryPhotoIds),
+      ...occasions.flatMap(occasionSummaryPhotoIds),
+    ]),
   };
 }

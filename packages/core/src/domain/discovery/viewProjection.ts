@@ -1,12 +1,15 @@
 import type { Address } from "@repo/core/domain/common/address";
+import type { DateRange } from "@repo/core/domain/common/dateRange";
 import type { GeoPoint } from "@repo/core/domain/common/geo";
 import type {
   CategoryId,
   ListingId,
+  OccasionId,
   PlaceId,
   RegionId,
 } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { Tagline } from "@repo/core/domain/common/tagline";
 import type { ListingContent } from "@repo/core/domain/listing/content";
 import {
   Listing,
@@ -22,6 +25,13 @@ import type {
   ListingName,
   ListingPhoto,
 } from "@repo/core/domain/listing/values";
+import type { OccasionPhoto } from "@repo/core/domain/occasion/content";
+import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
+import type {
+  CompleteVenue,
+  OccasionDescription,
+  OccasionName,
+} from "@repo/core/domain/occasion/values";
 import type { Place } from "@repo/core/domain/place/place";
 import type {
   PlaceDescription,
@@ -29,6 +39,13 @@ import type {
   PlacePhoto,
   VisitInfo,
 } from "@repo/core/domain/place/profile";
+import type { RegionPhoto } from "@repo/core/domain/region/content";
+import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
+import type { PublishedRegion, Region } from "@repo/core/domain/region/region";
+import type {
+  RegionDescription,
+  RegionName,
+} from "@repo/core/domain/region/values";
 import type {
   CoverPhoto,
   ListingEntry,
@@ -36,14 +53,16 @@ import type {
   RegionContext,
   SubstituteCover,
 } from "./entry";
-import type {
-  PlaceAffiliations,
-  PublishedRegion,
-  Region,
-  RegionLabel,
-} from "./stagedKinds";
-import { type ListingStanding, type PlaceStanding, Standing } from "./standing";
+import {
+  type ListingStanding,
+  type OccasionStanding,
+  type PlaceStanding,
+  Standing,
+} from "./standing";
 import { VisibilityPolicy } from "./visibilityPolicy";
+
+/** The region name a place or listing summary shows (`ViewProjection.regionLabel`). */
+export type RegionLabel = RegionName;
 
 export type OwnCover = Extract<CoverPhoto, { source: "own" }>;
 
@@ -76,6 +95,30 @@ export type PlaceSummary = Readonly<{
   standing: PlaceStanding;
 }>;
 
+/** A region in a list, overview or frame; its introduction is not shown. */
+export type RegionSummary = Readonly<{
+  regionId: RegionId;
+  cover: OwnCover;
+  name: RegionName;
+  tagline: Tagline | null;
+  address: Address;
+  location: GeoPoint;
+}>;
+
+/**
+ * An occasion in a list, overview or frame, with its holding status; its
+ * introduction is not shown.
+ */
+export type OccasionSummary = Readonly<{
+  occasionId: OccasionId;
+  cover: OwnCover;
+  name: OccasionName;
+  tagline: Tagline | null;
+  period: DateRange;
+  venue: CompleteVenue;
+  standing: OccasionStanding;
+}>;
+
 /**
  * A listing's detail as viewers see it. `categoryId` is as stored; the
  * caller resolves it to the active category (`CategoryCatalog.resolve`).
@@ -91,7 +134,8 @@ export type ListingDetail = Readonly<{
   offering: Offering;
   standing: ListingStanding;
   place: PlaceSummary;
-  regions: readonly PublishedRegion[];
+  /** Every viewable region of the place, the displayed one first. */
+  regions: readonly RegionSummary[];
 }>;
 
 /**
@@ -108,7 +152,33 @@ export type PlaceDetail = Readonly<{
   location: GeoPoint;
   visitInfo: VisitInfo;
   standing: PlaceStanding;
-  regions: readonly PublishedRegion[];
+  /** Every viewable region of the place, the displayed one first. */
+  regions: readonly RegionSummary[];
+}>;
+
+/** A region's detail as viewers see it: its own content. */
+export type RegionDetail = Readonly<{
+  regionId: RegionId;
+  name: RegionName;
+  tagline: Tagline | null;
+  description: RegionDescription | null;
+  address: Address;
+  location: GeoPoint;
+  /** Registration order; the first is the cover. */
+  photos: readonly RegionPhoto[];
+}>;
+
+/** An occasion's detail as viewers see it: its content and holding status. */
+export type OccasionDetail = Readonly<{
+  occasionId: OccasionId;
+  name: OccasionName;
+  tagline: Tagline | null;
+  description: OccasionDescription | null;
+  period: DateRange;
+  venue: CompleteVenue;
+  /** Registration order; the first is the cover. */
+  photos: readonly OccasionPhoto[];
+  standing: OccasionStanding;
 }>;
 
 /**
@@ -134,7 +204,7 @@ export type ListingPreview = Readonly<{
     offering: Offering;
     standing: ListingStanding;
     place: PlaceSummary;
-    regions: readonly PublishedRegion[];
+    regions: readonly RegionSummary[];
   }>;
 }>;
 
@@ -160,15 +230,33 @@ const compareNewestListings = (
 };
 
 /**
- * Viewable affiliated regions, the displayed region first, then in
- * affiliation order; empty without affiliations. Region lands in stage 3,
- * so there are none yet.
+ * Viewable affiliated regions, the displayed region
+ * (`PlaceAffiliations.displayedRegion`) first, then in first-affiliated
+ * order; empty without affiliations or viewable affiliated regions
+ * (P-15, P-16, B-25). `regions` may hold any regions; only affiliated
+ * ones count.
  */
 function regionsOf(
-  _affiliations: PlaceAffiliations | null,
-  _regions: readonly Region[],
+  affiliations: PlaceAffiliations | null,
+  regions: readonly Region[],
 ): readonly PublishedRegion[] {
-  return [];
+  if (affiliations === null) return [];
+  const viewable = new Map(
+    regions
+      .filter(VisibilityPolicy.viewableRegion)
+      .map((region) => [region.id, region] as const),
+  );
+  const affiliated = PlaceAffiliations.regionIds(affiliations).flatMap(
+    (id) => viewable.get(id) ?? [],
+  );
+  const displayed = PlaceAffiliations.displayedRegion(
+    affiliations,
+    new Set(affiliated.map((region) => region.id)),
+  );
+  return [
+    ...affiliated.filter((region) => region.id === displayed),
+    ...affiliated.filter((region) => region.id !== displayed),
+  ];
 }
 
 /**
@@ -212,10 +300,6 @@ function placeEntry(
   };
 }
 
-const labelOf = (region: PublishedRegion): RegionLabel => region;
-
-const regionIdOf = (region: PublishedRegion): RegionId => region;
-
 /**
  * `displayed`: the first of the entry's regions (none → no region name).
  * `within`: that region among the entry's regions.
@@ -223,13 +307,18 @@ const regionIdOf = (region: PublishedRegion): RegionId => region;
 function regionLabel(
   entry: Pick<PlaceEntry, "regions">,
   context: RegionContext,
-): RegionLabel | null {
+): PublishedRegion | null {
   const region =
     context.kind === "displayed"
       ? entry.regions[0]
-      : entry.regions.find((r) => regionIdOf(r) === context.regionId);
-  return region === undefined ? null : labelOf(region);
+      : entry.regions.find((r) => r.id === context.regionId);
+  return region ?? null;
 }
+
+const regionNameOf = (
+  entry: Pick<PlaceEntry, "regions">,
+  context: RegionContext,
+): RegionLabel | null => regionLabel(entry, context)?.content.name ?? null;
 
 const ownListingCover = (photo: ListingPhoto): OwnCover => ({
   source: "own",
@@ -249,7 +338,7 @@ function listingSummary(
     cover: ownListingCover(listing.content.photos.items[0]),
     listingName: listing.content.name,
     placeName: place.place.profile.name,
-    region: regionLabel(place, context),
+    region: regionNameOf(place, context),
     standing: Standing.ofListing(listing, place.place, today),
   };
 }
@@ -277,7 +366,7 @@ function placeSummary(entry: PlaceEntry, context: RegionContext): PlaceSummary {
     name: place.profile.name,
     address: place.profile.address,
     location: place.profile.location,
-    region: regionLabel(entry, context),
+    region: regionNameOf(entry, context),
     standing: Standing.ofPlace(place),
   };
 }
@@ -293,7 +382,7 @@ function listingDetail(entry: ListingEntry, today: LocalDate): ListingDetail {
     offering: listing.content.offering,
     standing: Standing.ofListing(listing, place.place, today),
     place: placeSummary(place, { kind: "displayed" }),
-    regions: place.regions,
+    regions: place.regions.map(regionSummary),
   };
 }
 
@@ -308,7 +397,73 @@ function placeDetail(entry: PlaceEntry): PlaceDetail {
     location: place.profile.location,
     visitInfo: place.profile.visitInfo,
     standing: Standing.ofPlace(place),
-    regions: entry.regions,
+    regions: entry.regions.map(regionSummary),
+  };
+}
+
+function regionSummary(region: PublishedRegion): RegionSummary {
+  const { content } = region;
+  return {
+    regionId: region.id,
+    cover: {
+      source: "own",
+      photoId: content.photos.items[0].photoId,
+      framing: null,
+    },
+    name: content.name,
+    tagline: content.tagline,
+    address: content.address,
+    location: content.location,
+  };
+}
+
+function occasionSummary(
+  occasion: PublishedOccasion,
+  today: LocalDate,
+): OccasionSummary {
+  const { content } = occasion;
+  return {
+    occasionId: occasion.id,
+    cover: {
+      source: "own",
+      photoId: content.photos.items[0].photoId,
+      framing: null,
+    },
+    name: content.name,
+    tagline: content.tagline,
+    period: content.period,
+    venue: content.venue,
+    standing: Standing.ofOccasion(occasion, today),
+  };
+}
+
+function regionDetail(region: PublishedRegion): RegionDetail {
+  const { content } = region;
+  return {
+    regionId: region.id,
+    name: content.name,
+    tagline: content.tagline,
+    description: content.description,
+    address: content.address,
+    location: content.location,
+    photos: content.photos.items,
+  };
+}
+
+function occasionDetail(
+  occasion: PublishedOccasion,
+  today: LocalDate,
+): OccasionDetail {
+  const { content } = occasion;
+  return {
+    occasionId: occasion.id,
+    name: content.name,
+    tagline: content.tagline,
+    description: content.description,
+    period: content.period,
+    venue: content.venue,
+    photos: content.photos.items,
+    standing: Standing.ofOccasion(occasion, today),
   };
 }
 
@@ -334,7 +489,7 @@ function previewListing(
       cover: first === undefined ? null : ownListingCover(first),
       listingName: content.name,
       placeName: place.profile.name,
-      region: regionLabel(entry, { kind: "displayed" }),
+      region: regionNameOf(entry, { kind: "displayed" }),
       standing,
     },
     detail: {
@@ -345,7 +500,7 @@ function previewListing(
       offering: content.offering,
       standing,
       place: placeSummary(entry, { kind: "displayed" }),
-      regions: entry.regions,
+      regions: entry.regions.map(regionSummary),
     },
   };
 }
@@ -379,8 +534,12 @@ export const ViewProjection = {
   regionLabel,
   listingSummary,
   placeSummary,
+  regionSummary,
+  occasionSummary,
   listingDetail,
   placeDetail,
+  regionDetail,
+  occasionDetail,
   previewListing,
   pickOtherListings,
   compareNewestListings,

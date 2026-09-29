@@ -1,4 +1,5 @@
 import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
 import { openDates } from "@repo/core/adapters/do/__conformance__/listingFixtures";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { PhotoId } from "@repo/core/domain/common/ids";
@@ -21,6 +22,12 @@ const view = (k: DiscoveryKit, listingId: ListingId, otherListingsLimit = 6) =>
 const otherIds = (out: Awaited<ReturnType<typeof view>>) =>
   out.otherListings.map((summary) => summary.listingId);
 
+const regionIds = (out: Awaited<ReturnType<typeof view>>) =>
+  out.regions.map((summary) => summary.regionId);
+
+const occasionIds = (out: Awaited<ReturnType<typeof view>>) =>
+  out.occasions.map((summary) => summary.occasionId);
+
 async function expectNotFound(promise: Promise<unknown>): Promise<void> {
   const error = await promise.then(
     () => undefined,
@@ -31,14 +38,12 @@ async function expectNotFound(promise: Promise<unknown>): Promise<void> {
 }
 
 describe("viewListing", () => {
-  it.todo(
-    "viewListing#1 公開中かつ提供中の掲載 L。店舗 P は営業中で、地域 X に所属している。L を参加に添えた開催中のイベントがある / L を読む",
-  );
-
-  it("returns the listing's photos, name, description, category, offering and standing with the place and other listings, each carrying its id (stage 2 part of #1)", async () => {
+  it("viewListing#1 公開中かつ提供中の掲載 L。店舗 P は営業中で、地域 X に所属している。L を参加に添えた開催中のイベントがある / L を読む", async () => {
     const k = await discoveryKit();
     const { w } = k;
     const P = await w.place({ photos: 1 });
+    const X = await w.region({ name: "谷中" });
+    await w.affiliate(P.id, [X.id]);
     const other = await w.available(P.id);
     const framed = w.f.photo({ x: 0.1, y: 0.2, width: 0.5, height: 0.5 });
     const L = await w.store(
@@ -47,6 +52,8 @@ describe("viewListing", () => {
         description: "季節の果物を使ったタルト",
       }),
     );
+    const E = await w.occasion({ period: PERIODS.ongoing, tagline: "夏の市" });
+    await w.participate(E.id, P.id, { listingIds: [L.id] });
     const out = await view(k, L.id);
     expect(out.listing).toEqual({
       listingId: L.id,
@@ -70,7 +77,7 @@ describe("viewListing", () => {
         name: P.profile.name,
         address: P.profile.address,
         location: P.profile.location,
-        region: null,
+        region: "谷中",
         standing: { kind: "place", operating: "open" },
       },
     });
@@ -88,7 +95,7 @@ describe("viewListing", () => {
         },
         listingName: other.content.name,
         placeName: P.profile.name,
-        region: null,
+        region: "谷中",
         standing: {
           kind: "listing",
           offering: { phase: "available" },
@@ -96,11 +103,40 @@ describe("viewListing", () => {
         },
       },
     ]);
-    expect(out.regions).toEqual([]);
-    expect(out.occasions).toEqual([]);
+    expect(out.regions).toEqual([
+      {
+        regionId: X.id,
+        cover: {
+          source: "own",
+          photoId: X.content.photos.items[0]?.photoId,
+          framing: null,
+        },
+        name: "谷中",
+        tagline: X.content.tagline,
+        address: X.content.address,
+        location: X.content.location,
+      },
+    ]);
+    expect(out.occasions).toEqual([
+      {
+        occasionId: E.id,
+        cover: {
+          source: "own",
+          photoId: E.content.photos.items[0]?.photoId,
+          framing: null,
+        },
+        name: E.content.name,
+        tagline: "夏の市",
+        period: E.content.period,
+        venue: E.content.venue,
+        standing: { kind: "occasion", holding: "ongoing" },
+      },
+    ]);
     const shown: readonly PhotoId[] = [
       ...L.content.photos.items.map((photo) => photo.photoId),
       ...P.profile.photos.items.map((photo) => photo.photoId),
+      ...X.content.photos.items.map((photo) => photo.photoId),
+      ...E.content.photos.items.map((photo) => photo.photoId),
       ...other.content.photos.items.map((photo) => photo.photoId),
     ];
     expect(Object.keys(out.photos).sort()).toEqual([...shown].sort());
@@ -181,21 +217,42 @@ describe("viewListing", () => {
     expect(onClosed.listing.place.standing.operating).toBe("permanentlyClosed");
   });
 
-  it.todo(
-    "viewListing#7 店舗が地域 X・Y・Z の順に所属し、代表地域に Y を選んでいる。Z は公開の取り下げ中 / 読む",
-  );
-  it.todo(
-    "viewListing#8 店舗 P に、L のほかに提供中の掲載 p1・p2、提供開始前の掲載 p3 がある。一覧に示す地域 X に所属する他の店舗に、提供中の掲載が5件と、閉店した店舗の掲載が1件ある / 他の掲載の件数を 6 にして L を読む",
-  );
-
-  it("other listings start with the place's available listings, newest first, without itself or upcoming ones (stage 2 part of #8)", async () => {
+  it("viewListing#7 店舗が地域 X・Y・Z の順に所属し、代表地域に Y を選んでいる。Z は公開の取り下げ中 / 読む", async () => {
     const k = await discoveryKit();
     const P = await k.w.place();
+    const X = await k.w.region();
+    const Y = await k.w.region();
+    const Z = await k.w.region({ state: "unpublished" });
+    await k.w.affiliate(P.id, [X.id, Y.id, Z.id], Y.id);
+    const L = await k.w.available(P.id);
+    expect(regionIds(await view(k, L.id))).toEqual([Y.id, X.id]);
+  });
+
+  it("viewListing#8 店舗 P に、L のほかに提供中の掲載 p1・p2、提供開始前の掲載 p3 がある。一覧に示す地域 X に所属する他の店舗に、提供中の掲載が5件と、閉店した店舗の掲載が1件ある / 他の掲載の件数を 6 にして L を読む", async () => {
+    const k = await discoveryKit();
+    const X = await k.w.region();
+    const P = await k.w.place();
+    const Q = await k.w.place();
+    const S = await k.w.place();
+    const closed = await k.w.place({ status: "permanentlyClosed" });
+    for (const place of [P, Q, S, closed]) {
+      await k.w.affiliate(place.id, [X.id]);
+    }
     const L = await k.w.available(P.id);
     const p1 = await k.w.available(P.id);
     const p2 = await k.w.available(P.id);
     await k.w.upcoming(P.id);
-    expect(otherIds(await view(k, L.id))).toEqual([p2.id, p1.id]);
+    const inRegion = [];
+    for (const place of [Q, S, Q, S, Q]) {
+      inRegion.push(await k.w.available(place.id));
+    }
+    await k.w.available(closed.id);
+    const newestInRegion = inRegion.map((listing) => listing.id).reverse();
+    expect(otherIds(await view(k, L.id, 6))).toEqual([
+      p2.id,
+      p1.id,
+      ...newestInRegion.slice(0, 4),
+    ]);
   });
 
   const sixOthersThenL = async () => {
@@ -231,9 +288,18 @@ describe("viewListing", () => {
     expect(otherIds(out)).toEqual([a.id]);
   });
 
-  it.todo(
-    "viewListing#12 L を参加に添えた、開催前のイベント E1 と終了したイベント E2 がある。店舗は E3 にも参加しているが、L を添えていない / L を読む",
-  );
+  it("viewListing#12 L を参加に添えた、開催前のイベント E1 と終了したイベント E2 がある。店舗は E3 にも参加しているが、L を添えていない / L を読む", async () => {
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    const L = await k.w.available(P.id);
+    const E1 = await k.w.occasion({ period: PERIODS.upcoming });
+    const E2 = await k.w.occasion({ period: PERIODS.ended });
+    const E3 = await k.w.occasion({ period: PERIODS.upcoming });
+    await k.w.participate(E1.id, P.id, { listingIds: [L.id] });
+    await k.w.participate(E2.id, P.id, { listingIds: [L.id] });
+    await k.w.participate(E3.id, P.id);
+    expect(occasionIds(await view(k, L.id))).toEqual([E1.id]);
+  });
 
   it("viewListing#13 掲載のカテゴリー K が廃止され、移行先は M。掲載には K が保存されたまま / 読む", async () => {
     const k = await discoveryKit();
@@ -260,9 +326,27 @@ describe("viewListing", () => {
     expect(onVacant.placeIsVacant).toBe(true);
   });
 
-  it.todo(
-    "viewListing#15 L の所属地域と、L を添えたイベントが、どちらも公開を取り下げられた / L を読む",
-  );
+  it("viewListing#15 L の所属地域と、L を添えたイベントが、どちらも公開を取り下げられた / L を読む", async () => {
+    const k = await discoveryKit();
+    const P = await k.w.place();
+    const X = await k.w.region();
+    await k.w.affiliate(P.id, [X.id]);
+    const L = await k.w.available(P.id);
+    const E = await k.w.occasion();
+    await k.w.participate(E.id, P.id, { listingIds: [L.id] });
+    const before = await view(k, L.id);
+    expect(regionIds(before)).toEqual([X.id]);
+    expect(occasionIds(before)).toEqual([E.id]);
+    await k.w.unpublishRegion(X);
+    await k.w.unpublishOccasion(E);
+    const after = await view(k, L.id);
+    expect(after.listing).toEqual({
+      ...before.listing,
+      place: { ...before.listing.place, region: null },
+    });
+    expect(after.regions).toEqual([]);
+    expect(after.occasions).toEqual([]);
+  });
 
   it("viewListing#16 掲載が、下書き、一時非公開、運営による非公開、削除済みのいずれか。または、紐づく店舗が非公開。または、その ID の掲載がない / その掲載を読む", async () => {
     const k = await discoveryKit();

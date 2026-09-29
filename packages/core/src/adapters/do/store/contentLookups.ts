@@ -6,7 +6,9 @@ import type {
 } from "../protocol/moderation";
 import type { SqlExec } from "../sql";
 import { listingContentLookup } from "./listing";
+import { occasionContentLookup } from "./occasion";
 import { placeContentLookup } from "./place";
+import { regionContentLookup } from "./region";
 
 /**
  * Reads the existing targets of one kind among `ids` (at most 100, passed
@@ -36,6 +38,8 @@ export type ContentLookups = Readonly<
 export const CONTENT_LOOKUPS: ContentLookups = {
   listing: listingContentLookup,
   place: placeContentLookup,
+  region: regionContentLookup,
+  occasion: occasionContentLookup,
 };
 
 /**

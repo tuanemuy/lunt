@@ -1,4 +1,5 @@
-import { RegionId } from "@repo/core/domain/common/ids";
+import { OccasionId } from "@repo/core/domain/common/ids";
+import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { describe, expect, it } from "vitest";
 import {
   CONFORMANCE_CONTENT_LOOKUPS,
@@ -6,10 +7,18 @@ import {
   describeContentLookupMechanism,
   seedConformanceContent,
 } from "../__conformance__/contentDirectory";
+import { insertOccasions } from "../__conformance__/occasionFixtures";
+import {
+  insertRegions,
+  publishedRegion,
+  regionIds,
+} from "../__conformance__/regionFixtures";
 import { DoContentDirectory } from "../contentDirectory";
 import type { LuntStateClient } from "../protocol/client";
 import type { QueryArgs, QueryName, QueryResult } from "../protocol/queries";
 import { CONTENT_LOOKUPS, describeContent } from "../store/contentLookups";
+import { occasionContentLookup } from "../store/occasion";
+import { regionContentLookup } from "../store/region";
 import { createNodeHarness } from "../testing/nodeHarness";
 
 // Node backend: the directory adapter over the object's store code on
@@ -51,20 +60,50 @@ describeContentLookupMechanism(async () => {
   };
 });
 
-const STAGE_2_KINDS = ["listing", "place"];
-
-describe("ContentDirectory in stage 2", () => {
-  it("registers only the kinds whose tables exist, so a region still reads as absent", async () => {
-    expect(Object.keys(CONTENT_LOOKUPS).sort()).toEqual(STAGE_2_KINDS);
-    const { state } = createNodeHarness();
-    const directory = new DoContentDirectory(state.client);
+describe("ContentDirectory in stage 3", () => {
+  it("registers the region lookup and describes a stored region through the object's own lookups", async () => {
+    expect(CONTENT_LOOKUPS.listing).toBeDefined();
+    expect(CONTENT_LOOKUPS.place).toBeDefined();
+    expect(CONTENT_LOOKUPS.region).toBe(regionContentLookup);
+    expect(CONTENT_LOOKUPS.article).toBeUndefined();
+    const h = createNodeHarness();
+    const ids = regionIds();
+    const photo = ids.photo();
+    const R1 = publishedRegion(ids.region(), [photo]);
+    await insertRegions(h, R1);
+    const directory = new DoContentDirectory(h.state.client);
     expect(
       await directory.describe([
-        {
-          kind: "region",
-          id: RegionId.create("ffffffff-ffff-7fff-8fff-000000000001"),
-        },
+        { kind: "region", id: ids.region() },
+        { kind: "region", id: R1.id },
       ]),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        target: { kind: "region", id: R1.id },
+        name: "谷中",
+        photoIds: [photo],
+      },
+    ]);
+  });
+
+  it("registers the occasion lookup and describes a stored occasion through the object's own lookups", async () => {
+    expect(CONTENT_LOOKUPS.occasion).toBe(occasionContentLookup);
+    const h = createNodeHarness();
+    const f = occasionFactory();
+    const O1 = f.published({ name: "夏祭り", photos: 2 });
+    await insertOccasions(h, O1);
+    const directory = new DoContentDirectory(h.state.client);
+    expect(
+      await directory.describe([
+        { kind: "occasion", id: OccasionId.create(f.nextId()) },
+        { kind: "occasion", id: O1.id },
+      ]),
+    ).toEqual([
+      {
+        target: { kind: "occasion", id: O1.id },
+        name: "夏祭り",
+        photoIds: O1.content.photos.items.map((photo) => photo.photoId),
+      },
+    ]);
   });
 });

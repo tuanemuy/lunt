@@ -42,10 +42,11 @@ export type ResolveReferencesOutput = Readonly<{
   photos: PhotoRefs;
 }>;
 
+/** `null` for a region or occasion, which a `BookmarkRef` never names. */
 const summaryOf = (
   target: ResolvedTarget,
   today: LocalDate,
-): ResolvedSummary => {
+): ResolvedSummary | null => {
   switch (target.kind) {
     case "listing":
       return {
@@ -63,6 +64,9 @@ const summaryOf = (
           kind: "displayed",
         }),
       };
+    case "region":
+    case "occasion":
+      return null;
   }
 };
 
@@ -92,9 +96,13 @@ export async function resolveReferences({
   }
   const items = distinct.map((ref, i): ResolvedReference => {
     const resolution = resolutions[i];
-    return resolution?.viewable === true
-      ? { ref, viewable: true, target: summaryOf(resolution.target, today) }
-      : { ref, viewable: false };
+    const target =
+      resolution?.viewable === true
+        ? summaryOf(resolution.target, today)
+        : null;
+    return target === null
+      ? { ref, viewable: false }
+      : { ref, viewable: true, target };
   });
   const photos = await photoRefsOf(
     container,

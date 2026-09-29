@@ -6,7 +6,12 @@ import type {
   ResolvedTarget,
 } from "@repo/core/domain/discovery/entry";
 import type { ReferenceQueries } from "@repo/core/domain/discovery/ports/referenceQueries";
-import { listingEntryFrom, placeEntryFrom } from "./detailQueries";
+import {
+  listingEntryFrom,
+  placeEntryFrom,
+  publishedOccasionFrom,
+  publishedRegionFrom,
+} from "./discoveryRecords";
 import { mapDoError } from "./helpers";
 import type { LuntStateClient } from "./protocol/client";
 import type { ReferenceResolutionRecord } from "./protocol/discovery";
@@ -70,6 +75,16 @@ export class DoReferenceQueries implements ReferenceQueries {
         return {
           kind: "place",
           entry: placeEntryFrom(target.entry, this.idGenerator),
+        };
+      case "region":
+        return {
+          kind: "region",
+          region: publishedRegionFrom(target.region, this.idGenerator),
+        };
+      case "occasion":
+        return {
+          kind: "occasion",
+          occasion: publishedOccasionFrom(target.occasion, this.idGenerator),
         };
     }
   }

@@ -41,12 +41,35 @@ export const deferredConsumers = {
     events: ["account.withdrawn"],
     stage: "S4",
   },
-  // Joins region.affiliation_established / affiliation_dissolved and
-  // occasion.participation_established / cancelled / ended /
-  // period_changed once those events exist.
-  "reassessApplicationPremises@S3": {
-    events: [],
-    stage: "S3",
+  "reassessApplicationPremises@S3B": {
+    events: [
+      "region.affiliation_established",
+      "region.affiliation_dissolved",
+      "occasion.participation_established",
+      "occasion.cancelled",
+      "occasion.ended",
+      "occasion.period_changed",
+    ],
+    stage: "S3B",
+  },
+  "deliverNotifications@S3B-NTF": {
+    events: [
+      "region.unpublished",
+      "region.suspended",
+      "region.unsuspended",
+      "region.affiliation_dissolved",
+      "occasion.period_changed",
+      "occasion.unpublished",
+      "occasion.cancelled",
+      "occasion.ended",
+      "occasion.suspended",
+      "occasion.unsuspended",
+      "occasion.participation_changed",
+      "occasion.participation_dissolved",
+      "occasion.region_linked",
+      "occasion.region_link_detached",
+    ],
+    stage: "S3B-NTF",
   },
 } as const satisfies Readonly<
   Record<string, Readonly<{ events: readonly LuntEventType[]; stage: string }>>

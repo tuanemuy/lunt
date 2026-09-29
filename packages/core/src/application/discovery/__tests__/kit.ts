@@ -4,18 +4,25 @@ import {
 } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
 import { Account } from "@repo/core/domain/account/entity";
 import {
+  type GrantableRef,
   type PlaceRef,
   Stewardship,
 } from "@repo/core/domain/authority/stewardship";
 import type { Actor } from "@repo/core/domain/common/actor";
 import type { EmailAddress } from "@repo/core/domain/common/emailAddress";
-import type { CategoryId, PlaceId } from "@repo/core/domain/common/ids";
+import {
+  type CategoryId,
+  InvitationId,
+  type PlaceId,
+} from "@repo/core/domain/common/ids";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import { CategoryName } from "@repo/core/domain/listing/values";
+import { expect } from "vitest";
 import {
   createTestContainer,
   type TestContainerOptions,
 } from "../../__tests__/testContainer";
+import { NotFoundError } from "../../errors";
 
 export type Person = Readonly<{ actor: Actor; email: EmailAddress }>;
 
@@ -36,6 +43,8 @@ export async function discoveryKit(options: TestContainerOptions = {}) {
     savedEvents: t.storedEvents,
     detailQueries: container.detailQueries,
     referenceQueries: container.referenceQueries,
+    explorationQueries: container.explorationQueries,
+    keywordSearchQueries: container.keywordSearchQueries,
   };
   const w = discoveryWorld(harness);
 
@@ -100,6 +109,43 @@ export async function discoveryKit(options: TestContainerOptions = {}) {
     );
   };
 
+  /** Stores `who` as a steward of the region or occasion (an operator's grant). */
+  const grant = async (target: GrantableRef, who: Person): Promise<void> => {
+    await container.unitOfWorkProvider.run(
+      async ({ stewardshipRepository }) => {
+        const found = await stewardshipRepository.findById(target);
+        const next = Stewardship.grant(
+          Stewardship.orVacant(found?.entity ?? null, target),
+          { accountId: who.actor.accountId, email: who.email },
+          t.clock.now(),
+        ).entity;
+        if (found === null) await stewardshipRepository.insert(next);
+        else await stewardshipRepository.save(next, found.expectedVersion);
+      },
+    );
+  };
+
+  /** Stores a pending invitation of `who` to steward the place. */
+  const invite = async (placeId: PlaceId, who: Person): Promise<void> => {
+    const target: PlaceRef = { kind: "place", id: placeId };
+    await container.unitOfWorkProvider.run(
+      async ({ stewardshipRepository }) => {
+        const found = await stewardshipRepository.findById(target);
+        const next = Stewardship.invite(
+          Stewardship.orVacant(found?.entity ?? null, target),
+          {
+            invitationId: InvitationId.create(t.idGenerator.next()),
+            email: who.email,
+          },
+          who.actor.accountId,
+          t.clock.now(),
+        ).entity;
+        if (found === null) await stewardshipRepository.insert(next);
+        else await stewardshipRepository.save(next, found.expectedVersion);
+      },
+    );
+  };
+
   /** Retires `id` in favour of `successor`. */
   const retireCategory = async (
     id: CategoryId,
@@ -122,7 +168,30 @@ export async function discoveryKit(options: TestContainerOptions = {}) {
       categoryCatalogRepository.find(),
     );
 
-  return { ...t, w, categoryIds, person, appoint, retireCategory, catalog };
+  return {
+    ...t,
+    w,
+    categoryIds,
+    person,
+    appoint,
+    grant,
+    invite,
+    retireCategory,
+    catalog,
+  };
 }
 
 export type DiscoveryKit = Awaited<ReturnType<typeof discoveryKit>>;
+
+/** Asserts `promise` rejects with a `NotFoundError` of `code`. */
+export async function expectNotFound(
+  promise: Promise<unknown>,
+  code: string,
+): Promise<void> {
+  const error = await promise.then(
+    () => undefined,
+    (reason: unknown) => reason,
+  );
+  expect(error).toBeInstanceOf(NotFoundError);
+  expect((error as NotFoundError).code).toBe(code);
+}

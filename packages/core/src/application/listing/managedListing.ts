@@ -1,12 +1,7 @@
 import { AccessPolicy } from "@repo/core/domain/authority/accessPolicy";
 import type { Address } from "@repo/core/domain/common/address";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import type {
-  ListingId,
-  PhotoId,
-  PlaceId,
-  RegionId,
-} from "@repo/core/domain/common/ids";
+import type { ListingId, PhotoId, PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { Version } from "@repo/core/domain/common/version";
@@ -30,6 +25,12 @@ import { Place } from "@repo/core/domain/place/place";
 import type { PlaceName } from "@repo/core/domain/place/profile";
 import type { TargetAccess } from "../authority/access";
 import type { RequestContainer } from "../di/types";
+import {
+  type AffiliatedRegionView,
+  affiliatedRegionViews,
+  type PlaceRegions,
+  readPlaceRegions,
+} from "../discovery/placeRegions";
 import { NotFoundError, SystemError, SystemErrorCode } from "../errors";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
 
@@ -43,8 +44,7 @@ export type ListingPhotoView = Readonly<{
   display: PhotoDisplayRef | null;
 }>;
 
-/** A region the place belongs to (empty until Region's stage). */
-export type AffiliatedRegionView = Readonly<{ id: RegionId; name: string }>;
+export type { AffiliatedRegionView } from "../discovery/placeRegions";
 
 export type ListingPlaceView = Readonly<{
   id: PlaceId;
@@ -52,7 +52,7 @@ export type ListingPlaceView = Readonly<{
   address: Address;
   /** Suspended places hide their listings from viewers (SM-04). */
   suspended: boolean;
-  /** Regions the place belongs to, in affiliation order. */
+  /** Regions the place belongs to (any state), first affiliation first. */
   regions: readonly AffiliatedRegionView[];
 }>;
 
@@ -95,16 +95,20 @@ export type ListingRowView = Readonly<{
 }>;
 
 /** What a managed listing's view is built from, read inside the unit of work. */
-export type ManagedListingRead = Readonly<{
-  listing: Listing;
-  catalog: CategoryCatalog;
-  place: Place;
-  access: TargetAccess;
-}>;
+export type ManagedListingRead = PlaceRegions &
+  Readonly<{
+    listing: Listing;
+    catalog: CategoryCatalog;
+    place: Place;
+    access: TargetAccess;
+  }>;
 
 type ReadContext = Pick<
   UnitOfWorkContext,
-  "categoryCatalogRepository" | "placeRepository"
+  | "categoryCatalogRepository"
+  | "placeRepository"
+  | "placeAffiliationsRepository"
+  | "regionRepository"
 >;
 
 /** The place of a listing, which always exists (places are never deleted). */
@@ -122,16 +126,22 @@ export async function requireListingPlace(
   return found.entity;
 }
 
-/** The catalog and the place a managed listing's view needs. */
+/**
+ * The catalog, the place, and the place's affiliations and their regions
+ * that a managed listing's view (and its preview) needs.
+ */
 export async function readViewContext(
   ctx: ReadContext,
   placeId: PlaceId,
-): Promise<Readonly<{ catalog: CategoryCatalog; place: Place }>> {
-  const [catalog, place] = await Promise.all([
+): Promise<
+  PlaceRegions & Readonly<{ catalog: CategoryCatalog; place: Place }>
+> {
+  const [catalog, place, regions] = await Promise.all([
     ctx.categoryCatalogRepository.find(),
     requireListingPlace(ctx, placeId),
+    readPlaceRegions(ctx, placeId),
   ]);
-  return { catalog: catalog.entity, place };
+  return { catalog: catalog.entity, place, ...regions };
 }
 
 /** `NotFoundError` unless the listing exists. */
@@ -196,14 +206,15 @@ export const accessView = (
   }).allowed,
 });
 
-export const placeView = (place: Place): ListingPlaceView => ({
+export const placeView = (
+  place: Place,
+  regions: PlaceRegions,
+): ListingPlaceView => ({
   id: place.id,
   name: place.profile.name,
   address: place.profile.address,
   suspended: Place.isSuspended(place),
-  // Region affiliations land with Region (stage 3); until then none
-  // (`spec/domains/index.md` 「開発の順序との対応」).
-  regions: [],
+  regions: affiliatedRegionViews(regions),
 });
 
 /**
@@ -215,7 +226,7 @@ export async function presentManagedListing(
   container: RequestContainer,
   read: ManagedListingRead,
 ): Promise<ManagedListingView> {
-  const { listing, catalog, place, access } = read;
+  const { listing, catalog, place, access, affiliations, regions } = read;
   const refs = await displayRefsOf(
     container,
     listing.content.photos.items.map((photo) => photo.photoId),
@@ -234,7 +245,7 @@ export async function presentManagedListing(
     publication: listing.publication,
     suspended: listing.suspension.suspended,
     offeringStatus: Listing.offeringStatus(listing, today),
-    place: placeView(place),
+    place: placeView(place, { affiliations, regions }),
     access: accessView(access),
   };
 }

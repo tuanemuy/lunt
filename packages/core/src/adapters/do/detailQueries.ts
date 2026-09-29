@@ -1,98 +1,41 @@
-import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
-import { ListingId, PhotoId, type PlaceId } from "@repo/core/domain/common/ids";
+import type {
+  ListingId,
+  OccasionId,
+  PlaceId,
+  RegionId,
+} from "@repo/core/domain/common/ids";
+import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type {
   Pagination,
   PaginationResult,
 } from "@repo/core/domain/common/pagination";
 import type {
   ListingEntry,
+  ParticipantEntry,
   PlaceEntry,
-  SubstituteCover,
 } from "@repo/core/domain/discovery/entry";
 import type {
   DetailQueries,
   ListingsOfPlaceQuery,
+  OccasionSubject,
 } from "@repo/core/domain/discovery/ports/detailQueries";
-import { isBusinessRuleError } from "@repo/core/domain/error";
-import { Listing } from "@repo/core/domain/listing/listing";
-import { Framing } from "@repo/core/domain/listing/values";
+import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
+import type { PublishedRegion } from "@repo/core/domain/region/region";
+import {
+  listingEntryFrom,
+  participantEntryFrom,
+  placeEntryFrom,
+  publishedOccasionFrom,
+  publishedRegionFrom,
+} from "./discoveryRecords";
 import { mapDoError } from "./helpers";
 import type { LuntStateClient } from "./protocol/client";
-import type {
-  ListingEntryRecord,
-  PlaceEntryRecord,
-  SubstituteCoverRecord,
-} from "./protocol/discovery";
-import { listingFromRecord } from "./repositories/listingRepository";
-import { DoPlaceRepository } from "./repositories/placeRepository";
-
-const integrity = (message: string, cause?: unknown): SystemError =>
-  new SystemError(SystemErrorCode.DataIntegrityError, message, cause);
-
-function substituteCoverFrom(
-  record: SubstituteCoverRecord,
-  idGenerator: IdGenerator,
-): SubstituteCover {
-  const malformed = [record.listingId, record.photo.photoId].find(
-    (id) => idGenerator.parse(id) === null,
-  );
-  if (malformed !== undefined) {
-    throw integrity(`Stored substitute cover has malformed id: ${malformed}`);
-  }
-  try {
-    return {
-      listingId: ListingId.create(record.listingId),
-      photo: {
-        photoId: PhotoId.create(record.photo.photoId),
-        framing:
-          record.photo.framing === null
-            ? null
-            : Framing.create(record.photo.framing),
-      },
-    };
-  } catch (error) {
-    if (isBusinessRuleError(error)) {
-      throw integrity("Stored substitute cover violates invariants", error);
-    }
-    throw error;
-  }
-}
-
-/** A stored place entry; `DATA_INTEGRITY_ERROR` when it is not one. */
-export function placeEntryFrom(
-  record: PlaceEntryRecord,
-  idGenerator: IdGenerator,
-): PlaceEntry {
-  return {
-    place: DoPlaceRepository.toPlace(record.place, idGenerator),
-    regions: [],
-    substituteCover:
-      record.substituteCover === null
-        ? null
-        : substituteCoverFrom(record.substituteCover, idGenerator),
-  };
-}
-
-/**
- * A stored listing entry. The object returns viewable listings only, so a
- * listing that is not published is a data-integrity failure.
- */
-export function listingEntryFrom(
-  record: ListingEntryRecord,
-  idGenerator: IdGenerator,
-): ListingEntry {
-  const listing = listingFromRecord(record.listing, idGenerator);
-  if (!Listing.isPublished(listing)) {
-    throw integrity(`Viewable listing ${listing.id} is not published`);
-  }
-  return { listing, place: placeEntryFrom(record.place, idGenerator) };
-}
 
 /**
  * `DetailQueries` over the Lunt state object: the object selects viewable
- * targets from Place's and Listing's tables (`store/discovery.ts`); this
- * side rehydrates them. Read-only; never joins a unit of work.
+ * targets from the domains' tables (`store/discovery.ts`); this side
+ * rehydrates them. Read-only; never joins a unit of work.
  */
 export class DoDetailQueries implements DetailQueries {
   constructor(
@@ -120,6 +63,28 @@ export class DoDetailQueries implements DetailQueries {
     });
   }
 
+  findRegion(regionId: RegionId): Promise<PublishedRegion | null> {
+    return mapDoError("Failed to find region detail", async () => {
+      const record = await this.client.query("discovery.findRegion", {
+        regionId,
+      });
+      return record === null
+        ? null
+        : publishedRegionFrom(record, this.idGenerator);
+    });
+  }
+
+  findOccasion(occasionId: OccasionId): Promise<PublishedOccasion | null> {
+    return mapDoError("Failed to find occasion detail", async () => {
+      const record = await this.client.query("discovery.findOccasion", {
+        occasionId,
+      });
+      return record === null
+        ? null
+        : publishedOccasionFrom(record, this.idGenerator);
+    });
+  }
+
   findListingsOfPlace(
     query: ListingsOfPlaceQuery,
     pagination: Pagination,
@@ -138,6 +103,48 @@ export class DoDetailQueries implements DetailQueries {
         ),
         count: page.count,
       };
+    });
+  }
+
+  findOccasionsRelatedTo(
+    subject: OccasionSubject,
+    today: LocalDate,
+  ): Promise<readonly PublishedOccasion[]> {
+    return mapDoError("Failed to find related occasions", async () => {
+      const records = await this.client.query(
+        "discovery.findOccasionsRelatedTo",
+        { subject: { kind: subject.kind, id: subject.id }, today },
+      );
+      return records.map((record) =>
+        publishedOccasionFrom(record, this.idGenerator),
+      );
+    });
+  }
+
+  findParticipants(
+    occasionId: OccasionId,
+  ): Promise<readonly ParticipantEntry[]> {
+    return mapDoError("Failed to find participants", async () => {
+      const records = await this.client.query("discovery.findParticipants", {
+        occasionId,
+      });
+      return records.map((record) =>
+        participantEntryFrom(record, this.idGenerator),
+      );
+    });
+  }
+
+  findRegionsOfOccasion(
+    occasionId: OccasionId,
+  ): Promise<readonly PublishedRegion[]> {
+    return mapDoError("Failed to find regions of occasion", async () => {
+      const records = await this.client.query(
+        "discovery.findRegionsOfOccasion",
+        { occasionId },
+      );
+      return records.map((record) =>
+        publishedRegionFrom(record, this.idGenerator),
+      );
     });
   }
 }

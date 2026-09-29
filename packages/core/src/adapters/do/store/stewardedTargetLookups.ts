@@ -5,7 +5,9 @@ import type {
   TargetRecord,
 } from "../protocol/authority";
 import type { SqlExec } from "../sql";
+import { occasionStewardedTargetLookup } from "./occasion";
 import { placeStewardedTargetLookup } from "./place";
+import { regionStewardedTargetLookup } from "./region";
 
 /**
  * Reads the existing targets of one kind among `ids` (at most 100, passed
@@ -29,6 +31,8 @@ export type StewardedTargetLookups = Readonly<
  */
 export const STEWARDED_TARGET_LOOKUPS: StewardedTargetLookups = {
   place: placeStewardedTargetLookup,
+  region: regionStewardedTargetLookup,
+  occasion: occasionStewardedTargetLookup,
 };
 
 /**

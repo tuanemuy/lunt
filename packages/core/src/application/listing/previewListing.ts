@@ -54,8 +54,7 @@ export async function previewListing({
       id: found.entity.placeId,
     });
     const view = await readViewContext(ctx, found.entity.placeId);
-    // Region affiliations land with Region (stage 3); until then none.
-    return { ...view, listing: found.entity, affiliations: null, regions: [] };
+    return { ...view, listing: found.entity };
   });
   const { listing, place, catalog } = read;
   const today = LocalDate.fromInstant(container.clock.now());
