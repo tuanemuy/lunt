@@ -20,14 +20,12 @@ export type StewardedTargetLookup = (
 ) => readonly Readonly<{ id: string; name: string | null }>[];
 
 export type StewardedTargetLookups = Readonly<
-  Partial<Record<StewardedKind, StewardedTargetLookup>>
+  Record<StewardedKind, StewardedTargetLookup>
 >;
 
 /**
  * `StewardedTargetDirectory`'s per-kind lookups — the one place a target
- * kind joins the directory. Place (S2A), region and occasion (S3A) each
- * add their entry here when their tables land; a kind without an entry
- * reads as having no targets.
+ * kind joins the directory; every stewarded kind has its entry.
  */
 export const STEWARDED_TARGET_LOOKUPS: StewardedTargetLookups = {
   place: placeStewardedTargetLookup,
@@ -51,7 +49,6 @@ export function describeStewardedTargets(
   }>[] = [];
   for (const kind of StewardedTargetOrder.kinds) {
     const lookup = lookups[kind];
-    if (lookup === undefined) continue;
     const ids = [
       ...new Set(
         targets

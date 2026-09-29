@@ -1104,6 +1104,19 @@ export function describeListingRepositoryContract(
     });
 
     describe("searchForOperation", () => {
+      it("a keyword whose terms NFKC expands past 100 characters is searched, not refused", async () => {
+        const h = await makeHarness();
+        const f = listingFactory();
+        const p = f.place();
+        const long = f.draft(p, {
+          name: "社名",
+          description: "株式会社".repeat(30),
+        });
+        await insertListings(h, long, f.draft(p));
+        const result = await search(h, keyword("㍿".repeat(30)));
+        expect(idsOf(result.items)).toEqual([long.id]);
+      });
+
       it("listingRepository#65 名称に「りんご」を含む掲載、説明に「りんご」を含む掲載、どちらにも含まない掲載がある / 「りんご」で探す", async () => {
         const h = await makeHarness();
         const f = listingFactory();

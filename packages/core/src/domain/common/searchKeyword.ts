@@ -63,6 +63,25 @@ export const SearchKeyword = {
     return keyword;
   },
 
+  /**
+   * Rebuilds a keyword from the terms of one `parse` / `create` produced
+   * (e.g. sent across the state object's RPC). The terms are normalised
+   * and de-duplicated again, but the length limit is not re-checked: it
+   * bounds the text as entered, and NFKC may expand a term past it
+   * (「㍿」 → 「株式会社」). `null` when no term is left.
+   */
+  fromTerms: (terms: readonly string[]): SearchKeyword | null => {
+    const kept: string[] = [];
+    for (const raw of terms) {
+      const term = TextNormalization.normalize(raw);
+      if (term.length > 0 && !kept.includes(term)) kept.push(term);
+    }
+    const [first, ...rest] = kept;
+    if (first === undefined) return null;
+    const keywordTerms: readonly [string, ...string[]] = [first, ...rest];
+    return { terms: keywordTerms } as SearchKeyword;
+  },
+
   /** Same terms in the same order. */
   equals: (a: SearchKeyword, b: SearchKeyword): boolean =>
     a.terms.length === b.terms.length &&

@@ -295,7 +295,7 @@ function searchForOperation(
   page: number,
   limit: number,
 ): Readonly<{ items: readonly RegionRecord[]; count: number }> {
-  const keyword = SearchKeyword.parse(terms.join(" "));
+  const keyword = SearchKeyword.fromTerms(terms);
   if (keyword === null) return { items: [], count: 0 };
   const ranked = sql
     .exec<SearchRow>(

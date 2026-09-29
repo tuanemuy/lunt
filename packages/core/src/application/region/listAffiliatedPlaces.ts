@@ -40,12 +40,12 @@ export async function listAffiliatedPlaces({
   actor,
   input,
 }: ActorServiceArgs<ListAffiliatedPlacesInput>): Promise<AffiliatedPlacesView> {
-  const pagination = Pagination.create(input.pagination);
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",
       id: input.regionId,
     });
+    const pagination = Pagination.create(input.pagination);
     const page = await ctx.placeAffiliationsRepository.findAffiliatedPlaces(
       input.regionId,
       pagination,

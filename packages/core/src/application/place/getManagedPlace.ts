@@ -11,7 +11,7 @@ import {
   type AffiliatedRegionView,
   affiliatedRegionViews,
   readPlaceRegions,
-} from "../discovery/placeRegions";
+} from "../region/placeRegions";
 import type { ActorServiceArgs } from "../types";
 import { displayRefsOf, type PhotoView, photoView } from "./photos";
 import { requirePlace } from "./places";

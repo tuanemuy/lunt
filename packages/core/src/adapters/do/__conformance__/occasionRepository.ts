@@ -280,6 +280,15 @@ export function describeOccasionRepositoryContract(
     });
 
     describe("searchForOperation", () => {
+      it("a keyword whose terms NFKC expands past 100 characters is searched, not refused", async () => {
+        const h = await makeHarness();
+        const f = occasionFactory();
+        const long = f.draft({ description: "株式会社".repeat(30) });
+        await insertOccasions(h, long, f.draft());
+        const result = await search(h, keyword("㍿".repeat(30)));
+        expect(ids(result.items)).toEqual([long.id]);
+      });
+
       it("occasionRepository#17 名称が「秋のマルシェ」のイベントが、draft・published・unpublished・運営による非公開・中止・開催期間を過ぎた状態で1件ずつある / 「マルシェ」で searchForOperation を呼ぶ", async () => {
         const h = await makeHarness();
         const f = occasionFactory();

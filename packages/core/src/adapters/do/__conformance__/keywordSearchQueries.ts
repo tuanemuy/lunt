@@ -269,6 +269,23 @@ export function describeKeywordSearchQueriesContract(
         "keywordSearchQueries#12 どの対象にも含まれない語 / 5つのメソッドをそれぞれ呼ぶ",
       ); // S5
 
+      it("a keyword whose terms NFKC expands past 100 characters is searched in every kind, not refused", async () => {
+        const { h, w } = await setup();
+        const long = "株式会社".repeat(30);
+        const P = await named(w, "山田商店");
+        const L = await w.store(
+          w.f.published(P.id, { name: "社名", description: long }),
+        );
+        const R = await w.region({ content: { description: long } });
+        const E = await w.occasion({ description: long });
+        const text = "㍿".repeat(30);
+        expect(keyword(text).terms.join("").length).toBeGreaterThan(100);
+        expect(await places(h, text)).toEqual({ items: [], count: 0 });
+        expect(idsOf(await listings(h, text), listingIdOf)).toEqual([L.id]);
+        expect(idsOf(await regions(h, text), idOf)).toEqual([R.id]);
+        expect(idsOf(await occasions(h, text), idOf)).toEqual([E.id]);
+      });
+
       it("a word no target holds finds nothing in the four stage-3a kinds (#12 without searchArticles)", async () => {
         const { h, w } = await setup();
         const P = await named(w, "山田商店");

@@ -25,14 +25,14 @@ import { Place } from "@repo/core/domain/place/place";
 import type { PlaceName } from "@repo/core/domain/place/profile";
 import type { TargetAccess } from "../authority/access";
 import type { RequestContainer } from "../di/types";
+import { NotFoundError, SystemError, SystemErrorCode } from "../errors";
+import type { UnitOfWorkContext } from "../execution/unitOfWork";
 import {
   type AffiliatedRegionView,
   affiliatedRegionViews,
   type PlaceRegions,
   readPlaceRegions,
-} from "../discovery/placeRegions";
-import { NotFoundError, SystemError, SystemErrorCode } from "../errors";
-import type { UnitOfWorkContext } from "../execution/unitOfWork";
+} from "../region/placeRegions";
 
 /** An active category as listings show it (`CategoryCatalog.resolve`). */
 export type CategoryView = Readonly<{ id: ActiveCategory["id"]; name: string }>;
@@ -44,7 +44,7 @@ export type ListingPhotoView = Readonly<{
   display: PhotoDisplayRef | null;
 }>;
 
-export type { AffiliatedRegionView } from "../discovery/placeRegions";
+export type { AffiliatedRegionView } from "../region/placeRegions";
 
 export type ListingPlaceView = Readonly<{
   id: PlaceId;

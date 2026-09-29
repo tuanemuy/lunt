@@ -391,6 +391,21 @@ export function describeRegionRepositoryContract(
     });
 
     describe("searchForOperation", () => {
+      it("a keyword whose terms NFKC expands past 100 characters is searched, not refused", async () => {
+        const h = await makeHarness();
+        const ids = regionIds();
+        const long = newRegion(
+          ids.region(),
+          regionContent({
+            name: "長い紹介",
+            description: "株式会社".repeat(30),
+          }),
+        );
+        await insertRegions(h, long, newRegion(ids.region()));
+        const result = await search(h, "㍿".repeat(30));
+        expect(idsOf(result)).toEqual([long.id]);
+      });
+
       it("regionRepository#20 名称が「谷中」「谷中銀座」「東京谷中」「上野」の地域が保存されている / 「谷中」で searchForOperation を呼ぶ", async () => {
         const h = await makeHarness();
         const ids = regionIds();

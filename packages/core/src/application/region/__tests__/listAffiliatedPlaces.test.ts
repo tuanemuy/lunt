@@ -127,4 +127,19 @@ describe("listAffiliatedPlaces", () => {
     await expectCode(list(k, S, X.id), ForbiddenError);
     await expectCode(list(k, nobody, X.id), ForbiddenError);
   });
+
+  it("authorizes before it checks the pagination: an outsider with an out-of-bounds page is refused as such", async () => {
+    const { k, X, R } = await stewardedRegion();
+    const nobody = await k.person("nobody");
+    const read = (who: Person) =>
+      listAffiliatedPlaces({
+        container: k.container,
+        actor: who.actor,
+        input: { regionId: X.id, pagination: { page: 0, limit: 10 } },
+      });
+    await expectCode(read(nobody), ForbiddenError);
+    await expect(read(R)).rejects.toMatchObject({
+      code: "COMMON_INVALID_INPUT",
+    });
+  });
 });

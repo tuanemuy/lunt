@@ -12,10 +12,10 @@ import {
 } from "@repo/core/domain/listing/content";
 import { ManualEnd } from "@repo/core/domain/listing/offering";
 import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
-import { readPlaceRegions } from "../discovery/placeRegions";
 import { NotFoundError } from "../errors";
 import { type CategoryView, displayRefsOf } from "../listing/managedListing";
 import { PLACE_NOT_FOUND } from "../place/places";
+import { readPlaceRegions } from "../region/placeRegions";
 import type { ActorServiceArgs } from "../types";
 
 export type PreviewListingSubmissionInput = Readonly<{

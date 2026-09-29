@@ -87,6 +87,35 @@ describe("SearchKeyword.create / equals", () => {
   });
 });
 
+describe("SearchKeyword.fromTerms", () => {
+  it("rebuilds the same keyword from the terms of a parsed one", () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 100 }), (input) => {
+        const keyword = SearchKeyword.parse(input);
+        if (keyword === null) return;
+        const rebuilt = SearchKeyword.fromTerms(keyword.terms);
+        expect(rebuilt).not.toBeNull();
+        if (rebuilt !== null) {
+          expect(SearchKeyword.equals(rebuilt, keyword)).toBe(true);
+        }
+      }),
+    );
+  });
+
+  it("does not re-check the length limit on terms NFKC expanded past it", () => {
+    const keyword = SearchKeyword.create("㍿".repeat(30));
+    expect(keyword.terms.join("").length).toBeGreaterThan(100);
+    expect(SearchKeyword.fromTerms(keyword.terms)?.terms).toEqual(
+      keyword.terms,
+    );
+  });
+
+  it("is null without a non-empty term", () => {
+    expect(SearchKeyword.fromTerms([])).toBeNull();
+    expect(SearchKeyword.fromTerms(["", " "])).toBeNull();
+  });
+});
+
 describe("KeywordRelevance.termScore", () => {
   const text: SearchableText = {
     primary: "CAFE Lunt",

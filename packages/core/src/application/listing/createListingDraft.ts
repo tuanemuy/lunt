@@ -6,9 +6,9 @@ import {
 } from "@repo/core/domain/listing/content";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { authorizeOnTarget } from "../authority/access";
-import { readPlaceRegions } from "../discovery/placeRegions";
 import { ConflictError, NotFoundError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
+import { readPlaceRegions } from "../region/placeRegions";
 import type { ActorServiceArgs } from "../types";
 import {
   type ManagedListingView,

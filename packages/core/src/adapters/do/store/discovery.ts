@@ -673,8 +673,7 @@ function scoredPage<T>(
   };
 }
 
-const keywordOf = (terms: readonly string[]) =>
-  SearchKeyword.parse(terms.join(" "));
+const keywordOf = (terms: readonly string[]) => SearchKeyword.fromTerms(terms);
 
 /** The place a stored row holds (`Place.reconstruct` of its record). */
 const placeOf = (record: PlaceRecord): Place =>
