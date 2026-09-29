@@ -6,6 +6,7 @@ import type { HoldingStatus } from "@repo/core/domain/occasion/holdingStatus";
 import type { HoldingStatusRecord } from "@repo/core/domain/occasion/holdingStatusObserver";
 import { Occasion } from "@repo/core/domain/occasion/occasion";
 import { describe, expect, it } from "vitest";
+import { readableScan } from "./assertions";
 import { ScopeAbort } from "./fixtures";
 import type { ConformanceHarness, HarnessFactory } from "./harness";
 import {
@@ -29,8 +30,10 @@ const toObserve = (
   today: LocalDate = TODAY,
   pagination: Pagination = page(1),
 ) =>
-  h.uow.run(({ holdingStatusLedger }) =>
-    holdingStatusLedger.findToObserve(today, pagination),
+  readableScan(
+    h.uow.run(({ holdingStatusLedger }) =>
+      holdingStatusLedger.findToObserve(today, pagination),
+    ),
   );
 
 const idsToObserve = async (

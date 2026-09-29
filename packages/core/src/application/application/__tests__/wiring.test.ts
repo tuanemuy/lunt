@@ -26,10 +26,13 @@ import {
 } from "../../di/application";
 
 describe("Application wiring", () => {
-  it("registers the stage-2 kinds; the ports start empty", async () => {
+  it("registers all eight kinds; the ports start empty", async () => {
     expect(Object.keys(APPLICATION_KINDS).sort()).toEqual([
+      "affiliation",
+      "leave",
       "listing",
       "listingRevision",
+      "participation",
       "registration",
       "revision",
       "stewardship",
@@ -52,7 +55,7 @@ describe("Application wiring", () => {
         { section: "asApprover" },
         { page: 1, limit: 10 },
       ),
-    ).toEqual({ items: [], count: 0 });
+    ).toEqual({ items: [], count: 0, unreadable: [] });
   });
 
   it("refuses to read an application of an unregistered kind as corrupt data", async () => {
@@ -77,13 +80,18 @@ describe("Application wiring", () => {
         applicationRepository.findByIds([app.id]),
       ),
     ).rejects.toBeInstanceOf(SystemError);
-    await expect(
-      new DoApplicationReviewDesk<ApplicationKindMap>(
+    // The daily jobs' scan reports it by id instead of failing the page.
+    expect(
+      await new DoApplicationReviewDesk<ApplicationKindMap>(
         state.client,
         idGenerator,
         applicationModel,
       ).findPageAwaiting({ section: "asApprover" }, { page: 1, limit: 10 }),
-    ).rejects.toMatchObject(corrupt);
+    ).toMatchObject({
+      items: [],
+      count: 1,
+      unreadable: [{ key: app.id, cause: corrupt }],
+    });
   });
 });
 

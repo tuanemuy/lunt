@@ -77,7 +77,8 @@ export type AuthorityCondition =
       accountId: string;
       target: TargetRecord;
     }>
-  | Readonly<{ kind: "authority.vacant"; target: TargetRecord }>;
+  | Readonly<{ kind: "authority.vacant"; target: TargetRecord }>
+  | Readonly<{ kind: "authority.staffed"; target: TargetRecord }>;
 
 export type AuthorityCommand =
   | Readonly<{ kind: "authority.insertStewardship"; record: StewardshipRecord }>

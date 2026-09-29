@@ -309,6 +309,10 @@ describe("StateStore.commit conditions", () => {
     expect(check({ kind: "authority.vacant", target: empty })).toBe(
       "committed",
     );
+    expect(check({ kind: "authority.staffed", target: place })).toBe(
+      "committed",
+    );
+    expect(check({ kind: "authority.staffed", target: empty })).toBe("refused");
   });
 });
 

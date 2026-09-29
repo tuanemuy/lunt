@@ -91,7 +91,12 @@ async function registrationStatus(
  * `ForbiddenError` on `notApprover`. The access facts the permission rests
  * on are recorded through `authorizeRole` / `authorizeOnTarget` (D-17), so
  * a role revoked, or a seat's stewardship changed, before the unit of
- * work commits refuses it.
+ * work commits refuses it. An operator deciding a steward seat without
+ * managing its target (overdue proxy, or still awaiting the stewards)
+ * also rests on the seat having a steward (`AccessGuard.staffed`): had it
+ * become vacant before the commit, the operator would decide it as its
+ * approver (absence proxy), so the decision is refused rather than stored
+ * as `overdue_proxy`.
  */
 export async function reviewPermission(
   ctx: ReviewContext,
@@ -141,6 +146,7 @@ export async function reviewPermission(
     await authorizeOnTarget(ctx, actor, "manage_target", seat.target);
   } else {
     await authorizeRole(ctx, actor, "operate_service");
+    ctx.accessGuard.staffed(seat.target);
   }
   return permission;
 }
@@ -153,7 +159,10 @@ function open(permission: ReviewPermission): OpenReviewPermission {
 }
 
 /** 編集の競合: the version the reviewer read must still be the stored one. */
-function assertReviewedVersion(app: Application, reviewed: Version): void {
+export function assertReviewedVersion(
+  app: Application,
+  reviewed: Version,
+): void {
   if (app.version !== reviewed) {
     throw new ConflictError(
       APPLICATION_VERSION_CONFLICT,
@@ -163,15 +172,15 @@ function assertReviewedVersion(app: Application, reviewed: Version): void {
 }
 
 /**
- * The checks after the permission, in the spec's order: the status
- * (`Application.requireUnderReview`), `awaitingStewards` /
- * `registrationPending` (`ApproverPolicy.reviewAs`), then the version
- * the reviewer read. Returns the stance an approval or rejection takes.
+ * The state checks after the permission, in the spec's order: the status
+ * (`Application.requireUnderReview`), then `awaitingStewards` /
+ * `registrationPending` (`ApproverPolicy.reviewAs`). Returns the stance
+ * an approval or rejection takes. The version comes after the input's
+ * values (`assertReviewedVersion`; index.md 「編集の競合」).
  */
-export function requireDecision<A extends Application>(
+export function requireDecisionStance<A extends Application>(
   app: A,
   permission: OpenReviewPermission,
-  reviewed: Version,
 ): Readonly<{ app: UnderReview<A>; as: DecisionStance<A> }> {
   const underReview = ApplicationStatus.requireUnderReview(app);
   // `decide` gives an operator-seat kind only `"approver"`, so the erased
@@ -180,8 +189,18 @@ export function requireDecision<A extends Application>(
     underReview,
     permission,
   ) as DecisionStance<A>;
-  assertReviewedVersion(underReview, reviewed);
   return { app: underReview, as };
+}
+
+/** `requireDecisionStance`, then the version the reviewer read. */
+export function requireDecision<A extends Application>(
+  app: A,
+  permission: OpenReviewPermission,
+  reviewed: Version,
+): Readonly<{ app: UnderReview<A>; as: DecisionStance<A> }> {
+  const decision = requireDecisionStance(app, permission);
+  assertReviewedVersion(decision.app, reviewed);
+  return decision;
 }
 
 /** `ReviewAsOf<K>` of an application: `"approver"` for an operator-seat kind. */
@@ -190,15 +209,13 @@ export type DecisionStance<A extends Application> = ReviewAsFor<
 > &
   ReviewAs;
 
-/** `requireDecision` for a return (`ApproverPolicy.returnAs`). */
-export function requireReturn(
+/** `requireDecisionStance` for a return (`ApproverPolicy.returnAs`). */
+export function requireReturnStance(
   app: Application,
   permission: OpenReviewPermission,
-  reviewed: Version,
 ): UnderReviewApplication {
   const underReview = ApplicationStatus.requireUnderReview(app);
   erased.ApproverPolicy.returnAs(underReview, permission);
-  assertReviewedVersion(underReview, reviewed);
   return underReview;
 }
 

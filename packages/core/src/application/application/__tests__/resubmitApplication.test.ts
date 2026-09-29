@@ -15,9 +15,10 @@ import {
   resubmitApplication,
 } from "../resubmitApplication";
 import { type AppKit, applicationKit, profileFields } from "./kit";
+import { oct, type StewardSeatKit, stewardSeatKit } from "./stewardSeatKit";
 
 const resubmit = (
-  k: AppKit,
+  k: Pick<AppKit, "container">,
   who: Person,
   app: Pick<Application, "id" | "version">,
   amended: ResubmissionContent,
@@ -33,6 +34,31 @@ const claimContent = (
   evidence = "03-1111-1111",
   relationship = "店主です",
 ): ResubmissionContent => ({ kind: "stewardship", relationship, evidence });
+
+/**
+ * Place p1 with its stewards T and S and published listings l1, l2; T's
+ * participation application a5 (as the place) to an upcoming occasion,
+ * with l1 (or l1 and l2) and 10/1, returned by the approver.
+ */
+async function returnedParticipation(
+  k: StewardSeatKit,
+  options: Readonly<{ attach?: "l1" | "both" }> = {},
+) {
+  const p1 = await k.place("山田珈琲店");
+  const T = await k.manager(p1, "T");
+  const S = await k.manager(p1, "S");
+  const l1 = (await k.published(T, p1)).id;
+  const l2 = (await k.published(T, p1)).id;
+  const e1 = await k.addOccasion();
+  const submitted = await k.participationApp(T, {
+    placeId: p1,
+    occasionId: e1,
+    listingIds: options.attach === "both" ? [l1, l2] : [l1],
+    dates: [oct(1)],
+  });
+  const a5 = await k.sendBack(submitted.id, "参加日を見直してください");
+  return { p1, T, S, l1, l2, e1, a5 };
+}
 
 /** A revision of a fresh place by `who`, returned by the approver. */
 async function returnedRevision(k: AppKit, who: Person) {
@@ -142,29 +168,136 @@ describe("resubmitApplication", () => {
     expect(FieldPatch.fields(app.content)).toEqual(["name", "businessHours"]);
   });
 
-  it.todo(
-    "resubmitApplication#4 店舗 p1 について店舗管理者として行った所属の申請 a4（地域 X）が、追加で必要な確認 q2 を添えて差し戻し。S は p1 の店舗管理者 / S が、回答 w2 だけを添えて a4 を再提出する",
-  ); // S3B: the affiliation kind (a steward's application)
+  it("resubmitApplication#4 店舗 p1 について店舗管理者として行った所属の申請 a4（地域 X）が、追加で必要な確認 q2 を添えて差し戻し。S は p1 の店舗管理者 / S が、回答 w2 だけを添えて a4 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const X = await k.addRegion();
+    const a4 = await k.affiliateAsPlace(S, { placeId: p1, regionId: X });
+    const returned = await k.sendBack(a4.id, "営業の実態を教えてください");
+    const mark = await k.mark();
 
-  it.todo(
-    "resubmitApplication#5 店舗 p1 の店舗管理者 T が店舗管理者として行った参加の申請 a5 が差し戻し。S は p1 の別の店舗管理者 / S が、添える掲載と参加日を直して a5 を再提出する",
-  ); // S3B: the participation kind
+    const result = await resubmit(
+      k,
+      S,
+      returned,
+      { kind: "affiliation" },
+      "毎日営業しています",
+    );
 
-  it.todo(
-    "resubmitApplication#6 a5 を提出した T は、p1 の店舗管理者を辞任している。S は p1 の店舗管理者 / S が a5 を再提出する",
-  ); // S3B: the participation kind
+    expect(result.outcome).toBe("resubmitted");
+    const app = await k.app(a4.id);
+    expect(app).toEqual(result.application);
+    expect(app.target).toEqual(a4.target);
+    expect(app.content).toBeNull();
+    expect(app.status).toEqual({
+      kind: "underReview",
+      since: k.clock.now(),
+      answering: {
+        request: "営業の実態を教えてください",
+        reply: "毎日営業しています",
+      },
+    });
+    expect((await k.eventsSince(mark)).map((e) => [e.type, e.payload])).toEqual(
+      [
+        [
+          "application.resubmitted",
+          {
+            applicationId: a4.id,
+            approver: { kind: "steward", target: { kind: "region", id: X } },
+          },
+        ],
+      ],
+    );
+  });
 
-  it.todo(
-    "resubmitApplication#7 参加の申請 a5 に添えた掲載 l1 は、差し戻しの間に提供終了になった。S は p1 の店舗管理者 / S が、l1 を添えたまま a5 を再提出する",
-  ); // S3B: the participation kind
+  it("resubmitApplication#5 店舗 p1 の店舗管理者 T が店舗管理者として行った参加の申請 a5 が差し戻し。S は p1 の別の店舗管理者 / S が、添える掲載と参加日を直して a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { S, l2, a5 } = await returnedParticipation(k);
 
-  it.todo(
-    "resubmitApplication#8 参加の申請 a5 に添えた掲載 l2 は、差し戻しの間に一時非公開になった / S が、l2 を添えたまま a5 を再提出する",
-  ); // S3B: the participation kind
+    const result = await resubmit(k, S, a5, {
+      kind: "participation",
+      listingIds: [l2],
+      dates: [oct(2)],
+    });
 
-  it.todo(
-    "resubmitApplication#9 参加の申請 a5 は掲載 l1 を添えて差し戻し。p1 の掲載 l3 は一時非公開 / S が、l3 を新たに添えて a5 を再提出する",
-  ); // S3B: the participation kind
+    expect(result.outcome).toBe("resubmitted");
+    expect((await k.app(a5.id)).content).toEqual({
+      listingIds: [l2],
+      dates: [oct(2)],
+    });
+  });
+
+  it("resubmitApplication#6 a5 を提出した T は、p1 の店舗管理者を辞任している。S は p1 の店舗管理者 / S が a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { p1, S, T, l1, a5 } = await returnedParticipation(k);
+    await k.removeSteward(k.ref(p1), T);
+
+    const result = await resubmit(k, S, a5, {
+      kind: "participation",
+      listingIds: [l1],
+      dates: [oct(1)],
+    });
+
+    expect(result.outcome).toBe("resubmitted");
+    expect((await k.app(a5.id)).status.kind).toBe("underReview");
+  });
+
+  it("resubmitApplication#7 参加の申請 a5 に添えた掲載 l1 は、差し戻しの間に提供終了になった。S は p1 の店舗管理者 / S が、l1 を添えたまま a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { S, l1, a5 } = await returnedParticipation(k);
+    await k.end(S, l1);
+
+    const result = await resubmit(k, S, a5, {
+      kind: "participation",
+      listingIds: [l1],
+      dates: [oct(1)],
+    });
+
+    expect(result.outcome).toBe("resubmitted");
+    expect((await k.app(a5.id)).content).toEqual({
+      listingIds: [l1],
+      dates: [oct(1)],
+    });
+  });
+
+  it("resubmitApplication#8 参加の申請 a5 に添えた掲載 l2 は、差し戻しの間に一時非公開になった / S が、l2 を添えたまま a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { S, l1, l2, a5 } = await returnedParticipation(k, {
+      attach: "both",
+    });
+    await k.unpublish(S, l2);
+
+    const result = await resubmit(k, S, a5, {
+      kind: "participation",
+      listingIds: [l1, l2],
+      dates: [oct(1)],
+    });
+
+    expect(result.outcome).toBe("resubmitted");
+    expect((await k.app(a5.id)).content).toEqual({
+      listingIds: [l1, l2],
+      dates: [oct(1)],
+    });
+  });
+
+  it("resubmitApplication#9 参加の申請 a5 は掲載 l1 を添えて差し戻し。p1 の掲載 l3 は一時非公開 / S が、l3 を新たに添えて a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { p1, S, l1, a5 } = await returnedParticipation(k);
+    const l3 = (await k.published(S, p1)).id;
+    await k.unpublish(S, l3);
+
+    await expectCode(
+      resubmit(k, S, a5, {
+        kind: "participation",
+        listingIds: [l1, l3],
+        dates: [oct(1)],
+      }),
+      Error,
+      "OCCASION_LISTING_NOT_ATTACHABLE",
+    );
+    expect(await k.app(a5.id)).toEqual(a5);
+  });
 
   it("resubmitApplication#10 A の登録申請 r1 が差し戻し。r1 に併せた管理権限の申請 s1 は確認中 / A が、店舗の情報を直し、回答を添えて r1 を再提出する", async () => {
     const k = await applicationKit();
@@ -243,9 +376,22 @@ describe("resubmitApplication", () => {
     expect(await k.app(a1.id)).toEqual(returned);
   });
 
-  it.todo(
-    "resubmitApplication#14 店舗 p1 について店舗管理者として行った申請 a4 が差し戻し。T は p1 の管理権限を解除されている / T が、自分が提出した a4 を再提出する",
-  ); // S3B: a steward's application (affiliation, leave, participation)
+  it("resubmitApplication#14 店舗 p1 について店舗管理者として行った申請 a4 が差し戻し。T は p1 の管理権限を解除されている / T が、自分が提出した a4 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const T = await k.manager(p1, "T");
+    await k.manager(p1, "S");
+    const X = await k.addRegion();
+    const a4 = await k.affiliateAsPlace(T, { placeId: p1, regionId: X });
+    const returned = await k.sendBack(a4.id);
+    await k.removeSteward(k.ref(p1), T);
+
+    await expectCode(
+      resubmit(k, T, returned, { kind: "affiliation" }, "回答"),
+      ForbiddenError,
+    );
+    expect(await k.app(a4.id)).toEqual(returned);
+  });
 
   it("resubmitApplication#15 A の申請 a1 は確認中（再提出の後） / A が a1 をもう一度再提出する", async () => {
     const k = await applicationKit();
@@ -278,9 +424,28 @@ describe("resubmitApplication", () => {
     );
   });
 
-  it.todo(
-    "resubmitApplication#17 店舗 p1 について店舗管理者として行った申請 a5 が差し戻し。S と T がどちらも同じ版で修正を始め、T が先に再提出して承認者がもう一度差し戻した / S が、古い版を添えて a5 を再提出する",
-  ); // S3B: a steward's application (participation)
+  it("resubmitApplication#17 店舗 p1 について店舗管理者として行った申請 a5 が差し戻し。S と T がどちらも同じ版で修正を始め、T が先に再提出して承認者がもう一度差し戻した / S が、古い版を添えて a5 を再提出する", async () => {
+    const k = await stewardSeatKit();
+    const { S, T, l1, l2, a5 } = await returnedParticipation(k);
+    await resubmit(k, T, a5, {
+      kind: "participation",
+      listingIds: [l2],
+      dates: [oct(3)],
+    });
+    await k.sendBack(a5.id, "もう一度確認させてください");
+    const byT = await k.app(a5.id);
+
+    await expectCode(
+      resubmit(k, S, a5, {
+        kind: "participation",
+        listingIds: [l1],
+        dates: [oct(1)],
+      }),
+      ConflictError,
+    );
+    expect(await k.app(a5.id)).toEqual(byT);
+    expect(byT.content).toEqual({ listingIds: [l2], dates: [oct(3)] });
+  });
 
   it("refuses a version older than the stored one (resubmitted and returned again since)", async () => {
     const k = await applicationKit();

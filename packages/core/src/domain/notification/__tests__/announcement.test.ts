@@ -8,7 +8,9 @@ import { PhotosTakenDownEvent } from "@repo/core/domain/common/photoEvents";
 import type { ContentRef, ShowcaseRef } from "@repo/core/domain/common/refs";
 import { ListingEvents } from "@repo/core/domain/listing/events";
 import { ModerationEvents } from "@repo/core/domain/moderation/events";
+import { OccasionEvents } from "@repo/core/domain/occasion/events";
 import { PlaceEvents } from "@repo/core/domain/place/events";
+import { RegionEvents } from "@repo/core/domain/region/events";
 import { describe, expect, it } from "vitest";
 import {
   AnnouncementFacts,
@@ -383,6 +385,199 @@ describe("Announcements (stage 2)", () => {
         to: "placeStewards",
         placeId: P.id,
         subject: { kind: "listing", listingId: L.id, matter },
+      },
+    ]);
+  });
+});
+
+describe("Announcements (stage 3)", () => {
+  const P = { kind: "place", id: ids.place() } as const;
+  const Q = { kind: "place", id: ids.place() } as const;
+  const R = { kind: "region", id: ids.region() } as const;
+  const C = { kind: "occasion", id: ids.occasion() } as const;
+  const A = ids.article();
+  const showcasing = (...showcases: readonly ShowcaseRef[]) => ({
+    ...AnnouncementFacts.none,
+    showcasingArticles: [{ articleId: A, showcases }],
+  });
+  const editors = (change: Readonly<Record<string, unknown>>) => ({
+    to: "editors",
+    articleId: A,
+    matter: { kind: "showcase_changed", change },
+  });
+  const occurrences = (e: NotifiableEvent, facts: AnnouncementFacts) =>
+    Announcements.from(e, facts).map((a) => a.occurrence);
+
+  it("announces a region's suspension and its lifting to its managers, and the suspension and unpublishing to showcasing articles", () => {
+    const facts = showcasing(R);
+    const suspended = event(RegionEvents.suspended(R.id, now));
+    expect(Announcements.showcaseRefsOf(suspended, [])).toEqual([R]);
+    expect(occurrences(suspended, facts)).toEqual([
+      { to: "contentManagers", content: R, matter: { kind: "suspended" } },
+      editors({ showcase: R, change: "suspended" }),
+    ]);
+    expect(
+      occurrences(event(RegionEvents.unsuspended(R.id, now)), facts),
+    ).toEqual([
+      { to: "contentManagers", content: R, matter: { kind: "unsuspended" } },
+    ]);
+    const unpublished = event(RegionEvents.unpublished(R.id, "byManager", now));
+    expect(occurrences(unpublished, facts)).toEqual([
+      editors({ showcase: R, change: "unpublished" }),
+    ]);
+    expect(occurrences(unpublished, AnnouncementFacts.none)).toEqual([]);
+  });
+
+  it("announces an exclusion from a region to the place's stewards, not a leave", () => {
+    expect(
+      occurrences(
+        event(RegionEvents.affiliationDissolved(P.id, R.id, "excluded", now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "placeStewards",
+        placeId: P.id,
+        subject: {
+          kind: "place",
+          matter: { kind: "excluded_from_region", regionId: R.id },
+        },
+      },
+    ]);
+    expect(
+      occurrences(
+        event(RegionEvents.affiliationDissolved(P.id, R.id, "left", now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([]);
+  });
+
+  it("announces a cancellation and a period change to each participating place, and the cancellation to showcasing articles", () => {
+    const facts = {
+      ...showcasing(C),
+      participatingPlaces: [P.id, Q.id],
+    };
+    const perPlace = (kind: string) =>
+      [P, Q].map((place) => ({
+        to: "placeStewards",
+        placeId: place.id,
+        subject: { kind: "place", matter: { kind, occasionId: C.id } },
+      }));
+    const cancelled = event(OccasionEvents.cancelled(C.id, now));
+    expect(Announcements.showcaseRefsOf(cancelled, [])).toEqual([C]);
+    const all = Announcements.from(cancelled, facts);
+    expect(all.map((a) => a.occurrence)).toEqual([
+      ...perPlace("occasion_cancelled"),
+      editors({ showcase: C, change: "cancelled" }),
+    ]);
+    expect(new Set(all.map((a) => JSON.stringify(a.origin)))).toEqual(
+      new Set([JSON.stringify({ by: "event", eventId: cancelled.id })]),
+    );
+    expect(
+      occurrences(event(OccasionEvents.periodChanged(C.id, now)), facts),
+    ).toEqual(perPlace("occasion_period_changed"));
+    expect(
+      occurrences(
+        event(OccasionEvents.periodChanged(C.id, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([]);
+  });
+
+  it("announces an occasion's suspension, unpublishing and end to showcasing articles, the end keyed by the day it was seen", () => {
+    const facts = showcasing(C);
+    expect(
+      occurrences(event(OccasionEvents.suspended(C.id, now)), facts),
+    ).toEqual([
+      { to: "contentManagers", content: C, matter: { kind: "suspended" } },
+      editors({ showcase: C, change: "suspended" }),
+    ]);
+    expect(
+      occurrences(event(OccasionEvents.unsuspended(C.id, now)), facts),
+    ).toEqual([
+      { to: "contentManagers", content: C, matter: { kind: "unsuspended" } },
+    ]);
+    expect(
+      occurrences(
+        event(OccasionEvents.unpublished(C.id, "photoTakedown", now)),
+        facts,
+      ),
+    ).toEqual([editors({ showcase: C, change: "unpublished" })]);
+    const day = LocalDate.parse("2026-10-04");
+    const [ended] = Announcements.from(
+      event(OccasionEvents.ended(C.id, day, now)),
+      facts,
+    );
+    expect(ended?.occurrence).toEqual(
+      editors({ showcase: C, change: "ended" }),
+    );
+    expect(ended?.origin).toEqual({ by: "content", token: day });
+  });
+
+  it("announces an exclusion to the place's stewards and a withdrawal to the occasion's stewards", () => {
+    const dissolved = (cause: "excluded" | "withdrawn") =>
+      occurrences(
+        event(OccasionEvents.participationDissolved(C.id, P.id, cause, now)),
+        AnnouncementFacts.none,
+      );
+    expect(dissolved("excluded")).toEqual([
+      {
+        to: "placeStewards",
+        placeId: P.id,
+        subject: {
+          kind: "place",
+          matter: { kind: "excluded_from_occasion", occasionId: C.id },
+        },
+      },
+    ]);
+    expect(dissolved("withdrawn")).toEqual([
+      {
+        to: "occasionStewards",
+        occasionId: C.id,
+        matter: { kind: "participation_withdrawn", placeId: P.id },
+      },
+    ]);
+  });
+
+  it("announces a participation's change by the place only", () => {
+    const changed = (by: "place" | "occasion") =>
+      occurrences(
+        event(OccasionEvents.participationChanged(C.id, P.id, by, now)),
+        AnnouncementFacts.none,
+      );
+    expect(changed("place")).toEqual([
+      {
+        to: "occasionStewards",
+        occasionId: C.id,
+        matter: { kind: "participation_changed", placeId: P.id },
+      },
+    ]);
+    expect(changed("occasion")).toEqual([]);
+  });
+
+  it("announces a region link to the region's stewards and its detachment to the occasion's stewards", () => {
+    expect(
+      occurrences(
+        event(OccasionEvents.regionLinked(C.id, R.id, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "regionStewards",
+        regionId: R.id,
+        matter: { kind: "occasion_linked", occasionId: C.id },
+      },
+    ]);
+    expect(
+      occurrences(
+        event(OccasionEvents.regionLinkDetached(C.id, R.id, now)),
+        AnnouncementFacts.none,
+      ),
+    ).toEqual([
+      {
+        to: "occasionStewards",
+        occasionId: C.id,
+        matter: { kind: "region_link_detached", regionId: R.id },
       },
     ]);
   });

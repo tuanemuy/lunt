@@ -4,7 +4,9 @@ import type { Publication } from "@repo/core/domain/common/publication";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { TakedownClaim } from "@repo/core/domain/moderation/takedownClaim";
+import { Occasion } from "@repo/core/domain/occasion/occasion";
 import { Place } from "@repo/core/domain/place/place";
+import { Region } from "@repo/core/domain/region/region";
 import { authorizeRole } from "../authority/access";
 import { NotFoundError } from "../errors";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
@@ -26,7 +28,7 @@ export type TakeDownPhotosByClaimOutput = Readonly<{
   unpublished: boolean;
 }>;
 
-/** The target does not exist (deleted, never existed, or its kind is not wired yet). */
+/** The target does not exist (deleted, never existed, or an article before S5). */
 export const CONTENT_NOT_FOUND = "CONTENT_NOT_FOUND";
 
 const notFound = (target: ContentRef) =>
@@ -40,12 +42,24 @@ type Removal = Readonly<{
   output: TakeDownPhotosByClaimOutput;
 }>;
 
+/** The output for a kind with a publication state, from before and after the removal. */
+const publishable = (
+  before: Publication,
+  after: Publication,
+  eventDrafts: readonly EventDraft[],
+): Removal => ({
+  eventDrafts,
+  output: {
+    publication: after.status,
+    unpublished: before.status === "published" && after.status !== "published",
+  },
+});
+
 /**
  * Calls the target kind's repository and `takeDownPhotos`, and saves
  * against the version read
- * (`spec/usecases/moderation.md` 「takeDownPhotosByClaim」's table). Region
- * and occasion targets are wired in S3B-MOD and articles in S5; until
- * then such a target reads as missing.
+ * (`spec/usecases/moderation.md` 「takeDownPhotosByClaim」's table).
+ * Articles are wired in S5; until then an article target reads as missing.
  */
 async function takeDown(
   ctx: UnitOfWorkContext,
@@ -63,15 +77,11 @@ async function takeDown(
         now,
       );
       await ctx.listingRepository.save(entity, found.expectedVersion);
-      const before = found.entity.publication.status;
-      const after = entity.publication.status;
-      return {
+      return publishable(
+        found.entity.publication,
+        entity.publication,
         eventDrafts,
-        output: {
-          publication: after,
-          unpublished: before === "published" && after !== "published",
-        },
-      };
+      );
     }
     case "place": {
       const found = await ctx.placeRepository.findById(target.id);
@@ -87,8 +97,36 @@ async function takeDown(
         output: { publication: null, unpublished: false },
       };
     }
-    case "region":
-    case "occasion":
+    case "region": {
+      const found = await ctx.regionRepository.findById(target.id);
+      if (found === null) throw notFound(target);
+      const { entity, eventDrafts } = Region.takeDownPhotos(
+        found.entity,
+        photoIds,
+        now,
+      );
+      await ctx.regionRepository.save(entity, found.expectedVersion);
+      return publishable(
+        found.entity.publication,
+        entity.publication,
+        eventDrafts,
+      );
+    }
+    case "occasion": {
+      const found = await ctx.occasionRepository.findById(target.id);
+      if (found === null) throw notFound(target);
+      const { entity, eventDrafts } = Occasion.takeDownPhotos(
+        found.entity,
+        photoIds,
+        now,
+      );
+      await ctx.occasionRepository.save(entity, found.expectedVersion);
+      return publishable(
+        found.entity.publication,
+        entity.publication,
+        eventDrafts,
+      );
+    }
     case "article":
       throw notFound(target);
   }
@@ -103,9 +141,9 @@ async function takeDown(
  * target left without any. Works while the target is suspended, with or
  * without stewards. The claim is only read — it stays open, its version
  * unchanged. Emits the aggregate's `content.photos_taken_down`,
- * `photos.released` and, for a listing that loses its last photo while
- * published, `listing.unpublished` (`photoTakedown`). Removed photos
- * cannot be restored.
+ * `photos.released` and, for a listing, region or occasion that loses its
+ * last photo while published, `{listing|region|occasion}.unpublished`
+ * (`photoTakedown`). Removed photos cannot be restored.
  *
  * Checked in order: `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`);
  * `ForbiddenError` (`operate_service`, also when revoked before the
@@ -113,7 +151,7 @@ async function takeDown(
  * `BusinessRuleError` `MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED` /
  * `MODERATION_TAKEDOWN_CLAIM_TARGET_MISMATCH`; `NotFoundError`
  * (`CONTENT_NOT_FOUND`) for a gone target; `BusinessRuleError`
- * `{LISTING|PLACE}_PHOTO_NOT_FOUND` when any photo is not the target's
+ * `{LISTING|PLACE|REGION|OCCASION}_PHOTO_NOT_FOUND` when any photo is not the target's
  * (none is removed). `ConflictError` when a manager's save commits first.
  */
 export async function takeDownPhotosByClaim({

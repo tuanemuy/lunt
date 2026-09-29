@@ -1,7 +1,5 @@
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import type { ApplicationIn, KindMap } from "../kind";
 import type { ApplicationKindMap } from "../kinds";
 import type { UnderReview } from "../status";
@@ -28,10 +26,12 @@ export type ReviewDesk =
  * Oldest `status.since` first, then id; returned and closed applications
  * never appear; `count` is the section's total. The sections never
  * overlap. Committed writes of applications and stewardships show at once.
+ * A row that cannot be restored is reported in `unreadable` by application
+ * id, so one unreadable application does not stop the daily job.
  */
 export interface ApplicationReviewDesk<M extends KindMap = ApplicationKindMap> {
   findPageAwaiting(
     desk: ReviewDesk,
     pagination: Pagination,
-  ): Promise<PaginationResult<UnderReview<ApplicationIn<M>>>>;
+  ): Promise<ScanResult<UnderReview<ApplicationIn<M>>>>;
 }

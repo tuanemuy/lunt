@@ -18,7 +18,13 @@ type PremiseEvent = Extract<
       | "authority.stewardship_vacated"
       | "application.rejected"
       | "application.withdrawn"
-      | "listing.deleted";
+      | "listing.deleted"
+      | "region.affiliation_established"
+      | "region.affiliation_dissolved"
+      | "occasion.participation_established"
+      | "occasion.cancelled"
+      | "occasion.ended"
+      | "occasion.period_changed";
   }
 >;
 
@@ -26,8 +32,10 @@ type ApplicationReader = Pick<UnitOfWorkContext, "applicationRepository">;
 
 /**
  * The applications an event may break premises of: those about its place
- * (a place's stewardship changed), its listing (deleted), or the
- * registration it ended (a companion claim's `registrationStanding`).
+ * (a place's stewardship, affiliations or participations changed), its
+ * occasion (cancelled, ended, its period changed), its listing (deleted),
+ * or the registration it ended (a companion claim's
+ * `registrationStanding`).
  */
 async function subjectOf(
   ctx: ApplicationReader,
@@ -39,6 +47,14 @@ async function subjectOf(
       const { target } = event.payload;
       return target.kind === "place" ? { kind: "place", id: target.id } : null;
     }
+    case "region.affiliation_established":
+    case "region.affiliation_dissolved":
+    case "occasion.participation_established":
+      return { kind: "place", id: event.payload.placeId };
+    case "occasion.cancelled":
+    case "occasion.ended":
+    case "occasion.period_changed":
+      return { kind: "occasion", id: event.payload.occasionId };
     case "listing.deleted":
       return { kind: "listing", id: event.payload.listingId };
     case "application.rejected":
@@ -98,13 +114,10 @@ function reassessOne(
       return;
     }
     const app = ApplicationStatus.requireActive(found.entity);
-    const result = await evaluatePremise(ctx, app.target);
+    const now = container.clock.now();
+    const result = await evaluatePremise(ctx, app.target, now);
     if (result.holds) return;
-    const { entity, eventDrafts } = Application.reassess(
-      app,
-      result,
-      container.clock.now(),
-    );
+    const { entity, eventDrafts } = Application.reassess(app, result, now);
     await ctx.applicationRepository.save(entity, found.expectedVersion);
     ctx.collectEvents(eventDrafts);
   });
@@ -112,16 +125,16 @@ function reassessOne(
 
 /**
  * Consumer of the events a premise rests on (P-77, I-02, I-19; APP-05,
- * SHP-03, SHP-10, LST-11, LST-13, LST-16, MEM-03, MEM-04): reads the
- * active applications about the event's place, listing or registration,
- * then re-judges each one on the facts at consumption time in its own
- * unit of work and lapses those whose premises broke. Suspension is no
- * premise. Idempotent and order-free: a lapsed application never
- * returns, and closed ones are not read. One application failing (a
- * reviewer's decision committed first) does not undo the others; the
- * consumption then fails and redelivery handles the rest.
- *
- * Stage 3 subscribes it to the region and occasion events too.
+ * SHP-03, SHP-10, LST-11, LST-13, LST-16, REG-09, REG-10, EVT-01, EVT-04,
+ * EVT-11, MEM-03, MEM-04): reads the active applications about the
+ * event's place, occasion, listing or registration, then re-judges each
+ * one on the facts at consumption time in its own unit of work and lapses
+ * those whose premises broke. Suspension is no premise; a dissolved
+ * participation breaks none, so it is not consumed. Idempotent and
+ * order-free: a lapsed application never returns, and closed ones are not
+ * read. One application failing (a reviewer's decision committed first)
+ * does not undo the others; the consumption then fails and redelivery
+ * handles the rest.
  */
 export const reassessApplicationPremises = defineConsumer(
   [
@@ -130,6 +143,12 @@ export const reassessApplicationPremises = defineConsumer(
     "application.rejected",
     "application.withdrawn",
     "listing.deleted",
+    "region.affiliation_established",
+    "region.affiliation_dissolved",
+    "occasion.participation_established",
+    "occasion.cancelled",
+    "occasion.ended",
+    "occasion.period_changed",
   ],
   async (container, event) => {
     const ids = await affected(container, event);

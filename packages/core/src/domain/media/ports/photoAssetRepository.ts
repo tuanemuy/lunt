@@ -1,8 +1,6 @@
 import type { PhotoId } from "@repo/core/domain/common/ids";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import type {
   TransactionalRepository,
   Versioned,
@@ -24,6 +22,7 @@ import type { PhotoAsset } from "../photoAsset";
  *   unowned `stored` with `registeredAt < registeredBefore` (the caller's
  *   `PhotoPolicy.sweepBefore`). Oldest `registeredAt` first, ties by id
  *   ascending. Owned and deleted photos drop out, so a sweep re-reads page 1.
+ *   A row that cannot be restored is reported in `unreadable` by photo id.
  *
  * There is no lookup by owner: aggregates hold the `PhotoId`s.
  */
@@ -33,5 +32,5 @@ export interface PhotoAssetRepository
   findPageSweepable(
     registeredBefore: Date,
     pagination: Pagination,
-  ): Promise<PaginationResult<Versioned<PhotoAsset>>>;
+  ): Promise<ScanResult<Versioned<PhotoAsset>>>;
 }

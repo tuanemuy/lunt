@@ -4,9 +4,10 @@ import type { ApplicationId } from "@repo/core/domain/common/ids";
 import type { Version } from "@repo/core/domain/common/version";
 import type { ActorServiceArgs } from "../types";
 import {
+  assertReviewedVersion,
   type ReviewedApplication,
   requireApplication,
-  requireDecision,
+  requireDecisionStance,
   reviewed,
   reviewPermission,
 } from "./review";
@@ -33,9 +34,12 @@ export type RejectApplicationInput = Readonly<{
  *   who may stand in).
  * - The status code when not under review, `APPLICATION_AWAITING_STEWARDS`,
  *   `APPLICATION_REGISTRATION_PENDING`.
+ * - `APPLICATION_INVALID_REJECTION_REASON`: blank reason (judged after the
+ *   state checks above, before the version; index.md 「編集の競合」).
  * - `ConflictError` when the application changed since `version`.
- * - `APPLICATION_INVALID_REJECTION_REASON`: blank reason (judged after
- *   the common checks above).
+ * - `ForbiddenError` at the commit when a fact the permission rested on
+ *   changed (a revoked role; for the overdue proxy, the seat's last
+ *   steward leaving).
  */
 export async function rejectApplication({
   container,
@@ -52,12 +56,9 @@ export async function rejectApplication({
       container.reviewPolicy,
       now,
     );
-    const { app, as } = requireDecision(
-      found.entity,
-      permission,
-      input.version,
-    );
+    const { app, as } = requireDecisionStance(found.entity, permission);
     const reason = RejectionReason.create(input.reason);
+    assertReviewedVersion(app, input.version);
     const { entity, eventDrafts } = Application.reject(app, as, reason, now);
     await ctx.applicationRepository.save(entity, found.expectedVersion);
     ctx.collectEvents(eventDrafts);

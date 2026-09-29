@@ -8,13 +8,20 @@ import {
 import { ApplicationErrorCode } from "@repo/core/domain/application/errorCode";
 import type { StewardshipClaim } from "@repo/core/domain/application/stewardshipClaim";
 import { FieldPatch } from "@repo/core/domain/common/fieldPatch";
-import type { ApplicationId, PhotoId } from "@repo/core/domain/common/ids";
+import type {
+  ApplicationId,
+  ListingId,
+  PhotoId,
+} from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import type { ListingContent } from "@repo/core/domain/listing/content";
+import { Listing } from "@repo/core/domain/listing/listing";
 import { ListingPatch } from "@repo/core/domain/listing/patch";
 import { PhotoAsset } from "@repo/core/domain/media/photoAsset";
+import { ParticipationDetails } from "@repo/core/domain/occasion/participation";
 import type { PlaceProfile } from "@repo/core/domain/place/profile";
 import {
   PlaceRevision,
@@ -26,6 +33,11 @@ import {
   duplicatePhotos,
   type PhotoDuplicates,
 } from "../media/duplicatePhotos";
+import {
+  type AttachedListingView,
+  attachedListingViews,
+  readListings,
+} from "../occasion/attachedListings";
 import { displayRefsOf, type PhotoView, photoView } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 import { requireHandledBy } from "./applicant";
@@ -40,13 +52,31 @@ export type PrepareReapplicationInput = Readonly<{
  * submission's input starts from: a revision's desired state is the
  * target's present content with the ended application's items laid over
  * it (`FieldPatch.preview`); photos are the duplicates; a listing's
- * category is resolved to an active one. S3B adds the affiliation and
- * leave (no content) and the participation (with what was left out).
+ * category is resolved to an active one. An affiliation and a leave have
+ * no content. A participation keeps only the listings still attachable
+ * (`Listing.attachableIds`) and the days within the occasion's period
+ * now, and reports what it left out.
  */
 export type ReapplicationContent =
   | Readonly<{ kind: "registration"; profile: PlaceProfile }>
   | Readonly<{ kind: "revision"; desired: PlaceState }>
   | Readonly<{ kind: "stewardship"; claim: StewardshipClaim }>
+  | Readonly<{ kind: "affiliation" }>
+  | Readonly<{ kind: "leave" }>
+  | Readonly<{
+      kind: "participation";
+      /** The ended application's listings still attachable, in its order. */
+      listingIds: readonly ListingId[];
+      /** Its days within the occasion's period now, ascending. */
+      dates: readonly LocalDate[];
+      /**
+       * Its listings left out — suspended by their manager or the
+       * operator, or deleted — with their state, in its order.
+       */
+      removedListings: readonly AttachedListingView[];
+      /** Its days outside the period now (every day without one). */
+      removedDates: readonly LocalDate[];
+    }>
   | Readonly<{ kind: "listing"; content: ListingContent }>
   | Readonly<{ kind: "listingRevision"; desired: ListingContent }>;
 
@@ -78,11 +108,51 @@ const categoryResolved = (
     content.categoryId,
 });
 
+/**
+ * A participation's initial content: the ended application's listings the
+ * place can attach now and its days within the occasion's period now;
+ * the rest reported as left out. The ended application is not changed.
+ */
+async function participationInitial(
+  ctx: UnitOfWorkContext,
+  app: ApplicationOf<"participation">,
+  now: Date,
+): Promise<Initial> {
+  const today = LocalDate.fromInstant(now);
+  const { placeId, occasionId } = app.target;
+  const [listings, place, occasion] = await Promise.all([
+    readListings(ctx, app.content.listingIds),
+    ctx.placeRepository.findById(placeId),
+    ctx.occasionRepository.findById(occasionId),
+  ]);
+  const attachable = new Set(
+    Listing.attachableIds([...listings.values()], placeId, today),
+  );
+  const period = occasion?.entity.content.period ?? null;
+  const dates = ParticipationDetails.datesWithin(app.content, period);
+  return {
+    target: app.target,
+    content: {
+      kind: "participation",
+      listingIds: app.content.listingIds.filter((id) => attachable.has(id)),
+      dates,
+      removedListings: attachedListingViews(
+        app.content.listingIds.filter((id) => !attachable.has(id)),
+        listings,
+        place?.entity ?? null,
+        today,
+      ),
+      removedDates: app.content.dates.filter((date) => !dates.includes(date)),
+    },
+  };
+}
+
 /** The initial content before its photos are duplicated. */
 async function initialOf(
   ctx: UnitOfWorkContext,
   app: ApplicationOf<ApplicationTarget["kind"]>,
   actor: ActorServiceArgs<unknown>["actor"],
+  now: Date,
 ): Promise<Initial> {
   switch (app.target.kind) {
     case "registration": {
@@ -128,6 +198,15 @@ async function initialOf(
         content: { kind: "stewardship", claim: claim.content },
       };
     }
+    case "affiliation":
+    case "leave":
+      return { target: app.target, content: { kind: app.target.kind } };
+    case "participation":
+      return participationInitial(
+        ctx,
+        app as ApplicationOf<"participation">,
+        now,
+      );
     case "listing": {
       const listing = app as ApplicationOf<"listing">;
       const catalog = (await ctx.categoryCatalogRepository.find()).entity;
@@ -215,6 +294,9 @@ function withDuplicates(
         },
       };
     case "stewardship":
+    case "affiliation":
+    case "leave":
+    case "participation":
       return content;
     case "listing":
       return {
@@ -236,6 +318,9 @@ function photoIdsOf(content: ReapplicationContent): readonly PhotoId[] {
     case "revision":
       return PhotoSet.photoIds(content.desired.profile.photos);
     case "stewardship":
+    case "affiliation":
+    case "leave":
+    case "participation":
       return [];
     case "listing":
       return PhotoSet.photoIds(content.content.photos);
@@ -270,12 +355,13 @@ export async function prepareReapplication({
   actor,
   input,
 }: ActorServiceArgs<PrepareReapplicationInput>): Promise<Reapplication> {
+  const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     const found = await requireApplication(ctx, input.applicationId);
     await requireHandledBy(ctx, actor, found.entity);
     const closed = Application.requireClosed(found.entity);
     return {
-      initial: await initialOf(ctx, closed, actor),
+      initial: await initialOf(ctx, closed, actor, now),
       owned: ApplicationCase.ownedPhotoIds(closed),
     };
   });

@@ -1,8 +1,10 @@
 import {
   InfoReportId,
   type ListingId,
+  OccasionId,
   PhotoId,
   PlaceId,
+  RegionId,
   TakedownClaimId,
 } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
@@ -11,7 +13,13 @@ import { sampleProfile } from "@repo/core/domain/place/testing/samples";
 import type { Person } from "../../authority/__tests__/kit";
 import type { RequestContainer } from "../../di/types";
 import { listingKit } from "../../listing/__tests__/kit";
+import { fields as occasionFields } from "../../occasion/__tests__/kit";
+import { publishOccasion } from "../../occasion/publishOccasion";
+import { registerOccasion } from "../../occasion/registerOccasion";
 import type { GeneratedId } from "../../ports/idGenerator";
+import { contentFields as regionFields } from "../../region/__tests__/kit";
+import { publishRegion } from "../../region/publishRegion";
+import { registerRegion } from "../../region/registerRegion";
 import { getConfirmationRequest } from "../getConfirmationRequest";
 import { getInfoReport } from "../getInfoReport";
 import { getTakedownClaim } from "../getTakedownClaim";
@@ -41,7 +49,8 @@ const ALL = { page: 1, limit: 100 } as const;
 
 /**
  * Usecase-test kit for Moderation: Listing's kit (people, stewards,
- * operators, real places and listings with registered photos) plus the
+ * operators, real places and listings with registered photos, regions and
+ * occasions registered through their usecases) plus the
  * Moderation usecases bound to its container. Claims and reports are made
  * through the usecases.
  */
@@ -97,6 +106,80 @@ export async function moderationKit() {
     const ids = await k.photos(who, photos);
     const view = await k.published(who, placeId, { name, photos: ids });
     return { id: view.id, photos: ids };
+  }
+
+  /**
+   * A region registered by an operator with `photos` of their registered
+   * photos, published unless `state` is `draft`.
+   */
+  async function regionWithPhotos(
+    photos: number,
+    state: "draft" | "published" = "published",
+  ): Promise<
+    Readonly<{ id: RegionId; photos: readonly PhotoId[]; operator: Person }>
+  > {
+    const operator = await k.operator();
+    const photoIds = await k.photos(operator, photos);
+    const generated = k.newId();
+    const regionId = RegionId.create(generated);
+    await registerRegion({
+      container,
+      actor: operator.actor,
+      input: { regionId: generated, content: regionFields({ photoIds }) },
+    });
+    if (state === "published") {
+      await publishRegion({
+        container,
+        actor: operator.actor,
+        input: { regionId },
+      });
+    }
+    return { id: regionId, photos: photoIds, operator };
+  }
+
+  /**
+   * An occasion registered by an operator with `photos` of their
+   * registered photos, published unless `state` is `draft`.
+   */
+  async function occasionWithPhotos(
+    photos: number,
+    state: "draft" | "published" = "published",
+  ): Promise<
+    Readonly<{ id: OccasionId; photos: readonly PhotoId[]; operator: Person }>
+  > {
+    const operator = await k.operator();
+    const photoIds = await k.photos(operator, photos);
+    const generated = k.newId();
+    const occasionId = OccasionId.create(generated);
+    await registerOccasion({
+      container,
+      actor: operator.actor,
+      input: { occasionId: generated, content: occasionFields({ photoIds }) },
+    });
+    if (state === "published") {
+      await publishOccasion({
+        container,
+        actor: operator.actor,
+        input: { occasionId },
+      });
+    }
+    return { id: occasionId, photos: photoIds, operator };
+  }
+
+  async function storedRegion(id: RegionId) {
+    const found = await k.run(({ regionRepository }) =>
+      regionRepository.findById(id),
+    );
+    if (found === null) throw new Error(`no region ${id}`);
+    return found;
+  }
+
+  async function storedOccasion(id: OccasionId) {
+    const found = await k.run(({ occasionRepository }) =>
+      occasionRepository.findById(id),
+    );
+    if (found === null) throw new Error(`no occasion ${id}`);
+    return found;
   }
 
   const claimInput = (spec: ClaimSpec): SubmitTakedownClaimInput => {
@@ -267,6 +350,10 @@ export async function moderationKit() {
     storedPlace,
     changePlace,
     listingWithPhotos,
+    regionWithPhotos,
+    occasionWithPhotos,
+    storedRegion,
+    storedOccasion,
     claimInput,
     submitClaim,
     claim,

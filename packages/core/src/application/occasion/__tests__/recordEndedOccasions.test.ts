@@ -283,6 +283,34 @@ describe("recordEndedOccasions", () => {
     expect(await ended(k)).toHaveLength(2);
   });
 
+  it("fails only the occasion whose holding status record cannot be restored, every run", async () => {
+    const k = await occasionKit();
+    const o = await k.operator();
+    const [first, corrupt, third] = await ongoing(k, o, 3);
+    if (first === undefined || corrupt === undefined || third === undefined) {
+      throw new Error("occasions");
+    }
+    k.t.rawSql.exec(
+      "UPDATE occasion_holding_status_records SET last_observed = 'bogus' WHERE occasion_id = ?",
+      corrupt,
+    );
+    k.setToday("2026-10-04");
+
+    const report = await k.runJob();
+    expect(report).toMatchObject({ processed: 2, failed: 1 });
+    for (const id of [first, third]) {
+      expect((await k.record(id))?.lastObserved).toBe("ended");
+    }
+    expect(
+      (await ended(k)).map((p) => (p as { occasionId: string }).occasionId),
+    ).toEqual([first, third]);
+    expect(k.t.logger.byLevel("warn")).toMatchObject([
+      { meta: { job: "recordEndedOccasions", target: corrupt } },
+    ]);
+
+    expect(await k.runJob()).toMatchObject({ processed: 0, failed: 1 });
+  });
+
   it("records an ongoing occasion ending 9999-12-31 with no next change day", async () => {
     const k = await occasionKit();
     const o = await k.operator();

@@ -1,15 +1,71 @@
-import type { PhotoId, PlaceId } from "@repo/core/domain/common/ids";
+import type {
+  ApplicationId,
+  OccasionId,
+  PhotoId,
+  PlaceId,
+  RegionId,
+} from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
+import type { Person } from "../../authority/__tests__/kit";
 import { expectCode } from "../../authority/__tests__/kit";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { approveNewListing } from "../approveNewListing";
 import { approvePlaceRegistration } from "../approvePlaceRegistration";
 import { approvePlaceRevision } from "../approvePlaceRevision";
 import type { ApplicationContentView } from "../detail";
+import { getApplicationForReview } from "../getApplicationForReview";
 import { absentApplicationId } from "./kit";
 import { reviewKit } from "./reviewKit";
+import { oct, type StewardSeatKit, stewardSeatKit } from "./stewardSeatKit";
 
 const placeRef = (id: PlaceId) => ({ kind: "place", id }) as const;
+const regionRef = (id: RegionId) => ({ kind: "region", id }) as const;
+const occasionRef = (id: OccasionId) => ({ kind: "occasion", id }) as const;
+
+/** `who` reads the application on the testcases' 7-day review period. */
+const reviewOnWeek = (k: StewardSeatKit, who: Person, id: ApplicationId) =>
+  getApplicationForReview({
+    container: k.week,
+    actor: who.actor,
+    input: { applicationId: id },
+  });
+
+/**
+ * Place p1 (steward S) applies to region `regionName` (steward R unless
+ * `stewarded` is false) for affiliation: b1, under review `days` days.
+ */
+async function affiliationSetUp(
+  spec: Readonly<{ regionName: string; stewarded: boolean; days: number }>,
+) {
+  const k = await stewardSeatKit();
+  const region = await k.addRegion({ name: spec.regionName });
+  const R = spec.stewarded ? await k.regionSteward(region, "R") : null;
+  const p1 = await k.place("山田珈琲店");
+  const S = await k.manager(p1, "S");
+  const b1 = await k.affiliateAsPlace(S, { placeId: p1, regionId: region });
+  k.passDays(spec.days);
+  return { k, region, R, p1, S, b1 };
+}
+
+/** Occasion e1 (steward V); place p1 (steward S) applies to it with `listings` and 10/2. */
+async function participationSetUp(listingCount: number) {
+  const k = await stewardSeatKit();
+  const e1 = await k.addOccasion({ name: "秋祭り" });
+  const V = await k.organizer(e1, "V");
+  const p1 = await k.place("山田珈琲店");
+  const S = await k.manager(p1, "S");
+  const listings = [];
+  for (let i = 0; i < listingCount; i += 1) {
+    listings.push((await k.published(S, p1, { name: `メニュー${i + 1}` })).id);
+  }
+  const b2 = await k.participationApp(S, {
+    placeId: p1,
+    occasionId: e1,
+    listingIds: listings,
+    dates: [oct(2)],
+  });
+  return { k, e1, V, p1, S, listings, b2 };
+}
 
 const shown = (photoId: PhotoId) => ({
   photoId,
@@ -387,33 +443,157 @@ describe("getApplicationForReview", () => {
     ]);
   });
 
-  it.todo(
-    "getApplicationForReview#15 利用者 R は地域 X の運営者。X への所属の申請 b1 が確認中 / R が b1 を確かめる",
-  );
+  it("getApplicationForReview#15 利用者 R は地域 X の運営者。X への所属の申請 b1 が確認中 / R が b1 を確かめる", async () => {
+    const { k, region, R, p1, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 1,
+    });
+    if (R === null) throw new Error("R");
 
-  it.todo(
-    "getApplicationForReview#16 利用者 V はイベント e1 の運営者。e1 への参加の申請 b2 が、掲載 l1 と参加日を添えて確認中 / V が b2 を確かめる",
-  );
+    const view = await reviewOnWeek(k, R, b1.id);
 
-  it.todo(
-    "getApplicationForReview#17 b2 に添えた掲載は l1・l2・l3。確認中に、l1 は一時非公開、l2 は運営による非公開になり、l3 は削除された / V が b2 を確かめる",
-  );
+    expect(view.kind).toBe("affiliation");
+    expect(view.subjects).toMatchObject([
+      { ref: placeRef(p1), name: "山田珈琲店", viewability: "viewable" },
+      { ref: regionRef(region), name: "X", viewability: "viewable" },
+    ]);
+    expect(view.applicant).toEqual({
+      kind: "place",
+      placeId: p1,
+      name: "山田珈琲店",
+    });
+    expect(view.content).toEqual({
+      kind: "affiliation",
+      placeId: p1,
+      regionId: region,
+    });
+    expect(view.permission).toEqual({ allowed: true, reviewAs: "approver" });
+  });
 
-  it.todo(
-    "getApplicationForReview#18 地域 X に運営者がいる。b1 は3日前から確認中。O は X の運営者でない / O が b1 を確かめる",
-  );
+  it("getApplicationForReview#16 利用者 V はイベント e1 の運営者。e1 への参加の申請 b2 が、掲載 l1 と参加日を添えて確認中 / V が b2 を確かめる", async () => {
+    const { k, e1, V, p1, listings, b2 } = await participationSetUp(1);
+    const [l1] = listings;
 
-  it.todo(
-    "getApplicationForReview#19 地域 X に運営者がいる。b1 は10日前から確認中 / O が b1 を確かめる",
-  );
+    const view = await reviewOnWeek(k, V, b2.id);
 
-  it.todo(
-    "getApplicationForReview#20 地域 Y に運営者がいない。Y への所属の申請 b3 が、1日前から確認中 / O が b3 を確かめる",
-  );
+    expect(view.subjects).toMatchObject([
+      { ref: placeRef(p1), name: "山田珈琲店" },
+      { ref: occasionRef(e1), name: "秋祭り" },
+    ]);
+    expect(view.content).toEqual({
+      kind: "participation",
+      placeId: p1,
+      occasionId: e1,
+      listings: [
+        expect.objectContaining({
+          id: l1,
+          deleted: false,
+          name: "メニュー1",
+          publication: expect.objectContaining({ status: "published" }),
+          suspended: false,
+          viewable: true,
+        }),
+      ],
+      dates: [oct(2)],
+    });
+    expect(view.permission).toEqual({ allowed: true, reviewAs: "approver" });
+  });
 
-  it.todo(
-    "getApplicationForReview#21 b1 は、サービス運営者の期間超過の代行で否認されている / R が b1 を確かめる",
-  );
+  it("getApplicationForReview#17 b2 に添えた掲載は l1・l2・l3。確認中に、l1 は一時非公開、l2 は運営による非公開になり、l3 は削除された / V が b2 を確かめる", async () => {
+    const { k, V, S, listings, b2 } = await participationSetUp(3);
+    const [l1, l2, l3] = listings;
+    if (l1 === undefined || l2 === undefined || l3 === undefined) {
+      throw new Error("listings");
+    }
+    await k.unpublish(S, l1);
+    await k.suspend(k.O, l2);
+    await k.remove(S, l3);
+
+    const view = await reviewOnWeek(k, V, b2.id);
+
+    if (view.content.kind !== "participation") throw new Error("kind");
+    expect(view.content.listings).toEqual([
+      expect.objectContaining({
+        id: l1,
+        deleted: false,
+        publication: expect.objectContaining({ status: "unpublished" }),
+        suspended: false,
+        viewable: false,
+      }),
+      expect.objectContaining({
+        id: l2,
+        deleted: false,
+        publication: expect.objectContaining({ status: "published" }),
+        suspended: true,
+        viewable: false,
+      }),
+      { id: l3, deleted: true },
+    ]);
+  });
+
+  it("getApplicationForReview#18 地域 X に運営者がいる。b1 は3日前から確認中。O は X の運営者でない / O が b1 を確かめる", async () => {
+    const { k, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 3,
+    });
+
+    const view = await reviewOnWeek(k, k.O, b1.id);
+
+    expect(view.permission).toEqual({
+      allowed: false,
+      reason: "awaitingStewards",
+    });
+    expect(view.status.kind).toBe("underReview");
+  });
+
+  it("getApplicationForReview#19 地域 X に運営者がいる。b1 は10日前から確認中 / O が b1 を確かめる", async () => {
+    const { k, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 10,
+    });
+
+    const view = await reviewOnWeek(k, k.O, b1.id);
+
+    expect(view.permission).toEqual({
+      allowed: true,
+      reviewAs: "overdue_proxy",
+    });
+  });
+
+  it("getApplicationForReview#20 地域 Y に運営者がいない。Y への所属の申請 b3 が、1日前から確認中 / O が b3 を確かめる", async () => {
+    const { k, b1: b3 } = await affiliationSetUp({
+      regionName: "Y",
+      stewarded: false,
+      days: 1,
+    });
+
+    const view = await reviewOnWeek(k, k.O, b3.id);
+
+    expect(view.permission).toEqual({ allowed: true, reviewAs: "approver" });
+  });
+
+  it("getApplicationForReview#21 b1 は、サービス運営者の期間超過の代行で否認されている / R が b1 を確かめる", async () => {
+    const { k, R, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 10,
+    });
+    if (R === null) throw new Error("R");
+    await k.rejectAs(k.O, b1.id, "期間内に確認されませんでした", {
+      container: k.week,
+    });
+
+    const view = await reviewOnWeek(k, R, b1.id);
+
+    expect(view.status).toEqual({
+      kind: "rejected",
+      reason: "期間内に確認されませんでした",
+      reviewAs: "overdue_proxy",
+    });
+  });
 
   it("getApplicationForReview#22 A の申請 a1 は、判断の前に取り下げられた / O が a1 を確かめる", async () => {
     const k = await reviewKit();
@@ -443,9 +623,16 @@ describe("getApplicationForReview", () => {
     ]);
   });
 
-  it.todo(
-    "getApplicationForReview#24 利用者 U は、地域 X の運営者でも、サービス運営者でもない / U が b1 を確かめる",
-  );
+  it("getApplicationForReview#24 利用者 U は、地域 X の運営者でも、サービス運営者でもない / U が b1 を確かめる", async () => {
+    const { k, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 1,
+    });
+    const U = await k.person("U");
+
+    await expectCode(reviewOnWeek(k, U, b1.id), ForbiddenError);
+  });
 
   it("getApplicationForReview#25 R は地域 X の運営者で、サービス運営者でない / R が、情報修正の申請 a2 を確かめる", async () => {
     const k = await reviewKit();

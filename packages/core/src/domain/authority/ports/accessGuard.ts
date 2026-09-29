@@ -20,4 +20,9 @@ export interface AccessGuard {
   stewards(accountId: AccountId, target: StewardedRef): void;
   /** `target` still has no steward (absence proxy). */
   vacant(target: StewardedRef): void;
+  /**
+   * `target` still has a steward (an overdue proxy's decision: had the
+   * seat become vacant, the operator would decide as its approver).
+   */
+  staffed(target: StewardedRef): void;
 }

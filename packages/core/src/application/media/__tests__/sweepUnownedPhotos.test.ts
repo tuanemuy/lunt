@@ -199,6 +199,25 @@ describe("sweepUnownedPhotos", () => {
     await k.expectNoPhoto(photo);
   });
 
+  it("fails only a photo whose record cannot be restored and sweeps the rest, every run", async () => {
+    const k = mediaKit();
+    const alice = k.person();
+    const corrupt = await k.register(alice);
+    const photo = await k.register(alice);
+    k.rawSql.exec(
+      "UPDATE photo_assets SET registered_by = 'not-an-id' WHERE id = ?",
+      corrupt,
+    );
+    k.passRetention();
+
+    expect(await sweep(k)).toMatchObject({ processed: 1, failed: 1 });
+    await k.expectNoPhoto(photo);
+    expect(k.logger.byLevel("warn")).toMatchObject([
+      { meta: { job: "sweepUnownedPhotos", target: corrupt } },
+    ]);
+    expect(await sweep(k)).toMatchObject({ processed: 0, failed: 1 });
+  });
+
   it("drains more than one page of targets", async () => {
     const k = mediaKit();
     const alice = k.person();

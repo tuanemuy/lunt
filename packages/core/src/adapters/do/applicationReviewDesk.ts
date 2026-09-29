@@ -9,13 +9,12 @@ import type {
   ReviewDesk,
 } from "@repo/core/domain/application/ports/applicationReviewDesk";
 import type { UnderReview } from "@repo/core/domain/application/status";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import { applicationRecords } from "./applicationRecords";
 import { mapDoError } from "./helpers";
 import type { LuntStateClient } from "./protocol/client";
+import { restoreScanPage } from "./scan";
 
 /**
  * `ApplicationReviewDesk` over the Lunt state object: one read joining the
@@ -38,7 +37,7 @@ export class DoApplicationReviewDesk<M extends KindMap>
   findPageAwaiting(
     desk: ReviewDesk,
     pagination: Pagination,
-  ): Promise<PaginationResult<UnderReview<ApplicationIn<M>>>> {
+  ): Promise<ScanResult<UnderReview<ApplicationIn<M>>>> {
     return mapDoError(
       "Failed to list applications awaiting review",
       async () => {
@@ -53,10 +52,11 @@ export class DoApplicationReviewDesk<M extends KindMap>
           page: pagination.page,
           limit: pagination.limit,
         });
-        return {
-          items: page.items.map((record) => this.records.toUnderReview(record)),
-          count: page.count,
-        };
+        return restoreScanPage(
+          page,
+          (record) => record.id,
+          (record) => this.records.toUnderReview(record),
+        );
       },
     );
   }

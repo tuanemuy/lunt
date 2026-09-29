@@ -421,7 +421,9 @@ export async function applicationKit() {
    */
   async function approveStatus(id: ApplicationId): Promise<Application> {
     const read = await stored(id);
-    const result = await run((ctx) => evaluatePremise(ctx, read.entity.target));
+    const result = await run((ctx) =>
+      evaluatePremise(ctx, read.entity.target, l.clock.now()),
+    );
     return changeApp(id, (a, now) =>
       Behaviour.approve(
         underReview(a),
@@ -460,7 +462,9 @@ export async function applicationKit() {
   /** Lapses the application on the facts now (they must break a premise). */
   async function lapse(id: ApplicationId): Promise<Application> {
     const read = await stored(id);
-    const result = await run((ctx) => evaluatePremise(ctx, read.entity.target));
+    const result = await run((ctx) =>
+      evaluatePremise(ctx, read.entity.target, l.clock.now()),
+    );
     if (result.holds) throw new Error("every premise holds");
     return changeApp(id, (a, now) =>
       Behaviour.reassess(

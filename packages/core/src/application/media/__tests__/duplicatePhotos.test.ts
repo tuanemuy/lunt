@@ -118,7 +118,7 @@ describe("duplicatePhotos", () => {
           limit: 10,
         }),
       ),
-    ).toEqual({ items: [], count: 0 });
+    ).toEqual({ items: [], count: 0, unreadable: [] });
   });
 
   it("duplicatePhotos#6 stored の写真が1枚と、記録のない PhotoId が1つ / 2つを渡して複製する", async () => {

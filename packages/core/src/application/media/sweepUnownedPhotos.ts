@@ -34,15 +34,15 @@ export async function sweepUnownedPhotos({
   return drainPages<Versioned<PhotoAsset>>({
     job: "sweepUnownedPhotos",
     logger: container.logger,
+    mode: "shrinking",
     keyOf: ({ entity }) => entity.id,
     readPage: (page) =>
-      container.unitOfWorkProvider.run(async ({ photoAssetRepository }) => {
-        const result = await photoAssetRepository.findPageSweepable(
-          sweepBefore,
-          { page, limit: PAGE_SIZE },
-        );
-        return result.items;
-      }),
+      container.unitOfWorkProvider.run(({ photoAssetRepository }) =>
+        photoAssetRepository.findPageSweepable(sweepBefore, {
+          page,
+          limit: PAGE_SIZE,
+        }),
+      ),
     process: async ({ entity }) => {
       try {
         await discardAndDeletePhoto(container, entity.id, (photo) =>

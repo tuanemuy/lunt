@@ -1,4 +1,5 @@
 import { Version } from "@repo/core/domain/common/version";
+import { BusinessRuleError } from "@repo/core/domain/error";
 import { Participation } from "@repo/core/domain/occasion/participation";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { Place } from "@repo/core/domain/place/place";
@@ -260,5 +261,22 @@ describe("changeOperatingStatus", () => {
       Error,
       "PLACE_INVALID_OPERATING_STATUS",
     );
+  });
+
+  it("judges an invalid status before a stale version", async () => {
+    const { k, A, p1 } = await stewardedPlace();
+    const B = await k.person("steward-b");
+    await k.appoint(k.placeRef(p1), B);
+    const byB = await change(k, B, p1, "temporarilyClosed");
+    await expectCode(
+      changeOperatingStatus({
+        container: k.container,
+        actor: A.actor,
+        input: { placeId: p1.id, version: Version.initial(), status: "closed" },
+      }),
+      BusinessRuleError,
+      "PLACE_INVALID_OPERATING_STATUS",
+    );
+    expect(await k.getPlace(p1.id)).toEqual(byB);
   });
 });

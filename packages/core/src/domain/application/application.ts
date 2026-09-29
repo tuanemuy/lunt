@@ -65,4 +65,6 @@ export {
   ApplicationTarget,
   type IndividualKind,
   type IndividualTargetInput,
+  type PlaceKind,
+  type PlaceTargetInput,
 } from "./target";

@@ -35,6 +35,10 @@ import { TakedownClaim } from "@repo/core/domain/moderation/takedownClaim";
 import type { InfoReportTarget } from "@repo/core/domain/moderation/values";
 import type { NotifiableEvent } from "@repo/core/domain/notification/announcement";
 import type { Notification } from "@repo/core/domain/notification/notification";
+import {
+  Participation,
+  ParticipationDetails,
+} from "@repo/core/domain/occasion/participation";
 import { Place } from "@repo/core/domain/place/place";
 import { sampleProfile } from "@repo/core/domain/place/testing/samples";
 import { expect } from "vitest";
@@ -162,6 +166,26 @@ export function notificationKit(
     return ref;
   };
   const applicationId = () => ApplicationId.create(idGenerator.next());
+
+  /** `places` take part in `occasion`, stored directly (no events). */
+  async function participate(
+    occasion: Extract<StewardedRef, { kind: "occasion" }>,
+    ...places: readonly PlaceRef[]
+  ): Promise<void> {
+    await base.unitOfWorkProvider.run(async ({ participationRepository }) => {
+      for (const place of places) {
+        await participationRepository.insert(
+          Participation.establish(
+            {
+              key: { occasionId: occasion.id, placeId: place.id },
+              details: ParticipationDetails.empty(),
+            },
+            tick(),
+          ).entity,
+        );
+      }
+    });
+  }
 
   /**
    * A draft listing of `place` written straight through the repository
@@ -502,6 +526,7 @@ export function notificationKit(
     region,
     occasion,
     applicationId,
+    participate,
     listing,
     publishedListing,
     categories,

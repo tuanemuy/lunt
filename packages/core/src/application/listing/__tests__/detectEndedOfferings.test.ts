@@ -338,4 +338,39 @@ describe("detectEndedOfferings", () => {
     expect(await k.offeringRecord(failing)).toMatchObject({ phase: "ended" });
     expect(await ended(k)).toHaveLength(3);
   });
+
+  it("fails only the listing whose offering phase record cannot be restored, every run", async () => {
+    const { k, a, m } = await setUp();
+    k.clock.set(YESTERDAY);
+    const ids: ListingId[] = [];
+    for (let i = 0; i < 3; i++) {
+      ids.push(
+        (await k.published(m, a, { offering: period(null, "2026-07-09") })).id,
+      );
+    }
+    k.clock.set(TODAY_INSTANT);
+    await recordedYesterday(k);
+    const [first, corrupt, third] = ids;
+    if (first === undefined || corrupt === undefined || third === undefined) {
+      throw new Error("listings");
+    }
+    k.t.rawSql.exec(
+      "UPDATE offering_phase_records SET phase = 'bogus' WHERE listing_id = ?",
+      corrupt,
+    );
+
+    expect(await run(k)).toMatchObject({ processed: 2, failed: 1 });
+    for (const id of [first, third]) {
+      expect(await k.offeringRecord(id)).toMatchObject({ phase: "ended" });
+    }
+    expect(
+      (await ended(k))
+        .map((p) => (p as { listingId: string }).listingId)
+        .sort(),
+    ).toEqual([first, third].sort());
+    expect(k.t.logger.byLevel("warn")).toMatchObject([
+      { meta: { job: "detectEndedOfferings", target: corrupt } },
+    ]);
+    expect(await run(k)).toMatchObject({ processed: 0, failed: 1 });
+  });
 });

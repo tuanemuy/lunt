@@ -7,6 +7,27 @@ import { approveStewardshipClaim } from "../approveStewardshipClaim";
 import type { ApplicationContentView } from "../detail";
 import { absentApplicationId } from "./kit";
 import { reviewKit } from "./reviewKit";
+import { oct, stewardSeatKit } from "./stewardSeatKit";
+
+/**
+ * Occasion e1; place p1 with stewards T and S. T applies, as p1, for
+ * e1's participation with a published listing l1 and 10/2: a6.
+ */
+async function participationSetUp() {
+  const k = await stewardSeatKit();
+  const e1 = await k.addOccasion({ name: "秋祭り" });
+  const p1 = await k.place("山田珈琲店");
+  const T = await k.manager(p1, "T");
+  const S = await k.manager(p1, "S");
+  const l1 = (await k.published(T, p1, { name: "ブレンド" })).id;
+  const a6 = await k.participationApp(T, {
+    placeId: p1,
+    occasionId: e1,
+    listingIds: [l1],
+    dates: [oct(2)],
+  });
+  return { k, e1, p1, T, S, l1, a6 };
+}
 
 const placeRef = (id: PlaceId) => ({ kind: "place", id }) as const;
 
@@ -392,13 +413,47 @@ describe("getMyApplication", () => {
     ).toEqual({ id: c2, name: "菓子" });
   });
 
-  it.todo(
-    "getMyApplication#20 店舗 p1 の店舗管理者 T が店舗管理者として行った参加の申請 a6 がある。S は p1 の別の店舗管理者 / S が a6 を確かめる",
-  );
+  it("getMyApplication#20 店舗 p1 の店舗管理者 T が店舗管理者として行った参加の申請 a6 がある。S は p1 の別の店舗管理者 / S が a6 を確かめる", async () => {
+    const { k, e1, p1, T, S, l1, a6 } = await participationSetUp();
 
-  it.todo(
-    "getMyApplication#21 a6 に添えた掲載 l1 が、確認中に一時非公開になった / S が a6 を確かめる",
-  );
+    const bySteward = await k.mine(S, a6.id);
+
+    expect(bySteward).toEqual(await k.mine(T, a6.id));
+    expect(bySteward.applicant).toEqual({
+      kind: "place",
+      placeId: p1,
+      name: "山田珈琲店",
+    });
+    expect(bySteward.subjects).toEqual([
+      { ref: placeRef(p1), name: "山田珈琲店", notYet: false },
+      { ref: { kind: "occasion", id: e1 }, name: "秋祭り", notYet: false },
+    ]);
+    expect(bySteward.content).toEqual({
+      kind: "participation",
+      placeId: p1,
+      occasionId: e1,
+      listings: [
+        expect.objectContaining({ id: l1, deleted: false, name: "ブレンド" }),
+      ],
+      dates: [oct(2)],
+    });
+  });
+
+  it("getMyApplication#21 a6 に添えた掲載 l1 が、確認中に一時非公開になった / S が a6 を確かめる", async () => {
+    const { k, T, S, l1, a6 } = await participationSetUp();
+    await k.unpublish(T, l1);
+
+    const view = await k.mine(S, a6.id);
+
+    expect(contentOf(view.content, "participation").listings).toEqual([
+      expect.objectContaining({
+        id: l1,
+        deleted: false,
+        publication: expect.objectContaining({ status: "unpublished" }),
+        viewable: false,
+      }),
+    ]);
+  });
 
   it("getMyApplication#22 A の申請 a1 がある。利用者 B は申請者でない / B が a1 を確かめる", async () => {
     const k = await reviewKit();
@@ -409,9 +464,12 @@ describe("getMyApplication", () => {
     await expectCode(k.mine(B, a1.id), ForbiddenError);
   });
 
-  it.todo(
-    "getMyApplication#23 店舗 p1 について店舗管理者として行った申請 a6 がある。T は p1 の管理権限を解除されている / T が、自分が提出した a6 を確かめる",
-  );
+  it("getMyApplication#23 店舗 p1 について店舗管理者として行った申請 a6 がある。T は p1 の管理権限を解除されている / T が、自分が提出した a6 を確かめる", async () => {
+    const { k, p1, T, a6 } = await participationSetUp();
+    await k.removeSteward(placeRef(p1), T);
+
+    await expectCode(k.mine(T, a6.id), ForbiddenError);
+  });
 
   it("getMyApplication#24 ID が a9 の申請はない / A が a9 を確かめる", async () => {
     const k = await reviewKit();

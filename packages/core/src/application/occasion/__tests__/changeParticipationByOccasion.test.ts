@@ -206,4 +206,18 @@ describe("changeParticipationByOccasion", () => {
     );
     expect((await k.storedParticipation(pair)).entity).toEqual(before);
   });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const { k, o, organizer, pair } = await setup();
+    const started = (await k.storedParticipation(pair)).entity.version;
+    const other = await k.organizer(o, "other-organizer");
+    await k.byOccasion(other, pair, { dates: [oct(3)] });
+    const before = (await k.storedParticipation(pair)).entity;
+    await expectCode(
+      k.byOccasion(organizer, pair, { dates: [sep(30)] }, { version: started }),
+      BusinessRuleError,
+      "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD",
+    );
+    expect((await k.storedParticipation(pair)).entity).toEqual(before);
+  });
 });

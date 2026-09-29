@@ -12,8 +12,10 @@ import {
 } from "@repo/core/application/workers/dailyJobs";
 import { Account } from "@repo/core/domain/account/entity";
 import { AuthorityEvents } from "@repo/core/domain/authority/events";
+import { Stewardship } from "@repo/core/domain/authority/stewardship";
+import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import type { EventDraft } from "@repo/core/domain/common/event";
-import { AccountId, PlaceId } from "@repo/core/domain/common/ids";
+import { AccountId, PlaceId, RegionId } from "@repo/core/domain/common/ids";
 import { describe, expect, it, vi } from "vitest";
 import { presentationPorts } from "../../presentation/ports";
 import { stateClient } from "../../worker/stateClient";
@@ -145,6 +147,42 @@ describe("LuntStateObject", () => {
     expect(rows).toEqual([]);
   });
 
+  it("commits a unit of work resting on a staffed target only while the target still has a steward", async () => {
+    const name = freshName();
+    const stub = env.LUNT_STATE.get(env.LUNT_STATE.idFromName(name));
+    const provider = new DoUnitOfWorkProvider(asClient(stub), UuidV7Generator);
+    const region = {
+      kind: "region",
+      id: RegionId.create(UuidV7Generator.next()),
+    } as const;
+    const overdueProxyDecision = () =>
+      provider.run(async ({ accessGuard, collectEvents }) => {
+        accessGuard.staffed(region);
+        collectEvents([probeDraft(name)]);
+      });
+
+    await expect(overdueProxyDecision()).rejects.toBeInstanceOf(ForbiddenError);
+
+    await provider.run(({ stewardshipRepository }) =>
+      stewardshipRepository.insert(
+        Stewardship.grant(
+          Stewardship.vacant(region),
+          {
+            accountId: AccountId.create(UuidV7Generator.next()),
+            email: EmailAddress.create("steward@example.com"),
+          },
+          new Date("2026-09-28T00:00:00.000Z"),
+        ).entity,
+      ),
+    );
+    await overdueProxyDecision();
+
+    const rows = await runInDurableObject(stub, (_instance, state) =>
+      state.storage.sql.exec("SELECT id FROM outbox_events").toArray(),
+    );
+    expect(rows).toHaveLength(1);
+  });
+
   it("relays an event to each subscribed consumer independently and records a receipt only for the one that succeeded", async () => {
     const name = freshName();
     const stub = env.RELAY_PROBE_STATE.get(
@@ -262,13 +300,15 @@ describe("LuntStateObject", () => {
           drainPages<Account>({
             job: "deleteEveryAccount",
             logger: c.logger,
+            mode: "shrinking",
             keyOf: (account) => account.id,
             readPage: (page) =>
-              c.unitOfWorkProvider.run(async ({ accountRepository }) =>
-                (
+              c.unitOfWorkProvider.run(async ({ accountRepository }) => ({
+                items: (
                   await accountRepository.findByIds(targets.map((t) => t.id))
                 ).slice((page - 1) * 2, page * 2),
-              ),
+                unreadable: [],
+              })),
             process: (account) =>
               c.unitOfWorkProvider.run(async ({ accountRepository }) => {
                 const found = await accountRepository.findById(account.id);

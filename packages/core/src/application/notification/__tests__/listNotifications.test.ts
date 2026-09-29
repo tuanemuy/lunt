@@ -1,11 +1,20 @@
 import { ApplicationEvents } from "@repo/core/domain/application/events";
 import { AuthorityEvents } from "@repo/core/domain/authority/events";
 import type { Actor } from "@repo/core/domain/common/actor";
+import { EventId } from "@repo/core/domain/common/event";
+import { GeoPoint } from "@repo/core/domain/common/geo";
+import { ApplicationId, PhotoId, RegionId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { ListingEvents } from "@repo/core/domain/listing/events";
 import { ModerationEvents } from "@repo/core/domain/moderation/events";
 import { PlaceEvents } from "@repo/core/domain/place/events";
+import { SampleAddress } from "@repo/core/domain/place/testing/samples";
+import { RegionContent } from "@repo/core/domain/region/content";
+import { RegionEvents } from "@repo/core/domain/region/events";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
+import { reassessApplicationPremises } from "../../application/reassessApplicationPremises";
+import { submitAffiliationChange } from "../../application/submitAffiliationChange";
 import { UnauthorizedError } from "../../errors";
 import { listNotifications } from "../listNotifications";
 import { applicationFixtures } from "./applicationFixtures";
@@ -216,8 +225,52 @@ describe("listNotifications", () => {
     const T1 = await k.person("t1");
     const Q = k.place("店舗Q");
     await k.appoint(Q, T1);
+    const R = {
+      kind: "region",
+      id: RegionId.create(k.container.idGenerator.next()),
+    } as const;
+    const { entity: region } = Region.register(
+      {
+        id: R.id,
+        content: RegionContent.create({
+          name: "地域R",
+          address: SampleAddress.otemachi(),
+          location: GeoPoint.create(35.6848, 139.7639),
+          photoIds: [PhotoId.create(k.container.idGenerator.next())],
+          description: null,
+          tagline: null,
+        }),
+      },
+      k.tick(),
+    );
+    await k.container.unitOfWorkProvider.run(({ regionRepository }) =>
+      regionRepository.insert(Region.publish(region, k.tick()).entity),
+    );
+    k.directory.add(R, "地域R");
+    const submitted = await submitAffiliationChange({
+      container: k.container,
+      actor: T1.actor,
+      input: {
+        applicationId: k.container.idGenerator.next(),
+        kind: "affiliation",
+        actingAs: "steward",
+        placeId: Q.id,
+        regionId: R.id,
+      },
+    });
+    const Ap = ApplicationId.create(submitted.id);
     await k.withdraw(T1);
-    const Ap = k.applicationId();
+    await reassessApplicationPremises.handle(k.container, {
+      ...AuthorityEvents.stewardshipVacated(Q, k.tick()),
+      id: EventId.create(k.container.idGenerator.next()),
+    });
+    const lapsed = await k.container.unitOfWorkProvider.run(
+      ({ applicationRepository }) => applicationRepository.findById(Ap),
+    );
+    expect(lapsed?.entity.status).toEqual({
+      kind: "lapsed",
+      brokenPremises: ["placeHasSteward"],
+    });
     await k.consume(
       k.event(
         ApplicationEvents.lapsed(
@@ -239,19 +292,20 @@ describe("listNotifications", () => {
         direct: { kind: "ownApplication", applicationId: Ap },
       },
     });
-    // Ap stands for an application filed as a place's steward, a kind that
-    // lands in S3B (affiliation, leave, participation); here it is not
-    // stored, so its label is `null`. The todo below is the rest.
     expect(item?.labels).toEqual([
       { ref: Q, label: "店舗Q" },
-      { ref: { kind: "application", id: Ap }, label: null },
+      {
+        ref: { kind: "application", id: Ap },
+        label: {
+          applicationKind: "affiliation",
+          subjects: [
+            { kind: "place", name: "店舗Q" },
+            { kind: "region", name: "地域R" },
+          ],
+        },
+      },
     ]);
   });
-  // S3B: no stage-2 kind is filed as a place's steward. Labels of stored
-  // applications of the stage-2 kinds are rows 9–11.
-  it.todo(
-    "row 8 of listNotifications: the labels carry Ap's kind and its subjects' names (S3B)",
-  );
   it("listNotifications#9 利用者 A の店舗の登録申請 Ap が否認され、A に通知が届いた。店舗は作られていない / A として読む", async () => {
     const k = notificationKit();
     const O = await k.person("o");
@@ -406,11 +460,44 @@ describe("listNotifications", () => {
     });
   });
 
-  // S3 (region exclusion). Keeping a notification after its recipient
-  // resigned is covered below with a stage-1 event.
-  it.todo(
-    "listNotifications#15 店舗 P が地域 R から除外された通知を A が受けた後、A が店舗 P の店舗管理者を辞任した / A として読む",
-  );
+  it("listNotifications#15 店舗 P が地域 R から除外された通知を A が受けた後、A が店舗 P の店舗管理者を辞任した / A として読む", async () => {
+    const k = notificationKit();
+    const A = await k.person("a");
+    const P = k.place("店舗P");
+    const R = k.region("地域R");
+    await k.appoint(P, A);
+    await k.consume(
+      k.event(
+        RegionEvents.affiliationDissolved(P.id, R.id, "excluded", k.tick()),
+      ),
+    );
+    const before = await list(k, A.actor);
+    expect(before.items).toEqual([
+      expect.objectContaining({
+        occurrence: {
+          to: "placeStewards",
+          placeId: P.id,
+          subject: {
+            kind: "place",
+            matter: { kind: "excluded_from_region", regionId: R.id },
+          },
+        },
+        delivery: "direct",
+        pointedContent: P,
+        labels: [
+          { ref: P, label: "店舗P" },
+          { ref: R, label: "地域R" },
+        ],
+        destination: {
+          kind: "placeManagement",
+          placeId: P.id,
+          facet: "affiliations",
+        },
+      }),
+    ]);
+    await k.removeSteward(P, A);
+    expect(await list(k, A.actor)).toEqual(before);
+  });
   // S5: an article's showcase.
   it.todo(
     "listNotifications#16 公開中の読みもの A1 が紹介する掲載 L が削除され、編集担当者 E に通知が届いた / E として読む",

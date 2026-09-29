@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { updateListing } from "../../listing/updateListing";
+import { suspendOccasion } from "../../occasion/suspendOccasion";
 import { type ModerationKit, moderationKit } from "./kit";
 
 async function claimedListing(k: ModerationKit, photos: number, name = "掲載") {
@@ -153,5 +154,49 @@ describe("getTakedownClaim", () => {
     const k = await moderationKit();
     const { m, claimId } = await claimedListing(k, 1);
     await expectCode(k.readClaim(m, claimId), ForbiddenError);
+  });
+
+  it("reads a region claim after its only photo was taken down, and an occasion's while it is suspended", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const region = await k.regionWithPhotos(1);
+    const [A] = region.photos;
+    if (A === undefined) throw new Error("photo");
+    const regionTarget = { kind: "region", id: region.id } as const;
+    const regionClaim = await k.claim({ target: regionTarget, photoIds: [A] });
+    await k.takeDown(op, regionClaim, regionTarget, [A]);
+    expect(await k.readClaim(op, regionClaim)).toMatchObject({
+      target: regionTarget,
+      targetName: "谷中",
+      targetExists: true,
+      targetViewable: false,
+      photos: [],
+      removedClaimedPhotoIds: [A],
+    });
+
+    const occasion = await k.occasionWithPhotos(2);
+    const [B, C] = occasion.photos;
+    if (B === undefined || C === undefined) throw new Error("two photos");
+    const occasionTarget = { kind: "occasion", id: occasion.id } as const;
+    const occasionClaim = await k.claim({
+      target: occasionTarget,
+      photoIds: [C],
+    });
+    await suspendOccasion({
+      container: k.container,
+      actor: op.actor,
+      input: { occasionId: occasion.id },
+    });
+    const detail = await k.readClaim(op, occasionClaim);
+    expect(detail).toMatchObject({
+      targetName: "秋のマルシェ",
+      targetExists: true,
+      targetViewable: false,
+      removedClaimedPhotoIds: [],
+    });
+    expect(detail.photos.map((p) => [p.photoId, p.claimed])).toEqual([
+      [B, false],
+      [C, true],
+    ]);
   });
 });

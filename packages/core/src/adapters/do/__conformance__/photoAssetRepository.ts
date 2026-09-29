@@ -22,7 +22,7 @@ import { PhotoConsent } from "@repo/core/domain/media/photoConsent";
 import { PhotoFormat } from "@repo/core/domain/media/photoFile";
 import { PhotoIntake } from "@repo/core/domain/media/photoIntake";
 import { describe, expect, it } from "vitest";
-import { expectBusinessRuleError } from "./assertions";
+import { expectBusinessRuleError, readableScan } from "./assertions";
 import { barrier, ScopeAbort } from "./fixtures";
 import type { ConformanceHarness, HarnessFactory } from "./harness";
 
@@ -131,8 +131,10 @@ function sweepable(
   page = 1,
   limit = 10,
 ): Promise<PaginationResult<Versioned<PhotoAsset>>> {
-  return h.uow.run(({ photoAssetRepository }) =>
-    photoAssetRepository.findPageSweepable(B, { page, limit }),
+  return readableScan(
+    h.uow.run(({ photoAssetRepository }) =>
+      photoAssetRepository.findPageSweepable(B, { page, limit }),
+    ),
   );
 }
 

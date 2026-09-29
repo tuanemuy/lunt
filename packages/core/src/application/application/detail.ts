@@ -15,9 +15,12 @@ import type {
   ApplicationId,
   CategoryId,
   ListingId,
+  OccasionId,
   PhotoId,
   PlaceId,
+  RegionId,
 } from "@repo/core/domain/common/ids";
+import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type { PhotoItem, PhotoSet } from "@repo/core/domain/common/photoSet";
 import type { PhotoOrigin } from "@repo/core/domain/common/revisedPhotos";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
@@ -48,6 +51,11 @@ import {
 } from "@repo/core/domain/place/revision";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
 import type { CategoryView } from "../listing/managedListing";
+import {
+  type AttachedListingView,
+  attachedListingViews,
+  readListings,
+} from "../occasion/attachedListings";
 import { readCompanion } from "./companion";
 
 // --- Views ------------------------------------------------------------------
@@ -208,6 +216,23 @@ export type ApplicationContentView =
       listingId: ListingId;
       placeId: PlaceId;
       revision: ListingRevisionView;
+    }>
+  | Readonly<{
+      kind: "affiliation" | "leave";
+      placeId: PlaceId;
+      regionId: RegionId;
+    }>
+  | Readonly<{
+      kind: "participation";
+      placeId: PlaceId;
+      occasionId: OccasionId;
+      /**
+       * Every attached listing in the application's order with its state
+       * read now — one no longer attachable, or deleted, stays listed.
+       */
+      listings: readonly AttachedListingView[];
+      /** 参加日, ascending. */
+      dates: readonly LocalDate[];
     }>;
 
 // --- Reading ----------------------------------------------------------------
@@ -254,6 +279,13 @@ export type ContentSource =
       listing: Listing | null;
       place: Place | null;
       catalog: CategoryCatalog;
+    }>
+  | Readonly<{ kind: "affiliation"; app: ApplicationOf<"affiliation"> }>
+  | Readonly<{ kind: "leave"; app: ApplicationOf<"leave"> }>
+  | Readonly<{
+      kind: "participation";
+      app: ApplicationOf<"participation">;
+      listings: readonly AttachedListingView[];
     }>;
 
 type SourceContext = Pick<
@@ -265,9 +297,11 @@ type SourceContext = Pick<
   | "stewardshipRepository"
 >;
 
+/** `today` dates an attached listing's offering status. */
 export async function readContentSource(
   ctx: SourceContext,
   app: Application,
+  today: LocalDate,
 ): Promise<ContentSource> {
   const c = kindCase(app);
   switch (c.kind) {
@@ -302,7 +336,39 @@ export async function readContentSource(
         catalog: catalog.entity,
       };
     }
+    case "affiliation":
+    case "leave":
+      return c;
+    case "participation":
+      return {
+        ...c,
+        listings: await readAttachedListings(ctx, c.app, today),
+      };
   }
+}
+
+/**
+ * A participation application's attached listings as read now
+ * (「添えた掲載」: all of them, deleted ones as deleted), their viewability
+ * judged with the applying place.
+ */
+export async function readAttachedListings(
+  ctx: Pick<SourceContext, "listingRepository" | "placeRepository">,
+  app: ApplicationOf<"participation">,
+  today: LocalDate,
+): Promise<readonly AttachedListingView[]> {
+  const { listingIds } = app.content;
+  if (listingIds.length === 0) return [];
+  const [listings, place] = await Promise.all([
+    readListings(ctx, listingIds),
+    ctx.placeRepository.findById(app.target.placeId),
+  ]);
+  return attachedListingViews(
+    listingIds,
+    listings,
+    place?.entity ?? null,
+    today,
+  );
 }
 
 /** A registration's companion claim as read; `null` for other kinds. */
@@ -329,6 +395,9 @@ export function photoIdsOf(source: ContentSource): readonly PhotoId[] {
       ];
     }
     case "stewardship":
+    case "affiliation":
+    case "leave":
+    case "participation":
       return [];
     case "listing":
       return ids(source.app.content.photos.items);
@@ -565,6 +634,21 @@ export function contentView(
         listingId: source.app.target.listingId,
         placeId: source.app.placeId,
         revision: listingRevisionView(refs, source),
+      };
+    case "affiliation":
+    case "leave":
+      return {
+        kind: source.kind,
+        placeId: source.app.target.placeId,
+        regionId: source.app.target.regionId,
+      };
+    case "participation":
+      return {
+        kind: "participation",
+        placeId: source.app.target.placeId,
+        occasionId: source.app.target.occasionId,
+        listings: source.listings,
+        dates: source.app.content.dates,
       };
   }
 }

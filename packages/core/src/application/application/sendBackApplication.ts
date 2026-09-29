@@ -4,9 +4,10 @@ import type { ApplicationId } from "@repo/core/domain/common/ids";
 import type { Version } from "@repo/core/domain/common/version";
 import type { ActorServiceArgs } from "../types";
 import {
+  assertReviewedVersion,
   type ReviewedApplication,
   requireApplication,
-  requireReturn,
+  requireReturnStance,
   reviewed,
   reviewPermission,
 } from "./review";
@@ -32,9 +33,9 @@ export type SendBackApplicationInput = Readonly<{
  *   `APPLICATION_ALREADY_…`), `APPLICATION_AWAITING_STEWARDS`,
  *   `APPLICATION_REGISTRATION_PENDING`,
  *   `APPLICATION_OVERDUE_PROXY_CANNOT_RETURN`.
+ * - `APPLICATION_INVALID_RETURN_REQUEST`: blank request (judged after the
+ *   state checks above, before the version; index.md 「編集の競合」).
  * - `ConflictError` when the application changed since `version`.
- * - `APPLICATION_INVALID_RETURN_REQUEST`: blank request (judged after
- *   the common checks above).
  */
 export async function sendBackApplication({
   container,
@@ -51,8 +52,9 @@ export async function sendBackApplication({
       container.reviewPolicy,
       now,
     );
-    const app = requireReturn(found.entity, permission, input.version);
+    const app = requireReturnStance(found.entity, permission);
     const request = ReturnRequest.create(input.request);
+    assertReviewedVersion(app, input.version);
     const { entity, eventDrafts } = Application.sendBack(
       app,
       "approver",

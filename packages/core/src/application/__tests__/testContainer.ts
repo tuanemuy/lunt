@@ -1,3 +1,4 @@
+import type { SqlExec } from "@repo/core/adapters/do/sql";
 import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
 import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { createTestAccountServices } from "../account/__tests__/testServices";
@@ -35,6 +36,11 @@ export type TestContext = Readonly<{
   logger: FakeLogger;
   /** Every domain event the outbox holds, in insertion order. */
   storedEvents(): Promise<readonly StoredEvent[]>;
+  /**
+   * Raw SQL on the store, only to corrupt a stored row for the "one
+   * unreadable row" cases; fixtures go through usecases or repositories.
+   */
+  rawSql: SqlExec;
 }>;
 
 export type TestContainerOptions = Readonly<{
@@ -115,6 +121,7 @@ export function createTestContainer(
     clock,
     idGenerator,
     logger,
+    rawSql: state.storage.sql,
     storedEvents: async () =>
       (
         await state.outboxRepository.claimPending({

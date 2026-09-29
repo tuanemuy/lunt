@@ -1,9 +1,7 @@
 import type { OccasionId } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import type { HoldingStatusRecord } from "../holdingStatusObserver";
 import type { Occasion } from "../occasion";
 
@@ -22,7 +20,8 @@ export type OccasionToObserve = Readonly<{
  *   no record, a record of another version, or a record whose
  *   `nextChangeOn` is on or before `today` (`null` never is), by
  *   `OccasionId` ascending. It compares versions and days only; it never
- *   derives a holding status.
+ *   derives a holding status. A row that cannot be restored is reported
+ *   in `unreadable` by occasion id (`ScanResult`).
  * - `find`: the record, or `null` when there is none or its occasion is
  *   gone.
  * - `put`: replaces the occasion's one record (last write wins, no lock);
@@ -34,7 +33,7 @@ export interface HoldingStatusLedger {
   findToObserve(
     today: LocalDate,
     pagination: Pagination,
-  ): Promise<PaginationResult<OccasionToObserve>>;
+  ): Promise<ScanResult<OccasionToObserve>>;
   find(occasionId: OccasionId): Promise<HoldingStatusRecord | null>;
   put(record: HoldingStatusRecord): Promise<void>;
 }

@@ -405,4 +405,17 @@ describe("updatePlaceProfile", () => {
     );
     await expectUnchanged(k, dropped, mark);
   });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const { k, A, p1 } = await stewardedPlace();
+    const B = await k.person("steward-b");
+    await k.appoint(k.placeRef(p1), B);
+    const byB = await update(k, B, p1, { name: "B の名前" });
+    await expectCode(
+      update(k, A, p1, { name: "  " }, { version: 0 }),
+      BusinessRuleError,
+      "PLACE_INVALID_NAME",
+    );
+    expect(await k.getPlace(p1.id)).toEqual(byB);
+  });
 });

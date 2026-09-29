@@ -10,6 +10,7 @@ import type {
   ListingId,
   PlaceId,
 } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import type { Version } from "@repo/core/domain/common/version";
 import { VisibilityPolicy } from "@repo/core/domain/discovery/visibilityPolicy";
@@ -287,7 +288,11 @@ export async function getApplicationForReview({
       container.reviewPolicy,
       now,
     );
-    const source = await readContentSource(ctx, app);
+    const source = await readContentSource(
+      ctx,
+      app,
+      LocalDate.fromInstant(now),
+    );
     return {
       app,
       permission,

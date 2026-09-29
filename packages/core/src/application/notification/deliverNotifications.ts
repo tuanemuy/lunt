@@ -12,6 +12,7 @@ import {
   type AccountId,
   type CategoryId,
   NotificationId,
+  type OccasionId,
   type PlaceId,
 } from "@repo/core/domain/common/ids";
 import { ContentRef } from "@repo/core/domain/common/refs";
@@ -83,6 +84,30 @@ async function placesOfRetiredCategory(
 }
 
 /**
+ * The places taking part in the occasion, in any state, every page read
+ * (`ParticipationRepository.findByOccasion`).
+ */
+async function participatingPlaces(
+  ctx: UnitOfWorkContext,
+  occasionId: OccasionId,
+): Promise<readonly PlaceId[]> {
+  const places = new Set<PlaceId>();
+  let seen = 0;
+  for (let page = 1; ; page += 1) {
+    const { items, count } = await ctx.participationRepository.findByOccasion(
+      occasionId,
+      {
+        page,
+        limit: IdBatch.maxSize,
+      },
+    );
+    for (const participation of items) places.add(participation.key.placeId);
+    seen += items.length;
+    if (items.length === 0 || seen >= count) return [...places];
+  }
+}
+
+/**
  * Reads the facts the event's announcements need (`AnnouncementFacts`),
  * inside the read-only `run`. The published articles showcasing what an
  * event changed come from Article's repository, which lands in stage 5;
@@ -109,6 +134,15 @@ async function readAnnouncementFacts(
         placesOfRetiredCategory: await placesOfRetiredCategory(
           ctx,
           event.payload.categoryId,
+        ),
+      };
+    case "occasion.cancelled":
+    case "occasion.period_changed":
+      return {
+        ...AnnouncementFacts.none,
+        participatingPlaces: await participatingPlaces(
+          ctx,
+          event.payload.occasionId,
         ),
       };
     default:
@@ -392,8 +426,8 @@ export async function deliverNotificationsOf(
 }
 
 /**
- * The `deliverNotifications` consumer (`spec/usecases/notification.md`).
- * Later stages add their events with their `NotifiableEvent` members.
+ * The `deliverNotifications` consumer (`spec/usecases/notification.md`),
+ * subscribed to every `NotifiableEvent` type.
  */
 export const deliverNotifications = defineConsumer(
   [
@@ -414,6 +448,20 @@ export const deliverNotifications = defineConsumer(
     "takedown_claim.submitted",
     "info_report.submitted",
     "info_report.confirmation_requested",
+    "region.unpublished",
+    "region.suspended",
+    "region.unsuspended",
+    "region.affiliation_dissolved",
+    "occasion.period_changed",
+    "occasion.unpublished",
+    "occasion.cancelled",
+    "occasion.ended",
+    "occasion.suspended",
+    "occasion.unsuspended",
+    "occasion.participation_changed",
+    "occasion.participation_dissolved",
+    "occasion.region_linked",
+    "occasion.region_link_detached",
   ],
   (container, event) => deliverNotificationsOf(container, event),
 );

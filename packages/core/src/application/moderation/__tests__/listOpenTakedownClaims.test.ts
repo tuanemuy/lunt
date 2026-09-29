@@ -125,4 +125,29 @@ describe("listOpenTakedownClaims", () => {
     await k.claim({ target: { kind: "place", id: placeId } });
     await expectCode(k.openClaims(m), ForbiddenError);
   });
+
+  it("names region and occasion targets", async () => {
+    const k = await moderationKit();
+    const region = await k.regionWithPhotos(1);
+    const occasion = await k.occasionWithPhotos(1);
+    const regionClaim = await k.claim({
+      target: { kind: "region", id: region.id },
+      photoIds: region.photos,
+    });
+    k.tick();
+    const occasionClaim = await k.claim({
+      target: { kind: "occasion", id: occasion.id },
+      photoIds: occasion.photos,
+    });
+    expect(
+      (await k.openClaims(await k.operator())).items.map((c) => [
+        c.claimId,
+        c.target,
+        c.targetName,
+      ]),
+    ).toEqual([
+      [regionClaim, { kind: "region", id: region.id }, "谷中"],
+      [occasionClaim, { kind: "occasion", id: occasion.id }, "秋のマルシェ"],
+    ]);
+  });
 });

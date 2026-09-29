@@ -167,7 +167,7 @@ async function lapseIfBroken(
   expectedVersion: ExpectedVersion<Application>,
   now: Date,
 ): Promise<PremiseCheck> {
-  const result = await evaluatePremise(ctx, app.target);
+  const result = await evaluatePremise(ctx, app.target, now);
   if (result.holds) return { kind: "holds", premise: Premise.require(result) };
   const { entity, eventDrafts } = Application.reassess(app, result, now);
   await ctx.applicationRepository.save(entity, expectedVersion);

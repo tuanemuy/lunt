@@ -2,10 +2,8 @@ import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import { ListingId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import { Version } from "@repo/core/domain/common/version";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { OfferingPhase } from "@repo/core/domain/listing/offering";
@@ -18,6 +16,7 @@ import { mapDoError } from "../helpers";
 import type { LuntStateClient } from "../protocol/client";
 import type { WriteCommand } from "../protocol/commands";
 import type { OfferingPhaseRecordRecord } from "../protocol/listing";
+import { restoreScanPage } from "../scan";
 import { listingFromRecord } from "./listingRepository";
 
 const integrity = (message: string, cause?: unknown): SystemError =>
@@ -61,15 +60,17 @@ export class DoOfferingPhaseLedger implements OfferingPhaseLedger {
   findPageDrifted(
     today: LocalDate,
     pagination: Pagination,
-  ): Promise<PaginationResult<DriftedListing>> {
+  ): Promise<ScanResult<DriftedListing>> {
     return mapDoError("Failed to find drifted listings", async () => {
       const page = await this.client.query("listing.findDrifted", {
         today,
         page: pagination.page,
         limit: pagination.limit,
       });
-      return {
-        items: page.items.map((item): DriftedListing => {
+      return restoreScanPage(
+        page,
+        (item) => item.listing.id,
+        (item): DriftedListing => {
           const listing = listingFromRecord(item.listing, this.idGenerator);
           if (!Listing.isPublished(listing)) {
             throw integrity(`Drifted listing ${listing.id} is not published`);
@@ -78,9 +79,8 @@ export class DoOfferingPhaseLedger implements OfferingPhaseLedger {
             listing,
             recorded: item.recorded === null ? null : phaseOf(item.recorded),
           };
-        }),
-        count: page.count,
-      };
+        },
+      );
     });
   }
 

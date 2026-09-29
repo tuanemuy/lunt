@@ -21,8 +21,10 @@ const PAGE_SIZE = 100;
  * says this under-review spell was not notified yet, records the notice
  * and stores `application.review_period_elapsed`. Applications are never
  * written. Idempotent: one event per spell however often it runs; a
- * resubmission starts a new spell. One application failing leaves no
- * record and the next run picks it up.
+ * resubmission starts a new spell. One application failing (an
+ * unreadable one included) leaves no record and the next run picks it up.
+ * A notified application stays in the section until it is decided, so
+ * the pages are read in turn (`drainPages` `"stable"`), each once.
  */
 export function notifyOverdueReviews(
   container: RequestContainer,
@@ -33,14 +35,13 @@ export function notifyOverdueReviews(
   return drainPages<Application>({
     job: "notifyOverdueReviews",
     logger: container.logger,
+    mode: "stable",
     keyOf: (app) => app.id,
     readPage: (page) =>
-      container.applicationReviewDesk
-        .findPageAwaiting(
-          { section: "asOverdueProxy", pendingSinceBefore },
-          { page, limit: PAGE_SIZE },
-        )
-        .then((result) => result.items),
+      container.applicationReviewDesk.findPageAwaiting(
+        { section: "asOverdueProxy", pendingSinceBefore },
+        { page, limit: PAGE_SIZE },
+      ),
     process: (target) =>
       container.unitOfWorkProvider.run(
         async ({

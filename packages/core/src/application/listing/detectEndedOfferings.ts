@@ -30,16 +30,12 @@ export function detectEndedOfferings(
   return drainPages<DriftedListing>({
     job: "detectEndedOfferings",
     logger: container.logger,
+    mode: "shrinking",
     keyOf: (target) => target.listing.id,
     readPage: (page) =>
-      container.unitOfWorkProvider
-        .run(({ offeringPhaseLedger }) =>
-          offeringPhaseLedger.findPageDrifted(today, {
-            page,
-            limit: PAGE_SIZE,
-          }),
-        )
-        .then((result) => result.items),
+      container.unitOfWorkProvider.run(({ offeringPhaseLedger }) =>
+        offeringPhaseLedger.findPageDrifted(today, { page, limit: PAGE_SIZE }),
+      ),
     process: (target) =>
       container.unitOfWorkProvider.run(
         async ({ listingRepository, offeringPhaseLedger, collectEvents }) => {

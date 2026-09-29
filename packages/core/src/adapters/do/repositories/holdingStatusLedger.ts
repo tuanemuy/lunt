@@ -2,10 +2,8 @@ import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import { OccasionId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import { Version } from "@repo/core/domain/common/version";
 import { HoldingStatus } from "@repo/core/domain/occasion/holdingStatus";
 import type { HoldingStatusRecord } from "@repo/core/domain/occasion/holdingStatusObserver";
@@ -17,6 +15,7 @@ import { mapDoError } from "../helpers";
 import type { LuntStateClient } from "../protocol/client";
 import type { WriteCommand } from "../protocol/commands";
 import type { HoldingStatusRecordRecord } from "../protocol/occasion";
+import { restoreScanPage } from "../scan";
 import { occasionFromRecord } from "./occasionRepository";
 
 const integrity = (message: string, cause?: unknown): SystemError =>
@@ -56,22 +55,21 @@ export class DoHoldingStatusLedger implements HoldingStatusLedger {
   findToObserve(
     today: LocalDate,
     pagination: Pagination,
-  ): Promise<PaginationResult<OccasionToObserve>> {
+  ): Promise<ScanResult<OccasionToObserve>> {
     return mapDoError("Failed to find occasions to observe", async () => {
       const page = await this.client.query("occasion.findToObserve", {
         today,
         page: pagination.page,
         limit: pagination.limit,
       });
-      return {
-        items: page.items.map(
-          (item): OccasionToObserve => ({
-            occasion: occasionFromRecord(item.occasion, this.idGenerator),
-            record: item.record === null ? null : this.toRecord(item.record),
-          }),
-        ),
-        count: page.count,
-      };
+      return restoreScanPage(
+        page,
+        (item) => item.occasion.id,
+        (item): OccasionToObserve => ({
+          occasion: occasionFromRecord(item.occasion, this.idGenerator),
+          record: item.record === null ? null : this.toRecord(item.record),
+        }),
+      );
     });
   }
 

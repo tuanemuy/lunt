@@ -39,6 +39,8 @@ export type ApplicationsAwaitingReview = Readonly<{
  *
  * - `ForbiddenError` for anyone but an operator (nothing read is returned).
  * - `COMMON_INVALID_INPUT` on a bad pagination.
+ * - `SystemError` (`DATA_INTEGRITY_ERROR`) when an application of the page
+ *   cannot be restored.
  */
 export async function listApplicationsAwaitingReview({
   container,
@@ -64,6 +66,8 @@ export async function listApplicationsAwaitingReview({
     await authorizeRole(ctx, actor, "operate_service");
     return readSummaryReads(ctx, page.items);
   });
+  const [unreadable] = page.unreadable;
+  if (unreadable !== undefined) throw unreadable.cause;
   return {
     items: await summarizeAll(container.contentDirectory, page.items, reads),
     count: page.count,

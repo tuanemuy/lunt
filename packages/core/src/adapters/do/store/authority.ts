@@ -331,6 +331,22 @@ export const authorityCommandHandlers: CommandHandlersOf<AuthorityCommand> = {
     ),
 };
 
+function hasSteward(
+  sql: SqlExec,
+  target: Readonly<{ kind: string; id: string }>,
+): boolean {
+  return (
+    sql
+      .exec(
+        `SELECT 1 AS ok FROM stewardship_stewards
+           WHERE target_kind = ? AND target_id = ? LIMIT 1`,
+        target.kind,
+        target.id,
+      )
+      .toArray().length > 0
+  );
+}
+
 export const authorityConditionHandlers: ConditionHandlersOf<AuthorityCondition> =
   {
     "authority.holdsRole": (sql, { accountId, role }) =>
@@ -351,13 +367,6 @@ export const authorityConditionHandlers: ConditionHandlersOf<AuthorityCondition>
           target.id,
         )
         .toArray().length > 0,
-    "authority.vacant": (sql, { target }) =>
-      sql
-        .exec(
-          `SELECT 1 AS ok FROM stewardship_stewards
-             WHERE target_kind = ? AND target_id = ? LIMIT 1`,
-          target.kind,
-          target.id,
-        )
-        .toArray().length === 0,
+    "authority.vacant": (sql, { target }) => !hasSteward(sql, target),
+    "authority.staffed": (sql, { target }) => hasSteward(sql, target),
   };

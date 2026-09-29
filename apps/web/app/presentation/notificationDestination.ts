@@ -10,8 +10,10 @@ import type {
  * mapping, shared by the notification mail renderer (`notificationMail.ts`)
  * and the notification list (MY-03). Screens follow `spec/pages/index.md`
  * 「通知から開く画面」 and the URL plan of `.spec-implement/phases/P0.md`
- * (付録: 画面と URL の対応); a screen that is not built yet keeps its planned
- * path.
+ * (付録: 画面と URL の対応): RM `/manage/regions/$regionId(/info|/events)`,
+ * EM `/manage/events/$occasionId(/info|/regions)`, CM-04
+ * `/manage/places/$placeId/events/$occasionId`, SM-05 / SM-06
+ * `/manage/places/$placeId/(regions|events)`.
  *
  * Paths the plan does not give directly:
  * - `confirmationRequest` (SM-07) sits under its place

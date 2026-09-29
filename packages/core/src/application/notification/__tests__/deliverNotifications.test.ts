@@ -17,13 +17,11 @@ import { NotificationDestination } from "@repo/core/domain/notification/destinat
 import type { Notification } from "@repo/core/domain/notification/notification";
 import { Occurrence } from "@repo/core/domain/notification/occurrence";
 import type { NotificationRepository } from "@repo/core/domain/notification/ports/notificationRepository";
+import { OccasionEvents } from "@repo/core/domain/occasion/events";
 import { PlaceEvents } from "@repo/core/domain/place/events";
+import { RegionEvents } from "@repo/core/domain/region/events";
 import { describe, expect, it } from "vitest";
-import type { RequestContainer } from "../../di/types";
-import {
-  deliverAnnouncements,
-  planAnnouncements,
-} from "../deliverNotifications";
+import { planAnnouncements } from "../deliverNotifications";
 import { applicationFixtures } from "./applicationFixtures";
 import { type Kit, notificationKit, type Person } from "./kit";
 
@@ -170,6 +168,80 @@ const APPROVER_EVENTS = [
   ["withdrawn", ApplicationEvents.withdrawn],
 ] as const;
 
+type RegionRef = Extract<StewardedRef, { kind: "region" }>;
+type OccasionRef = Extract<StewardedRef, { kind: "occasion" }>;
+
+/** A `placeStewards` occurrence about place `p` itself. */
+const placeMatterOf = (p: PlaceRef, matter: Record<string, unknown>) => ({
+  to: "placeStewards",
+  placeId: p.id,
+  subject: { kind: "place", matter },
+});
+
+const contentMatterOf = (
+  content: RegionRef | OccasionRef,
+  kind: ContentMatterKind,
+) => ({ to: "contentManagers", content, matter: { kind } });
+
+/**
+ * A kit whose notification record fails while its recipients include
+ * `failing.recipient` (`null`: never fails).
+ */
+function recordFailingKit() {
+  const failing: { recipient: AccountId | null } = { recipient: null };
+  const k = notificationKit({
+    overrides: (c) => ({
+      unitOfWorkProvider: {
+        run: (fn) =>
+          c.unitOfWorkProvider.run((ctx) => {
+            const inner = ctx.notificationRepository;
+            const repository: NotificationRepository = {
+              deliverAll: async (notifications) => {
+                if (
+                  notifications.some((n) => n.recipient === failing.recipient)
+                ) {
+                  throw new Error("record failed");
+                }
+                await inner.deliverAll(notifications);
+              },
+              removeAllByRecipient: (r) => inner.removeAllByRecipient(r),
+              findByRecipient: (r, pagination) =>
+                inner.findByRecipient(r, pagination),
+            };
+            return fn({ ...ctx, notificationRepository: repository });
+          }),
+      },
+    }),
+  });
+  return { k, failing };
+}
+
+/**
+ * Consumes each event, then checks the operators O1 and O2 received each
+ * one by proxy for `vacant`, pointing at its paired content, in order.
+ */
+async function expectProxied(
+  k: Kit,
+  w: Awaited<ReturnType<typeof world>>,
+  vacant: StewardedRef,
+  cases: readonly (readonly [NotifiableEvent, ContentRef])[],
+): Promise<void> {
+  for (const [e] of cases) await k.consume(e);
+  for (const who of [w.O1, w.O2]) {
+    const notes = [...(await k.notificationsOf(who))].reverse();
+    expect(notes).toHaveLength(cases.length);
+    expect(k.mailsTo(who)).toHaveLength(cases.length);
+    for (const [i, [, pointed]] of cases.entries()) {
+      const note = notes[i];
+      if (note === undefined) throw new Error("missing");
+      expect(note.delivery).toBe("proxy");
+      expect(DeliveredOccurrence.vacantTarget(note)).toEqual(vacant);
+      expect(Occurrence.pointedContent(note.occurrence)).toEqual(pointed);
+      expect(k.mailsTo(who)[i]?.link).toEqual(NotificationDestination.of(note));
+    }
+  }
+}
+
 describe("deliverNotifications", () => {
   describe("記録とメール", () => {
     it("deliverNotifications#1 利用者 U が個人として行った申請 Ap が差し戻された / Ap の application.returned を消費する", async () => {
@@ -280,14 +352,44 @@ describe("deliverNotifications", () => {
         ]);
       }
     });
-    // S3: occasion.cancelled. The mechanism is covered below ("delivers
-    // the other announcements when one's record fails").
-    it.todo(
-      "deliverNotifications#7 イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。店舗 Q の店舗管理者への通知の記録だけが成立しない / occasion.cancelled を消費する",
-    );
-    it.todo(
-      "deliverNotifications#8 上の失敗の後、記録が成立するようになった / 同じ occasion.cancelled をもう一度消費する",
-    );
+    async function cancelledWithFailingQ() {
+      const { k, failing } = recordFailingKit();
+      const w = await world(k);
+      const T1 = await k.person("t1");
+      const Q = k.place("店舗Q");
+      await k.appoint(Q, T1);
+      await k.participate(w.C, w.P, Q);
+      const e = k.event(OccasionEvents.cancelled(w.C.id, k.tick()));
+      failing.recipient = T1.accountId;
+      await expect(k.consumeFailing(e)).resolves.toEqual(
+        new Error("record failed"),
+      );
+      return { k, w, failing, T1, Q, e };
+    }
+    const cancelledOf = (p: PlaceRef, C: OccasionRef) =>
+      placeMatterOf(p, { kind: "occasion_cancelled", occasionId: C.id });
+    it("deliverNotifications#7 イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。店舗 Q の店舗管理者への通知の記録だけが成立しない / occasion.cancelled を消費する", async () => {
+      const { k, w, T1 } = await cancelledWithFailingQ();
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          { occurrence: cancelledOf(w.P, w.C), delivery: "direct" },
+        ]);
+      }
+      await expectNothing(k, T1);
+    });
+    it("deliverNotifications#8 上の失敗の後、記録が成立するようになった / 同じ occasion.cancelled をもう一度消費する", async () => {
+      const { k, w, failing, T1, Q, e } = await cancelledWithFailingQ();
+      failing.recipient = null;
+      await expect(k.consume(e)).resolves.toBeUndefined();
+      await expectReceived(k, T1, [
+        { occurrence: cancelledOf(Q, w.C), delivery: "direct" },
+      ]);
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          { occurrence: cancelledOf(w.P, w.C), delivery: "direct" },
+        ]);
+      }
+    });
     it("deliverNotifications#9 店舗 P の place.suspended の消費が、通知の記録の後、メールの送信の前に失敗した。再配送までに、S2 が店舗管理者を辞任し、S3 が店舗管理者に就いた / 同じ place.suspended をもう一度消費する", async () => {
       const k = notificationKit();
       const w = await world(k);
@@ -417,7 +519,6 @@ describe("deliverNotifications", () => {
       expect(k.mailer.sent).toEqual([]);
     });
 
-    // S3: occasion / region events.
     it("deliverNotifications#18 店舗 P が休業になった / place.operating_status_changed（to が休業）を消費する", async () => {
       const k = notificationKit();
       const w = await world(k);
@@ -434,12 +535,38 @@ describe("deliverNotifications", () => {
       await expectNothing(k, w.S1, w.S2, w.O1, w.E1);
       expect(k.mailer.sent).toEqual([]);
     });
-    it.todo(
-      'deliverNotifications#19 イベント運営者が、店舗 V の参加内容を変更した / occasion.participation_changed（changedBy: "occasion"）を消費する',
-    );
-    it.todo(
-      'deliverNotifications#20 離脱の承認で店舗 P の地域 R への所属が解除された / region.affiliation_dissolved（cause: "left"）を消費する',
-    );
+    it('deliverNotifications#19 イベント運営者が、店舗 V の参加内容を変更した / occasion.participation_changed（changedBy: "occasion"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.participate(w.C, w.V);
+      await expect(
+        k.consume(
+          k.event(
+            OccasionEvents.participationChanged(
+              w.C.id,
+              w.V.id,
+              "occasion",
+              k.tick(),
+            ),
+          ),
+        ),
+      ).resolves.toBeUndefined();
+      await expectNothing(k, w.CS1, w.CS2, w.O1, w.O2);
+      expect(k.mailer.sent).toEqual([]);
+    });
+    it('deliverNotifications#20 離脱の承認で店舗 P の地域 R への所属が解除された / region.affiliation_dissolved（cause: "left"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await expect(
+        k.consume(
+          k.event(
+            RegionEvents.affiliationDissolved(w.P.id, w.R.id, "left", k.tick()),
+          ),
+        ),
+      ).resolves.toBeUndefined();
+      await expectNothing(k, w.S1, w.S2, w.RS1, w.RS2, w.O1);
+      expect(k.mailer.sent).toEqual([]);
+    });
   });
 
   describe("申請者宛て（P-91）", () => {
@@ -837,22 +964,121 @@ describe("deliverNotifications", () => {
   });
 
   describe("店舗管理者宛て（P-93）", () => {
-    // S3: region / occasion events.
-    it.todo(
-      'deliverNotifications#36 店舗 P が地域 R から除外された / region.affiliation_dissolved（cause: "excluded"）を消費する',
-    );
-    it.todo(
-      'deliverNotifications#37 店舗 P がイベント C から除外された / occasion.participation_dissolved（cause: "excluded"）を消費する',
-    );
-    it.todo(
-      "deliverNotifications#38 イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。イベント C を紹介する公開中の読みものはない / occasion.cancelled を消費する",
-    );
-    it.todo(
-      "deliverNotifications#39 イベント C に店舗 P と、店舗管理者が不在の店舗 V が参加中 / occasion.period_changed を消費する",
-    );
-    it.todo(
-      "deliverNotifications#40 イベント C に参加中の店舗がない。紹介する公開中の読みものもない / occasion.cancelled を消費する",
-    );
+    it('deliverNotifications#36 店舗 P が地域 R から除外された / region.affiliation_dissolved（cause: "excluded"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(
+        k.event(
+          RegionEvents.affiliationDissolved(
+            w.P.id,
+            w.R.id,
+            "excluded",
+            k.tick(),
+          ),
+        ),
+      );
+      for (const who of [w.S1, w.S2]) {
+        const [note] = await expectReceived(k, who, [
+          {
+            occurrence: placeMatterOf(w.P, {
+              kind: "excluded_from_region",
+              regionId: w.R.id,
+            }),
+            delivery: "direct",
+          },
+        ]);
+        if (note === undefined) throw new Error("missing");
+        expect(Occurrence.pointedContent(note.occurrence)).toEqual(w.P);
+      }
+      await expectNothing(k, w.RS1, w.RS2);
+    });
+    it('deliverNotifications#37 店舗 P がイベント C から除外された / occasion.participation_dissolved（cause: "excluded"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(
+        k.event(
+          OccasionEvents.participationDissolved(
+            w.C.id,
+            w.P.id,
+            "excluded",
+            k.tick(),
+          ),
+        ),
+      );
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: placeMatterOf(w.P, {
+              kind: "excluded_from_occasion",
+              occasionId: w.C.id,
+            }),
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.CS1, w.CS2);
+    });
+    it("deliverNotifications#38 イベント C に店舗 P と店舗 Q（店舗管理者は T1）が参加中。イベント C を紹介する公開中の読みものはない / occasion.cancelled を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const [T1, X1] = [await k.person("t1"), await k.person("x1")];
+      const Q = k.place("店舗Q");
+      const X = k.place("店舗X");
+      await k.appoint(Q, T1);
+      await k.appoint(X, X1);
+      await k.participate(w.C, w.P, Q);
+      await k.consume(k.event(OccasionEvents.cancelled(w.C.id, k.tick())));
+      for (const [who, place] of [
+        [w.S1, w.P],
+        [w.S2, w.P],
+        [T1, Q],
+      ] as const) {
+        const [note] = await expectReceived(k, who, [
+          {
+            occurrence: placeMatterOf(place, {
+              kind: "occasion_cancelled",
+              occasionId: w.C.id,
+            }),
+            delivery: "direct",
+          },
+        ]);
+        if (note === undefined) throw new Error("missing");
+        expect(Occurrence.pointedContent(note.occurrence)).toEqual(place);
+      }
+      await expectNothing(k, X1, w.CS1, w.E1, w.O1);
+    });
+    it("deliverNotifications#39 イベント C に店舗 P と、店舗管理者が不在の店舗 V が参加中 / occasion.period_changed を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.participate(w.C, w.P, w.V);
+      await k.consume(k.event(OccasionEvents.periodChanged(w.C.id, k.tick())));
+      const changed = (p: PlaceRef) =>
+        placeMatterOf(p, {
+          kind: "occasion_period_changed",
+          occasionId: w.C.id,
+        });
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          { occurrence: changed(w.P), delivery: "direct" },
+        ]);
+      }
+      for (const who of [w.O1, w.O2]) {
+        const [note] = await expectReceived(k, who, [
+          { occurrence: changed(w.V), delivery: "proxy" },
+        ]);
+        if (note === undefined) throw new Error("missing");
+        expect(DeliveredOccurrence.vacantTarget(note)).toEqual(w.V);
+      }
+    });
+    it("deliverNotifications#40 イベント C に参加中の店舗がない。紹介する公開中の読みものもない / occasion.cancelled を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await expect(
+        k.consume(k.event(OccasionEvents.cancelled(w.C.id, k.tick()))),
+      ).resolves.toBeUndefined();
+      expect(k.mailer.sent).toEqual([]);
+      await expectNothing(k, w.S1, w.CS1, w.E1, w.O1);
+    });
     it("deliverNotifications#41 店舗 P を対象とする連絡 Rp について、確認が依頼された / info_report.confirmation_requested を消費する", async () => {
       const k = notificationKit();
       const w = await world(k);
@@ -1076,43 +1302,210 @@ describe("deliverNotifications", () => {
       expect(k.mailer.sent).toEqual([]);
     });
 
-    // S3: region / occasion events. The place / listing half runs in
-    // "addresses every stage-2 matter of a vacant place …" below.
-    it.todo(
-      "deliverNotifications#50 店舗管理者が不在の店舗 V と、その掲載 LV / 店舗 V の region.affiliation_dissolved（excluded）、occasion.participation_dissolved（excluded）、place.suspended、place.unsuspended、content.photos_taken_down（owner は店舗 V）、info_report.confirmation_requested、掲載 LV の listing.suspended、listing.unsuspended、content.photos_taken_down（owner は掲載 LV）をそれぞれ消費する",
-    );
+    it("deliverNotifications#50 店舗管理者が不在の店舗 V と、その掲載 LV / 店舗 V の region.affiliation_dissolved（excluded）、occasion.participation_dissolved（excluded）、place.suspended、place.unsuspended、content.photos_taken_down（owner は店舗 V）、info_report.confirmation_requested、掲載 LV の listing.suspended、listing.unsuspended、content.photos_taken_down（owner は掲載 LV）をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const U = await k.person("u");
+      const LV = await k.listing(w.V, { name: "掲載LV" });
+      const target = { kind: "place", placeId: w.V.id } as const;
+      const Rp = await k.infoReport(target, U);
+      await expectProxied(k, w, w.V, [
+        [
+          k.event(
+            RegionEvents.affiliationDissolved(
+              w.V.id,
+              w.R.id,
+              "excluded",
+              k.tick(),
+            ),
+          ),
+          w.V,
+        ],
+        [
+          k.event(
+            OccasionEvents.participationDissolved(
+              w.C.id,
+              w.V.id,
+              "excluded",
+              k.tick(),
+            ),
+          ),
+          w.V,
+        ],
+        [placeSuspended(k, w.V), w.V],
+        [k.event(PlaceEvents.unsuspended(w.V.id, k.tick())), w.V],
+        [photosTakenDown(k, w.V, false), w.V],
+        [
+          k.event(
+            ModerationEvents.infoReportConfirmationRequested(
+              Rp,
+              target,
+              k.tick(),
+            ),
+          ),
+          w.V,
+        ],
+        [k.event(ListingEvents.suspended(LV.id, w.V.id, k.tick())), LV],
+        [k.event(ListingEvents.unsuspended(LV.id, w.V.id, k.tick())), LV],
+        [photosTakenDown(k, LV, true), LV],
+      ]);
+      await expectNothing(k, w.S1, w.E1, w.RS1, w.CS1);
+    });
   });
 
   describe("地域運営者宛て（P-94）", () => {
-    // S3.
-    it.todo(
-      "deliverNotifications#51 イベント C が地域 R を開催地域として関連づけた / occasion.region_linked を消費する",
-    );
-    it.todo(
-      "deliverNotifications#52 地域運営者が不在の地域 RV / 地域 RV の occasion.region_linked、region.suspended、region.unsuspended、content.photos_taken_down（owner は地域 RV）をそれぞれ消費する",
-    );
+    it("deliverNotifications#51 イベント C が地域 R を開催地域として関連づけた / occasion.region_linked を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(
+        k.event(OccasionEvents.regionLinked(w.C.id, w.R.id, k.tick())),
+      );
+      for (const who of [w.RS1, w.RS2]) {
+        const [note] = await expectReceived(k, who, [
+          {
+            occurrence: {
+              to: "regionStewards",
+              regionId: w.R.id,
+              matter: { kind: "occasion_linked", occasionId: w.C.id },
+            },
+            delivery: "direct",
+          },
+        ]);
+        if (note === undefined) throw new Error("missing");
+        expect(Occurrence.pointedContent(note.occurrence)).toEqual(w.R);
+      }
+      await expectNothing(k, w.CS1, w.CS2, w.O1);
+    });
+    it("deliverNotifications#52 地域運営者が不在の地域 RV / 地域 RV の occasion.region_linked、region.suspended、region.unsuspended、content.photos_taken_down（owner は地域 RV）をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await expectProxied(k, w, w.RV, [
+        [k.event(OccasionEvents.regionLinked(w.C.id, w.RV.id, k.tick())), w.RV],
+        [k.event(RegionEvents.suspended(w.RV.id, k.tick())), w.RV],
+        [k.event(RegionEvents.unsuspended(w.RV.id, k.tick())), w.RV],
+        [photosTakenDown(k, w.RV, false), w.RV],
+      ]);
+      await expectNothing(k, w.RS1, w.CS1);
+    });
   });
 
   describe("イベント運営者宛て（P-95）", () => {
-    // S3.
-    it.todo(
-      'deliverNotifications#53 店舗 P がイベント C への参加を取りやめた / occasion.participation_dissolved（cause: "withdrawn"）を消費する',
-    );
-    it.todo(
-      'deliverNotifications#54 店舗管理者が、イベント C への参加に添えた掲載と参加日を変更した / occasion.participation_changed（changedBy: "place"）を消費する',
-    );
-    it.todo(
-      "deliverNotifications#55 地域 R の地域運営者が、イベント C の関連づけを解除した / occasion.region_link_detached を消費する",
-    );
-    it.todo(
-      "deliverNotifications#56 イベント運営者が不在のイベント CV / イベント CV の occasion.participation_dissolved（withdrawn）、occasion.participation_changed（place）、occasion.region_link_detached、occasion.suspended、occasion.unsuspended、content.photos_taken_down（owner はイベント CV）をそれぞれ消費する",
-    );
+    it('deliverNotifications#53 店舗 P がイベント C への参加を取りやめた / occasion.participation_dissolved（cause: "withdrawn"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(
+        k.event(
+          OccasionEvents.participationDissolved(
+            w.C.id,
+            w.P.id,
+            "withdrawn",
+            k.tick(),
+          ),
+        ),
+      );
+      for (const who of [w.CS1, w.CS2]) {
+        const [note] = await expectReceived(k, who, [
+          {
+            occurrence: {
+              to: "occasionStewards",
+              occasionId: w.C.id,
+              matter: { kind: "participation_withdrawn", placeId: w.P.id },
+            },
+            delivery: "direct",
+          },
+        ]);
+        if (note === undefined) throw new Error("missing");
+        expect(Occurrence.pointedContent(note.occurrence)).toEqual(w.C);
+      }
+      await expectNothing(k, w.S1, w.S2);
+    });
+    it('deliverNotifications#54 店舗管理者が、イベント C への参加に添えた掲載と参加日を変更した / occasion.participation_changed（changedBy: "place"）を消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.participate(w.C, w.P);
+      await k.consume(
+        k.event(
+          OccasionEvents.participationChanged(
+            w.C.id,
+            w.P.id,
+            "place",
+            k.tick(),
+          ),
+        ),
+      );
+      for (const who of [w.CS1, w.CS2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: {
+              to: "occasionStewards",
+              occasionId: w.C.id,
+              matter: { kind: "participation_changed", placeId: w.P.id },
+            },
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.S1, w.S2);
+    });
+    it("deliverNotifications#55 地域 R の地域運営者が、イベント C の関連づけを解除した / occasion.region_link_detached を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(
+        k.event(OccasionEvents.regionLinkDetached(w.C.id, w.R.id, k.tick())),
+      );
+      for (const who of [w.CS1, w.CS2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: {
+              to: "occasionStewards",
+              occasionId: w.C.id,
+              matter: { kind: "region_link_detached", regionId: w.R.id },
+            },
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.RS1, w.RS2);
+    });
+    it("deliverNotifications#56 イベント運営者が不在のイベント CV / イベント CV の occasion.participation_dissolved（withdrawn）、occasion.participation_changed（place）、occasion.region_link_detached、occasion.suspended、occasion.unsuspended、content.photos_taken_down（owner はイベント CV）をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await expectProxied(k, w, w.CV, [
+        [
+          k.event(
+            OccasionEvents.participationDissolved(
+              w.CV.id,
+              w.P.id,
+              "withdrawn",
+              k.tick(),
+            ),
+          ),
+          w.CV,
+        ],
+        [
+          k.event(
+            OccasionEvents.participationChanged(
+              w.CV.id,
+              w.P.id,
+              "place",
+              k.tick(),
+            ),
+          ),
+          w.CV,
+        ],
+        [
+          k.event(OccasionEvents.regionLinkDetached(w.CV.id, w.R.id, k.tick())),
+          w.CV,
+        ],
+        [k.event(OccasionEvents.suspended(w.CV.id, k.tick())), w.CV],
+        [k.event(OccasionEvents.unsuspended(w.CV.id, k.tick())), w.CV],
+        [photosTakenDown(k, w.CV, false), w.CV],
+      ]);
+      await expectNothing(k, w.CS1, w.S1, w.RS1);
+    });
   });
 
   describe("対象を管理する人宛て（P-93〜P-96 の、運営による非公開とその解除、申立てによる写真の削除）", () => {
-    // S3: region / occasion events. The photo takedowns of a region, an
-    // occasion and an article run on stage-2 events (targets named by the
-    // test directory).
     it("deliverNotifications#57 店舗 P が運営による非公開になり、その後に解除された。店舗 P とその掲載を紹介する公開中の読みものはない / place.suspended、place.unsuspended をそれぞれ消費する", async () => {
       const k = notificationKit();
       const w = await world(k);
@@ -1154,12 +1547,44 @@ describe("deliverNotifications", () => {
       }
       await expectNothing(k, w.E1, w.O1);
     });
-    it.todo(
-      "deliverNotifications#59 地域 R が運営による非公開になり、その後に解除された。地域 R を紹介する公開中の読みものはない / region.suspended、region.unsuspended をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#60 イベント C が運営による非公開になり、その後に解除された。イベント C を紹介する公開中の読みものはない / occasion.suspended、occasion.unsuspended をそれぞれ消費する",
-    );
+    it("deliverNotifications#59 地域 R が運営による非公開になり、その後に解除された。地域 R を紹介する公開中の読みものはない / region.suspended、region.unsuspended をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(k.event(RegionEvents.suspended(w.R.id, k.tick())));
+      await k.consume(k.event(RegionEvents.unsuspended(w.R.id, k.tick())));
+      for (const who of [w.RS1, w.RS2]) {
+        const notes = await expectReceived(k, who, [
+          { occurrence: contentMatterOf(w.R, "suspended"), delivery: "direct" },
+          {
+            occurrence: contentMatterOf(w.R, "unsuspended"),
+            delivery: "direct",
+          },
+        ]);
+        for (const note of notes) {
+          expect(Occurrence.pointedContent(note.occurrence)).toEqual(w.R);
+        }
+      }
+      await expectNothing(k, w.E1, w.O1);
+    });
+    it("deliverNotifications#60 イベント C が運営による非公開になり、その後に解除された。イベント C を紹介する公開中の読みものはない / occasion.suspended、occasion.unsuspended をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.consume(k.event(OccasionEvents.suspended(w.C.id, k.tick())));
+      await k.consume(k.event(OccasionEvents.unsuspended(w.C.id, k.tick())));
+      for (const who of [w.CS1, w.CS2]) {
+        const notes = await expectReceived(k, who, [
+          { occurrence: contentMatterOf(w.C, "suspended"), delivery: "direct" },
+          {
+            occurrence: contentMatterOf(w.C, "unsuspended"),
+            delivery: "direct",
+          },
+        ]);
+        for (const note of notes) {
+          expect(Occurrence.pointedContent(note.occurrence)).toEqual(w.C);
+        }
+      }
+      await expectNothing(k, w.E1, w.O1);
+    });
     it("deliverNotifications#61 申立てに基づいて、店舗 P の写真が削除された / content.photos_taken_down（owner は店舗 P、unpublished: false）を消費する", async () => {
       const k = notificationKit();
       const w = await world(k);
@@ -1623,53 +2048,11 @@ describe("deliverNotifications", () => {
 });
 
 /**
- * The mechanisms of the rows whose events land in later stages, covered
- * with stage-1 events: an approval's appointee joining place P (S1, S2 are
- * told), an invitation, an application's overdue review.
+ * What the rows leave implicit: a takedown on a listing that is gone, the
+ * editors' events while no article is published (stage 5), and the names
+ * a mail's labels carry.
  */
-describe("deliverNotifications (stage-2 place and listing matters)", () => {
-  // The place / listing half of row #50 (its region / occasion events are S3).
-  it("addresses every stage-2 matter of a vacant place to the operators by proxy", async () => {
-    const k = notificationKit();
-    const w = await world(k);
-    const U = await k.person("u");
-    const LV = await k.listing(w.V, { name: "掲載LV" });
-    const target = { kind: "place", placeId: w.V.id } as const;
-    const Rp = await k.infoReport(target, U);
-    const cases = [
-      [placeSuspended(k, w.V), w.V],
-      [k.event(PlaceEvents.unsuspended(w.V.id, k.tick())), w.V],
-      [photosTakenDown(k, w.V, false), w.V],
-      [
-        k.event(
-          ModerationEvents.infoReportConfirmationRequested(
-            Rp,
-            target,
-            k.tick(),
-          ),
-        ),
-        w.V,
-      ],
-      [k.event(ListingEvents.suspended(LV.id, w.V.id, k.tick())), LV],
-      [k.event(ListingEvents.unsuspended(LV.id, w.V.id, k.tick())), LV],
-      [photosTakenDown(k, LV, true), LV],
-    ] as const;
-    for (const [e] of cases) await k.consume(e);
-    for (const who of [w.O1, w.O2]) {
-      const notes = [...(await k.notificationsOf(who))].reverse();
-      expect(notes).toHaveLength(cases.length);
-      expect(k.mailsTo(who)).toHaveLength(cases.length);
-      for (const [i, [, pointed]] of cases.entries()) {
-        const note = notes[i];
-        if (note === undefined) throw new Error("missing");
-        expect(note.delivery).toBe("proxy");
-        expect(DeliveredOccurrence.vacantTarget(note)).toEqual(w.V);
-        expect(Occurrence.pointedContent(note.occurrence)).toEqual(pointed);
-      }
-    }
-    await expectNothing(k, w.S1, w.E1);
-  });
-
+describe("deliverNotifications (content matters)", () => {
   it("announces no photo takedown of a listing that no longer exists", async () => {
     const k = notificationKit();
     const w = await world(k);
@@ -1706,11 +2089,16 @@ describe("deliverNotifications (stage-2 place and listing matters)", () => {
           k.tick(),
         ),
       ),
+      k.event(RegionEvents.unpublished(w.R.id, "byManager", k.tick())),
+      k.event(OccasionEvents.unpublished(w.C.id, "byManager", k.tick())),
+      k.event(
+        OccasionEvents.ended(w.C.id, LocalDate.parse("2026-10-04"), k.tick()),
+      ),
     ]) {
       await expect(k.consume(e)).resolves.toBeUndefined();
     }
     expect(k.mailer.sent).toEqual([]);
-    await expectNothing(k, w.E1, w.E2, w.S1);
+    await expectNothing(k, w.E1, w.E2, w.S1, w.RS1, w.CS1);
   });
 
   it("names the listing and the report's target in the mail's labels", async () => {
@@ -1733,6 +2121,29 @@ describe("deliverNotifications (stage-2 place and listing matters)", () => {
     expect(suspended?.body).toContain(`place:${w.P.id}="店舗P"`);
     const [received] = k.mailsTo(w.O1);
     expect(received?.body).toContain(`infoReport:${Rp}="掲載L"`);
+  });
+});
+
+describe("deliverNotifications (participating places)", () => {
+  it("announces an occasion's cancellation to every participating place, beyond one page", async () => {
+    const k = notificationKit();
+    const w = await world(k);
+    const places = Array.from({ length: 101 }, (_, i) => k.place(`店舗${i}`));
+    await k.participate(w.C, ...places);
+    const planned = await planAnnouncements(
+      k.container,
+      k.event(OccasionEvents.cancelled(w.C.id, k.tick())),
+    );
+    expect(
+      new Set(
+        planned.map((p) =>
+          p.delivered.occurrence.to === "placeStewards"
+            ? p.delivered.occurrence.placeId
+            : null,
+        ),
+      ),
+    ).toEqual(new Set(places.map((p) => p.id)));
+    expect(planned).toHaveLength(101);
   });
 });
 
@@ -1852,63 +2263,6 @@ describe("deliverNotifications mechanisms (stage-1 events)", () => {
       ),
     );
     expect(k.mailer.sent).toEqual([]);
-  });
-
-  it("delivers the other announcements when one's record fails, and only it on redelivery", async () => {
-    let failingRecipient: AccountId | null = null;
-    const k = notificationKit({
-      overrides: (c) => ({
-        unitOfWorkProvider: {
-          run: (fn) =>
-            c.unitOfWorkProvider.run((ctx) => {
-              const inner = ctx.notificationRepository;
-              const repository: NotificationRepository = {
-                deliverAll: async (notifications) => {
-                  if (
-                    notifications.some((n) => n.recipient === failingRecipient)
-                  ) {
-                    throw new Error("record failed");
-                  }
-                  await inner.deliverAll(notifications);
-                },
-                removeAllByRecipient: (r) => inner.removeAllByRecipient(r),
-                findByRecipient: (r, p) => inner.findByRecipient(r, p),
-              };
-              return fn({ ...ctx, notificationRepository: repository });
-            }),
-        },
-      }),
-    });
-    const w = await world(k);
-    const T1 = await k.person("t1");
-    const invite = (email: string) =>
-      k.event(
-        AuthorityEvents.invitationIssued(
-          w.P,
-          k.invitationId(),
-          email as typeof T1.email,
-          k.tick(),
-        ),
-      );
-    const events = [invite(w.S1.email), invite(T1.email)];
-    const container: RequestContainer = k.container;
-    const plan = async () =>
-      (
-        await Promise.all(events.map((e) => planAnnouncements(container, e)))
-      ).flat();
-    failingRecipient = T1.accountId;
-    await expect(deliverAnnouncements(container, await plan())).rejects.toThrow(
-      "record failed",
-    );
-    expect(await k.notificationsOf(w.S1)).toHaveLength(1);
-    expect(k.mailsTo(w.S1)).toHaveLength(1);
-    await expectNothing(k, T1);
-    failingRecipient = null;
-    await deliverAnnouncements(container, await plan());
-    expect(await k.notificationsOf(T1)).toHaveLength(1);
-    expect(k.mailsTo(T1)).toHaveLength(1);
-    expect(await k.notificationsOf(w.S1)).toHaveLength(1);
-    expect(k.mailsTo(w.S1)).toHaveLength(1);
   });
 
   it("does not duplicate on redelivery of a stewards' announcement", async () => {

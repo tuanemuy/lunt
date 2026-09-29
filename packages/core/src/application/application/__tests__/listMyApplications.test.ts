@@ -6,6 +6,7 @@ import { approvePlaceRegistration } from "../approvePlaceRegistration";
 import { approvePlaceRevision } from "../approvePlaceRevision";
 import { listMyApplications } from "../listMyApplications";
 import { type ReviewKit, reviewKit } from "./reviewKit";
+import { stewardSeatKit } from "./stewardSeatKit";
 
 const placeRef = (id: PlaceId) => ({ kind: "place", id }) as const;
 
@@ -17,9 +18,45 @@ const list = (k: ReviewKit, who: Person, placeId: PlaceId | null = null) =>
   });
 
 describe("listMyApplications", () => {
-  it.todo(
-    "listMyApplications#1 利用者 A は店舗 p1 の店舗管理者。A の個人の申請 a1（先に提出、否認）と a2（最後に提出、確認中）、p1 について店舗管理者として行った所属の申請 a3（a1 と a2 の間に、別の店舗管理者 T が提出）が保存されている / A が、絞り込みなしで一覧を読む",
-  );
+  it("listMyApplications#1 利用者 A は店舗 p1 の店舗管理者。A の個人の申請 a1（先に提出、否認）と a2（最後に提出、確認中）、p1 について店舗管理者として行った所属の申請 a3（a1 と a2 の間に、別の店舗管理者 T が提出）が保存されている / A が、絞り込みなしで一覧を読む", async () => {
+    const k = await stewardSeatKit();
+    const A = await k.person("A");
+    const T = await k.person("T");
+    const p1 = await k.place("山田珈琲店");
+    await k.appoint(placeRef(p1), A, T);
+    const X = await k.addRegion({ name: "X" });
+    const { placeId: p0 } = await k.placeWithPhotos("駅前の店", 0);
+    const a1 = await k.revise(A, p0);
+    await k.rejectAs(k.O, a1.id);
+    k.clock.advance(60_000);
+    const a3 = await k.affiliateAsPlace(T, { placeId: p1, regionId: X });
+    k.clock.advance(60_000);
+    const a2 = await k.claim(A, { placeId: p0 });
+
+    const result = await list(k, A);
+
+    expect(result.items.map((i) => i.id)).toEqual([a2.id, a3.id, a1.id]);
+    expect(result.count).toBe(3);
+    expect(result.items[0]).toMatchObject({
+      kind: "stewardship",
+      applicant: { kind: "individual", accountId: A.accountId },
+      subjects: [{ ref: placeRef(p0), name: "駅前の店" }],
+      status: { kind: "underReview" },
+    });
+    expect(result.items[1]).toMatchObject({
+      kind: "affiliation",
+      applicant: { kind: "place", placeId: p1, name: "山田珈琲店" },
+      subjects: [
+        { ref: placeRef(p1), name: "山田珈琲店" },
+        { ref: { kind: "region", id: X }, name: "X" },
+      ],
+      status: { kind: "underReview" },
+    });
+    expect(result.items[2]).toMatchObject({
+      kind: "revision",
+      status: { kind: "rejected" },
+    });
+  });
 
   it("the actor's individual applications come in any status, newest submission first, with kind, subjects, applicant and status", async () => {
     const k = await reviewKit();
@@ -60,9 +97,25 @@ describe("listMyApplications", () => {
     );
   });
 
-  it.todo(
-    "listMyApplications#3 A は店舗 p1 と p2 の店舗管理者。p1 について店舗管理者として行った申請と、p2 について店舗管理者として行った申請、A の個人の申請が保存されている / A が、p1 に絞って一覧を読む",
-  );
+  it("listMyApplications#3 A は店舗 p1 と p2 の店舗管理者。p1 について店舗管理者として行った申請と、p2 について店舗管理者として行った申請、A の個人の申請が保存されている / A が、p1 に絞って一覧を読む", async () => {
+    const k = await stewardSeatKit();
+    const A = await k.person("A");
+    const p1 = await k.place("山田珈琲店");
+    const p2 = await k.place("別の店");
+    const p3 = await k.place("駅前の店");
+    await k.appoint(placeRef(p1), A);
+    await k.appoint(placeRef(p2), A);
+    const X = await k.addRegion({ name: "X" });
+    const ofP1 = await k.affiliateAsPlace(A, { placeId: p1, regionId: X });
+    await k.affiliateAsPlace(A, { placeId: p2, regionId: X });
+    await k.claim(A, { placeId: p3 });
+
+    const result = await list(k, A, p1);
+
+    expect(result.items.map((i) => i.id)).toEqual([ofP1.id]);
+    expect(result.count).toBe(1);
+    expect(result.place).toEqual({ id: p1, name: "山田珈琲店" });
+  });
 
   it("narrowed to a place the actor stewards, the actor's individual applications are left out and the place is named", async () => {
     const k = await reviewKit();
@@ -81,9 +134,19 @@ describe("listMyApplications", () => {
     });
   });
 
-  it.todo(
-    "listMyApplications#4 A は店舗 p1 の店舗管理者を辞任した。p1 について店舗管理者として行った申請 a3 は、A が提出したもの / A が、絞り込みなしで一覧を読む",
-  );
+  it("listMyApplications#4 A は店舗 p1 の店舗管理者を辞任した。p1 について店舗管理者として行った申請 a3 は、A が提出したもの / A が、絞り込みなしで一覧を読む", async () => {
+    const k = await stewardSeatKit();
+    const A = await k.person("A");
+    const p1 = await k.place("山田珈琲店");
+    await k.appoint(placeRef(p1), A);
+    const X = await k.addRegion({ name: "X" });
+    const a3 = await k.affiliateAsPlace(A, { placeId: p1, regionId: X });
+    expect((await list(k, A)).items.map((i) => i.id)).toEqual([a3.id]);
+
+    await k.removeSteward(placeRef(p1), A);
+
+    expect(await list(k, A)).toEqual({ items: [], count: 0, place: null });
+  });
 
   it("listMyApplications#5 A が個人として行った、店舗 p3 の情報修正の申請がある。A は p3 の店舗管理者でない / A が一覧を読む", async () => {
     const k = await reviewKit();

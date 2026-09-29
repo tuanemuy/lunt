@@ -1,13 +1,19 @@
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import { describe, expect, it } from "vitest";
 import { expectCode, type Person } from "../../authority/__tests__/kit";
-import { NotFoundError } from "../../errors";
+import { ForbiddenError, NotFoundError } from "../../errors";
 import {
   checkSubmissionEligibility,
   type EligibilityTargetInput,
 } from "../checkSubmissionEligibility";
 import { type AppKit, applicationKit } from "./kit";
+import { stewardSeatKit } from "./stewardSeatKit";
 
-const check = (k: AppKit, who: Person, target: EligibilityTargetInput) =>
+const check = (
+  k: Pick<AppKit, "container">,
+  who: Person,
+  target: EligibilityTargetInput,
+) =>
   checkSubmissionEligibility({
     container: k.container,
     actor: who.actor,
@@ -22,14 +28,11 @@ const accepted = {
 };
 
 describe("checkSubmissionEligibility", () => {
-  it.todo(
-    "checkSubmissionEligibility#1 店舗 p1 は公開されていて、店舗管理者がいない。利用者 A の p1 への進行中の申請はない / A が、p1 の情報修正、p1 の掲載、p1 の公開中の地域 X への所属（個人として）について確かめる",
-  ); // S3B: the affiliation kind
-
-  it("accepts a revision and a listing of a public place without a steward, and writes nothing", async () => {
-    const k = await applicationKit();
+  it("checkSubmissionEligibility#1 店舗 p1 は公開されていて、店舗管理者がいない。利用者 A の p1 への進行中の申請はない / A が、p1 の情報修正、p1 の掲載、p1 の公開中の地域 X への所属（個人として）について確かめる", async () => {
+    const k = await stewardSeatKit();
     const A = await k.person("a");
     const p1 = await k.place();
+    const X = await k.addRegion();
     const mark = await k.mark();
     for (const kind of ["revision", "listing"] as const) {
       expect(await check(k, A, { kind, placeId: p1 })).toMatchObject({
@@ -38,23 +41,33 @@ describe("checkSubmissionEligibility", () => {
         placeHasSteward: null,
       });
     }
+    expect(
+      await check(k, A, { kind: "affiliation", placeId: p1, regionId: X }),
+    ).toEqual({
+      ...accepted,
+      target: {
+        kind: "affiliation",
+        applicant: { kind: "individual", accountId: A.accountId },
+        placeId: p1,
+        regionId: X,
+      },
+      placeHasSteward: null,
+    });
     expect(await k.eventsSince(mark)).toEqual([]);
   });
 
-  it.todo(
-    "checkSubmissionEligibility#2 店舗 p1 に店舗管理者がいる / A が、p1 の情報修正、p1 の掲載、p1 の掲載 l1 の修正、p1 の所属（個人として）について確かめる",
-  ); // S3B: the affiliation kind
-
-  it("refuses a revision, a listing and a listing revision of a place with a steward on placeHasNoSteward", async () => {
-    const k = await applicationKit();
+  it("checkSubmissionEligibility#2 店舗 p1 に店舗管理者がいる / A が、p1 の情報修正、p1 の掲載、p1 の掲載 l1 の修正、p1 の所属（個人として）について確かめる", async () => {
+    const k = await stewardSeatKit();
     const A = await k.person("a");
     const p1 = await k.place();
     const l1 = await k.listing(p1);
+    const X = await k.addRegion();
     await k.manager(p1);
     for (const target of [
       { kind: "revision", placeId: p1 },
       { kind: "listing", placeId: p1 },
       { kind: "listingRevision", listingId: l1 },
+      { kind: "affiliation", placeId: p1, regionId: X },
     ] as const) {
       expect(await check(k, A, target)).toMatchObject({
         accepted: false,
@@ -160,13 +173,57 @@ describe("checkSubmissionEligibility", () => {
     });
   });
 
-  it.todo(
-    "checkSubmissionEligibility#10 S は p1 の店舗管理者。p1 は地域 X に所属中 / S が、店舗管理者として、p1 の X への所属について確かめる",
-  ); // S3B: the affiliation kind
+  it("checkSubmissionEligibility#10 S は p1 の店舗管理者。p1 は地域 X に所属中 / S が、店舗管理者として、p1 の X への所属について確かめる", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const X = await k.addRegion();
+    await k.affiliate(p1, X);
+    expect(
+      await check(k, S, {
+        kind: "affiliation",
+        applicant: "place",
+        placeId: p1,
+        regionId: X,
+      }),
+    ).toEqual({
+      target: {
+        kind: "affiliation",
+        applicant: { kind: "place", placeId: p1 },
+        placeId: p1,
+        regionId: X,
+      },
+      accepted: false,
+      brokenPremises: ["notAffiliated"],
+      unviewable: [],
+      activeDuplicate: null,
+      placeHasSteward: null,
+    });
+  });
 
-  it.todo(
-    "checkSubmissionEligibility#11 S は p1 の店舗管理者。イベント e1 は終了していて、p1 は e1 に参加中でもある / S が p1 の e1 への参加について確かめる",
-  ); // S3B: the participation kind
+  it("checkSubmissionEligibility#11 S は p1 の店舗管理者。イベント e1 は終了していて、p1 は e1 に参加中でもある / S が p1 の e1 への参加について確かめる", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    // 「今日」 is 2026-07-10.
+    const e1 = await k.addOccasion({
+      period: [LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-05")],
+    });
+    await k.participate(e1, p1);
+    expect(
+      await check(k, S, {
+        kind: "participation",
+        applicant: "place",
+        placeId: p1,
+        occasionId: e1,
+      }),
+    ).toMatchObject({
+      accepted: false,
+      brokenPremises: ["occasionOpen", "notParticipating"],
+      unviewable: [],
+      activeDuplicate: null,
+    });
+  });
 
   it("reports every broken premise at once, in the premise table's order", async () => {
     const k = await applicationKit();
@@ -210,9 +267,21 @@ describe("checkSubmissionEligibility", () => {
     });
   });
 
-  it.todo(
-    "checkSubmissionEligibility#14 S は p1 の店舗管理者。p1 は、運営による非公開の地域 Z に所属中 / S が、店舗管理者として、p1 の Z からの離脱について確かめる",
-  ); // S3B: the leave kind
+  it("checkSubmissionEligibility#14 S は p1 の店舗管理者。p1 は、運営による非公開の地域 Z に所属中 / S が、店舗管理者として、p1 の Z からの離脱について確かめる", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const Z = await k.addRegion({ suspended: true });
+    await k.affiliate(p1, Z);
+    expect(
+      await check(k, S, {
+        kind: "leave",
+        applicant: "place",
+        placeId: p1,
+        regionId: Z,
+      }),
+    ).toMatchObject(accepted);
+  });
 
   it("checkSubmissionEligibility#15 利用者 A がログインしている / A が、店舗の登録について確かめる", async () => {
     const k = await applicationKit();
@@ -227,9 +296,79 @@ describe("checkSubmissionEligibility", () => {
     });
   });
 
-  it.todo(
-    "checkSubmissionEligibility#16 A は p1 の店舗管理者でない / A が、店舗管理者として、p1 の e1 への参加について確かめる",
-  ); // S3B: the participation kind (a steward's target, act_as_place)
+  it("checkSubmissionEligibility#16 A は p1 の店舗管理者でない / A が、店舗管理者として、p1 の e1 への参加について確かめる", async () => {
+    const k = await stewardSeatKit();
+    const A = await k.person("a");
+    const p1 = await k.place();
+    await k.manager(p1, "S");
+    const e1 = await k.addOccasion();
+    await expectCode(
+      check(k, A, {
+        kind: "participation",
+        applicant: "place",
+        placeId: p1,
+        occasionId: e1,
+      }),
+      ForbiddenError,
+    );
+  });
+
+  it("reports why a steward's candidate region or occasion is refused: not viewable, an active application, a broken premise", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const [open, suspended] = [
+      await k.addRegion(),
+      await k.addRegion({ suspended: true }),
+    ];
+    const pending = await k.affiliateAsPlace(S, {
+      placeId: p1,
+      regionId: open,
+    });
+    const asPlace = { applicant: "place", placeId: p1 } as const;
+    expect(
+      await check(k, S, { ...asPlace, kind: "affiliation", regionId: open }),
+    ).toMatchObject({ accepted: false, activeDuplicate: pending.id });
+    expect(
+      await check(k, S, {
+        ...asPlace,
+        kind: "affiliation",
+        regionId: suspended,
+      }),
+    ).toMatchObject({
+      accepted: false,
+      unviewable: [{ kind: "region", id: suspended }],
+    });
+    const cancelled = await k.addOccasion({ cancelled: true });
+    const draft = await k.addOccasion({ state: "draft" });
+    expect(
+      await check(k, S, {
+        ...asPlace,
+        kind: "participation",
+        occasionId: cancelled,
+      }),
+    ).toMatchObject({ accepted: false, brokenPremises: ["occasionOpen"] });
+    expect(
+      await check(k, S, {
+        ...asPlace,
+        kind: "participation",
+        occasionId: draft,
+      }),
+    ).toMatchObject({
+      accepted: false,
+      unviewable: [{ kind: "occasion", id: draft }],
+    });
+    // An individual's leave needs the place and the region viewable.
+    const A = await k.person("a");
+    const p2 = await k.place();
+    await k.affiliate(p2, suspended);
+    expect(
+      await check(k, A, { kind: "leave", placeId: p2, regionId: suspended }),
+    ).toMatchObject({
+      accepted: false,
+      unviewable: [{ kind: "region", id: suspended }],
+    });
+  });
 
   it("judges a listing revision's listing from the listing and its place", async () => {
     const k = await applicationKit();

@@ -28,6 +28,7 @@ import {
   storeThrough,
   vacated,
 } from "./applicationFixtures";
+import { readableScan } from "./assertions";
 import { ScopeAbort } from "./fixtures";
 
 const AS_APPROVER: ReviewDesk = { section: "asApprover" };
@@ -42,7 +43,7 @@ function awaiting(
   desk: ReviewDesk,
   pagination: Pagination = ALL,
 ) {
-  return h.reviewDesk.findPageAwaiting(desk, pagination);
+  return readableScan(h.reviewDesk.findPageAwaiting(desk, pagination));
 }
 
 /**

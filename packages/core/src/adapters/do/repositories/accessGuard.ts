@@ -26,4 +26,11 @@ export class DoAccessGuard implements AccessGuard {
       target: { kind: target.kind, id: target.id },
     });
   }
+
+  staffed(target: StewardedRef): void {
+    this.conditions.push({
+      kind: "authority.staffed",
+      target: { kind: target.kind, id: target.id },
+    });
+  }
 }

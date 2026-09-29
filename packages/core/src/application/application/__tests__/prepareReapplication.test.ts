@@ -11,8 +11,13 @@ import {
   type Reapplication,
 } from "../prepareReapplication";
 import { type AppKit, applicationKit, profileFields } from "./kit";
+import { oct, stewardSeatKit } from "./stewardSeatKit";
 
-const prepare = (k: AppKit, who: Person, applicationId: ApplicationId) =>
+const prepare = (
+  k: Pick<AppKit, "container">,
+  who: Person,
+  applicationId: ApplicationId,
+) =>
   prepareReapplication({
     container: k.container,
     actor: who.actor,
@@ -180,13 +185,112 @@ describe("prepareReapplication", () => {
     expect(r.photos).toEqual([]);
   });
 
-  it.todo(
-    "prepareReapplication#5 店舗 p1 について店舗管理者として行った参加の申請 a4 が取り下げになっている。S は p1 の店舗管理者 / S が a4 から再申請の内容を用意する",
-  ); // S3B: the participation kind
+  it("prepareReapplication#5 店舗 p1 について店舗管理者として行った参加の申請 a4 が取り下げになっている。S は p1 の店舗管理者 / S が a4 から再申請の内容を用意する", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const l1 = (await k.published(S, p1)).id;
+    const e1 = await k.addOccasion();
+    const a4 = await k.participationApp(S, {
+      placeId: p1,
+      occasionId: e1,
+      listingIds: [l1],
+      dates: [oct(1), oct(2)],
+    });
+    await k.withdrawAs(S, a4.id);
+    const before = serial(k.t.idGenerator.next());
 
-  it.todo(
-    "prepareReapplication#6 店舗 p1 の参加の申請 a4（イベント e1、掲載 l1・l2・l3、参加日 d1・d2）が否認になっている。その後、l2 は一時非公開になり、l3 は削除され、e1 の開催期間が短くなって d2 が期間外になった / S が a4 から再申請の内容を用意する",
-  ); // S3B: the participation kind
+    const r = await prepare(k, S, a4.id);
+
+    expect(serial(k.t.idGenerator.next())).toBe(before + 1);
+    expect(r).toEqual({
+      target: a4.target,
+      content: {
+        kind: "participation",
+        listingIds: [l1],
+        dates: [oct(1), oct(2)],
+        removedListings: [],
+        removedDates: [],
+      },
+      photos: [],
+    });
+  });
+
+  it("prepareReapplication#6 店舗 p1 の参加の申請 a4（イベント e1、掲載 l1・l2・l3、参加日 d1・d2）が否認になっている。その後、l2 は一時非公開になり、l3 は削除され、e1 の開催期間が短くなって d2 が期間外になった / S が a4 から再申請の内容を用意する", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const [l1, l2, l3] = [
+      (await k.published(S, p1)).id,
+      (await k.published(S, p1)).id,
+      (await k.published(S, p1)).id,
+    ];
+    const e1 = await k.addOccasion();
+    const [d1, d2] = [oct(1), oct(3)];
+    const a4 = await k.participationApp(S, {
+      placeId: p1,
+      occasionId: e1,
+      listingIds: [l1, l2, l3],
+      dates: [d1, d2],
+    });
+    const rejected = await k.reject(a4.id);
+    await k.unpublish(S, l2);
+    await k.remove(S, l3);
+    await k.setPeriod(e1, [oct(1), oct(2)]);
+
+    const r = await prepare(k, S, a4.id);
+
+    expect(r.target).toEqual(a4.target);
+    expect(r.content).toEqual({
+      kind: "participation",
+      listingIds: [l1],
+      dates: [d1],
+      removedListings: [
+        expect.objectContaining({
+          id: l2,
+          deleted: false,
+          publication: expect.objectContaining({ status: "unpublished" }),
+          suspended: false,
+        }),
+        { id: l3, deleted: true },
+      ],
+      removedDates: [d2],
+    });
+    expect(await k.app(a4.id)).toEqual(rejected);
+  });
+
+  it("drops every day of a participation when the occasion has no period now, and keeps a listing suspended by the operator out", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const S = await k.manager(p1, "S");
+    const [l1, l2] = [
+      (await k.published(S, p1)).id,
+      (await k.published(S, p1)).id,
+    ];
+    const e2 = await k.addOccasion();
+    const a5 = await k.participationApp(S, {
+      placeId: p1,
+      occasionId: e2,
+      listingIds: [l1, l2],
+      dates: [oct(1)],
+    });
+    await k.reject(a5.id);
+    await k.unpublishOccasion(e2);
+    await k.setPeriod(e2, null);
+    await k.suspend(k.O, l2);
+
+    const r = await prepare(k, S, a5.id);
+
+    expect(r.content).toEqual({
+      kind: "participation",
+      listingIds: [l1],
+      dates: [],
+      removedListings: [
+        expect.objectContaining({ id: l2, deleted: false, suspended: true }),
+      ],
+      removedDates: [oct(1)],
+    });
+  });
 
   it("prepareReapplication#7 A の登録申請 r1 は確認中。r1 に併せた管理権限の申請 s1 が取り下げになっている / A が s1 から再申請の内容を用意する", async () => {
     const k = await applicationKit();

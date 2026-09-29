@@ -3,6 +3,7 @@ import {
   type ApplicationKind,
 } from "@repo/core/domain/application/application";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import type { Version } from "@repo/core/domain/common/version";
 import { displayRefsOf } from "../place/photos";
@@ -72,13 +73,14 @@ export async function getMyApplication({
   actor,
   input,
 }: ActorServiceArgs<GetMyApplicationInput>): Promise<MyApplicationView> {
+  const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     const found = await requireApplication(ctx, input.applicationId);
     const app = found.entity;
     await requireHandledBy(ctx, actor, app);
     return {
       app,
-      source: await readContentSource(ctx, app),
+      source: await readContentSource(ctx, app, LocalDate.fromInstant(now)),
       reads: await readSummaryReads(ctx, [app]),
     };
   });

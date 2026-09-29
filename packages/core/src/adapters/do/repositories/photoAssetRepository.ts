@@ -2,10 +2,8 @@ import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { PhotoId } from "@repo/core/domain/common/ids";
-import type {
-  Pagination,
-  PaginationResult,
-} from "@repo/core/domain/common/pagination";
+import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { ScanResult } from "@repo/core/domain/common/scan";
 import type {
   ExpectedVersion,
   Versioned,
@@ -17,6 +15,7 @@ import { mapDoError } from "../helpers";
 import type { LuntStateClient } from "../protocol/client";
 import type { WriteCommand } from "../protocol/commands";
 import type { PhotoAssetRecord } from "../protocol/media";
+import { restoreScanPage } from "../scan";
 
 /**
  * `PhotoAssetRepository` over the Lunt state object. Reads query the
@@ -95,17 +94,18 @@ export class DoPhotoAssetRepository implements PhotoAssetRepository {
   findPageSweepable(
     registeredBefore: Date,
     pagination: Pagination,
-  ): Promise<PaginationResult<Versioned<PhotoAsset>>> {
+  ): Promise<ScanResult<Versioned<PhotoAsset>>> {
     return mapDoError("Failed to find sweepable photos", async () => {
       const page = await this.client.query("media.photo.findPageSweepable", {
         registeredBefore: registeredBefore.getTime(),
         page: pagination.page,
         limit: pagination.limit,
       });
-      return {
-        items: page.items.map((record) => this.toVersioned(record)),
-        count: page.count,
-      };
+      return restoreScanPage(
+        page,
+        (record) => record.id,
+        (record) => this.toVersioned(record),
+      );
     });
   }
 

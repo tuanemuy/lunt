@@ -1,8 +1,4 @@
-import {
-  PhotoId,
-  RegionId,
-  TakedownClaimId,
-} from "@repo/core/domain/common/ids";
+import { PhotoId, TakedownClaimId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { TakedownPhotosNotInTargetError } from "@repo/core/domain/moderation/takedownClaim";
@@ -10,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { expectCode, rejection } from "../../authority/__tests__/kit";
 import { ConflictError } from "../../errors";
 import { updateListing } from "../../listing/updateListing";
+import { unpublishOccasion } from "../../occasion/unpublishOccasion";
+import { suspendRegion } from "../../region/suspendRegion";
 import { type ClaimSpec, type ModerationKit, moderationKit } from "./kit";
 
 /** Submits `spec` and asserts it fails with `code`, leaving no claim and no event. */
@@ -90,30 +88,103 @@ describe("submitTakedownClaim", () => {
     "submitTakedownClaim#4 閲覧できる地域・イベント・読みものが、それぞれ写真を持つ / 立場を写真の権利者にし、それぞれの対象について、対象の写真を示して提出する",
   );
 
-  it("accepts a photo rights holder's claim on a place's photo (#4 on a stage-2 kind)", async () => {
+  it("accepts a photo rights holder's claim on a region's and an occasion's photo (#4 without articles)", async () => {
     const k = await moderationKit();
-    const place = await k.placeWithPhotos(2);
-    const photo = place.photos[0];
-    if (photo === undefined) throw new Error("photos");
-    const id = await k.claim({
-      target: { kind: "place", id: place.id },
-      photoIds: [photo],
-    });
-    expect((await k.storedClaim(id)).entity.status).toBe("open");
+    const region = await k.regionWithPhotos(2);
+    const occasion = await k.occasionWithPhotos(2);
+    for (const [target, photos] of [
+      [{ kind: "region", id: region.id }, region.photos],
+      [{ kind: "occasion", id: occasion.id }, occasion.photos],
+    ] as const) {
+      const [, second] = photos;
+      if (second === undefined) throw new Error("two photos");
+      const id = await k.claim({ target, photoIds: [second] });
+      const stored = (await k.storedClaim(id)).entity;
+      expect(stored.status).toBe("open");
+      expect(stored.ground).toEqual({
+        standing: "photoRightsHolder",
+        target,
+        photoIds: [second],
+      });
+    }
+    expect(await k.events("takedown_claim.submitted")).toHaveLength(2);
   });
 
-  it.todo(
-    "submitTakedownClaim#5 閲覧できる地域がある / 立場を店舗本人、対象をその地域にして提出する",
-  );
-
-  it("refuses a proprietor's claim on a region by the ground before viewability (#5 without a stored region)", async () => {
+  it("refuses a photo a region or occasion does not have", async () => {
     const k = await moderationKit();
+    const region = await k.regionWithPhotos(1);
+    const occasion = await k.occasionWithPhotos(1);
+    for (const target of [
+      { kind: "region", id: region.id },
+      { kind: "occasion", id: occasion.id },
+    ] as const) {
+      await expectRejected(
+        k,
+        {
+          claimId: k.newId(),
+          target,
+          photoIds: [PhotoId.create(k.newId())],
+        },
+        BusinessRuleError,
+        "MODERATION_TAKEDOWN_CLAIM_PHOTO_NOT_IN_TARGET",
+      );
+    }
+  });
+
+  it("refuses a draft or suspended region and an unpublished occasion as unavailable", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const draft = await k.regionWithPhotos(1, "draft");
+    const suspended = await k.regionWithPhotos(1);
+    await suspendRegion({
+      container: k.container,
+      actor: op.actor,
+      input: { regionId: suspended.id },
+    });
+    const occasion = await k.occasionWithPhotos(1);
+    await unpublishOccasion({
+      container: k.container,
+      actor: occasion.operator.actor,
+      input: { occasionId: occasion.id },
+    });
+    for (const [target, photos] of [
+      [{ kind: "region", id: draft.id }, draft.photos],
+      [{ kind: "region", id: suspended.id }, suspended.photos],
+      [{ kind: "occasion", id: occasion.id }, occasion.photos],
+    ] as const) {
+      await expectRejected(
+        k,
+        { claimId: k.newId(), target, photoIds: photos },
+        BusinessRuleError,
+        "MODERATION_TAKEDOWN_CLAIM_TARGET_UNAVAILABLE",
+      );
+    }
+  });
+
+  it("submitTakedownClaim#5 閲覧できる地域がある / 立場を店舗本人、対象をその地域にして提出する", async () => {
+    const k = await moderationKit();
+    const region = await k.regionWithPhotos(1);
     await expectRejected(
       k,
       {
         claimId: k.newId(),
         standing: "proprietor",
-        target: { kind: "region", id: RegionId.create(k.newId()) },
+        target: { kind: "region", id: region.id },
+      },
+      BusinessRuleError,
+      "MODERATION_INVALID_TAKEDOWN_GROUND",
+    );
+  });
+
+  it("refuses a proprietor's claim on an occasion", async () => {
+    const k = await moderationKit();
+    const occasion = await k.occasionWithPhotos(1);
+    await expectRejected(
+      k,
+      {
+        claimId: k.newId(),
+        standing: "proprietor",
+        target: { kind: "occasion", id: occasion.id },
       },
       BusinessRuleError,
       "MODERATION_INVALID_TAKEDOWN_GROUND",

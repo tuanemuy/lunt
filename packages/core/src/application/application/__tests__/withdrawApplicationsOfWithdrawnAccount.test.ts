@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import type { Person } from "../../authority/__tests__/kit";
 import type { RequestContainer } from "../../di/types";
 import { ConflictError } from "../../errors";
+import { withdrawApplication } from "../withdrawApplication";
 import { withdrawApplicationsOfWithdrawnAccount } from "../withdrawApplicationsOfWithdrawnAccount";
 import { type AppKit, applicationKit, commitAfterRun } from "./kit";
+import { stewardSeatKit } from "./stewardSeatKit";
 
-function withdrawnEvent(k: AppKit, who: Person) {
+function withdrawnEvent(k: Pick<AppKit, "tick" | "t">, who: Person) {
   return {
     ...AccountEvents.withdrawn(who.accountId, k.tick()),
     id: EventId.create(k.t.idGenerator.next()),
@@ -65,9 +67,28 @@ describe("withdrawApplicationsOfWithdrawnAccount", () => {
     expect(await k.photoOwner(ph1)).toEqual(k.applicationOwner(a1.id));
   });
 
-  it.todo(
-    "withdrawApplicationsOfWithdrawnAccount#2 A は店舗 p1 の店舗管理者で、店舗管理者として行った所属の申請 b1 が確認中。p1 には別の店舗管理者 S がいる。A が退会した / A の account.withdrawn を消費する",
-  ); // S3B: the affiliation kind (a steward's application)
+  it("withdrawApplicationsOfWithdrawnAccount#2 A は店舗 p1 の店舗管理者で、店舗管理者として行った所属の申請 b1 が確認中。p1 には別の店舗管理者 S がいる。A が退会した / A の account.withdrawn を消費する", async () => {
+    const k = await stewardSeatKit();
+    const p1 = await k.place();
+    const A = await k.manager(p1, "a");
+    const S = await k.manager(p1, "s");
+    const X = await k.addRegion();
+    const b1 = await k.affiliateAsPlace(A, { placeId: p1, regionId: X });
+    await k.withdraw(A);
+    const mark = await k.mark();
+
+    await consume(k.container, withdrawnEvent(k, A));
+
+    expect(await k.app(b1.id)).toEqual(b1);
+    expect(await k.eventsSince(mark)).toEqual([]);
+    // S still handles it.
+    const withdrawn = await withdrawApplication({
+      container: k.container,
+      actor: S.actor,
+      input: { applicationId: b1.id, version: b1.version },
+    });
+    expect(withdrawn.status.kind).toBe("withdrawn");
+  });
 
   it("withdrawApplicationsOfWithdrawnAccount#3 A の登録申請 r1 と、併せた管理権限の申請 s1 が、どちらも確認中。A が退会した / A の account.withdrawn を消費する", async () => {
     const k = await applicationKit();

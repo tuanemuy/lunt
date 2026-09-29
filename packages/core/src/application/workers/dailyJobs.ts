@@ -1,3 +1,4 @@
+import type { UnreadableRow } from "@repo/core/domain/common/scan";
 import type { RequestContainer } from "../di/types";
 import type { Logger } from "../ports/logger";
 
@@ -15,9 +16,15 @@ export type DailyJob = Readonly<{
 export type DrainReport = Readonly<{
   processed: number;
   failed: number;
-  /** Targets selected again after this run tried them, left to the next run. */
+  /**
+   * Targets a shrinking query selected again after they succeeded (they
+   * changed meanwhile), left to the next run.
+   */
   skipped: number;
-  /** True when a read whose every new target failed stopped the run early. */
+  /**
+   * True when a shrinking run was cut off (打ち切り) at a page holding only
+   * targets it had already tried, rather than running the query dry.
+   */
   abandoned: boolean;
 }>;
 
@@ -59,27 +66,52 @@ export async function runDailyJobs(
 }
 
 /**
- * The shared progression rule of daily jobs (`spec/flows/index.md`
- * 「共通の前提」) over a query whose processed targets drop out of its
- * results: process a page one target at a time (each target in its own
- * unit of work, inside `process`), then read the first page again. One
- * target failing does not stop the run; a page read whose new targets all
- * failed, with nothing else on it succeeding, ends it — leaving the rest
- * to the next run.
+ * How a daily job's query treats the targets the job processed:
  *
- * Each target is tried at most once per run. A target that is selected
- * again after this run processed it — a user changed it afterwards, so
- * the query rightly picks it up again — is skipped and left to the next
- * run. Targets that failed are not retried in the same run either. A page
- * holding only targets already tried makes the run read the next page, so
- * they never stall the targets behind them.
+ * - `"shrinking"`: a processed target leaves the results (it was deleted,
+ *   claimed or recorded), so the run re-reads the first page.
+ * - `"stable"`: a processed target stays in the results (an overdue
+ *   application stays overdue until someone decides it), so the run reads
+ *   the pages in turn.
+ */
+export type DrainMode = "shrinking" | "stable";
+
+/** One page read of a daily job's query (a `ScanResult` is one). */
+export type DrainPage<T> = Readonly<{
+  items: readonly T[];
+  /** Rows that could not be restored; each fails as its own target. */
+  unreadable: readonly UnreadableRow[];
+}>;
+
+/**
+ * The shared progression rule of daily jobs (`spec/flows/index.md`
+ * 「共通の前提」): each target is processed in its own unit of work (inside
+ * `process`), and one target failing — an unreadable row included — does
+ * not stop the run. Each target is tried at most once per run (D-15):
+ * what failed, and what the query selects again after it succeeded (it
+ * changed meanwhile), is left to the next run.
+ *
+ * - `"shrinking"`: re-reads the first page after each page. A page whose
+ *   targets all failed in this run ends the run, as does one holding no
+ *   target the run has not tried yet (the rest came back after
+ *   succeeding); whatever lies beyond it is left to the next run
+ *   (`abandoned`).
+ * - `"stable"`: reads page 1, 2, … until a page is empty. A target met
+ *   again because an earlier one left the results is not processed
+ *   twice; one pushed back onto a page already read is picked up by the
+ *   next run.
+ *
+ * Reads stay proportional to the targets tried: a shrinking read either
+ * tries at least one new target or ends the run, and a stable run reads
+ * each page once.
  */
 export async function drainPages<T>(
   args: Readonly<{
     job: string;
     logger: Logger;
-    /** Page `n` (1-based) of the targets the job still has to process. */
-    readPage: (page: number) => Promise<readonly T[]>;
+    mode: DrainMode;
+    /** Page `n` (1-based) of the job's query. */
+    readPage: (page: number) => Promise<DrainPage<T>>;
     keyOf: (target: T) => string;
     process: (target: T) => Promise<void>;
   }>,
@@ -93,37 +125,56 @@ export async function drainPages<T>(
     skipped: reselected.size,
     abandoned,
   });
+  const fail = (
+    key: string,
+    level: "warn" | "error",
+    what: string,
+    cause: unknown,
+  ): void => {
+    failedKeys.add(key);
+    args.logger[level](`[daily] ${args.job}: target ${key} ${what}`, {
+      job: args.job,
+      target: key,
+      cause,
+    });
+  };
+  const isTried = (key: string): boolean =>
+    succeeded.has(key) || failedKeys.has(key);
+
   let page = 1;
   for (;;) {
-    const targets = await args.readPage(page);
-    if (targets.length === 0) return report(false);
-    const keys = targets.map(args.keyOf);
-    let processedNow = 0;
-    for (const [index, target] of targets.entries()) {
-      const key = keys[index] ?? args.keyOf(target);
-      if (succeeded.has(key)) {
-        reselected.add(key);
+    const read = await args.readPage(page);
+    const entries = read.items.length + read.unreadable.length;
+    if (entries === 0) return report(false);
+    let triedNow = 0;
+    for (const row of read.unreadable) {
+      if (isTried(row.key)) continue;
+      triedNow += 1;
+      fail(row.key, "warn", "cannot be read; skipped", row.cause);
+    }
+    for (const target of read.items) {
+      const key = args.keyOf(target);
+      if (isTried(key)) {
+        if (args.mode === "shrinking" && succeeded.has(key)) {
+          reselected.add(key);
+        }
         continue;
       }
-      if (failedKeys.has(key)) continue;
-      processedNow += 1;
+      triedNow += 1;
       try {
         await args.process(target);
         succeeded.add(key);
       } catch (error) {
-        failedKeys.add(key);
-        args.logger.error(`[daily] ${args.job}: target ${key} failed`, {
-          job: args.job,
-          target: key,
-          cause: error,
-        });
+        fail(key, "error", "failed", error);
       }
     }
-    if (processedNow === 0) {
+    if (args.mode === "stable") {
       page += 1;
       continue;
     }
-    if (keys.every((key) => failedKeys.has(key))) return report(true);
-    page = 1;
+    const allFailed =
+      read.unreadable.every((row) => failedKeys.has(row.key)) &&
+      read.items.every((target) => failedKeys.has(args.keyOf(target)));
+    if (triedNow === 0 || allFailed) return report(true);
   }
 }

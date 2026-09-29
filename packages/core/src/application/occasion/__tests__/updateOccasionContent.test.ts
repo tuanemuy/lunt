@@ -1,5 +1,6 @@
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
+import { BusinessRuleError } from "@repo/core/domain/error";
 import { Occasion } from "@repo/core/domain/occasion/occasion";
 import { describe, expect, it } from "vitest";
 import { expectCode, rejection } from "../../authority/__tests__/kit";
@@ -313,5 +314,25 @@ describe("updateOccasionContent", () => {
     const after = (await k.stored(occasion.id)).entity;
     expect(after).toEqual(before);
     expect(Occasion.missingRequirements(after.content)).toEqual([]);
+  });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const k = await occasionKit();
+    const { s, occasion } = await publishedWithSteward(k);
+    const other = await k.steward(occasion.id, "other");
+    const started = (await k.stored(occasion.id)).entity.version;
+    await k.update(other, occasion.id, { description: "先の保存" });
+    const before = (await k.stored(occasion.id)).entity;
+    await expectCode(
+      k.update(
+        s,
+        occasion.id,
+        { period: { start: "2026-10-05", end: "2026-10-04" } },
+        { version: started },
+      ),
+      BusinessRuleError,
+      "COMMON_INVALID_DATE_RANGE",
+    );
+    expect((await k.stored(occasion.id)).entity).toEqual(before);
   });
 });

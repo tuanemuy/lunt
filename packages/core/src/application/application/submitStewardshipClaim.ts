@@ -157,7 +157,7 @@ export async function submitStewardshipClaim({
       await readSubmissionFindings(
         ctx,
         target,
-        await readPremiseFacts(ctx, target),
+        await readPremiseFacts(ctx, target, now),
         viewability,
       ),
     );

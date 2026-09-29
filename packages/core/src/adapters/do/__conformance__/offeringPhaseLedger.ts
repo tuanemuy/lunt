@@ -6,6 +6,7 @@ import type { Listing } from "@repo/core/domain/listing/listing";
 import type { OfferingPhase } from "@repo/core/domain/listing/offering";
 import type { OfferingPhaseRecord } from "@repo/core/domain/listing/offeringWatch";
 import { describe, expect, it } from "vitest";
+import { readableScan } from "./assertions";
 import { ScopeAbort } from "./fixtures";
 import type { ConformanceHarness, HarnessFactory } from "./harness";
 import {
@@ -27,8 +28,10 @@ const drifted = (
   today: LocalDate = TODAY,
   pagination: Pagination = page(1),
 ) =>
-  h.uow.run(({ offeringPhaseLedger }) =>
-    offeringPhaseLedger.findPageDrifted(today, pagination),
+  readableScan(
+    h.uow.run(({ offeringPhaseLedger }) =>
+      offeringPhaseLedger.findPageDrifted(today, pagination),
+    ),
   );
 
 const findRecord = (h: H, id: ListingId) =>

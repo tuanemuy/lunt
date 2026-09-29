@@ -48,7 +48,11 @@ import {
   PlaceRevision,
   type PlaceState,
 } from "@repo/core/domain/place/revision";
-import type { IndividualApplicant } from "../applicant";
+import type {
+  Applicant,
+  IndividualApplicant,
+  PlaceApplicant,
+} from "../applicant";
 import type { JsonValue } from "../kind";
 
 /**
@@ -125,6 +129,41 @@ export function individualOf(
     kind: "individual",
     accountId: AccountId.create(text(raw.accountId)),
   };
+}
+
+/** An applicant of any kind: an individual, or a place its steward acts for. */
+export function applicantOf(value: JsonValue | undefined): Applicant {
+  const raw = object(value);
+  if (raw.kind === "individual") return individualOf(raw);
+  if (raw.kind === "place") {
+    return { kind: "place", placeId: PlaceId.create(text(raw.placeId)) };
+  }
+  throw new Error("Unknown applicant");
+}
+
+/**
+ * The applicant of an application about `placeId`: an individual, or that
+ * place itself (`ApplicationTarget.byPlace` builds both from one id).
+ */
+export function applicantAbout(
+  value: JsonValue | undefined,
+  placeId: PlaceId,
+): Applicant {
+  const applicant = applicantOf(value);
+  if (applicant.kind === "place" && applicant.placeId !== placeId) {
+    throw new Error("A place applicant for another place");
+  }
+  return applicant;
+}
+
+/** The place's own applicant for `placeId` (only its steward files one). */
+export function placeApplicantOf(
+  value: JsonValue | undefined,
+  placeId: PlaceId,
+): PlaceApplicant {
+  const applicant = applicantAbout(value, placeId);
+  if (applicant.kind !== "place") throw new Error("Not a place applicant");
+  return applicant;
 }
 
 export function targetOf(value: JsonValue | undefined, kind: string): Json {

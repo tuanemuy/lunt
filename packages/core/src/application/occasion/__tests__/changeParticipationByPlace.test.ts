@@ -264,4 +264,18 @@ describe("changeParticipationByPlace", () => {
     );
     expect((await k.storedParticipation(pair)).entity).toEqual(before);
   });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const { k, p, m, l2, pair } = await setup();
+    const started = (await k.storedParticipation(pair)).entity.version;
+    const other = await k.manager(p, "other-steward");
+    await k.byPlace(other, pair, { listingIds: [l2], dates: [oct(3)] });
+    const before = (await k.storedParticipation(pair)).entity;
+    await expectCode(
+      k.byPlace(m, pair, { dates: [oct(4)] }, { version: started }),
+      BusinessRuleError,
+      "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD",
+    );
+    expect((await k.storedParticipation(pair)).entity).toEqual(before);
+  });
 });

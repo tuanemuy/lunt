@@ -21,15 +21,22 @@ import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type {
   AccountId,
   ApplicationId,
+  OccasionId,
   PlaceId,
+  RegionId,
 } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import {
   type ListingExposure,
   type PlaceExposure,
+  type PublicationExposure,
   VisibilityPolicy,
 } from "@repo/core/domain/discovery/visibilityPolicy";
 import type { Listing } from "@repo/core/domain/listing/listing";
+import type { HoldingStatus } from "@repo/core/domain/occasion/holdingStatus";
+import { Occasion } from "@repo/core/domain/occasion/occasion";
+import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import type { RequestContainer } from "../di/types";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
 
@@ -40,15 +47,20 @@ import type { UnitOfWorkContext } from "../execution/unitOfWork";
  * approvals and the reassessment consumer all read them here, so every
  * one judges a premise from the same facts.
  *
- * Every `read…` runs inside a unit of work, before its writes. Stage 3
- * adds the region and occasion facts (`affiliated`, `participating`,
- * `holdingStatus`) with their kinds.
+ * Every `read…` runs inside a unit of work, before its writes. An
+ * occasion's holding status is judged on today's calendar day in Japan,
+ * so the readers take `now`.
  */
 
 /** The repositories premise facts are read from. */
 export type FactContext = Pick<
   UnitOfWorkContext,
-  "stewardshipRepository" | "listingRepository" | "applicationRepository"
+  | "stewardshipRepository"
+  | "listingRepository"
+  | "applicationRepository"
+  | "placeAffiliationsRepository"
+  | "participationRepository"
+  | "occasionRepository"
 >;
 
 const placeRef = (id: PlaceId) => ({ kind: "place", id }) as const;
@@ -112,13 +124,89 @@ export async function readListingFacts(
   return { placeHasSteward: await readPlaceHasSteward(ctx, listing.placeId) };
 }
 
+/**
+ * `affiliated`: the place and the region are affiliated
+ * (`PlaceAffiliations.has`); a place with no record has no affiliation.
+ */
+export async function readAffiliated(
+  ctx: Pick<FactContext, "placeAffiliationsRepository">,
+  placeId: PlaceId,
+  regionId: RegionId,
+): Promise<boolean> {
+  const found = await ctx.placeAffiliationsRepository.findById(placeId);
+  return found !== null && PlaceAffiliations.has(found.entity, regionId);
+}
+
+/** `participating`: the place takes part in the occasion now. */
+export async function readParticipating(
+  ctx: Pick<FactContext, "participationRepository">,
+  occasionId: OccasionId,
+  placeId: PlaceId,
+): Promise<boolean> {
+  return (
+    (await ctx.participationRepository.findById({ occasionId, placeId })) !==
+    null
+  );
+}
+
+/**
+ * `holdingStatus`: the occasion's status on today's calendar day in Japan
+ * (`Occasion.holdingStatus`); `null` for an occasion without a period or
+ * a missing one. Takes the occasion the caller already read, so a
+ * submission that needs its period for the content reads it once.
+ */
+export const holdingStatusOf = (
+  occasion: Occasion | null,
+  now: Date,
+): HoldingStatus | null =>
+  occasion === null
+    ? null
+    : Occasion.holdingStatus(occasion, LocalDate.fromInstant(now));
+
+/** The participation facts, from the occasion the caller read. */
+export async function readParticipationFacts(
+  ctx: Pick<FactContext, "stewardshipRepository" | "participationRepository">,
+  target: TargetOf<"participation">,
+  occasion: Occasion | null,
+  now: Date,
+): Promise<PremiseFactsOf<"participation">> {
+  return {
+    placeHasSteward: await readPlaceHasSteward(ctx, target.placeId),
+    holdingStatus: holdingStatusOf(occasion, now),
+    participating: await readParticipating(
+      ctx,
+      target.occasionId,
+      target.placeId,
+    ),
+  };
+}
+
+const membershipFacts = async (
+  ctx: FactContext,
+  target: TargetOf<"affiliation" | "leave">,
+): Promise<PremiseFactsOf<"affiliation">> => ({
+  placeHasSteward: await readPlaceHasSteward(ctx, target.placeId),
+  affiliated: await readAffiliated(ctx, target.placeId, target.regionId),
+});
+
 type FactReader<K extends ApplicationKind> = (
   ctx: FactContext,
   target: TargetOf<K>,
+  now: Date,
 ) => Promise<PremiseFactsOf<K>>;
 
 const FACT_READERS: { readonly [K in ApplicationKind]: FactReader<K> } = {
   registration: async () => ({}),
+  affiliation: membershipFacts,
+  leave: membershipFacts,
+  participation: async (ctx, target, now) =>
+    readParticipationFacts(
+      ctx,
+      target,
+      (await ctx.occasionRepository.findById(target.occasionId))?.entity ??
+        null,
+      now,
+    ),
   revision: async (ctx, target) => ({
     placeHasSteward: await readPlaceHasSteward(ctx, target.placeId),
   }),
@@ -139,18 +227,23 @@ const FACT_READERS: { readonly [K in ApplicationKind]: FactReader<K> } = {
   },
 };
 
-/** The facts of `target`'s kind (`PremiseFactsOf<K>`), read now. */
+/**
+ * The facts of `target`'s kind (`PremiseFactsOf<K>`), read now; `now`
+ * gives today's calendar day an occasion's holding status is judged on.
+ */
 export async function readPremiseFacts<T extends ApplicationTarget>(
   ctx: FactContext,
   target: T,
+  now: Date,
 ): Promise<FactsFor<SpecOfTarget<ApplicationKindMap, T>>> {
   // Kind generics cannot follow a runtime kind; the table above is typed
   // per kind, so the lookup only erases the correlation.
   const read = FACT_READERS[target.kind] as unknown as (
     ctx: FactContext,
     target: T,
+    now: Date,
   ) => Promise<FactsFor<SpecOfTarget<ApplicationKindMap, T>>>;
-  return read(ctx, target);
+  return read(ctx, target, now);
 }
 
 /**
@@ -161,8 +254,9 @@ export async function readPremiseFacts<T extends ApplicationTarget>(
 export async function evaluatePremise<T extends ApplicationTarget>(
   ctx: FactContext,
   target: T,
+  now: Date,
 ): Promise<PremiseResultFor<SpecOfTarget<ApplicationKindMap, T>>> {
-  return Premise.evaluate(target, await readPremiseFacts(ctx, target));
+  return Premise.evaluate(target, await readPremiseFacts(ctx, target, now));
 }
 
 /**
@@ -217,6 +311,18 @@ export const listingViewability = (
     [
       ContentRef.key(ref),
       listing !== null && VisibilityPolicy.isListingViewable(listing, place),
+    ],
+  ]);
+
+/** An occasion read as an aggregate: missing reads as not viewable. */
+export const occasionViewability = (
+  id: OccasionId,
+  occasion: PublicationExposure | null,
+): Viewability =>
+  new Map([
+    [
+      ContentRef.key({ kind: "occasion", id }),
+      occasion !== null && VisibilityPolicy.isOccasionViewable(occasion),
     ],
   ]);
 

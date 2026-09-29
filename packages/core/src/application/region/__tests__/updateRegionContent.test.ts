@@ -299,4 +299,18 @@ describe("updateRegionContent", () => {
     expect(await k.getRegion(r.id)).toEqual(r);
     expect(await k.ownerOf(F)).toEqual(k.regionRef(other.id));
   });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const { k, R, r } = await stewardedPublished();
+    const S = await k.person("second-steward");
+    await k.appoint(k.regionRef(r.id), S);
+    const started = await k.getRegion(r.id);
+    const byS = await update(k, S, started, { name: "別の運営者の名称" });
+    await expectCode(
+      update(k, R, started, { name: "改行\nを含む名称" }),
+      BusinessRuleError,
+      "REGION_INVALID_NAME",
+    );
+    expect(await k.getRegion(r.id)).toEqual(byS.region);
+  });
 });

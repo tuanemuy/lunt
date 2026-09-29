@@ -13,7 +13,8 @@ import type {
 import type { Returned } from "@repo/core/domain/application/status";
 import { StewardshipClaim } from "@repo/core/domain/application/stewardshipClaim";
 import { ReturnReply } from "@repo/core/domain/application/texts";
-import type { ApplicationId } from "@repo/core/domain/common/ids";
+import type { ApplicationId, ListingId } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Version } from "@repo/core/domain/common/version";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import {
@@ -24,6 +25,7 @@ import { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { PlaceProfile } from "@repo/core/domain/place/profile";
 import { PlaceRevision } from "@repo/core/domain/place/revision";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
+import { participationDetails } from "../occasion/participations";
 import type { PlaceProfileFields } from "../place/profileInput";
 import type { ActorServiceArgs } from "../types";
 import {
@@ -38,9 +40,8 @@ import { listingPatchOf } from "./submitListingRevision";
 
 /**
  * The corrected content of a resubmission: per kind, the same input its
- * submission takes, without the target. S3B adds the affiliation and
- * leave (no content: only the reply) and the participation (listings and
- * dates).
+ * submission takes, without the target. An affiliation and a leave have
+ * no content — only the reply is resubmitted.
  */
 export type ResubmissionContent =
   | Readonly<{ kind: "registration"; profile: PlaceProfileFields }>
@@ -50,6 +51,12 @@ export type ResubmissionContent =
       operatingStatus: string;
     }>
   | Readonly<{ kind: "stewardship"; relationship: string; evidence: string }>
+  | Readonly<{ kind: "affiliation" | "leave" }>
+  | Readonly<{
+      kind: "participation";
+      listingIds: readonly ListingId[];
+      dates: readonly LocalDate[];
+    }>
   | Readonly<{ kind: "listing"; content: ListingContentInput }>
   | Readonly<{ kind: "listingRevision"; content: ListingContentInput }>;
 
@@ -138,6 +145,40 @@ async function resubmitWith(
         now,
       );
     }
+    case "affiliation":
+    case "leave": {
+      const returned = app as Returned<ApplicationOf<"affiliation" | "leave">>;
+      return Application.resubmit(
+        returned,
+        { content: null, reply: reply() },
+        premise,
+        now,
+      );
+    }
+    case "participation": {
+      const returned = app as Returned<ApplicationOf<"participation">>;
+      const occasion = await ctx.occasionRepository.findById(
+        returned.target.occasionId,
+      );
+      // Listings attached before the return stay attachable to it
+      // (`current`); only newly attached ones must be attachable now.
+      const content = await participationDetails(
+        ctx,
+        amended,
+        {
+          placeId: returned.target.placeId,
+          period: occasion?.entity.content.period ?? null,
+          today: LocalDate.fromInstant(now),
+        },
+        returned.content,
+      );
+      return Application.resubmit(
+        returned,
+        { content, reply: reply() },
+        premise,
+        now,
+      );
+    }
     case "listing": {
       const returned = app as Returned<ApplicationOf<"listing">>;
       const content = ListingContent.toPublishable(
@@ -216,7 +257,7 @@ export async function resubmitApplication({
     await requireHandledBy(ctx, actor, app);
     const returned = Application.requireReturned(app);
     assertApplicantVersion(returned, input.version);
-    const result = await evaluatePremise(ctx, returned.target);
+    const result = await evaluatePremise(ctx, returned.target, now);
     if (!result.holds) {
       const lapse = Application.reassess(returned, result, now);
       await ctx.applicationRepository.save(lapse.entity, found.expectedVersion);

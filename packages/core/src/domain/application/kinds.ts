@@ -1,9 +1,12 @@
 import type { KindRegistry } from "./kind";
+import { type AffiliationKind, affiliation } from "./kinds/affiliation";
+import { type LeaveKind, leave } from "./kinds/leave";
 import { type ListingKind, listing } from "./kinds/listing";
 import {
   type ListingRevisionKind,
   listingRevision,
 } from "./kinds/listingRevision";
+import { type ParticipationKind, participation } from "./kinds/participation";
 import { type RegistrationKind, registration } from "./kinds/registration";
 import { type RevisionKind, revision } from "./kinds/revision";
 import { type StewardshipKind, stewardship } from "./kinds/stewardship";
@@ -29,6 +32,9 @@ export type ApplicationKindMap = {
   registration: RegistrationKind;
   revision: RevisionKind;
   stewardship: StewardshipKind;
+  affiliation: AffiliationKind;
+  leave: LeaveKind;
+  participation: ParticipationKind;
   listing: ListingKind;
   listingRevision: ListingRevisionKind;
 };
@@ -37,6 +43,9 @@ export const APPLICATION_KINDS: KindRegistry<ApplicationKindMap> = {
   registration,
   revision,
   stewardship,
+  affiliation,
+  leave,
+  participation,
   listing,
   listingRevision,
 };

@@ -93,7 +93,7 @@ export async function submitNewListing({
       await readSubmissionFindings(
         ctx,
         target,
-        await readPremiseFacts(ctx, target),
+        await readPremiseFacts(ctx, target, now),
         viewability,
       ),
     );

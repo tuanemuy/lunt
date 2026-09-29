@@ -752,4 +752,22 @@ describe("updateListing", () => {
     expect(await k.stored(listing.id)).toEqual(before);
     expect(await released(k)).toEqual([{ photoIds: [p2] }]);
   });
+
+  it("judges an invalid input value before a stale version", async () => {
+    const k = await listingKit();
+    const a = await k.place();
+    const m = await k.manager(a);
+    const other = await k.manager(a);
+    const listing = await k.published(m, a);
+    const spec = await specOf(k, listing.id);
+    const version = listing.version;
+    await saver(k)(other, listing.id, { ...spec, name: "先に保存" });
+    const before = await k.stored(listing.id);
+    await expectCode(
+      saver(k)(m, listing.id, { ...spec, name: "a\r\nb" }, { version }),
+      BusinessRuleError,
+      "LISTING_INVALID_NAME",
+    );
+    expect(await k.stored(listing.id)).toEqual(before);
+  });
 });

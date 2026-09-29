@@ -11,7 +11,9 @@ import type {
   AccountId,
   ArticleId,
   ListingId,
+  OccasionId,
   PlaceId,
+  RegionId,
 } from "@repo/core/domain/common/ids";
 import type { PhotosTakenDownEvent } from "@repo/core/domain/common/photoEvents";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
@@ -24,12 +26,29 @@ import type {
   InfoReportSubmittedEvent,
   TakedownClaimSubmittedEvent,
 } from "@repo/core/domain/moderation/events";
+import type {
+  OccasionCancelledEvent,
+  OccasionEndedEvent,
+  OccasionPeriodChangedEvent,
+  OccasionSuspendedEvent,
+  OccasionUnpublishedEvent,
+  OccasionUnsuspendedEvent,
+  ParticipationChangedEvent,
+  ParticipationDissolvedEvent,
+  RegionLinkDetachedEvent,
+  RegionLinkedEvent,
+} from "@repo/core/domain/occasion/events";
 import type { PlaceEvent } from "@repo/core/domain/place/events";
+import type {
+  AffiliationDissolvedEvent,
+  RegionAggregateEvent,
+} from "@repo/core/domain/region/events";
 import type {
   ApplicantMatter,
   ApproverMatter,
   DirectAudienceOccurrence,
   Occurrence,
+  PlaceMatter,
   ShowcaseChange,
 } from "./occurrence";
 
@@ -86,7 +105,27 @@ export type NotifiableEvent =
   | PhotosTakenDownEvent
   | TakedownClaimSubmittedEvent
   | InfoReportSubmittedEvent
-  | InfoReportConfirmationRequestedEvent;
+  | InfoReportConfirmationRequestedEvent
+  | RegionNotifiableEvent
+  | OccasionNotifiableEvent;
+
+/** Region's events in the correspondence table (an affiliation's establishment is not). */
+export type RegionNotifiableEvent =
+  | RegionAggregateEvent
+  | AffiliationDissolvedEvent;
+
+/** Occasion's events in the correspondence table (a participation's establishment is not). */
+export type OccasionNotifiableEvent =
+  | OccasionPeriodChangedEvent
+  | OccasionUnpublishedEvent
+  | OccasionCancelledEvent
+  | OccasionEndedEvent
+  | OccasionSuspendedEvent
+  | OccasionUnsuspendedEvent
+  | ParticipationChangedEvent
+  | ParticipationDissolvedEvent
+  | RegionLinkedEvent
+  | RegionLinkDetachedEvent;
 
 export type NotifiableEventType = NotifiableEvent["type"];
 
@@ -95,7 +134,7 @@ export type NotifiableEventType = NotifiableEvent["type"];
  * usecase at consumption time.
  */
 export type AnnouncementFacts = Readonly<{
-  /** Places taking part in the event's occasion (`occasion.cancelled`, `occasion.period_changed`). */
+  /** Places taking part in the event's occasion (`occasion.cancelled`, `occasion.period_changed`); no duplicates. */
   participatingPlaces: readonly PlaceId[];
   /** The place of the listing whose photos were taken down; `null` when the listing is gone. */
   ownerListingPlace: PlaceId | null;
@@ -117,6 +156,9 @@ const NO_FACTS: AnnouncementFacts = {
   placesOfRetiredCategory: [],
   showcasingArticles: [],
 };
+
+const region = (id: RegionId) => ({ kind: "region", id }) as const;
+const occasion = (id: OccasionId) => ({ kind: "occasion", id }) as const;
 
 const byEvent = (event: NotifiableEvent): Origin => ({
   by: "event",
@@ -334,6 +376,14 @@ type PlaceChange = Extract<
   ShowcaseChange,
   { showcase: { kind: "place" } }
 >["change"];
+type RegionChange = Extract<
+  ShowcaseChange,
+  { showcase: { kind: "region" } }
+>["change"];
+type OccasionChange = Extract<
+  ShowcaseChange,
+  { showcase: { kind: "occasion" } }
+>["change"];
 
 /**
  * How `event` changed `showcase`, one of its candidates; `null` for a
@@ -346,6 +396,10 @@ function showcaseChangeOf(
 ): ShowcaseChange | null {
   const ofListing = (change: ListingChange): ShowcaseChange | null =>
     showcase.kind === "listing" ? { showcase, change } : null;
+  const ofRegion = (change: RegionChange): ShowcaseChange | null =>
+    showcase.kind === "region" ? { showcase, change } : null;
+  const ofOccasion = (change: OccasionChange): ShowcaseChange | null =>
+    showcase.kind === "occasion" ? { showcase, change } : null;
   const ofPlace = (
     own: PlaceChange,
     listing: ListingChange,
@@ -374,6 +428,18 @@ function showcaseChangeOf(
       return event.payload.to === "permanentlyClosed"
         ? ofPlace("closed", "place_closed")
         : null;
+    case "region.suspended":
+      return ofRegion("suspended");
+    case "region.unpublished":
+      return ofRegion("unpublished");
+    case "occasion.suspended":
+      return ofOccasion("suspended");
+    case "occasion.unpublished":
+      return ofOccasion("unpublished");
+    case "occasion.ended":
+      return ofOccasion("ended");
+    case "occasion.cancelled":
+      return ofOccasion("cancelled");
     default:
       return null;
   }
@@ -499,6 +565,182 @@ function fromContentEvent(
   }
 }
 
+const suspensionMatter = (suspended: boolean) =>
+  ({ kind: suspended ? "suspended" : "unsuspended" }) as const;
+
+function fromRegionEvent(
+  event: RegionNotifiableEvent,
+  facts: AnnouncementFacts,
+): readonly Announcement[] {
+  const origin = byEvent(event);
+  switch (event.type) {
+    case "region.suspended":
+    case "region.unsuspended":
+      return [
+        {
+          occurrence: {
+            to: "contentManagers",
+            content: region(event.payload.regionId),
+            matter: suspensionMatter(event.type === "region.suspended"),
+          },
+          origin,
+        },
+        ...showcaseAnnouncements(event, facts, origin),
+      ];
+    case "region.unpublished":
+      return showcaseAnnouncements(event, facts, origin);
+    case "region.affiliation_dissolved": {
+      const { placeId, regionId, cause } = event.payload;
+      return cause === "excluded"
+        ? [
+            {
+              occurrence: {
+                to: "placeStewards",
+                placeId,
+                subject: {
+                  kind: "place",
+                  matter: { kind: "excluded_from_region", regionId },
+                },
+              },
+              origin,
+            },
+          ]
+        : [];
+    }
+  }
+}
+
+/** One `placeStewards` announcement per place taking part in the occasion. */
+function toParticipants(
+  facts: AnnouncementFacts,
+  origin: Origin,
+  matter: Extract<
+    PlaceMatter,
+    { kind: "occasion_cancelled" | "occasion_period_changed" }
+  >,
+): readonly Announcement[] {
+  return facts.participatingPlaces.map(
+    (placeId): Announcement => ({
+      occurrence: {
+        to: "placeStewards",
+        placeId,
+        subject: { kind: "place", matter },
+      },
+      origin,
+    }),
+  );
+}
+
+function fromOccasionEvent(
+  event: OccasionNotifiableEvent,
+  facts: AnnouncementFacts,
+): readonly Announcement[] {
+  const origin = byEvent(event);
+  switch (event.type) {
+    case "occasion.suspended":
+    case "occasion.unsuspended":
+      return [
+        {
+          occurrence: {
+            to: "contentManagers",
+            content: occasion(event.payload.occasionId),
+            matter: suspensionMatter(event.type === "occasion.suspended"),
+          },
+          origin,
+        },
+        ...showcaseAnnouncements(event, facts, origin),
+      ];
+    case "occasion.unpublished":
+      return showcaseAnnouncements(event, facts, origin);
+    case "occasion.ended":
+      return showcaseAnnouncements(event, facts, {
+        by: "content",
+        token: event.payload.observedOn,
+      });
+    case "occasion.cancelled":
+      return [
+        ...toParticipants(facts, origin, {
+          kind: "occasion_cancelled",
+          occasionId: event.payload.occasionId,
+        }),
+        ...showcaseAnnouncements(event, facts, origin),
+      ];
+    case "occasion.period_changed":
+      return toParticipants(facts, origin, {
+        kind: "occasion_period_changed",
+        occasionId: event.payload.occasionId,
+      });
+    case "occasion.participation_dissolved": {
+      const { occasionId, placeId, cause } = event.payload;
+      return [
+        cause === "excluded"
+          ? {
+              occurrence: {
+                to: "placeStewards",
+                placeId,
+                subject: {
+                  kind: "place",
+                  matter: { kind: "excluded_from_occasion", occasionId },
+                },
+              },
+              origin,
+            }
+          : {
+              occurrence: {
+                to: "occasionStewards",
+                occasionId,
+                matter: { kind: "participation_withdrawn", placeId },
+              },
+              origin,
+            },
+      ];
+    }
+    case "occasion.participation_changed": {
+      const { occasionId, placeId, changedBy } = event.payload;
+      return changedBy === "place"
+        ? [
+            {
+              occurrence: {
+                to: "occasionStewards",
+                occasionId,
+                matter: { kind: "participation_changed", placeId },
+              },
+              origin,
+            },
+          ]
+        : [];
+    }
+    case "occasion.region_linked":
+      return [
+        {
+          occurrence: {
+            to: "regionStewards",
+            regionId: event.payload.regionId,
+            matter: {
+              kind: "occasion_linked",
+              occasionId: event.payload.occasionId,
+            },
+          },
+          origin,
+        },
+      ];
+    case "occasion.region_link_detached":
+      return [
+        {
+          occurrence: {
+            to: "occasionStewards",
+            occasionId: event.payload.occasionId,
+            matter: {
+              kind: "region_link_detached",
+              regionId: event.payload.regionId,
+            },
+          },
+          origin,
+        },
+      ];
+  }
+}
+
 /**
  * The announcements a domain event makes — the correspondence table of
  * `spec/domains/notification.md` 「ドメインイベント」, and the only place it
@@ -555,6 +797,22 @@ function from(
     }
     case "content.photos_taken_down":
       return fromPhotosTakenDown(event, facts);
+    case "region.unpublished":
+    case "region.suspended":
+    case "region.unsuspended":
+    case "region.affiliation_dissolved":
+      return fromRegionEvent(event, facts);
+    case "occasion.period_changed":
+    case "occasion.unpublished":
+    case "occasion.cancelled":
+    case "occasion.ended":
+    case "occasion.suspended":
+    case "occasion.unsuspended":
+    case "occasion.participation_changed":
+    case "occasion.participation_dissolved":
+    case "occasion.region_linked":
+    case "occasion.region_link_detached":
+      return fromOccasionEvent(event, facts);
     case "takedown_claim.submitted":
       return [
         {
@@ -631,6 +889,14 @@ function showcaseRefsOf(
       return event.payload.to === "permanentlyClosed"
         ? placeAndListings(event.payload.placeId, placeListings)
         : [];
+    case "region.suspended":
+    case "region.unpublished":
+      return [region(event.payload.regionId)];
+    case "occasion.suspended":
+    case "occasion.unpublished":
+    case "occasion.ended":
+    case "occasion.cancelled":
+      return [occasion(event.payload.occasionId)];
     default:
       return [];
   }

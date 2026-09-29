@@ -29,13 +29,12 @@ export function recordEndedOccasions(
   return drainPages<OccasionToObserve>({
     job: "recordEndedOccasions",
     logger: container.logger,
+    mode: "shrinking",
     keyOf: (target) => target.occasion.id,
     readPage: (page) =>
-      container.unitOfWorkProvider
-        .run(({ holdingStatusLedger }) =>
-          holdingStatusLedger.findToObserve(today, { page, limit: PAGE_SIZE }),
-        )
-        .then((result) => result.items),
+      container.unitOfWorkProvider.run(({ holdingStatusLedger }) =>
+        holdingStatusLedger.findToObserve(today, { page, limit: PAGE_SIZE }),
+      ),
     process: (target) =>
       container.unitOfWorkProvider.run(
         async ({ occasionRepository, holdingStatusLedger, collectEvents }) => {

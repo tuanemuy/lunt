@@ -9,6 +9,7 @@ import {
   TakedownClaimId,
 } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
+import type { ContentRef } from "@repo/core/domain/common/refs";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { MediaErrorCode } from "@repo/core/domain/media/errorCode";
 import { PhotoOwnership } from "@repo/core/domain/media/photoOwnership";
@@ -21,6 +22,9 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { eventDecoders } from "../../events/registry";
 import { updateListing } from "../../listing/updateListing";
 import { discardReleasedPhotos } from "../../media/discardReleasedPhotos";
+import { fieldsOf } from "../../occasion/__tests__/kit";
+import { suspendOccasion } from "../../occasion/suspendOccasion";
+import { updateOccasionContent } from "../../occasion/updateOccasionContent";
 import { type ModerationKit, moderationKit } from "./kit";
 
 const two = <T>(items: readonly T[]): readonly [T, T] => {
@@ -55,6 +59,34 @@ async function eventsSince(k: ModerationKit, mark: number) {
     type: e.type,
     payload: e.payload,
   }));
+}
+
+/**
+ * Stores an open photo-rights claim on `target` straight through the
+ * repository, for targets `submitTakedownClaim` refuses as not viewable
+ * (a draft, an unstored target).
+ */
+async function storeClaim(
+  k: ModerationKit,
+  target: ContentRef,
+  photoIds: readonly [PhotoId, ...PhotoId[]],
+): Promise<TakedownClaimId> {
+  const { entity } = TakedownClaim.submit(
+    {
+      id: TakedownClaimId.create(k.newId()),
+      standing: "photoRightsHolder",
+      target,
+      photoIds,
+      reason: "私が撮った写真です",
+      email: "rights@example.com",
+    },
+    { viewable: true, photoIds },
+    k.clock.now(),
+  );
+  await k.run(({ takedownClaimRepository }) =>
+    takedownClaimRepository.insert(entity),
+  );
+  return entity.id;
 }
 
 /** Replaces the listing's photos through `updateListing` (its manager's save). */
@@ -189,9 +221,28 @@ describe("takeDownPhotosByClaim", () => {
       expect(await k.since(mark)).toEqual([]);
     });
 
-    it.todo(
-      "takeDownPhotosByClaim#6 地域 R1 を対象にした未対応の申立て。地域 R2 は写真を持つ / 申立てと R2 を渡して、R2 の写真を削除する",
-    );
+    it("takeDownPhotosByClaim#6 地域 R1 を対象にした未対応の申立て。地域 R2 は写真を持つ / 申立てと R2 を渡して、R2 の写真を削除する", async () => {
+      const k = await moderationKit();
+      const R1 = await k.regionWithPhotos(1);
+      const R2 = await k.regionWithPhotos(1);
+      const claimId = await k.claim({
+        target: { kind: "region", id: R1.id },
+        photoIds: R1.photos,
+      });
+      const [photo] = R2.photos;
+      if (photo === undefined) throw new Error("photo");
+      const before = await k.storedRegion(R2.id);
+      const mark = await k.mark();
+      await expectCode(
+        k.takeDown(await k.operator(), claimId, { kind: "region", id: R2.id }, [
+          photo,
+        ]),
+        BusinessRuleError,
+        "MODERATION_TAKEDOWN_CLAIM_TARGET_MISMATCH",
+      );
+      expect(await k.storedRegion(R2.id)).toEqual(before);
+      expect(await k.since(mark)).toEqual([]);
+    });
 
     it("refuses another target of the same kind (#6 on places)", async () => {
       const k = await moderationKit();
@@ -233,9 +284,26 @@ describe("takeDownPhotosByClaim", () => {
       expect((await k.storedPlace(sameId)).entity).toEqual(entity);
     });
 
-    it.todo(
-      "takeDownPhotosByClaim#8 イベント O1 を対象にした対応済みの申立て。イベント O2 は写真を持つ / 申立てと O2 を渡して、O2 の写真を削除する",
-    );
+    it("takeDownPhotosByClaim#8 イベント O1 を対象にした対応済みの申立て。イベント O2 は写真を持つ / 申立てと O2 を渡して、O2 の写真を削除する", async () => {
+      const k = await moderationKit();
+      const op = await k.operator();
+      const O1 = await k.occasionWithPhotos(1);
+      const O2 = await k.occasionWithPhotos(1);
+      const claimId = await k.claim({
+        target: { kind: "occasion", id: O1.id },
+        photoIds: O1.photos,
+      });
+      await k.resolveClaim(op, claimId);
+      const [photo] = O2.photos;
+      if (photo === undefined) throw new Error("photo");
+      const before = await k.storedOccasion(O2.id);
+      await expectCode(
+        k.takeDown(op, claimId, { kind: "occasion", id: O2.id }, [photo]),
+        BusinessRuleError,
+        "MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED",
+      );
+      expect(await k.storedOccasion(O2.id)).toEqual(before);
+    });
 
     it("checks the resolved claim before the target match (#8 on places)", async () => {
       const k = await moderationKit();
@@ -541,30 +609,191 @@ describe("takeDownPhotosByClaim", () => {
   });
 
   describe("地域", () => {
-    it.todo(
-      "takeDownPhotosByClaim#23 公開中の地域 R の写真は A・B・C の順 / A を削除する",
-    );
-    it.todo(
-      "takeDownPhotosByClaim#24 公開中の地域 R の写真は A だけ / A を削除する",
-    );
-    it.todo(
-      "takeDownPhotosByClaim#25 下書きの地域 R の写真は A だけ / A を削除する",
-    );
-    it.todo(
-      "takeDownPhotosByClaim#26 地域 R は写真 A を持つ / A と、R が持たない写真 X を削除する",
-    );
+    it("takeDownPhotosByClaim#23 公開中の地域 R の写真は A・B・C の順 / A を削除する", async () => {
+      const k = await moderationKit();
+      const R = await k.regionWithPhotos(3);
+      const [A, B, C] = three(R.photos);
+      const target = { kind: "region", id: R.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      const mark = await k.mark();
+      const output = await k.takeDown(await k.operator(), claimId, target, [A]);
+      expect(output).toEqual({ publication: "published", unpublished: false });
+      const stored = (await k.storedRegion(R.id)).entity;
+      expect(photoIdsOf(stored.content.photos)).toEqual([B, C]);
+      expect(stored.content.photos.items[0]?.photoId).toBe(B);
+      expect(stored.publication.status).toBe("published");
+      expect(await eventsSince(k, mark)).toEqual([
+        {
+          type: "content.photos_taken_down",
+          payload: { owner: target, photoIds: [A], unpublished: false },
+        },
+        { type: "photos.released", payload: { photoIds: [A] } },
+      ]);
+    });
+
+    it("takeDownPhotosByClaim#24 公開中の地域 R の写真は A だけ / A を削除する", async () => {
+      const k = await moderationKit();
+      const R = await k.regionWithPhotos(1);
+      const [A] = R.photos;
+      if (A === undefined) throw new Error("photo");
+      const target = { kind: "region", id: R.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      const before = (await k.storedRegion(R.id)).entity;
+      const mark = await k.mark();
+      const output = await k.takeDown(await k.operator(), claimId, target, [A]);
+      expect(output).toEqual({ publication: "unpublished", unpublished: true });
+      const stored = (await k.storedRegion(R.id)).entity;
+      expect(stored.content.photos.items).toEqual([]);
+      expect(stored.publication).toEqual({
+        status: "unpublished",
+        reason: "photoTakedown",
+        firstPublishedAt:
+          before.publication.status === "published"
+            ? before.publication.firstPublishedAt
+            : null,
+      });
+      expect(await eventsSince(k, mark)).toEqual([
+        {
+          type: "content.photos_taken_down",
+          payload: { owner: target, photoIds: [A], unpublished: true },
+        },
+        {
+          type: "region.unpublished",
+          payload: { regionId: R.id, reason: "photoTakedown" },
+        },
+        { type: "photos.released", payload: { photoIds: [A] } },
+      ]);
+    });
+
+    it("takeDownPhotosByClaim#25 下書きの地域 R の写真は A だけ / A を削除する", async () => {
+      const k = await moderationKit();
+      const R = await k.regionWithPhotos(1, "draft");
+      const [A] = R.photos;
+      if (A === undefined) throw new Error("photo");
+      const target = { kind: "region", id: R.id } as const;
+      const claimId = await storeClaim(k, target, [A]);
+      const mark = await k.mark();
+      const output = await k.takeDown(await k.operator(), claimId, target, [A]);
+      expect(output).toEqual({ publication: "draft", unpublished: false });
+      const stored = (await k.storedRegion(R.id)).entity;
+      expect(stored.content.photos.items).toEqual([]);
+      expect(stored.publication.status).toBe("draft");
+      expect(await eventsSince(k, mark)).toEqual([
+        {
+          type: "content.photos_taken_down",
+          payload: { owner: target, photoIds: [A], unpublished: false },
+        },
+        { type: "photos.released", payload: { photoIds: [A] } },
+      ]);
+    });
+
+    it("takeDownPhotosByClaim#26 地域 R は写真 A を持つ / A と、R が持たない写真 X を削除する", async () => {
+      const k = await moderationKit();
+      const R = await k.regionWithPhotos(1);
+      const [A] = R.photos;
+      if (A === undefined) throw new Error("photo");
+      const X = PhotoId.create(k.newId());
+      const target = { kind: "region", id: R.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      const before = await k.storedRegion(R.id);
+      const mark = await k.mark();
+      await expectCode(
+        k.takeDown(await k.operator(), claimId, target, [A, X]),
+        BusinessRuleError,
+        "REGION_PHOTO_NOT_FOUND",
+      );
+      expect(await k.storedRegion(R.id)).toEqual(before);
+      expect(await k.since(mark)).toEqual([]);
+    });
   });
 
   describe("イベント", () => {
-    it.todo(
-      "takeDownPhotosByClaim#27 公開中のイベント O の写真は A、B の順 / A を削除する",
-    );
-    it.todo(
-      "takeDownPhotosByClaim#28 公開中で運営による非公開のイベント O の写真は A だけ / A を削除する",
-    );
-    it.todo(
-      "takeDownPhotosByClaim#29 イベント O の写真は B だけ（A はイベント運営者が先に外した） / A を削除する",
-    );
+    it("takeDownPhotosByClaim#27 公開中のイベント O の写真は A、B の順 / A を削除する", async () => {
+      const k = await moderationKit();
+      const O = await k.occasionWithPhotos(2);
+      const [A, B] = two(O.photos);
+      const target = { kind: "occasion", id: O.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      const mark = await k.mark();
+      const output = await k.takeDown(await k.operator(), claimId, target, [A]);
+      expect(output).toEqual({ publication: "published", unpublished: false });
+      const stored = (await k.storedOccasion(O.id)).entity;
+      expect(photoIdsOf(stored.content.photos)).toEqual([B]);
+      expect(stored.content.photos.items[0]?.photoId).toBe(B);
+      expect(stored.publication.status).toBe("published");
+      expect(await eventsSince(k, mark)).toEqual([
+        {
+          type: "content.photos_taken_down",
+          payload: { owner: target, photoIds: [A], unpublished: false },
+        },
+        { type: "photos.released", payload: { photoIds: [A] } },
+      ]);
+    });
+
+    it("takeDownPhotosByClaim#28 公開中で運営による非公開のイベント O の写真は A だけ / A を削除する", async () => {
+      const k = await moderationKit();
+      const op = await k.operator();
+      const O = await k.occasionWithPhotos(1);
+      const [A] = O.photos;
+      if (A === undefined) throw new Error("photo");
+      const target = { kind: "occasion", id: O.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      await suspendOccasion({
+        container: k.container,
+        actor: op.actor,
+        input: { occasionId: O.id },
+      });
+      const mark = await k.mark();
+      const output = await k.takeDown(op, claimId, target, [A]);
+      expect(output).toEqual({ publication: "unpublished", unpublished: true });
+      const stored = (await k.storedOccasion(O.id)).entity;
+      expect(stored.content.photos.items).toEqual([]);
+      expect(stored.publication).toMatchObject({
+        status: "unpublished",
+        reason: "photoTakedown",
+      });
+      expect(stored.suspension).toEqual({ suspended: true });
+      expect(await eventsSince(k, mark)).toEqual([
+        {
+          type: "content.photos_taken_down",
+          payload: { owner: target, photoIds: [A], unpublished: true },
+        },
+        {
+          type: "occasion.unpublished",
+          payload: { occasionId: O.id, reason: "photoTakedown" },
+        },
+        { type: "photos.released", payload: { photoIds: [A] } },
+      ]);
+    });
+
+    it("takeDownPhotosByClaim#29 イベント O の写真は B だけ（A はイベント運営者が先に外した） / A を削除する", async () => {
+      const k = await moderationKit();
+      const O = await k.occasionWithPhotos(2);
+      const [A, B] = two(O.photos);
+      const target = { kind: "occasion", id: O.id } as const;
+      const claimId = await k.claim({ target, photoIds: [A] });
+      const steward = await k.person("occasion-steward");
+      await k.appoint(target, steward);
+      const read = (await k.storedOccasion(O.id)).entity;
+      await updateOccasionContent({
+        container: k.container,
+        actor: steward.actor,
+        input: {
+          occasionId: O.id,
+          version: read.version,
+          content: { ...fieldsOf(read), photoIds: [B] },
+        },
+      });
+      const before = await k.storedOccasion(O.id);
+      const mark = await k.mark();
+      await expectCode(
+        k.takeDown(await k.operator(), claimId, target, [A]),
+        BusinessRuleError,
+        "OCCASION_PHOTO_NOT_FOUND",
+      );
+      expect(await k.storedOccasion(O.id)).toEqual(before);
+      expect(await k.since(mark)).toEqual([]);
+    });
   });
 
   describe("読みもの", () => {
@@ -586,36 +815,52 @@ describe("takeDownPhotosByClaim", () => {
   });
 
   describe("beyond the spec rows", () => {
-    it("treats a region, occasion or article target as missing until its stage lands", async () => {
+    it("treats an article target as missing until its stage lands", async () => {
       const k = await moderationKit();
-      const op = await k.operator();
+      const target = {
+        kind: "article",
+        id: ArticleId.create(k.newId()),
+      } as const;
+      const photo = PhotoId.create(k.newId());
+      const claimId = await storeClaim(k, target, [photo]);
+      await expectCode(
+        k.takeDown(await k.operator(), claimId, target, [photo]),
+        NotFoundError,
+        "CONTENT_NOT_FOUND",
+      );
+    });
+
+    it("reads a region or occasion that is not stored as missing", async () => {
+      const k = await moderationKit();
       for (const target of [
         { kind: "region", id: RegionId.create(k.newId()) },
         { kind: "occasion", id: OccasionId.create(k.newId()) },
-        { kind: "article", id: ArticleId.create(k.newId()) },
       ] as const) {
         const photo = PhotoId.create(k.newId());
-        const { entity } = TakedownClaim.submit(
-          {
-            id: TakedownClaimId.create(k.newId()),
-            standing: "photoRightsHolder",
-            target,
-            photoIds: [photo],
-            reason: "私が撮った写真です",
-            email: "rights@example.com",
-          },
-          { viewable: true, photoIds: [photo] },
-          k.clock.now(),
-        );
-        await k.run(({ takedownClaimRepository }) =>
-          takedownClaimRepository.insert(entity),
-        );
+        const claimId = await storeClaim(k, target, [photo]);
         await expectCode(
-          k.takeDown(op, entity.id, target, [photo]),
+          k.takeDown(await k.operator(), claimId, target, [photo]),
           NotFoundError,
           "CONTENT_NOT_FOUND",
         );
       }
+    });
+
+    it("refuses a region steward without the operator role", async () => {
+      const k = await moderationKit();
+      const R = await k.regionWithPhotos(1);
+      const target = { kind: "region", id: R.id } as const;
+      const claimId = await k.claim({ target, photoIds: R.photos });
+      const [photo] = R.photos;
+      if (photo === undefined) throw new Error("photo");
+      const regionSteward = await k.person("region-steward");
+      await k.appoint(target, regionSteward);
+      const before = await k.storedRegion(R.id);
+      await expectCode(
+        k.takeDown(regionSteward, claimId, target, [photo]),
+        ForbiddenError,
+      );
+      expect(await k.storedRegion(R.id)).toEqual(before);
     });
   });
 });
