@@ -154,6 +154,13 @@ export function CategoryBoard({
 
   const [clearedAdd, setClearedAdd] = useState<AddState | null>(null);
   const addError = addState === clearedAdd ? null : addState.error;
+  // The field is uncontrolled and restarts from each answer's name; what is
+  // typed since then is kept against that answer.
+  const [typed, setTyped] = useState<
+    Readonly<{ since: AddState; name: string }>
+  >({ since: addState, name: addState.name });
+  const addDirty =
+    (typed.since === addState ? typed.name : addState.name) !== "";
   /** Another operation starts: earlier results no longer describe the list. */
   const clearResults = () => {
     setOutcome(null);
@@ -233,6 +240,9 @@ export function CategoryBoard({
                 placeholder="例: 泊まる"
                 maxLength={100}
                 defaultValue={addState.name}
+                onChange={(event) =>
+                  setTyped({ since: addState, name: event.currentTarget.value })
+                }
               />
               <Button type="submit" variant="secondary" disabled={adding}>
                 {adding ? "追加しています…" : "追加する"}
@@ -240,6 +250,11 @@ export function CategoryBoard({
             </div>
           )}
         </Field>
+        {addDirty ? (
+          <p className="m-actions__note">
+            追加していない名称があります。追加せずに離れると、入力は残りません。
+          </p>
+        ) : null}
       </form>
 
       <hr className="m-divider" />
@@ -584,7 +599,11 @@ function RetirePanel({
         confirmLabel="廃止する"
         pending={retiring}
         onConfirm={retire}
-        onCancel={() => setConfirming(false)}
+        onCancel={() => {
+          // CS-12's やめる changes nothing: back to the list as it was.
+          setConfirming(false);
+          onCancel();
+        }}
       >
         <p>{`廃止するカテゴリー: ${category.name} → 移行先: ${successor?.name ?? ""}`}</p>
         <ul>

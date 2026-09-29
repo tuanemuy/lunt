@@ -7,6 +7,7 @@ import {
 import { RouteErrorContent } from "@/components/feedback/RouteErrorView";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { ShopShell } from "@/components/manage/ShopShell";
+import { useProxyVisited } from "@/components/ops/ProxyReturn";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { infoReportPath } from "@/presentation/applyView";
@@ -79,12 +80,21 @@ function NotStewardOfPlace({
 }
 
 /**
- * The guard refused or failed: CS-15 (an operator whose store has gained a
- * steward), CS-05, CS-17, or the common error states.
+ * The guard refused or failed: CS-15 (an operator standing in for the
+ * store, which has gained a steward), CS-05, CS-17, or the common error
+ * states. An operator who did not come as a stand-in (the store's URL
+ * opened directly) is refused like any non-steward (CS-05).
  */
 function PlaceAreaError({ error }: ErrorComponentProps) {
-  const state = classifyError(error);
+  const refused = classifyError(error);
   const { placeId } = Route.useParams();
+  const proxied = useProxyVisited(placeId);
+  const state =
+    refused.kind === "forbidden" &&
+    refused.code === PLACE_PROXY_UNAVAILABLE &&
+    !proxied
+      ? { ...refused, code: PLACE_NOT_MANAGED.stewarded }
+      : refused;
   const matchRoute = useMatchRoute();
   const onPlaceInfo =
     matchRoute({ to: "/manage/places/$placeId/info", params: { placeId } }) !==

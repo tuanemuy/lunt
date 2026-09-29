@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { TextLink } from "@/components/ui/TextButton";
 import { OpsSearchReturnLink } from "../OpsSearchReturn";
 
 const KEY = "lunt:proxy-from-report";
+const VISITED_KEY = "lunt:proxy-visited";
 
 type ReportReturn = Readonly<{ placeId: string; reportId: string }>;
 
@@ -19,6 +20,61 @@ export function rememberReportProxy(placeId: string, reportId: string): void {
   } catch {
     // Storage refused: the way back falls back to OM-02.
   }
+}
+
+function readVisited(): readonly string[] {
+  try {
+    const parsed: unknown = JSON.parse(
+      sessionStorage.getItem(VISITED_KEY) ?? "[]",
+    );
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Remembers, for this tab, that the operator opened the absence proxy of
+ * `placeId` (from OM-02 / OM-05, or a screen shown by proxy): a refusal of
+ * that store's SM screens then reads as the lost proxy (CS-15) rather than
+ * as a stranger's CS-05.
+ */
+export function rememberProxyVisit(placeId: string): void {
+  const visited = readVisited();
+  if (visited.includes(placeId)) return;
+  try {
+    sessionStorage.setItem(VISITED_KEY, JSON.stringify([...visited, placeId]));
+  } catch {
+    // Storage refused: the refusal reads as CS-05.
+  }
+}
+
+/**
+ * Back in the OM area, no absence proxy is under way: a store's SM URL
+ * opened from here on is not a lost proxy until a proxy entry is taken.
+ */
+export function forgetProxyVisits(): void {
+  try {
+    sessionStorage.removeItem(VISITED_KEY);
+  } catch {
+    // Nothing stored or storage refused.
+  }
+}
+
+const noSubscription = () => () => {};
+
+/**
+ * Whether this tab opened `placeId`'s absence proxy (`rememberProxyVisit`).
+ * `false` while hydrating: the server has no tab storage.
+ */
+export function useProxyVisited(placeId: string): boolean {
+  return useSyncExternalStore(
+    noSubscription,
+    () => readVisited().includes(placeId),
+    () => false,
+  );
 }
 
 /** A screen opened from OM-02 or OM-03 no longer leads back to a report. */
@@ -86,6 +142,7 @@ export function ReportReturnLink({
  */
 export function ProxyReturnLink({ placeId }: { placeId: string }) {
   const reportId = useReportReturn(placeId);
+  useEffect(() => rememberProxyVisit(placeId), [placeId]);
   return reportId === null ? (
     <OpsSearchReturnLink />
   ) : (

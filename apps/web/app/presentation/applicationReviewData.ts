@@ -9,6 +9,7 @@ import { approveStewardshipClaim } from "@repo/core/application/application/appr
 import {
   type ApplicationForReview,
   getApplicationForReview,
+  type HiddenBy,
   type ReviewSubjectView,
 } from "@repo/core/application/application/getApplicationForReview";
 import { rejectApplication } from "@repo/core/application/application/rejectApplication";
@@ -58,38 +59,35 @@ function stanceOf(view: ApplicationForReview): ReviewStance {
   }
 }
 
-const VIEWABILITY_NOTE = {
-  viewable: null,
-  notViewable:
-    "閲覧者には表示されていません（運営による非公開、または一時非公開）。申請は確認中のまま判断できます。",
-  missing: "削除されていて、ありません。",
-  notYet: null,
-} as const satisfies Readonly<
-  Record<ReviewSubjectView["viewability"], string | null>
->;
+const STILL_OPEN = "申請は確認中のまま判断できます。";
 
 /**
- * A place is hidden from viewers only while suspended, and its listings
- * with it; a listing's own reason (運営による非公開 or 一時非公開) is not
- * in the review read.
+ * Why viewers do not see a subject (CM-01 「運営による非公開、または店舗の
+ * 非公開」), as `getApplicationForReview` read it.
  */
-function viewabilityNote(
-  subject: ReviewSubjectView,
-  subjects: readonly ReviewSubjectView[],
-): string | null {
-  if (subject.viewability !== "notViewable") {
-    return VIEWABILITY_NOTE[subject.viewability];
+function hiddenNote({ suspended, placeSuspended }: HiddenBy): string {
+  if (suspended && placeSuspended) {
+    return `運営による非公開で、店舗も運営による非公開のため、閲覧者には表示されていません。${STILL_OPEN}`;
   }
-  if (subject.ref.kind === "place") {
-    return "店舗が運営による非公開で、閲覧者には表示されていません。申請は確認中のまま判断できます。";
+  if (suspended) {
+    return `運営による非公開のため、閲覧者には表示されていません。${STILL_OPEN}`;
   }
-  const placeHidden = subjects.some(
-    ({ ref, viewability }) =>
-      ref.kind === "place" && viewability === "notViewable",
-  );
-  return placeHidden
-    ? "店舗が運営による非公開のため、閲覧者には表示されていません。申請は確認中のまま判断できます。"
-    : VIEWABILITY_NOTE.notViewable;
+  if (placeSuspended) {
+    return `店舗が運営による非公開のため、閲覧者には表示されていません。${STILL_OPEN}`;
+  }
+  return `公開されていないなどの理由で、閲覧者には表示されていません。${STILL_OPEN}`;
+}
+
+function viewabilityNote(subject: ReviewSubjectView): string | null {
+  switch (subject.viewability) {
+    case "notViewable":
+      return hiddenNote(subject.hiddenBy);
+    case "missing":
+      return "削除されていて、ありません。";
+    case "viewable":
+    case "notYet":
+      return null;
+  }
 }
 
 function facts(view: ApplicationForReview): ReviewFactsData {
@@ -198,9 +196,7 @@ function toData(view: ApplicationForReview): ApplicationReviewData {
     version: view.version,
     status: statusData(view.status),
     submittedAt: view.submittedAt.toISOString(),
-    subjects: subjectItems(view.subjects, (s) =>
-      viewabilityNote(s, view.subjects),
-    ),
+    subjects: subjectItems(view.subjects, viewabilityNote),
     applicant: reviewerApplicantText(view.applicant),
     stance: stanceOf(view),
     content,

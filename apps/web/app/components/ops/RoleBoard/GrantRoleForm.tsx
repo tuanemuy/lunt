@@ -59,7 +59,10 @@ export function GrantRoleForm({
         await reconcile();
         return { email: typed, error: null };
       } catch (error) {
-        return { email: typed, error: classifyError(error) };
+        const classified = classifyError(error);
+        // The actor lost the role meanwhile: the area's check shows CS-05.
+        if (classified.kind === "forbidden") await reconcile();
+        return { email: typed, error: classified };
       }
     },
     { email: "", error: null },

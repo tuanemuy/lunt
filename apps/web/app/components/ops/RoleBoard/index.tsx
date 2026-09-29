@@ -13,11 +13,8 @@ import {
 import { ManageBody } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
 import { ChipButton } from "@/components/ui/ChipButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { EmptyPanel } from "@/components/ui/EmptyPanel";
-import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
@@ -188,7 +185,6 @@ export function RoleBoard({
   const [revoking, startRevoke] = useTransition();
   const [revocation, setRevocation] = useState<Revocation | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [selfRevoked, setSelfRevoked] = useState(false);
   const sections = useRef<Partial<Record<Role, HTMLElement | null>>>({});
   // The confirmed revocation removes the chip that opened the dialog, and
   // the closing dialog hands focus back to it; the role's section takes it
@@ -200,21 +196,6 @@ export function RoleBoard({
     focusAfterRevocation.current = null;
     sections.current[role]?.focus();
   });
-
-  if (selfRevoked) {
-    return (
-      <ManageBody>
-        <FocusOnMount role="status">
-          <EmptyPanel
-            title="サービス運営者の役割を解除しました"
-            actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
-          >
-            あなたはサービス運営者ではなくなったため、サービス運営の画面は操作できません。マイページには、運営の入口が示されなくなります。
-          </EmptyPanel>
-        </FocusOnMount>
-      </ManageBody>
-    );
-  }
 
   const startRevocation = (role: Role, holder: Holder) => {
     const list = optimistic[role];
@@ -236,12 +217,15 @@ export function RoleBoard({
       try {
         await revokeRoleFn({ data: { role, accountId: holder.accountId } });
         if (role === "operator" && holder.isSelf) {
-          // Not `reconcile()`: reloading would re-run the OM area's operator
-          // check and replace this panel with CS-05. Only the cached
-          // matches (MY-01's operator entry among them) go, so the next
-          // visit reads the account as it is now.
+          // The OM area's operator check now refuses: CS-05 in the area's
+          // frame, worded for the revocation that caused it. The cached
+          // matches (MY-01's operator entry among them) go too.
           router.clearCache();
-          setSelfRevoked(true);
+          await router.navigate({
+            to: "/ops/roles",
+            search: { revoked: "self" },
+            replace: true,
+          });
           return;
         }
         setOutcome({ kind: "revoked", role, email: holder.email });
@@ -253,6 +237,9 @@ export function RoleBoard({
           await reconcile();
         } else if (classified.code === AuthorityErrorCode.LastOperator) {
           setOutcome({ kind: "lastOperator" });
+          await reconcile();
+        } else if (classified.kind === "forbidden") {
+          // The actor lost the role meanwhile: the area's check shows CS-05.
           await reconcile();
         } else {
           setOutcome({ kind: "failed", role, message: classified.message });

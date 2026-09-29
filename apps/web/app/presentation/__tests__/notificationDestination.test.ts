@@ -36,6 +36,13 @@ describe("notificationDestinationPath", () => {
     ).toBe("/manage/places/p1/members");
     expect(
       notificationDestinationPath({
+        kind: "listingManagement",
+        listingId: L,
+        placeId: P,
+      }),
+    ).toBe("/manage/places/p1/listings/l1");
+    expect(
+      notificationDestinationPath({
         kind: "occasionManagement",
         occasionId: C,
         facet: "regionLinks",
@@ -62,9 +69,9 @@ describe("notificationDestinationPath", () => {
       notificationDestinationPath({
         kind: "proxyOperation",
         target: place,
-        direct: { kind: "listingManagement", listingId: L },
+        direct: { kind: "listingManagement", listingId: L, placeId: P },
       }),
-    ).toBe("/manage/listings/l1");
+    ).toBe("/manage/places/p1/listings/l1");
     expect(
       notificationDestinationPath({
         kind: "proxyOperation",

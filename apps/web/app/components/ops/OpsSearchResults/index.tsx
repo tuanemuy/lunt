@@ -22,6 +22,7 @@ import {
   searchPlacesFn,
 } from "@/presentation/opsSearch";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
+import { rememberProxyVisit } from "../ProxyReturn";
 import { useLoadMore } from "./useLoadMore";
 
 function Footer({
@@ -175,18 +176,21 @@ export function PlaceResults({
                         <ChipLink
                           to="/manage/places/$placeId/info"
                           params={params}
+                          onClick={() => rememberProxyVisit(place.placeId)}
                         >
                           店舗情報を代行
                         </ChipLink>
                         <ChipLink
                           to="/manage/places/$placeId/listings"
                           params={params}
+                          onClick={() => rememberProxyVisit(place.placeId)}
                         >
                           掲載を代行
                         </ChipLink>
                         <ChipLink
                           to="/manage/places/$placeId/listings/new"
                           params={params}
+                          onClick={() => rememberProxyVisit(place.placeId)}
                         >
                           掲載を追加（代行）
                         </ChipLink>
@@ -298,6 +302,7 @@ export function ListingResults({
                         placeId: listing.placeId,
                         listingId: listing.listingId,
                       }}
+                      onClick={() => rememberProxyVisit(listing.placeId)}
                     >
                       掲載を代行
                     </ChipLink>

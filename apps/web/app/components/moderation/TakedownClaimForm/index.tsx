@@ -38,13 +38,15 @@ const CODE_EMAIL = "COMMON_INVALID_EMAIL_ADDRESS";
 const CODE_GROUND = "MODERATION_INVALID_TAKEDOWN_GROUND";
 
 type Values = Readonly<{
-  standing: ClaimantStandingValue;
+  /** Nothing is chosen until the claimant picks (CS-10 when missing). */
+  standing: ClaimantStandingValue | null;
   photoIds: readonly string[];
   reason: string;
   email: string;
 }>;
 
 type FieldErrors = Readonly<{
+  standing?: string;
   photos?: string;
   reason?: string;
   email?: string;
@@ -63,6 +65,9 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** The required fields the design checks before sending (CS-10). */
 function missingFields(values: Values): FieldErrors {
   return {
+    ...(values.standing === null
+      ? { standing: "申し立てる人の立場を選んでください。" }
+      : {}),
     ...(values.standing === "photoRightsHolder" && values.photoIds.length === 0
       ? { photos: "削除を求める写真を、1枚以上選んでください。" }
       : {}),
@@ -98,10 +103,22 @@ function fieldsOf(error: ErrorState): FieldErrors | null {
 }
 
 const FIELD_ANCHORS = [
+  ["standing", "rq07-standing", "申し立てる人の立場"],
   ["photos", "rq07-photos", "削除を求める写真"],
   ["reason", "rq07-reason", "理由"],
   ["email", "rq07-email", "メールアドレス"],
 ] as const;
+
+/**
+ * The standings a claimant may choose: a region, an occasion or an
+ * article takes photo rights holders only (RQ-07, from DT-03–DT-05).
+ */
+const standingsFor = (
+  kind: ReportTargetRow["kind"],
+): readonly ClaimantStandingValue[] =>
+  kind === "place" || kind === "listing"
+    ? CLAIMANT_STANDINGS
+    : ["photoRightsHolder"];
 
 /**
  * RQ-07 取り下げの申立て (MOD-01): no login. The claimant's standing,
@@ -118,8 +135,9 @@ export function TakedownClaimForm({
   photos: readonly TakedownPhoto[];
 }) {
   const reconcile = useReconcile();
+  const standings = standingsFor(target.kind);
   const [values, setValues] = useState<Values>({
-    standing: "proprietor",
+    standing: standings.length === 1 ? (standings[0] ?? null) : null,
     photoIds: [],
     reason: "",
     email: "",
@@ -130,14 +148,14 @@ export function TakedownClaimForm({
   const [outcome, submit, sending] = useActionState(
     async (_previous: Outcome): Promise<Outcome> => {
       const missing = missingFields(values);
-      if (Object.keys(missing).length > 0) {
+      const { standing } = values;
+      if (standing === null || Object.keys(missing).length > 0) {
         return { kind: "invalid", fields: missing };
       }
       const payload = {
-        standing: values.standing,
+        standing,
         target: { kind: target.kind, id: target.id },
-        photoIds:
-          values.standing === "photoRightsHolder" ? [...values.photoIds] : [],
+        photoIds: standing === "photoRightsHolder" ? [...values.photoIds] : [],
         reason: values.reason,
         email: values.email.trim(),
       };
@@ -311,24 +329,31 @@ export function TakedownClaimForm({
             <ReportTargetRowView row={target} />
           </div>
 
-          <ChoiceGroup
-            legend="申し立てる人の立場"
-            name="standing"
-            requirement="required"
-            choices={CLAIMANT_STANDINGS.map((value) => ({
-              value,
-              label: STANDING_LABEL[value],
-            }))}
-            value={values.standing}
-            onChange={(standing) =>
-              setValues((current) => ({ ...current, standing }))
-            }
-            help={
-              target.kind === "place"
-                ? "店舗本人は、この店舗の取り下げを求めます。Lunt への掲載をやめたい店舗管理者も、店舗本人としてここから申し立てます。写真の権利者は、削除を求める写真を選びます。"
-                : "店舗本人は、この掲載の取り下げを求めます。写真の権利者は、削除を求める写真を選びます。"
-            }
-          />
+          <div id="rq07-standing">
+            <ChoiceGroup
+              legend="申し立てる人の立場"
+              name="standing"
+              requirement="required"
+              choices={standings.map((value) => ({
+                value,
+                label: STANDING_LABEL[value],
+              }))}
+              value={values.standing}
+              onChange={(standing) =>
+                setValues((current) => ({ ...current, standing }))
+              }
+              {...(fields.standing === undefined
+                ? {}
+                : { error: fields.standing })}
+              help={
+                target.kind === "place"
+                  ? "店舗本人は、この店舗の取り下げを求めます。Lunt への掲載をやめたい店舗管理者も、店舗本人としてここから申し立てます。写真の権利者は、削除を求める写真を選びます。"
+                  : target.kind === "listing"
+                    ? "店舗本人は、この掲載の取り下げを求めます。写真の権利者は、削除を求める写真を選びます。"
+                    : "写真の権利者として、削除を求める写真を選びます。"
+              }
+            />
+          </div>
 
           {rights ? (
             <Fieldset

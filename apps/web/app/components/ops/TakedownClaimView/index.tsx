@@ -249,8 +249,8 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
           </Alert>
         ) : null}
         {photoOutcome?.kind === "gone" ? (
-          <Alert title="この写真は、すでに削除されています">
-            別のサービス運営者が先に削除していました。対象の現在の写真を示しています。
+          <Alert title="この写真は、すでに対象にありません">
+            写真はすでに対象から外されていました。削除は反映していません。対象の現在の写真を示しています。
           </Alert>
         ) : null}
         {photoOutcome?.kind === "failed" && !alreadyResolvedElsewhere ? (

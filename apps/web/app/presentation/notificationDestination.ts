@@ -14,11 +14,12 @@ import type {
  * path.
  *
  * Paths the plan does not give directly:
- * - `listingManagement` (SM-04) and `confirmationRequest` (SM-07) sit under
- *   their place (`/manage/places/$placeId/…`), which the destination does
- *   not carry. They open `/manage/listings/$listingId` and
- *   `/manage/checks/$reportId`; those routes resolve the place and redirect
- *   to the planned screen.
+ * - `confirmationRequest` (SM-07) sits under its place
+ *   (`/manage/places/$placeId/…`), which the destination does not carry. It
+ *   opens `/manage/checks/$reportId`, which resolves the place and redirects
+ *   to the planned screen. `listingManagement` carries its place, so SM-04
+ *   opens directly — for a deleted listing too, as CS-17 in the store's frame
+ *   leading to its listings (SM-03).
  * - `invitation` (MY-06): an invitation is found by its target and id, so
  *   the target travels as `?kind=&id=` next to `/invitations/$invitationId`.
  * - `occasionParticipant` opens EM-01 with `?participant=$placeId`, which
@@ -61,7 +62,7 @@ function directPath(d: DirectDestination): string {
     case "participationEditing":
       return `/manage/places/${segment(d.placeId)}/events/${segment(d.occasionId)}`;
     case "listingManagement":
-      return `/manage/listings/${segment(d.listingId)}`;
+      return `${placePath(d.placeId, "listings")}/${segment(d.listingId)}`;
     case "confirmationRequest":
       return `/manage/checks/${segment(d.reportId)}`;
     case "regionManagement":

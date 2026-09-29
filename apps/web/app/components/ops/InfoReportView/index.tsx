@@ -33,7 +33,7 @@ import {
 } from "@/presentation/moderation";
 import { useReconcile } from "@/presentation/reconcile";
 import { OpsNav } from "../OpsShell";
-import { rememberReportProxy } from "../ProxyReturn";
+import { rememberProxyVisit, rememberReportProxy } from "../ProxyReturn";
 
 const CODE_NOT_OPEN = "MODERATION_INFO_REPORT_NOT_OPEN";
 const CODE_ALREADY_RESOLVED = "MODERATION_INFO_REPORT_ALREADY_RESOLVED";
@@ -121,6 +121,10 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
 
   const proxyParams = { placeId: target.placeId };
   const remember = () => rememberReportProxy(target.placeId, data.reportId);
+  const rememberProxy = () => {
+    remember();
+    rememberProxyVisit(target.placeId);
+  };
 
   return (
     <ManagePage
@@ -373,7 +377,7 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
               <ChipLink
                 to="/manage/places/$placeId/info"
                 params={proxyParams}
-                onClick={remember}
+                onClick={rememberProxy}
               >
                 店舗情報を代行
               </ChipLink>
@@ -383,7 +387,7 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
                 <ChipLink
                   to="/manage/places/$placeId/listings/$listingId"
                   params={{ ...proxyParams, listingId: target.listingId }}
-                  onClick={remember}
+                  onClick={rememberProxy}
                 >
                   掲載を代行
                 </ChipLink>
@@ -391,7 +395,7 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
                 <ChipLink
                   to="/manage/places/$placeId/listings"
                   params={proxyParams}
-                  onClick={remember}
+                  onClick={rememberProxy}
                 >
                   掲載を代行
                 </ChipLink>
@@ -399,7 +403,7 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
               <ChipLink
                 to="/manage/places/$placeId/listings/new"
                 params={proxyParams}
-                onClick={remember}
+                onClick={rememberProxy}
               >
                 掲載を追加（代行）
               </ChipLink>

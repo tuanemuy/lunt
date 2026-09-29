@@ -13,6 +13,8 @@ import { renderRoleHolders } from "./-render";
 const searchSchema = z.object({
   /** Opened from MY-07 by the only operator, to hand the role over first. */
   from: z.literal("withdraw").optional().catch(undefined),
+  /** Set once the viewer revoked their own operator role (CS-05 wording). */
+  revoked: z.literal("self").optional().catch(undefined),
 });
 
 /** OM-07 役割の管理: editors and operators, appointed / granted and revoked. */
