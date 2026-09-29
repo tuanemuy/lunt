@@ -14,7 +14,7 @@ import {
  * names no target, so it reads as the target missing (CS-17) rather than
  * as an input error.
  */
-function parseTargetId<T>(
+export function parseTargetId<T>(
   create: (raw: string) => T,
   raw: string,
   code: string,

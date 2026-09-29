@@ -37,8 +37,8 @@ export type InfoReportDetail = Omit<InfoReportView, "target"> &
  * deleted listing or an unviewable target is reported in the output, not
  * as an error.
  *
- * - `ForbiddenError` without `operate_service`; `NotFoundError`
- *   (`INFO_REPORT_NOT_FOUND`).
+ * - `NotFoundError` (`INFO_REPORT_NOT_FOUND`), checked before access;
+ *   `ForbiddenError` without `operate_service`.
  */
 export async function getInfoReport({
   container,
@@ -46,8 +46,8 @@ export async function getInfoReport({
   input,
 }: ActorServiceArgs<GetInfoReportInput>): Promise<InfoReportDetail> {
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const report = (await requireInfoReport(ctx, input.reportId)).entity;
+    await authorizeRole(ctx, actor, "operate_service");
     const [accounts, hasSteward] = await Promise.all([
       readAccounts(ctx, [report.reporter]),
       placeHasSteward(ctx, report.target.placeId),

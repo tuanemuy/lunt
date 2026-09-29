@@ -41,8 +41,9 @@ const added = (
  * photos become the occasion's; removed ones are released
  * (`photos.released`). Unchanged content writes nothing.
  *
- * - `ForbiddenError` (`manage_target`, also when it no longer holds at
- *   commit); `NotFoundError`; `ConflictError` when `version` is not the
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`manage_target`, also when it no longer holds at commit);
+ *   `ConflictError` when `version` is not the
  *   stored one or a concurrent save commits first.
  * - `BusinessRuleError`: `OCCASION_PUBLISH_CONDITION_UNMET` (published;
  *   with what is missing), `AREA_TOWN_NOT_FOUND`,
@@ -57,13 +58,13 @@ export async function updateOccasionContent({
   const content = await buildOccasionContent(container, input.content);
   const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requireOccasion(ctx, input.occasionId);
     const access = await authorizeOnTarget(
       ctx,
       actor,
       "manage_target",
       occasionRef(input.occasionId),
     );
-    const found = await requireOccasion(ctx, input.occasionId);
     if (found.entity.version !== input.version) {
       throw new ConflictError(
         OCCASION_EDIT_CONFLICT,

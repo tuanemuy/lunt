@@ -16,9 +16,10 @@ export type WithdrawParticipationInput = Readonly<{
  * Deletes the participation and emits `occasion.participation_dissolved`
  * (`cause: "withdrawn"`). Cannot be undone.
  *
- * - `ForbiddenError` (`act_as_place` on the place; no absence proxy).
  * - `NotFoundError` `PARTICIPATION_NOT_FOUND` when already dissolved,
- *   also when a concurrent exclusion or withdrawal commits first.
+ *   also when a concurrent exclusion or withdrawal commits first;
+ *   checked before access.
+ * - `ForbiddenError` (`act_as_place` on the place; no absence proxy).
  */
 export async function withdrawParticipation({
   container,
@@ -27,11 +28,11 @@ export async function withdrawParticipation({
 }: ActorServiceArgs<WithdrawParticipationInput>): Promise<void> {
   const now = container.clock.now();
   await container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireParticipation(ctx, input);
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",
       id: input.placeId,
     });
-    const read = await requireParticipation(ctx, input);
     const eventDrafts = Participation.withdraw(read.entity, now);
     await ctx.participationRepository.delete(
       read.entity.key,

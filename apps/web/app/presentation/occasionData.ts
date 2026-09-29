@@ -39,6 +39,7 @@ import {
   STATUS_TONE,
 } from "./applicationWords";
 import { loadAreaLists, townOfAddress } from "./areaData";
+import { missingChildFirst } from "./childTargets";
 import { publicationView } from "./listingData";
 import {
   type AttachedListingItem,
@@ -133,13 +134,22 @@ async function readManaged(
   return view;
 }
 
-/** See `loadOccasionFrameFn`. */
+/**
+ * See `loadOccasionFrameFn`. `path` is the screen's, so a refusal gives
+ * way to a missing store the screen (CM-04) is about.
+ */
 export async function loadOccasionFrame(
   container: RequestContainer,
   actor: Actor,
   rawId: string,
+  path: string | null = null,
 ): Promise<OccasionFrame> {
-  return frameOf(await readManaged(container, actor, rawId));
+  const view = await readManaged(container, actor, rawId).catch(
+    async (error: unknown) => {
+      throw await missingChildFirst(container, actor, path, error);
+    },
+  );
+  return frameOf(view);
 }
 
 const attachedItem = (listing: AttachedListingView): AttachedListingItem =>

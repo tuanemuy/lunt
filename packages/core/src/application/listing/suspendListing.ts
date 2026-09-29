@@ -11,8 +11,8 @@ export type SuspendListingInput = Readonly<{ listingId: ListingId }>;
  * not (`spec/usecases/listing.md` 「suspendListing」; MOD-07, MOD-02). The
  * publication state is kept. Emits `listing.suspended`.
  *
- * - `ForbiddenError` (`operate_service`, also when revoked before the
- *   commit); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`operate_service`, also when revoked before the commit).
  * - `BusinessRuleError`: `LISTING_ALREADY_SUSPENDED`.
  * - `ConflictError` on a concurrent save.
  */

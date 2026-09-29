@@ -14,8 +14,8 @@ export type SuspendOccasionInput = Readonly<{ occasionId: OccasionId }>;
  * 「suspendOccasion」; MOD-07). The publication and the cancellation are
  * kept. Emits `occasion.suspended`.
  *
- * - `ForbiddenError` (`operate_service`, also when revoked before the
- *   commit); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`operate_service`, also when revoked before the commit).
  * - `BusinessRuleError`: `OCCASION_ALREADY_SUSPENDED`.
  * - `ConflictError` on a concurrent save.
  */

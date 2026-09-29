@@ -25,8 +25,10 @@ import {
  * the shell itself, so a screen of another area (CM-02) may draw its own.
  */
 export const Route = createFileRoute("/_manage/manage/places/$placeId")({
-  beforeLoad: async ({ params }) => ({
-    frame: await loadPlaceFrameFn({ data: { placeId: params.placeId } }),
+  beforeLoad: async ({ params, location }) => ({
+    frame: await loadPlaceFrameFn({
+      data: { placeId: params.placeId, path: location.pathname },
+    }),
   }),
   component: Outlet,
   errorComponent: PlaceAreaError,
@@ -77,6 +79,36 @@ function NotStewardOfPlace({
         : "この店舗の店舗情報は、店舗管理者だけが編集できます。情報の誤りや閉店に気づいたときは、運営に連絡できます。"}
     </EmptyPanel>
   );
+}
+
+/**
+ * CS-17's wording by what is missing: the store, or the listing, request
+ * or event the screen below it is about (the guard reports that one
+ * before refusing a stranger).
+ */
+function missingOf(code: string | null): { title: string; body: string } {
+  switch (code) {
+    case "LISTING_NOT_FOUND":
+      return {
+        title: "掲載が見つかりません",
+        body: "削除されたか、存在しない掲載です。掲載の内容と操作は示せません。",
+      };
+    case "INFO_REPORT_NOT_FOUND":
+      return {
+        title: "確認の依頼が見つかりません",
+        body: "存在しない確認の依頼です。依頼の内容は示せません。",
+      };
+    case "OCCASION_NOT_FOUND":
+      return {
+        title: "イベントが見つかりません",
+        body: "削除されたか、存在しないイベントです。参加内容と操作は示せません。",
+      };
+    default:
+      return {
+        title: "店舗が見つかりません",
+        body: "存在しない店舗です。マイページから、管理する店舗を開き直してください。",
+      };
+  }
 }
 
 /**
@@ -148,11 +180,11 @@ function PlaceAreaError({ error }: ErrorComponentProps) {
         <ManagePage title={null}>
           <ManageBody>
             <EmptyPanel
-              title="店舗が見つかりません"
+              title={missingOf(state.code).title}
               headingLevel="h1"
               actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
             >
-              存在しない店舗です。マイページから、管理する店舗を開き直してください。
+              {missingOf(state.code).body}
             </EmptyPanel>
           </ManageBody>
         </ManagePage>

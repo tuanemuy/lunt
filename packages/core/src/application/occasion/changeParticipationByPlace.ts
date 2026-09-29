@@ -29,8 +29,9 @@ export type ChangeParticipationByPlaceInput = ParticipationDetailsFields &
  * EVT-02 / CM-04). A change emits `occasion.participation_changed`
  * (`changedBy: "place"`); equal details write nothing.
  *
+ * - `NotFoundError` `PARTICIPATION_NOT_FOUND` once dissolved;
+ *   checked before access.
  * - `ForbiddenError` (`act_as_place` on the place; no absence proxy).
- * - `NotFoundError` `PARTICIPATION_NOT_FOUND` once dissolved.
  * - `BusinessRuleError` `OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD`,
  *   `OCCASION_LISTING_NOT_ATTACHABLE`.
  * - `ConflictError` when the edit started from an older version or loses
@@ -45,11 +46,11 @@ export async function changeParticipationByPlace({
   const today = LocalDate.fromInstant(now);
   const key = { occasionId: input.occasionId, placeId: input.placeId };
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireParticipation(ctx, key);
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",
       id: input.placeId,
     });
-    const read = await requireParticipation(ctx, key);
     const period = (await requireOccasion(ctx, input.occasionId)).entity.content
       .period;
     const details = await participationDetails(

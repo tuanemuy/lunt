@@ -14,8 +14,8 @@ export type SuspendPlaceInput = Readonly<{ placeId: PlaceId }>;
  * optimistic lock guards concurrent writes.
  *
  * - `place.suspended`.
+ * - `NotFoundError` without the place, checked before access.
  * - `ForbiddenError` without `operate_service`.
- * - `NotFoundError` without the place.
  * - `BusinessRuleError` `PLACE_ALREADY_SUSPENDED`.
  * - `ConflictError` when a concurrent save commits first.
  */
@@ -26,8 +26,8 @@ export async function suspendPlace({
 }: ActorServiceArgs<SuspendPlaceInput>): Promise<Place> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const read = await requirePlace(ctx, input.placeId);
+    await authorizeRole(ctx, actor, "operate_service");
     const { entity, eventDrafts } = Place.suspend(read.entity, now);
     await ctx.placeRepository.save(entity, read.expectedVersion);
     ctx.collectEvents(eventDrafts);

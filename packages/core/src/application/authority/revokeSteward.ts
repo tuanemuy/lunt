@@ -3,6 +3,7 @@ import type { AccountId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import type { ActorServiceArgs } from "../types";
 import { authorizeRole, persistStewardship } from "./access";
+import { requireExistingTarget } from "./targets";
 
 export type RevokeStewardInput = Readonly<{
   target: StewardedRef;
@@ -14,12 +15,16 @@ export type RevokeStewardInput = Readonly<{
  * (`operate_service`). Irreversible; the last steward's removal leaves the
  * target vacant with its pending invitations. The removed account's other
  * stewardships and roles do not change.
+ *
+ * - `NotFoundError` (`{PLACE|REGION|OCCASION}_NOT_FOUND`) without the
+ *   target, checked before access.
  */
 export async function revokeSteward({
   container,
   actor,
   input,
 }: ActorServiceArgs<RevokeStewardInput>): Promise<void> {
+  await requireExistingTarget(container.stewardedTargetDirectory, input.target);
   await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeRole(ctx, actor, "operate_service");
     const found = await ctx.stewardshipRepository.findById(input.target);

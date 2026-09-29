@@ -13,8 +13,8 @@ export type UnsuspendRegionInput = Readonly<{ regionId: RegionId }>;
  * (`photoTakedown`).
  *
  * - `region.unsuspended`.
+ * - `NotFoundError` without the region, checked before access.
  * - `ForbiddenError` without `operate_service`.
- * - `NotFoundError` without the region.
  * - `BusinessRuleError` `REGION_NOT_SUSPENDED`.
  * - `ConflictError` when a concurrent save commits first.
  */
@@ -25,8 +25,8 @@ export async function unsuspendRegion({
 }: ActorServiceArgs<UnsuspendRegionInput>): Promise<Region> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const read = await requireRegion(ctx, input.regionId);
+    await authorizeRole(ctx, actor, "operate_service");
     const { entity, eventDrafts } = Region.unsuspend(read.entity, now);
     await ctx.regionRepository.save(entity, read.expectedVersion);
     ctx.collectEvents(eventDrafts);

@@ -37,8 +37,8 @@ export async function transitionListing(
 ): Promise<ManagedListingView> {
   const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
-    if (by === "operator") await authorizeRole(ctx, actor, "operate_service");
     const found = await requireListing(ctx, listingId);
+    if (by === "operator") await authorizeRole(ctx, actor, "operate_service");
     const target = { kind: "place", id: found.entity.placeId } as const;
     const access =
       by === "manager"

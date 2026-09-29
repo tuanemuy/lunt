@@ -24,7 +24,7 @@ export type ChangeOperatingStatusInput = Readonly<{
  * - `BusinessRuleError` `PLACE_INVALID_OPERATING_STATUS`.
  * - `ForbiddenError` (`manage_target`), also when a steward is appointed
  *   or removed before the commit.
- * - `NotFoundError` without the place.
+ * - `NotFoundError` without the place, checked before access.
  * - `ConflictError` when `version` is not the stored one, or on an
  *   optimistic-lock conflict.
  */
@@ -36,11 +36,11 @@ export async function changeOperatingStatus({
   const status = OperatingStatus.create(input.status);
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requirePlace(ctx, input.placeId);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "place",
       id: input.placeId,
     });
-    const read = await requirePlace(ctx, input.placeId);
     assertEditedVersion(read.entity, input.version);
     const { entity, eventDrafts } = Place.changeOperatingStatus(
       read.entity,

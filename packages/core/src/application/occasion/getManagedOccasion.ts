@@ -21,7 +21,8 @@ export type GetManagedOccasionInput = Readonly<{ occasionId: OccasionId }>;
  * basis (`steward` / `absence_proxy`). Occasions viewers cannot see are
  * returned too.
  *
- * - `ForbiddenError` (`inspect_target`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`inspect_target`).
  */
 export async function getManagedOccasion({
   container,
@@ -29,13 +30,13 @@ export async function getManagedOccasion({
   input,
 }: ActorServiceArgs<GetManagedOccasionInput>): Promise<ManagedOccasionView> {
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requireOccasion(ctx, input.occasionId);
     const access = await authorizeOnTarget(
       ctx,
       actor,
       "inspect_target",
       occasionRef(input.occasionId),
     );
-    const found = await requireOccasion(ctx, input.occasionId);
     return { occasion: found.entity, access };
   });
   return presentManagedOccasion(container, read);

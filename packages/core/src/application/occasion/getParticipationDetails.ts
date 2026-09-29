@@ -38,9 +38,10 @@ export type ParticipationDetailsView = Readonly<{
  * 「getParticipationDetails」; EVT-02, EVT-10 / CM-04). A pair that does
  * not take part answers with `participation: null`.
  *
+ * - `NotFoundError` `OCCASION_NOT_FOUND` / `PLACE_NOT_FOUND`, checked
+ *   before access.
  * - `ForbiddenError` unless `act_as_place` on the place or
  *   `manage_target` on the occasion allows.
- * - `NotFoundError` `OCCASION_NOT_FOUND` / `PLACE_NOT_FOUND`.
  */
 export async function getParticipationDetails({
   container,
@@ -49,14 +50,14 @@ export async function getParticipationDetails({
 }: ActorServiceArgs<GetParticipationDetailsInput>): Promise<ParticipationDetailsView> {
   const today = LocalDate.fromInstant(container.clock.now());
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const occasion = (await requireOccasion(ctx, input.occasionId)).entity;
+    const place = await requireParticipantPlace(ctx, input.placeId);
     const side = await authorizeAsPlaceOrOccasion(
       ctx,
       actor,
       input.placeId,
       input.occasionId,
     );
-    const occasion = (await requireOccasion(ctx, input.occasionId)).entity;
-    const place = await requireParticipantPlace(ctx, input.placeId);
     const [found, hasSteward] = await Promise.all([
       ctx.participationRepository.findById(input),
       placeHasSteward(ctx, input.placeId),

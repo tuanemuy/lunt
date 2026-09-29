@@ -14,7 +14,8 @@ export type UnsuspendOccasionInput = Readonly<{ occasionId: OccasionId }>;
  * occasion whose last photo was taken down meanwhile stays `unpublished`
  * (`photoTakedown`). Emits `occasion.unsuspended`.
  *
- * - `ForbiddenError` (`operate_service`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`operate_service`).
  * - `BusinessRuleError`: `OCCASION_NOT_SUSPENDED`.
  * - `ConflictError` on a concurrent save.
  */

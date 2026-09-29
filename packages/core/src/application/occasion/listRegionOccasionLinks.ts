@@ -3,6 +3,7 @@ import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import type { RegionLinkStatus } from "@repo/core/domain/occasion/regionLink";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import {
   type OccasionStateView,
@@ -34,6 +35,8 @@ export type RegionOccasionLinksView = Readonly<{
  * cancelled ones included (`spec/usecases/occasion.md`
  * 「listRegionOccasionLinks」; REG-11, REG-13 / RM-03).
  *
+ * - `NotFoundError` (`REGION_NOT_FOUND`) without the region, checked
+ *   before access.
  * - `ForbiddenError` (`manage_target` on the region).
  */
 export async function listRegionOccasionLinks({
@@ -43,6 +46,10 @@ export async function listRegionOccasionLinks({
 }: ActorServiceArgs<ListRegionOccasionLinksInput>): Promise<RegionOccasionLinksView> {
   const pagination = Pagination.create(input.pagination);
   const today = LocalDate.fromInstant(container.clock.now());
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "region",
+    id: input.regionId,
+  });
   return container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",

@@ -1,6 +1,7 @@
 import type { PlaceId, RegionId } from "@repo/core/domain/common/ids";
 import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import { persistAffiliations, readAffiliations } from "./affiliations";
 
@@ -18,6 +19,8 @@ export type ExcludeAffiliatedPlaceInput = Readonly<{
  * notice follow from the event.
  *
  * - `region.affiliation_dissolved` (`cause: "excluded"`).
+ * - `NotFoundError` (`REGION_NOT_FOUND`) without the region, checked
+ *   before access.
  * - `ForbiddenError` (`manage_target`), also when the stewardship changes
  *   before the commit.
  * - `BusinessRuleError` `REGION_NOT_AFFILIATED`.
@@ -30,6 +33,10 @@ export async function excludeAffiliatedPlace({
   input,
 }: ActorServiceArgs<ExcludeAffiliatedPlaceInput>): Promise<void> {
   const now = container.clock.now();
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "region",
+    id: input.regionId,
+  });
   await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",

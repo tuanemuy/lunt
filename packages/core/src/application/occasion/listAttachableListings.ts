@@ -37,9 +37,10 @@ export type AttachableListingsView = Readonly<{
  * (`Listing.attachableIds`) follow one rule (`spec/usecases/occasion.md`
  * 「listAttachableListings」; EVT-01, EVT-02, EVT-10 / CM-04, RQ-06).
  *
+ * - `NotFoundError` `OCCASION_NOT_FOUND` / `PLACE_NOT_FOUND`, checked
+ *   before access.
  * - `ForbiddenError` unless `act_as_place` on the place or
  *   `manage_target` on the occasion allows.
- * - `NotFoundError` `OCCASION_NOT_FOUND` / `PLACE_NOT_FOUND`.
  */
 export async function listAttachableListings({
   container,
@@ -49,14 +50,14 @@ export async function listAttachableListings({
   const pagination = Pagination.create(input.pagination);
   const today = LocalDate.fromInstant(container.clock.now());
   const page = await container.unitOfWorkProvider.run(async (ctx) => {
+    await requireOccasion(ctx, input.occasionId);
+    await requireParticipantPlace(ctx, input.placeId);
     await authorizeAsPlaceOrOccasion(
       ctx,
       actor,
       input.placeId,
       input.occasionId,
     );
-    await requireOccasion(ctx, input.occasionId);
-    await requireParticipantPlace(ctx, input.placeId);
     return ctx.listingRepository.findPageAttachable(
       input.placeId,
       today,

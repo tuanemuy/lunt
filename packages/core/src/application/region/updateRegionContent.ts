@@ -34,7 +34,7 @@ export type UpdateRegionContentInput = Readonly<{
  *
  * - `ForbiddenError` (`manage_target`), also when a steward is appointed
  *   or removed before the commit.
- * - `NotFoundError` without the region.
+ * - `NotFoundError` without the region, checked before access.
  * - `ConflictError` when `version` is not the stored one, or on an
  *   optimistic-lock conflict of the region or a photo.
  * - `BusinessRuleError` `REGION_PUBLISH_CONDITION_UNMET` (with the missing
@@ -49,11 +49,11 @@ export async function updateRegionContent({
   const content = await buildRegionContent(container, input.content);
   const now = container.clock.now();
   const region = await container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireRegion(ctx, input.regionId);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",
       id: input.regionId,
     });
-    const read = await requireRegion(ctx, input.regionId);
     assertEditedVersion(read.entity, input.version);
     const { entity, eventDrafts } = Region.updateContent(
       read.entity,

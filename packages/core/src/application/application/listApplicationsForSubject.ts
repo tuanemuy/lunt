@@ -7,6 +7,7 @@ import type { SubjectFilter } from "@repo/core/domain/application/ports/applicat
 import { Pagination } from "@repo/core/domain/common/pagination";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
@@ -73,6 +74,8 @@ function scopeOf(subject: StewardedRef): Readonly<{
  * review; a place lists the active applications made as its steward, for
  * its 「申請中」 relations.
  *
+ * - `NotFoundError` (`{PLACE|REGION|OCCASION}_NOT_FOUND`) without the
+ *   target, checked before access.
  * - `ForbiddenError` when the actor may not manage the region / occasion,
  *   or act for the place.
  * - `COMMON_INVALID_INPUT` on a bad pagination.
@@ -85,6 +88,7 @@ export async function listApplicationsForSubject({
   const pagination = Pagination.create(input.pagination);
   const { subject } = input;
   const scope = scopeOf(subject);
+  await requireExistingTarget(container.stewardedTargetDirectory, subject);
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, scope.operation, subject);
     const page = await ctx.applicationRepository.findPageBySubject(

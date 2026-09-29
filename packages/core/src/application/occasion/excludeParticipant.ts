@@ -17,9 +17,10 @@ export type ExcludeParticipantInput = Readonly<{
  * participation and emits `occasion.participation_dissolved`
  * (`cause: "excluded"`). Cannot be undone.
  *
- * - `ForbiddenError` (`manage_target` on the occasion).
  * - `NotFoundError` `PARTICIPATION_NOT_FOUND` when already dissolved,
- *   also when a concurrent withdrawal or exclusion commits first.
+ *   also when a concurrent withdrawal or exclusion commits first;
+ *   checked before access.
+ * - `ForbiddenError` (`manage_target` on the occasion).
  */
 export async function excludeParticipant({
   container,
@@ -28,11 +29,11 @@ export async function excludeParticipant({
 }: ActorServiceArgs<ExcludeParticipantInput>): Promise<void> {
   const now = container.clock.now();
   await container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireParticipation(ctx, input);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",
       id: input.occasionId,
     });
-    const read = await requireParticipation(ctx, input);
     const eventDrafts = Participation.exclude(read.entity, now);
     await ctx.participationRepository.delete(
       read.entity.key,

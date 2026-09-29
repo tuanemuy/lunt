@@ -4,6 +4,7 @@ import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import { Place } from "@repo/core/domain/place/place";
 import type { PlaceName } from "@repo/core/domain/place/profile";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 
 export type ListAffiliatedPlacesInput = Readonly<{
@@ -31,6 +32,8 @@ export type AffiliatedPlacesView = Readonly<{
  * with their state (REG-08, REG-13). Pending affiliation and leave
  * applications are not included.
  *
+ * - `NotFoundError` (`REGION_NOT_FOUND`) without the region, checked
+ *   before access.
  * - `ForbiddenError` (`manage_target`).
  * - `BusinessRuleError` `COMMON_INVALID_INPUT` for a pagination out of
  *   bounds.
@@ -40,6 +43,10 @@ export async function listAffiliatedPlaces({
   actor,
   input,
 }: ActorServiceArgs<ListAffiliatedPlacesInput>): Promise<AffiliatedPlacesView> {
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "region",
+    id: input.regionId,
+  });
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",

@@ -38,8 +38,8 @@ export type TakedownClaimDetail = TakedownClaimView &
  * an error; an unviewable target's photos are still listed so they can be
  * taken down.
  *
- * - `ForbiddenError` without `operate_service`; `NotFoundError`
- *   (`TAKEDOWN_CLAIM_NOT_FOUND`).
+ * - `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`), checked before access;
+ *   `ForbiddenError` without `operate_service`.
  */
 export async function getTakedownClaim({
   container,
@@ -47,8 +47,9 @@ export async function getTakedownClaim({
   input,
 }: ActorServiceArgs<GetTakedownClaimInput>): Promise<TakedownClaimDetail> {
   const claim = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requireTakedownClaim(ctx, input.claimId);
     await authorizeRole(ctx, actor, "operate_service");
-    return (await requireTakedownClaim(ctx, input.claimId)).entity;
+    return found.entity;
   });
   const view = takedownClaimView(claim);
   const [described, viewable] = await Promise.all([

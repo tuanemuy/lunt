@@ -12,8 +12,8 @@ export type UnpublishRegionInput = Readonly<{ regionId: RegionId }>;
  * places and listings are left as they are.
  *
  * - `region.unpublished` (`reason: "byManager"`).
+ * - `NotFoundError` without the region, checked before access.
  * - `ForbiddenError` (`manage_target`).
- * - `NotFoundError` without the region.
  * - `BusinessRuleError`, in this order: `REGION_SUSPENDED`,
  *   `COMMON_PUBLICATION_INVALID_TRANSITION`.
  * - `ConflictError` when a concurrent save commits first.
@@ -25,11 +25,11 @@ export async function unpublishRegion({
 }: ActorServiceArgs<UnpublishRegionInput>): Promise<Region> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireRegion(ctx, input.regionId);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",
       id: input.regionId,
     });
-    const read = await requireRegion(ctx, input.regionId);
     const { entity, eventDrafts } = Region.unpublish(read.entity, now);
     await ctx.regionRepository.save(entity, read.expectedVersion);
     ctx.collectEvents(eventDrafts);

@@ -12,11 +12,15 @@ import { forgetProxyVisits } from "@/components/ops/ProxyReturn";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { classifyError } from "@/presentation/errorState";
-import { requireOperatorFn } from "@/presentation/roles";
+import { requireOpsAccessFn } from "@/presentation/roles";
 
-/** The service-operation area (OM): operators only (CS-05). */
+/**
+ * The service-operation area (OM): operators only (CS-05); a screen about
+ * a target that does not exist is CS-17 for anyone.
+ */
 export const Route = createFileRoute("/_manage/ops")({
-  beforeLoad: () => requireOperatorFn(),
+  beforeLoad: ({ location }) =>
+    requireOpsAccessFn({ data: { path: location.pathname } }),
   component: OpsLayout,
   errorComponent: OpsError,
 });

@@ -19,8 +19,9 @@ export type LinkRegionInput = Readonly<{
  * Not an idempotent create: a resend after it linked answers
  * `OCCASION_REGION_ALREADY_LINKED`.
  *
+ * - `NotFoundError` `OCCASION_NOT_FOUND`, checked before access.
  * - `ForbiddenError` (`manage_target` on the occasion).
- * - `NotFoundError` `OCCASION_NOT_FOUND` / `REGION_NOT_FOUND`.
+ * - `NotFoundError` `REGION_NOT_FOUND`.
  * - `BusinessRuleError` `OCCASION_REGION_ALREADY_LINKED`,
  *   `OCCASION_REGION_LINK_DETACHED`, `OCCASION_REGION_NOT_VIEWABLE`.
  * - `ConflictError` when a link of the same pair commits first.
@@ -33,11 +34,11 @@ export async function linkRegion({
   const now = container.clock.now();
   const key = { occasionId: input.occasionId, regionId: input.regionId };
   return container.unitOfWorkProvider.run(async (ctx) => {
+    await requireOccasion(ctx, input.occasionId);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",
       id: input.occasionId,
     });
-    await requireOccasion(ctx, input.occasionId);
     const region = (await requireRegion(ctx, input.regionId)).entity;
     const existing = await ctx.regionLinkRepository.findById(key);
     const { entity, eventDrafts } = RegionLink.link(

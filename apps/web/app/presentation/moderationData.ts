@@ -372,12 +372,12 @@ export async function loadTakedownClaim(
   rawClaimId: string,
 ): Promise<TakedownClaimData> {
   const { container, actor } = await actorAndContainer();
-  await requireOperator(container, actor);
   const detail = await getTakedownClaim({
     container,
     actor,
     input: { claimId: claimIdOf(rawClaimId) },
   });
+  await requireOperator(container, actor);
   const { state, placeName } = detail.targetExists
     ? await claimTargetState(
         container,
@@ -421,12 +421,12 @@ export async function loadInfoReport(
   rawReportId: string,
 ): Promise<InfoReportData> {
   const { container, actor } = await actorAndContainer();
-  await requireOperator(container, actor);
   const detail = await getInfoReport({
     container,
     actor,
     input: { reportId: reportIdOf(rawReportId) },
   });
+  await requireOperator(container, actor);
   const placeId: PlaceId = detail.target.target.placeId;
   const [place, members] = await Promise.all([
     orNull(getManagedPlace({ container, actor, input: { placeId } })),

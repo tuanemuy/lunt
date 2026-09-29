@@ -5,6 +5,7 @@ import type { Publication } from "@repo/core/domain/common/publication";
 import type { RegionLinkStatus } from "@repo/core/domain/occasion/regionLink";
 import type { RegionName } from "@repo/core/domain/region/values";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import { present } from "./participationViews";
 
@@ -36,6 +37,8 @@ export type OccasionRegionLinksView = Readonly<{
  * (`spec/usecases/occasion.md` 「listOccasionRegionLinks」; EVT-05, EVT-13
  * / EM-03).
  *
+ * - `NotFoundError` (`OCCASION_NOT_FOUND`) without the occasion, checked
+ *   before access.
  * - `ForbiddenError` (`manage_target` on the occasion).
  */
 export async function listOccasionRegionLinks({
@@ -44,6 +47,10 @@ export async function listOccasionRegionLinks({
   input,
 }: ActorServiceArgs<ListOccasionRegionLinksInput>): Promise<OccasionRegionLinksView> {
   const pagination = Pagination.create(input.pagination);
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "occasion",
+    id: input.occasionId,
+  });
   return container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",

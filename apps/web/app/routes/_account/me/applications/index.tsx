@@ -28,7 +28,8 @@ import { renderMyApplications } from "./-render";
 /**
  * MY-04 自分の申請の一覧. Needs a login (CS-04). `?place=` (from SM-01・
  * SM-05・SM-06) narrows it to one store's applications made as its
- * steward; a store the viewer does not act for is CS-05.
+ * steward; a store that does not exist is CS-17, one the viewer does not
+ * act for CS-05.
  */
 export const Route = createFileRoute("/_account/me/applications/")({
   validateSearch: myApplicationsSearchSchema,
@@ -82,8 +83,9 @@ function MyApplicationsPage() {
 }
 
 /**
- * CS-05 for a store the viewer does not act for; CS-02 when the list
- * could not be read (retrying reloads the route).
+ * CS-17 for a store that does not exist, CS-05 for one the viewer does
+ * not act for; CS-02 when the list could not be read (retrying reloads
+ * the route).
  */
 function MyApplicationsError({ error }: ErrorComponentProps) {
   const router = useRouter();
@@ -92,6 +94,29 @@ function MyApplicationsError({ error }: ErrorComponentProps) {
   const state = classifyError(error);
   if (state.kind === "loginRequired") {
     return <RouteErrorContent problem={{ kind: "error", error }} />;
+  }
+  if (state.kind === "notFound" && place !== null) {
+    return (
+      <ManagePage title={<Title filtered={null} />}>
+        <ManageBody>
+          <EmptyPanel
+            title="店舗が見つかりません"
+            actions={
+              <>
+                <ButtonLink to="/me/applications">
+                  すべての申請を見る
+                </ButtonLink>
+                <ButtonLink variant="secondary" to="/me">
+                  マイページへ戻る
+                </ButtonLink>
+              </>
+            }
+          >
+            絞り込んだ店舗は存在しません。自分の申請は、絞り込みを外すと確かめられます。
+          </EmptyPanel>
+        </ManageBody>
+      </ManagePage>
+    );
   }
   if (state.kind === "forbidden" && place !== null) {
     return (

@@ -3,6 +3,7 @@ import type { InvitationId } from "@repo/core/domain/common/ids";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import type { ActorServiceArgs } from "../types";
 import { authorizeOnTarget, persistStewardship } from "./access";
+import { requireExistingTarget } from "./targets";
 
 export type CancelInvitationInput = Readonly<{
   target: StewardedRef;
@@ -12,12 +13,16 @@ export type CancelInvitationInput = Readonly<{
 /**
  * Removes a pending invitation (`cancel_invitation`: the target's
  * stewards, or an operator standing in while it is vacant). No event.
+ *
+ * - `NotFoundError` (`{PLACE|REGION|OCCASION}_NOT_FOUND`) without the
+ *   target, checked before access.
  */
 export async function cancelInvitation({
   container,
   actor,
   input,
 }: ActorServiceArgs<CancelInvitationInput>): Promise<void> {
+  await requireExistingTarget(container.stewardedTargetDirectory, input.target);
   await container.unitOfWorkProvider.run(async (ctx) => {
     const { stewardship, expectedVersion } = await authorizeOnTarget(
       ctx,

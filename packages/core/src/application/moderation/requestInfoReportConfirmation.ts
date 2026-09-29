@@ -17,8 +17,9 @@ export type RequestInfoReportConfirmationInput = Readonly<{
  * steward of the place is notified. Viewability and the listing's
  * existence are not checked.
  *
- * - `ForbiddenError` (`operate_service`, also when revoked before the
- *   commit); `NotFoundError` (`INFO_REPORT_NOT_FOUND`).
+ * - `NotFoundError` (`INFO_REPORT_NOT_FOUND`), checked before access;
+ *   `ForbiddenError` (`operate_service`, also when revoked before the
+ *   commit).
  * - `BusinessRuleError`: `MODERATION_INFO_REPORT_NOT_OPEN` (checked
  *   first), `MODERATION_INFO_REPORT_PLACE_WITHOUT_STEWARD`.
  * - `ConflictError` when a concurrent request or resolve commits first.
@@ -30,8 +31,8 @@ export async function requestInfoReportConfirmation({
 }: ActorServiceArgs<RequestInfoReportConfirmationInput>): Promise<InfoReportView> {
   const now = container.clock.now();
   const requested = await container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const found = await requireInfoReport(ctx, input.reportId);
+    await authorizeRole(ctx, actor, "operate_service");
     const hasSteward = await placeHasSteward(ctx, found.entity.target.placeId);
     const { entity, eventDrafts } = InfoReport.requestConfirmation(
       found.entity,

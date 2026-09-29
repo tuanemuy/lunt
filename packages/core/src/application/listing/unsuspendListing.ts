@@ -12,7 +12,8 @@ export type UnsuspendListingInput = Readonly<{ listingId: ListingId }>;
  * `unpublished` / `photoTakedown` when the last photo was taken down
  * meanwhile. Emits `listing.unsuspended`.
  *
- * - `ForbiddenError` (`operate_service`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`operate_service`).
  * - `BusinessRuleError`: `LISTING_NOT_SUSPENDED`.
  * - `ConflictError` on a concurrent save.
  */

@@ -5,6 +5,7 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import type { PlaceId } from "@repo/core/domain/common/ids";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { authorizeOnTarget, readActorAuthority } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
@@ -60,6 +61,8 @@ async function placesActedFor(
  * row of its own. Narrowed to one place, only that place's applications
  * made as its steward.
  *
+ * - `NotFoundError` (`PLACE_NOT_FOUND`) when narrowed to a place that does
+ *   not exist, checked before access.
  * - `ForbiddenError` when narrowed to a place the actor may not act for.
  * - `COMMON_INVALID_INPUT` on a bad pagination.
  */
@@ -70,6 +73,12 @@ export async function listMyApplications({
 }: ActorServiceArgs<ListMyApplicationsInput>): Promise<MyApplications> {
   const pagination = Pagination.create(input.pagination);
   const placeId = input.placeId ?? null;
+  if (placeId !== null) {
+    await requireExistingTarget(container.stewardedTargetDirectory, {
+      kind: "place",
+      id: placeId,
+    });
+  }
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     const criteria =
       placeId === null

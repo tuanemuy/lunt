@@ -190,15 +190,29 @@ async function invitationsOf(
   };
 }
 
-/** OM-03: one store, listing, region or event, whatever its state. */
+/**
+ * OM-03: one store, listing, region or event, whatever its state. The
+ * subject is read first so a missing one is CS-17 for anyone
+ * (`NotFoundError` before access); the reads let a steward in too
+ * (`inspect_target`), and the render endpoint can be called without the
+ * area guard, so the operator role is checked after them.
+ */
 export async function loadOpsSubject(
   kind: OpsSubjectKind,
   rawId: string,
 ): Promise<OpsSubjectData> {
   const { container, actor } = await actorAndContainer();
-  // The reads below let a steward in too (`inspect_target`), and the render
-  // endpoint can be called without the area guard.
+  const data = await readOpsSubject(container, actor, kind, rawId);
   await requireOperator(container, actor);
+  return data;
+}
+
+async function readOpsSubject(
+  container: RequestContainer,
+  actor: Actor,
+  kind: OpsSubjectKind,
+  rawId: string,
+): Promise<OpsSubjectData> {
   switch (kind) {
     case "place": {
       const placeId = placeIdOf(rawId);

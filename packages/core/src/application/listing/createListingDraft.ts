@@ -36,8 +36,9 @@ export const LISTING_ID_CONFLICT = "LISTING_ID_CONFLICT";
  * Idempotent create: the same id with the same place and content succeeds
  * without writing and returns the listing as it now is (published or not).
  *
- * - `ForbiddenError` (`manage_target` on the place, also when it no longer
- *   holds at commit); `NotFoundError` when the place does not exist.
+ * - `NotFoundError` when the place does not exist, checked before access;
+ *   `ForbiddenError` (`manage_target` on the place, also when it no longer
+ *   holds at commit).
  * - `BusinessRuleError`: `LISTING_CATEGORY_NOT_AVAILABLE`, the content's
  *   value objects (`LISTING_INVALID_NAME`, `LISTING_DUPLICATE_PHOTO`,
  *   `LISTING_INVALID_OFFERING_PERIOD`, `LISTING_INVALID_OPEN_DATES`, …) and
@@ -54,14 +55,14 @@ export async function createListingDraft({
   const id = ListingId.create(input.listingId);
   const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
-    const access = await authorizeOnTarget(ctx, actor, "manage_target", {
-      kind: "place",
-      id: input.placeId,
-    });
     const place = await ctx.placeRepository.findById(input.placeId);
     if (place === null) {
       throw new NotFoundError("PLACE_NOT_FOUND", "The place does not exist");
     }
+    const access = await authorizeOnTarget(ctx, actor, "manage_target", {
+      kind: "place",
+      id: input.placeId,
+    });
     const view = {
       catalog: (await ctx.categoryCatalogRepository.find()).entity,
       place: place.entity,

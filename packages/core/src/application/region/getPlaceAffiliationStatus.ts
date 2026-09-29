@@ -6,6 +6,7 @@ import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import type { Region } from "@repo/core/domain/region/region";
 import type { RegionName } from "@repo/core/domain/region/values";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 
 export type GetPlaceAffiliationStatusInput = Readonly<{ placeId: PlaceId }>;
@@ -37,6 +38,8 @@ export type PlaceAffiliationStatus = Readonly<{
  * Affiliations made while the place had no steward are included, and so
  * are unpublished and suspended regions. Pending applications are not.
  *
+ * - `NotFoundError` (`PLACE_NOT_FOUND`) without the place, checked
+ *   before access.
  * - `ForbiddenError` (`act_as_place`).
  */
 export async function getPlaceAffiliationStatus({
@@ -44,6 +47,10 @@ export async function getPlaceAffiliationStatus({
   actor,
   input,
 }: ActorServiceArgs<GetPlaceAffiliationStatusInput>): Promise<PlaceAffiliationStatus> {
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "place",
+    id: input.placeId,
+  });
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",

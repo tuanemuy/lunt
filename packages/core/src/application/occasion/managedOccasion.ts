@@ -234,7 +234,8 @@ type Transition = (occasion: Occasion, now: Date) => WithEventDrafts<Occasion>;
 /**
  * A state change without a version in the request
  * (`spec/usecases/occasion.md`; index.md 「編集の競合」): checks who may do
- * it and reads the occasion (`NotFoundError` when gone) before any write,
+ * reads the occasion (`NotFoundError` when gone) and then checks who may
+ * do it, both before any write,
  * applies `transition` (its `BusinessRuleError` when the occasion is
  * already in that state), saves against the version read and stores the
  * events. A concurrent write committed first → `ConflictError`.
@@ -251,6 +252,7 @@ export async function transitionOccasion(
 ): Promise<ManagedOccasionView> {
   const now = container.clock.now();
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requireOccasion(ctx, occasionId);
     const target = occasionRef(occasionId);
     const access =
       by === "occasion_operator"
@@ -258,7 +260,6 @@ export async function transitionOccasion(
         : await authorizeRole(ctx, actor, "operate_service").then(() =>
             readTargetAccess(ctx, actor, target),
           );
-    const found = await requireOccasion(ctx, occasionId);
     const { entity, eventDrafts } = transition(found.entity, now);
     await ctx.occasionRepository.save(entity, found.expectedVersion);
     ctx.collectEvents(eventDrafts);

@@ -2,6 +2,7 @@ import type { PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import { readListings } from "./attachedListings";
 import {
@@ -37,6 +38,8 @@ export type PlaceParticipationsView = Readonly<{
  * out-of-period dates (`spec/usecases/occasion.md`
  * 「getPlaceParticipations」; EVT-01, EVT-02, EVT-03 / SM-06).
  *
+ * - `NotFoundError` (`PLACE_NOT_FOUND`) without the place, checked
+ *   before access.
  * - `ForbiddenError` (`act_as_place` on the place; no absence proxy).
  */
 export async function getPlaceParticipations({
@@ -46,6 +49,10 @@ export async function getPlaceParticipations({
 }: ActorServiceArgs<GetPlaceParticipationsInput>): Promise<PlaceParticipationsView> {
   const pagination = Pagination.create(input.pagination);
   const today = LocalDate.fromInstant(container.clock.now());
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "place",
+    id: input.placeId,
+  });
   return container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",

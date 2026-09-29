@@ -28,8 +28,9 @@ export type AddParticipationDirectlyInput = ParticipationDetailsFields &
  * Not an idempotent create: the key is the pair, so a resend after it
  * took part answers `OCCASION_ALREADY_PARTICIPATING`.
  *
+ * - `NotFoundError` `OCCASION_NOT_FOUND`, checked before access.
  * - `ForbiddenError` (`manage_target` on the occasion).
- * - `NotFoundError` `OCCASION_NOT_FOUND` / `PLACE_NOT_FOUND`.
+ * - `NotFoundError` `PLACE_NOT_FOUND`.
  * - `BusinessRuleError` `OCCASION_ALREADY_PARTICIPATING`,
  *   `OCCASION_PLACE_HAS_STEWARD`, `OCCASION_PLACE_NOT_VIEWABLE`, then
  *   `OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD`,
@@ -45,11 +46,11 @@ export async function addParticipationDirectly({
   const today = LocalDate.fromInstant(now);
   const key = { occasionId: input.occasionId, placeId: input.placeId };
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const occasion = (await requireOccasion(ctx, input.occasionId)).entity;
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",
       id: input.occasionId,
     });
-    const occasion = (await requireOccasion(ctx, input.occasionId)).entity;
     const place = await requireParticipantPlace(ctx, input.placeId);
     const [existing, hasSteward] = await Promise.all([
       ctx.participationRepository.findById(key),

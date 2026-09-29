@@ -1,3 +1,4 @@
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
 import { Account } from "@repo/core/domain/account/entity";
 import {
   AccessPolicy,
@@ -49,7 +50,11 @@ export type Kit = ReturnType<typeof authorityKit>;
 export function authorityKit() {
   const targets = new TestStewardedTargets();
   const t: TestContext = createTestContainer({
-    overrides: () => ({ stewardedTargetDirectory: targets }),
+    overrides: (deps) => ({
+      stewardedTargetDirectory: targets.withFallback(
+        new DoStewardedTargetDirectory(deps.client),
+      ),
+    }),
   });
   const { container, idGenerator, clock } = t;
   let people = 0;

@@ -17,7 +17,8 @@ export type RevokeOccasionCancellationInput = Readonly<{
  * follows the period and today again. No domain event; lapsed
  * applications stay lapsed.
  *
- * - `ForbiddenError` (`manage_target`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`manage_target`).
  * - `BusinessRuleError`: `OCCASION_NOT_CANCELLED`.
  * - `ConflictError` on a concurrent revocation or save.
  */

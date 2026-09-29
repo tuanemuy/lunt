@@ -5,6 +5,7 @@ import type { StewardedRef } from "@repo/core/domain/common/refs";
 import type { ActorServiceArgs } from "../types";
 import { authorizeOnTarget } from "./access";
 import { findAccountsByIds } from "./accounts";
+import { requireExistingTarget } from "./targets";
 
 export type ViewMembersInput = Readonly<{ target: StewardedRef }>;
 
@@ -33,12 +34,16 @@ export type ViewMembersOutput = Readonly<{
  * A target's stewards (with email addresses) and pending invitations
  * (`view_members`: its stewards, and operators whether or not it has
  * stewards).
+ *
+ * - `NotFoundError` (`{PLACE|REGION|OCCASION}_NOT_FOUND`) without the
+ *   target, checked before access.
  */
 export async function viewMembers({
   container,
   actor,
   input,
 }: ActorServiceArgs<ViewMembersInput>): Promise<ViewMembersOutput> {
+  await requireExistingTarget(container.stewardedTargetDirectory, input.target);
   return container.unitOfWorkProvider.run(async (ctx) => {
     const { stewardship } = await authorizeOnTarget(
       ctx,

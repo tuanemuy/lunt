@@ -5,6 +5,7 @@ import type {
   InfoReportContent,
 } from "@repo/core/domain/moderation/values";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import { describeTargets } from "./reads";
 import {
@@ -39,6 +40,8 @@ export type ListConfirmationRequestsForPlaceOutput = Readonly<{
  * 「listConfirmationRequestsForPlace」; MOD-06 / SM-01). Every steward reads
  * the same list.
  *
+ * - `NotFoundError` (`PLACE_NOT_FOUND`) without the place, checked
+ *   before access.
  * - `ForbiddenError` without `act_as_place` on the place (operators
  *   included, a vacant place included).
  * - `BusinessRuleError` `COMMON_INVALID_INPUT` for an invalid pagination.
@@ -49,6 +52,10 @@ export async function listConfirmationRequestsForPlace({
   input,
 }: ActorServiceArgs<ListConfirmationRequestsForPlaceInput>): Promise<ListConfirmationRequestsForPlaceOutput> {
   const pagination = Pagination.create(input.pagination);
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "place",
+    id: input.placeId,
+  });
   const page = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",

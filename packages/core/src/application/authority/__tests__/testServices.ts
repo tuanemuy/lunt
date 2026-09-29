@@ -23,15 +23,23 @@ export function createTestAuthorityServices(
 }
 
 /**
- * Test-only `StewardedTargetDirectory` holding the targets a test adds.
- * No target kind has its tables yet in P1 (places arrive in S2A, regions
- * and occasions in S3A), so a usecase test that needs a target to exist
- * swaps this in: `createTestContainer({ overrides: () => ({
- * stewardedTargetDirectory: targets }) })`. It keeps the port's contract
- * (0–100 targets, existing ones only, listing order).
+ * Test-only `StewardedTargetDirectory` holding the targets a test adds,
+ * so an Authority test can name a target without building its aggregate:
+ * `createTestContainer({ overrides: () => ({ stewardedTargetDirectory:
+ * targets }) })`. With `withFallback`, targets it does not hold are asked
+ * of another directory (the real one, for the places, regions and
+ * occasions a test registers through their usecases). It keeps the
+ * port's contract (0–100 targets, existing ones only, listing order).
  */
 export class TestStewardedTargets implements StewardedTargetDirectory {
   private readonly targets = new Map<string, StewardedTargetSummary>();
+  private fallback: StewardedTargetDirectory | null = null;
+
+  /** Asks `directory` for the targets not added here. */
+  withFallback(directory: StewardedTargetDirectory): this {
+    this.fallback = directory;
+    return this;
+  }
 
   /** Registers `target` as existing, with `name` (`null`: unnamed draft). */
   add(target: StewardedRef, name: string | null): this {
@@ -44,9 +52,16 @@ export class TestStewardedTargets implements StewardedTargetDirectory {
   ): Promise<readonly StewardedTargetSummary[]> {
     IdBatch.assertWithinLimit(targets);
     const found = new Map<string, StewardedTargetSummary>();
+    const others: StewardedRef[] = [];
     for (const target of targets) {
       const summary = this.targets.get(ContentRef.key(target));
       if (summary !== undefined) found.set(ContentRef.key(target), summary);
+      else others.push(target);
+    }
+    if (this.fallback !== null && others.length > 0) {
+      for (const summary of await this.fallback.describe(others)) {
+        found.set(ContentRef.key(summary.target), summary);
+      }
     }
     return [...found.values()].sort((a, b) =>
       StewardedTargetOrder.compare(a.target, b.target),

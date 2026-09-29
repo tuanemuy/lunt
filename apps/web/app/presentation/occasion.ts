@@ -20,17 +20,23 @@ const dayField = z
 
 export const occasionRefSchema = z.object({ occasionId: idField });
 
+const occasionFrameSchema = occasionRefSchema.extend({
+  /** The screen's path, so a missing store it is about wins over a refusal. */
+  path: z.string().max(2048).optional(),
+});
+
 /**
  * The EM screens' guard and frame (`beforeLoad` of
  * `/manage/events/$occasionId`): the event and whether the viewer manages
  * it as its event operator or as the operator standing in for an absent
  * one. Anyone else — including an operator while the event has an event
- * operator — gets `ForbiddenError` (CS-05 / CS-15); an unknown event
- * `NotFoundError` (CS-17).
+ * operator — gets `ForbiddenError` (CS-05 / CS-15); an unknown event, or
+ * an unknown store the screen at `path` is about (CM-04), `NotFoundError`
+ * (CS-17) first.
  */
 export const loadOccasionFrameFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
-  .validator(validateInput(occasionRefSchema))
+  .validator(validateInput(occasionFrameSchema))
   .handler(async ({ data }): Promise<OccasionFrame> => {
     const [{ getContainer }, { requireActor }, { loadOccasionFrame }] =
       await Promise.all([
@@ -40,7 +46,12 @@ export const loadOccasionFrameFn = createServerFn({ method: "GET" })
       ]);
     const container = await getContainer();
     const actor = await requireActor(container);
-    return loadOccasionFrame(container, actor, data.occasionId);
+    return loadOccasionFrame(
+      container,
+      actor,
+      data.occasionId,
+      data.path ?? null,
+    );
   });
 
 const optionalText = (max: number) =>

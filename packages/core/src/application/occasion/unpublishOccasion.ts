@@ -14,7 +14,8 @@ export type UnpublishOccasionInput = Readonly<{ occasionId: OccasionId }>;
  * Emits `occasion.unpublished` (`byManager`). Participations and region
  * links are kept.
  *
- * - `ForbiddenError` (`manage_target`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`manage_target`).
  * - `BusinessRuleError`, in this order: `OCCASION_SUSPENDED`,
  *   `COMMON_PUBLICATION_INVALID_TRANSITION` (not published).
  * - `ConflictError` on a concurrent save.

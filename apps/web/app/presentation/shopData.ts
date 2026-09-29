@@ -19,6 +19,7 @@ import { Address } from "@repo/core/domain/common/address";
 import { PhotoId, type PlaceId } from "@repo/core/domain/common/ids";
 import { requireActor } from "./actor";
 import { loadAreaLists, townOfAddress } from "./areaData";
+import { missingChildFirst } from "./childTargets";
 import { loadShopTodo } from "./moderationData";
 import type { PlaceProfileInput } from "./place";
 import {
@@ -40,19 +41,24 @@ import { placeIdOf } from "./targetIds";
  * endpoints can be called without the area's guard.
  */
 export function requireManagement(manageable: boolean): void {
-  if (!manageable) {
-    throw new ForbiddenError(
-      PLACE_PROXY_UNAVAILABLE,
-      "The store has a steward, so an operator may not manage it",
-    );
-  }
+  if (!manageable) throw managementRefusal();
 }
 
-/** See `loadPlaceFrameFn`. */
+const managementRefusal = (): ForbiddenError =>
+  new ForbiddenError(
+    PLACE_PROXY_UNAVAILABLE,
+    "The store has a steward, so an operator may not manage it",
+  );
+
+/**
+ * See `loadPlaceFrameFn`. `path` is the screen's, so a refusal gives way
+ * to a missing listing, request or event the screen is about.
+ */
 export async function loadPlaceFrame(
   container: RequestContainer,
   actor: Actor,
   rawPlaceId: string,
+  path: string | null = null,
 ): Promise<PlaceFrame> {
   const placeId = placeIdOf(rawPlaceId);
   const view = await getManagedPlace({
@@ -60,9 +66,12 @@ export async function loadPlaceFrame(
     actor,
     input: { placeId },
   }).catch(async (error: unknown) => {
-    throw await strangerRefusal(container, actor, placeId, error);
+    const refusal = await missingChildFirst(container, actor, path, error);
+    throw await strangerRefusal(container, actor, placeId, refusal);
   });
-  requireManagement(view.management.allowed);
+  if (!view.management.allowed) {
+    throw await missingChildFirst(container, actor, path, managementRefusal());
+  }
   const basis =
     view.management.allowed && view.management.basis === "steward"
       ? "steward"

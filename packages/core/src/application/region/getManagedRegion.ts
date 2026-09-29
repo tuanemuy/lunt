@@ -41,8 +41,8 @@ export type ManagedRegionView = Readonly<{
  * operators whether or not it has stewards (`inspect_target`). Whether the
  * actor may manage it is `manage_target`'s decision, returned as is.
  *
+ * - `NotFoundError` without the region, checked before access.
  * - `ForbiddenError` (`inspect_target`).
- * - `NotFoundError` without the region.
  */
 export async function getManagedRegion({
   container,
@@ -50,11 +50,11 @@ export async function getManagedRegion({
   input,
 }: ActorServiceArgs<GetManagedRegionInput>): Promise<ManagedRegionView> {
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requireRegion(ctx, input.regionId);
     const access = await authorizeOnTarget(ctx, actor, "inspect_target", {
       kind: "region",
       id: input.regionId,
     });
-    const found = await requireRegion(ctx, input.regionId);
     return {
       region: found.entity,
       hasSteward: !Stewardship.isVacant(access.stewardship),

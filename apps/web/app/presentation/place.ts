@@ -8,16 +8,22 @@ const idField = z.string().min(1).max(64);
 
 export const placeRefSchema = z.object({ placeId: idField });
 
+const placeFrameSchema = placeRefSchema.extend({
+  /** The screen's path, so a missing target it is about wins over a refusal. */
+  path: z.string().max(2048).optional(),
+});
+
 /**
  * The SM screens' guard and frame (`beforeLoad` of `/manage/places/$placeId`):
  * the store and whether the viewer manages it as its steward or as the
  * operator standing in for an absent one. Anyone else — including an
  * operator while the store has a steward — gets `ForbiddenError` (CS-05);
- * an unknown store `NotFoundError` (CS-17).
+ * an unknown store, or an unknown listing, request or event the screen at
+ * `path` is about, `NotFoundError` (CS-17) first.
  */
 export const loadPlaceFrameFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
-  .validator(validateInput(placeRefSchema))
+  .validator(validateInput(placeFrameSchema))
   .handler(async ({ data }): Promise<PlaceFrame> => {
     const [{ getContainer }, { requireActor }, { loadPlaceFrame }] =
       await Promise.all([
@@ -27,7 +33,7 @@ export const loadPlaceFrameFn = createServerFn({ method: "GET" })
       ]);
     const container = await getContainer();
     const actor = await requireActor(container);
-    return loadPlaceFrame(container, actor, data.placeId);
+    return loadPlaceFrame(container, actor, data.placeId, data.path ?? null);
   });
 
 const optionalText = (max: number) =>

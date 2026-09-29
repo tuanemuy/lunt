@@ -12,8 +12,8 @@ export type SuspendRegionInput = Readonly<{ regionId: RegionId }>;
  * occasion links are left as they are — `VisibilityPolicy` hides it.
  *
  * - `region.suspended`.
+ * - `NotFoundError` without the region, checked before access.
  * - `ForbiddenError` without `operate_service`.
- * - `NotFoundError` without the region.
  * - `BusinessRuleError` `REGION_ALREADY_SUSPENDED`.
  * - `ConflictError` when a concurrent save commits first.
  */
@@ -24,8 +24,8 @@ export async function suspendRegion({
 }: ActorServiceArgs<SuspendRegionInput>): Promise<Region> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const read = await requireRegion(ctx, input.regionId);
+    await authorizeRole(ctx, actor, "operate_service");
     const { entity, eventDrafts } = Region.suspend(read.entity, now);
     await ctx.regionRepository.save(entity, read.expectedVersion);
     ctx.collectEvents(eventDrafts);

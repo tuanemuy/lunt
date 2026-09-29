@@ -19,8 +19,9 @@ export type ResolveTakedownClaimInput = Readonly<{
  * outcome to the claimant. Photo removals and suspensions committed
  * earlier are not undone by a failure here.
  *
- * - `ForbiddenError` (`operate_service`, also when revoked before the
- *   commit); `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`).
+ * - `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`), checked before access;
+ *   `ForbiddenError` (`operate_service`, also when revoked before the
+ *   commit).
  * - `BusinessRuleError`: `MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED`
  *   (checked first), `MODERATION_INVALID_TAKEDOWN_OUTCOME`.
  * - `ConflictError` when a concurrent resolve commits first.
@@ -32,8 +33,8 @@ export async function resolveTakedownClaim({
 }: ActorServiceArgs<ResolveTakedownClaimInput>): Promise<TakedownClaimView> {
   const now = container.clock.now();
   const resolved = await container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const found = await requireTakedownClaim(ctx, input.claimId);
+    await authorizeRole(ctx, actor, "operate_service");
     const { entity, eventDrafts } = TakedownClaim.resolve(
       found.entity,
       input.outcome,

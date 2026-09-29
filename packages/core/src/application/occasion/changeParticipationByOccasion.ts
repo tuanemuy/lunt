@@ -31,8 +31,9 @@ export type ChangeParticipationByOccasionInput = ParticipationDetailsFields &
  * emits `occasion.participation_changed` (`changedBy: "occasion"`); equal
  * details write nothing.
  *
+ * - `NotFoundError` `PARTICIPATION_NOT_FOUND` once dissolved;
+ *   checked before access.
  * - `ForbiddenError` (`manage_target` on the occasion).
- * - `NotFoundError` `PARTICIPATION_NOT_FOUND` once dissolved.
  * - `BusinessRuleError` `OCCASION_PLACE_HAS_STEWARD` (a steward took
  *   over; decided before the details and the version), then
  *   `OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD`,
@@ -49,11 +50,11 @@ export async function changeParticipationByOccasion({
   const today = LocalDate.fromInstant(now);
   const key = { occasionId: input.occasionId, placeId: input.placeId };
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireParticipation(ctx, key);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",
       id: input.occasionId,
     });
-    const read = await requireParticipation(ctx, key);
     const [occasion, hasSteward] = await Promise.all([
       requireOccasion(ctx, input.occasionId),
       placeHasSteward(ctx, input.placeId),

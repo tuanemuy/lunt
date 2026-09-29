@@ -13,8 +13,8 @@ export type PublishRegionInput = Readonly<{ regionId: RegionId }>;
  * by a takedown comes back this way after photos are saved. No event; no
  * version in the request (the optimistic lock guards concurrent writes).
  *
+ * - `NotFoundError` without the region, checked before access.
  * - `ForbiddenError` (`manage_target`).
- * - `NotFoundError` without the region.
  * - `BusinessRuleError`, checked in this order: `REGION_SUSPENDED`,
  *   `COMMON_PUBLICATION_INVALID_TRANSITION`,
  *   `REGION_PUBLISH_CONDITION_UNMET` (with the missing requirements).
@@ -27,11 +27,11 @@ export async function publishRegion({
 }: ActorServiceArgs<PublishRegionInput>): Promise<Region> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireRegion(ctx, input.regionId);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",
       id: input.regionId,
     });
-    const read = await requireRegion(ctx, input.regionId);
     const { entity } = Region.publish(read.entity, now);
     await ctx.regionRepository.save(entity, read.expectedVersion);
     return entity;

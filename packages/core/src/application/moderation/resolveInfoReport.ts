@@ -13,8 +13,9 @@ export type ResolveInfoReportInput = Readonly<{ reportId: InfoReportId }>;
  * OM-05). No outcome, no event, nobody notified; stewards, viewability and
  * the listing's existence are not checked.
  *
- * - `ForbiddenError` (`operate_service`, also when revoked before the
- *   commit); `NotFoundError` (`INFO_REPORT_NOT_FOUND`).
+ * - `NotFoundError` (`INFO_REPORT_NOT_FOUND`), checked before access;
+ *   `ForbiddenError` (`operate_service`, also when revoked before the
+ *   commit).
  * - `BusinessRuleError` `MODERATION_INFO_REPORT_ALREADY_RESOLVED`.
  * - `ConflictError` when a concurrent request or resolve commits first.
  */
@@ -24,8 +25,8 @@ export async function resolveInfoReport({
   input,
 }: ActorServiceArgs<ResolveInfoReportInput>): Promise<InfoReportView> {
   const resolved = await container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "operate_service");
     const found = await requireInfoReport(ctx, input.reportId);
+    await authorizeRole(ctx, actor, "operate_service");
     const entity = InfoReport.resolve(found.entity);
     await ctx.infoReportRepository.save(entity, found.expectedVersion);
     return entity;

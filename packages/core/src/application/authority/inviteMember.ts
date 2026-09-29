@@ -6,6 +6,7 @@ import { ConflictError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
 import type { ActorServiceArgs } from "../types";
 import { authorizeOnTarget, persistStewardship } from "./access";
+import { requireExistingTarget } from "./targets";
 
 export type InviteMemberInput = Readonly<{
   target: StewardedRef;
@@ -19,6 +20,9 @@ export type InviteMemberInput = Readonly<{
  * stewards only). The address need not have an account. Resending the
  * same id and address succeeds without a write; the same id with another
  * address is a `ConflictError`.
+ *
+ * - `NotFoundError` (`{PLACE|REGION|OCCASION}_NOT_FOUND`) without the
+ *   target, checked before access.
  */
 export async function inviteMember({
   container,
@@ -27,6 +31,7 @@ export async function inviteMember({
 }: ActorServiceArgs<InviteMemberInput>): Promise<void> {
   const email = EmailAddress.create(input.email);
   const invitationId = InvitationId.create(input.invitationId);
+  await requireExistingTarget(container.stewardedTargetDirectory, input.target);
   await container.unitOfWorkProvider.run(async (ctx) => {
     const { stewardship, expectedVersion } = await authorizeOnTarget(
       ctx,

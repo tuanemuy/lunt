@@ -13,7 +13,8 @@ export type PublishOccasionInput = Readonly<{ occasionId: OccasionId }>;
  * occasion (`spec/usecases/occasion.md` 「publishOccasion」; EVT-06, EVT-12,
  * EVT-13, MOD-03), whatever its holding status. No domain event.
  *
- * - `ForbiddenError` (`manage_target`); `NotFoundError`.
+ * - `NotFoundError`, checked before access; `ForbiddenError`
+ *   (`manage_target`).
  * - `BusinessRuleError`, in this order: `OCCASION_SUSPENDED`,
  *   `COMMON_PUBLICATION_INVALID_TRANSITION` (already published),
  *   `OCCASION_PUBLISH_CONDITION_UNMET` (with what is missing).

@@ -19,9 +19,10 @@ export type DetachRegionLinkInput = Readonly<{
  * unlink it (`spec/usecases/occasion.md` 「detachRegionLink」; REG-11,
  * REG-13 / RM-03). Emits `occasion.region_link_detached`.
  *
- * - `ForbiddenError` (`manage_target` on the region).
  * - `NotFoundError` `REGION_LINK_NOT_FOUND` when there is no link, also
- *   when a concurrent unlink commits first.
+ *   when a concurrent unlink commits first;
+ *   checked before access.
+ * - `ForbiddenError` (`manage_target` on the region).
  * - `BusinessRuleError` `OCCASION_REGION_LINK_ALREADY_DETACHED`.
  * - `ConflictError` when a concurrent detach commits first.
  */
@@ -32,11 +33,11 @@ export async function detachRegionLink({
 }: ActorServiceArgs<DetachRegionLinkInput>): Promise<RegionLinkView> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireRegionLink(ctx, input);
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "region",
       id: input.regionId,
     });
-    const read = await requireRegionLink(ctx, input);
     const { entity, eventDrafts } = RegionLink.detach(read.entity, now);
     await ctx.regionLinkRepository.save(entity, read.expectedVersion);
     ctx.collectEvents(eventDrafts);

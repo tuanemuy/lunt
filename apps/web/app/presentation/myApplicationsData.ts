@@ -3,7 +3,7 @@
 import { listMyApplications } from "@repo/core/application/application/listMyApplications";
 import type { ApplicationSummary } from "@repo/core/application/application/views";
 import { getContainer } from "@repo/core/application/di/containerStore";
-import { ForbiddenError } from "@repo/core/application/errors";
+import { NotFoundError } from "@repo/core/application/errors";
 import { PlaceId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { requireActor } from "./actor";
@@ -12,14 +12,14 @@ import { APPLICATION_KIND_TITLE, monthDayText } from "./applicationWords";
 import type { MyApplicationItem, MyApplicationsPage } from "./myApplications";
 
 /**
- * A place id from the URL filter. One that cannot be an id names no store
- * the viewer may act for: CS-05, like any other store they do not manage.
+ * A place id from the URL filter. One that cannot be an id names no store:
+ * CS-17, like an id no store has.
  */
 function filterPlaceId(raw: string): PlaceId {
   try {
     return PlaceId.create(raw);
   } catch {
-    throw new ForbiddenError("FORBIDDEN", `No store has the id ${raw}`);
+    throw new NotFoundError("PLACE_NOT_FOUND", `No store has the id ${raw}`);
   }
 }
 

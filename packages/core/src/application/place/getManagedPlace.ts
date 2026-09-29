@@ -39,8 +39,8 @@ export type ManagedPlaceView = Readonly<{
  * operators whether or not it has stewards (`inspect_target`). Whether
  * the actor may act on it is `manage_target`'s decision, returned as is.
  *
+ * - `NotFoundError` without the place, checked before access.
  * - `ForbiddenError` (`inspect_target`).
- * - `NotFoundError` without the place.
  */
 export async function getManagedPlace({
   container,
@@ -48,11 +48,11 @@ export async function getManagedPlace({
   input,
 }: ActorServiceArgs<GetManagedPlaceInput>): Promise<ManagedPlaceView> {
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
+    const found = await requirePlace(ctx, input.placeId);
     const access = await authorizeOnTarget(ctx, actor, "inspect_target", {
       kind: "place",
       id: input.placeId,
     });
-    const found = await requirePlace(ctx, input.placeId);
     return {
       place: found.entity,
       regions: affiliatedRegionViews(

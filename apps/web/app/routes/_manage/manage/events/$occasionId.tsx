@@ -25,9 +25,9 @@ import { OCCASION_PROXY_UNAVAILABLE } from "@/presentation/occasionView";
  * none (CS-14). The guard's frame names the event in every screen below.
  */
 export const Route = createFileRoute("/_manage/manage/events/$occasionId")({
-  beforeLoad: async ({ params }) => ({
+  beforeLoad: async ({ params, location }) => ({
     frame: await loadOccasionFrameFn({
-      data: { occasionId: params.occasionId },
+      data: { occasionId: params.occasionId, path: location.pathname },
     }),
   }),
   component: Outlet,
@@ -69,6 +69,17 @@ function EventAreaError({ error }: ErrorComponentProps) {
               actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
             >
               イベントの管理権限を持つイベントだけを開けます。運営するイベントは、マイページから選べます。
+            </EmptyPanel>
+          </ManageBody>
+        </ManagePage>
+      ) : refused.kind === "notFound" && refused.code === "PLACE_NOT_FOUND" ? (
+        <ManagePage title={title}>
+          <ManageBody>
+            <EmptyPanel
+              title="店舗が見つかりません"
+              actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
+            >
+              存在しない店舗です。参加内容と操作は示せません。
             </EmptyPanel>
           </ManageBody>
         </ManagePage>

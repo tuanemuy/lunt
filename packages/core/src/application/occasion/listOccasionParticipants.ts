@@ -5,6 +5,7 @@ import { Pagination } from "@repo/core/domain/common/pagination";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { PlaceName } from "@repo/core/domain/place/profile";
 import { authorizeOnTarget } from "../authority/access";
+import { requireExistingTarget } from "../authority/targets";
 import type { ActorServiceArgs } from "../types";
 import { readListings, readPlaces } from "./attachedListings";
 import {
@@ -44,6 +45,8 @@ export type OccasionParticipantsView = Readonly<{
  * (`spec/usecases/occasion.md` 「listOccasionParticipants」; EVT-07,
  * EVT-10, EVT-13 / EM-01, CM-04).
  *
+ * - `NotFoundError` (`OCCASION_NOT_FOUND`) without the occasion, checked
+ *   before access.
  * - `ForbiddenError` (`manage_target` on the occasion).
  */
 export async function listOccasionParticipants({
@@ -53,6 +56,10 @@ export async function listOccasionParticipants({
 }: ActorServiceArgs<ListOccasionParticipantsInput>): Promise<OccasionParticipantsView> {
   const pagination = Pagination.create(input.pagination);
   const today = LocalDate.fromInstant(container.clock.now());
+  await requireExistingTarget(container.stewardedTargetDirectory, {
+    kind: "occasion",
+    id: input.occasionId,
+  });
   return container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",

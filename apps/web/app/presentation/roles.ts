@@ -31,6 +31,27 @@ export const requireOperatorFn = createServerFn({ method: "GET" })
     return null;
   });
 
+/**
+ * `beforeLoad` check of the service-operation area (OM): `ForbiddenError`
+ * (CS-05) unless the account holds the operator role, but `NotFoundError`
+ * (CS-17) first when the screen at `path` is about a target that does not
+ * exist (`requireOpsAccess`).
+ */
+export const requireOpsAccessFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ path: z.string().max(2048) })))
+  .handler(async ({ data }) => {
+    const [{ getContainer }, { requireActor }, { requireOpsAccess }] =
+      await Promise.all([
+        import("@repo/core/application/di/containerStore"),
+        import("./actor"),
+        import("./opsAccess"),
+      ]);
+    const container = await getContainer();
+    await requireOpsAccess(container, await requireActor(container), data.path);
+    return null;
+  });
+
 const roleField = z.enum(ROLES);
 
 export const grantRoleSchema = z.object({
