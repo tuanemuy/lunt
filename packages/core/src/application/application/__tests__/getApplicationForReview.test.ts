@@ -68,6 +68,14 @@ async function participationSetUp(listingCount: number) {
   return { k, e1, V, p1, S, listings, b2 };
 }
 
+/** A subject's cover (`PhotoView`) of `photoId`. */
+const coverOf = (photoId: PhotoId) => ({
+  photoId,
+  displayRef: expect.objectContaining({
+    url: expect.stringContaining(photoId),
+  }),
+});
+
 const shown = (photoId: PhotoId) => ({
   photoId,
   display: expect.objectContaining({ url: expect.stringContaining(photoId) }),
@@ -130,6 +138,7 @@ describe("getApplicationForReview", () => {
         ref: placeRef(r1.reservedPlaceId),
         name: "山田珈琲店",
         notYet: true,
+        cover: null,
         viewability: "notYet",
       },
     ]);
@@ -185,6 +194,7 @@ describe("getApplicationForReview", () => {
         ref: placeRef(r1.reservedPlaceId),
         name: "新しい店",
         notYet: true,
+        cover: null,
         viewability: "notYet",
       },
     ]);
@@ -270,6 +280,7 @@ describe("getApplicationForReview", () => {
         ref: placeRef(p1),
         name: "山田珈琲店",
         notYet: false,
+        cover: null,
         viewability: "viewable",
       },
     ]);
@@ -793,6 +804,102 @@ describe("getApplicationForReview", () => {
           hiddenBy: { suspended: true, placeSuspended: false },
         },
       );
+    });
+  });
+
+  describe("subject covers (CM-01)", () => {
+    it("a place's cover is the first of its current photos", async () => {
+      const k = await reviewKit();
+      const A = await k.person("A");
+      const { placeId, photoIds } = await k.placeWithPhotos("山田珈琲店", 2);
+      const [first] = photoIds;
+      if (first === undefined) throw new Error("photos");
+      const a1 = await k.claim(A, { placeId });
+
+      const view = await k.forReview(k.O, a1.id);
+
+      expect(view.subjects).toEqual([
+        {
+          ref: placeRef(placeId),
+          name: "山田珈琲店",
+          notYet: false,
+          cover: coverOf(first),
+          viewability: "viewable",
+        },
+      ]);
+    });
+
+    it("a region's and an occasion's cover is their first photo; a place without photos has none", async () => {
+      const { k, region, R, p1, b1 } = await affiliationSetUp({
+        regionName: "X",
+        stewarded: true,
+        days: 1,
+      });
+      if (R === null) throw new Error("R");
+      const regionPhoto = (
+        await k.run(({ regionRepository }) => regionRepository.findById(region))
+      )?.entity.content.photos.items[0]?.photoId;
+      if (regionPhoto === undefined) throw new Error("region photo");
+
+      const onRegion = await reviewOnWeek(k, R, b1.id);
+
+      expect(onRegion.subjects).toMatchObject([
+        { ref: placeRef(p1), cover: null },
+        { ref: regionRef(region), cover: coverOf(regionPhoto) },
+      ]);
+
+      const { k: k2, e1, V, p1: p2, b2 } = await participationSetUp(0);
+      const occasionPhoto = (
+        await k2.run(({ occasionRepository }) =>
+          occasionRepository.findById(e1),
+        )
+      )?.entity.content.photos.items[0]?.photoId;
+      if (occasionPhoto === undefined) throw new Error("occasion photo");
+
+      const onOccasion = await reviewOnWeek(k2, V, b2.id);
+
+      expect(onOccasion.subjects).toMatchObject([
+        { ref: placeRef(p2), cover: null },
+        { ref: occasionRef(e1), cover: coverOf(occasionPhoto) },
+      ]);
+    });
+
+    it("a listing's cover is its first current photo; a deleted listing has none", async () => {
+      const { k, A, setup, l1, ph1, ph2 } = await listingSetUp();
+      const a3 = await k.reviseListing(A, l1, { photos: [ph2] });
+
+      const before = await k.forReview(k.O, a3.id);
+
+      expect(before.subjects.find((s) => s.ref.kind === "listing")).toEqual(
+        expect.objectContaining({ cover: coverOf(ph1) }),
+      );
+
+      await k.remove(setup, l1);
+      const after = await k.forReview(k.O, a3.id);
+
+      expect(after.subjects.find((s) => s.ref.kind === "listing")).toEqual(
+        expect.objectContaining({ viewability: "missing", cover: null }),
+      );
+    });
+
+    it("a place not registered yet has no cover, and its first photo is its cover once approved", async () => {
+      const k = await reviewKit();
+      const A = await k.person("A");
+      const photo = await k.photo(A);
+      const { registration: r1 } = await k.register(A, {
+        profile: { photoIds: [photo] },
+      });
+
+      const pending = await k.forReview(k.O, r1.id);
+
+      expect(pending.subjects).toMatchObject([{ notYet: true, cover: null }]);
+
+      await k.approveAs(approvePlaceRegistration, k.O, r1.id);
+      const approved = await k.forReview(k.O, r1.id);
+
+      expect(approved.subjects).toMatchObject([
+        { notYet: false, cover: coverOf(photo) },
+      ]);
     });
   });
 });

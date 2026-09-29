@@ -46,6 +46,7 @@ import type {
   ReviewFrame,
   ReviewSeat,
   ReviewStance,
+  ReviewSubjectItem,
 } from "./applicationReview";
 import { reviewerApplicantText, subjectName } from "./applicationSubjects";
 import { REVIEW_BROKEN_PREMISE_TEXT } from "./applicationWords";
@@ -101,6 +102,26 @@ function viewabilityNote(subject: ReviewSubjectView): string | null {
     case "notYet":
       return null;
   }
+}
+
+/** The subjects with their covers: rows for what exists, text otherwise. */
+function reviewSubjects(
+  subjects: readonly ReviewSubjectView[],
+): readonly ReviewSubjectItem[] {
+  const items = subjectItems(subjects, viewabilityNote);
+  return subjects.flatMap((subject, index) => {
+    const item = items[index];
+    if (item === undefined) return [];
+    const exists = !subject.notYet && subject.viewability !== "missing";
+    return [
+      {
+        ...item,
+        row: exists
+          ? { photoUrl: subject.cover?.displayRef.url ?? null }
+          : null,
+      },
+    ];
+  });
 }
 
 function facts(view: ApplicationForReview): ReviewFactsData {
@@ -349,7 +370,7 @@ function toData(
     version: view.version,
     status: statusData(view.status),
     submittedAt: view.submittedAt.toISOString(),
-    subjects: subjectItems(view.subjects, viewabilityNote),
+    subjects: reviewSubjects(view.subjects),
     applicant: reviewerApplicantText(view.applicant),
     stance: stanceOf(view),
     content,

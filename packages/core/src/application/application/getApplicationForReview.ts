@@ -5,9 +5,11 @@ import {
 } from "@repo/core/domain/application/application";
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import { Address } from "@repo/core/domain/common/address";
+import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type {
   ApplicationId,
   ListingId,
+  PhotoId,
   PlaceId,
 } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
@@ -15,11 +17,12 @@ import { ContentRef } from "@repo/core/domain/common/refs";
 import type { Version } from "@repo/core/domain/common/version";
 import { VisibilityPolicy } from "@repo/core/domain/discovery/visibilityPolicy";
 import type { Listing } from "@repo/core/domain/listing/listing";
+import type { ContentDirectory } from "@repo/core/domain/moderation/ports/contentDirectory";
 import { PlaceMatchCriteria } from "@repo/core/domain/place/matching";
 import { Place } from "@repo/core/domain/place/place";
 import type { PlaceName } from "@repo/core/domain/place/profile";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
-import { displayRefsOf } from "../place/photos";
+import { coverView, displayRefsOf, type PhotoView } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 import { type CompanionView, companionView } from "./companion";
 import {
@@ -73,7 +76,13 @@ export type HiddenBy = Readonly<{
   placeSuspended: boolean;
 }>;
 
+/**
+ * A subject with whether viewers can see it and its cover: the first of
+ * its current photos (`ContentDirectory.describe`), `null` without photos
+ * and for a subject that does not exist (yet).
+ */
 export type ReviewSubjectView = SubjectView &
+  Readonly<{ cover: PhotoView | null }> &
   (
     | Readonly<{ viewability: Exclude<SubjectViewability, "notViewable"> }>
     | Readonly<{ viewability: "notViewable"; hiddenBy: HiddenBy }>
@@ -156,6 +165,29 @@ function readViewability(
     );
   }
   return judged;
+}
+
+/**
+ * The first current photo of each existing subject, by `ContentRef.key`
+ * (what does not exist yet is not looked up; what is gone is absent).
+ */
+async function readCoverIds(
+  directory: ContentDirectory,
+  subjects: readonly SubjectView[],
+): Promise<ReadonlyMap<string, PhotoId>> {
+  const existing = subjects
+    .filter(({ notYet }) => !notYet)
+    .map(({ ref }) => ref);
+  const described = await Promise.all(
+    IdBatch.chunks(existing).map((chunk) => directory.describe(chunk)),
+  );
+  return new Map(
+    described
+      .flat()
+      .flatMap(({ target, photoIds: [first] }) =>
+        first === undefined ? [] : [[ContentRef.key(target), first] as const],
+      ),
+  );
 }
 
 const OTHER_REASON: HiddenBy = { suspended: false, placeSuspended: false };
@@ -276,7 +308,7 @@ async function readFacts(
  * may do now (`ReviewPermission`, judged on the facts now — `awaitingStewards`
  * and `registrationPending` are answers, not errors), whether each
  * subject can be viewed (for display only; 「まだない対象」 is shown as not
- * existing yet), a revision's items against the target now and the target
+ * existing yet) and its cover (the first of its current photos), a revision's items against the target now and the target
  * with them laid on (only the proposed values when the listing is gone),
  * and per kind: places similar to a registration (suspended included) and
  * its companion claim; whether a claimed place already has stewards and
@@ -320,15 +352,25 @@ export async function getApplicationForReview({
   });
   const { app, source } = read;
   const judged = readViewability(source);
-  const [subjects, refs] = await Promise.all([
-    nameSubjects(container.contentDirectory, [app], read.reads.registrations),
-    displayRefsOf(container.photoStorage, photoIdsOf(source)),
-  ]);
+  const subjects = await nameSubjects(
+    container.contentDirectory,
+    [app],
+    read.reads.registrations,
+  );
   const named = subjects.get(app.id) ?? [];
+  const coverIds = await readCoverIds(container.contentDirectory, named);
+  const refs = await displayRefsOf(container.photoStorage, [
+    ...photoIdsOf(source),
+    ...coverIds.values(),
+  ]);
   const withViewability = await Promise.all(
-    named.map(async (subject): Promise<ReviewSubjectView> => {
+    named.map(async (base): Promise<ReviewSubjectView> => {
+      const key = ContentRef.key(base.ref);
+      const subject = {
+        ...base,
+        cover: coverView(refs, coverIds.get(key) ?? null),
+      };
       if (subject.notYet) return { ...subject, viewability: "notYet" };
-      const key = ContentRef.key(subject.ref);
       const viewability =
         judged.get(key) ??
         ((await container.referenceQueries.isViewable(subject.ref))

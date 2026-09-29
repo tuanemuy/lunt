@@ -14,6 +14,14 @@ import type { RegionFrame } from "./regionView";
 import { validateInput } from "./validator";
 
 /**
+ * A subject of CM-01: one that exists is a photo row with its cover
+ * (`photoUrl` `null`: the empty box); one that does not exist yet, or
+ * was deleted, is text (`row` `null`).
+ */
+export type ReviewSubjectItem = SubjectItem &
+  Readonly<{ row: Readonly<{ photoUrl: string | null }> | null }>;
+
+/**
  * CM-01 申請の判断 (`spec/pages/shared.md`): what the reviewer sees and the
  * three decisions. Server-only reads live in `applicationReviewData.ts`.
  */
@@ -78,7 +86,7 @@ export type ApplicationReviewData = Readonly<{
   status: StatusData;
   /** ISO; the first submission. */
   submittedAt: string;
-  subjects: readonly SubjectItem[];
+  subjects: readonly ReviewSubjectItem[];
   /** 個人 / 店舗管理者として（喫茶 日々） */
   applicant: string;
   stance: ReviewStance;

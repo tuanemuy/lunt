@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { Field, Textarea } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { Row } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
 import type { StatusData } from "@/presentation/applicationContent";
 import {
@@ -38,6 +39,7 @@ import {
   type ReviewFrame,
   type ReviewSeat,
   type ReviewStance,
+  type ReviewSubjectItem,
   rejectApplicationFn,
   sendBackApplicationFn,
 } from "@/presentation/applicationReview";
@@ -281,6 +283,27 @@ function StanceNotice({ data }: { data: ApplicationReviewData }) {
   }
 }
 
+/**
+ * A subject that exists as its photo row, with its page to check it on;
+ * one that does not exist (yet) as text.
+ */
+function ReviewSubject({ subject }: { subject: ReviewSubjectItem }) {
+  if (subject.row === null) return <SubjectValue subject={subject} />;
+  const { photoUrl } = subject.row;
+  return (
+    <>
+      <Row
+        photo={photoUrl === null ? null : { src: photoUrl, alt: "" }}
+        name={subject.name}
+        {...(subject.note === null ? {} : { sub: subject.note })}
+      />
+      {subject.href === null ? null : (
+        <TextLink to={subject.href}>{subject.label}ページで確かめる</TextLink>
+      )}
+    </>
+  );
+}
+
 function ApplicationSection({
   data,
   status,
@@ -301,7 +324,7 @@ function ApplicationSection({
               {data.subjects.length === 1 ? "対象" : `対象の${subject.label}`}
             </dt>
             <dd>
-              <SubjectValue subject={subject} />
+              <ReviewSubject subject={subject} />
             </dd>
           </div>
         ))}
