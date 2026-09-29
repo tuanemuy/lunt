@@ -39,8 +39,7 @@ export async function approveAffiliation({
     actor,
     input,
     kind: "affiliation",
-    load: (ctx, app) =>
-      readAffiliations(ctx, app.target.placeId, container.clock.now()),
+    load: (ctx, app, now) => readAffiliations(ctx, app.target.placeId, now),
     reflect: async (ctx, app, read, now) => {
       const { entity, eventDrafts } = PlaceAffiliations.affiliate(
         read.affiliations,

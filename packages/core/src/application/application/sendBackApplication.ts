@@ -36,6 +36,9 @@ export type SendBackApplicationInput = Readonly<{
  * - `APPLICATION_INVALID_RETURN_REQUEST`: blank request (judged after the
  *   state checks above, before the version; index.md 「編集の競合」).
  * - `ConflictError` when the application changed since `version`.
+ * - `ForbiddenError` at the commit when a fact the permission rested on
+ *   changed (D-17): a revoked role, the approver no longer stewarding the
+ *   seat, or — for an absence proxy — a steward taking the seat.
  */
 export async function sendBackApplication({
   container,

@@ -189,22 +189,32 @@ const membershipFacts = async (
   affiliated: await readAffiliated(ctx, target.placeId, target.regionId),
 });
 
+/**
+ * Aggregates the caller already read in the same unit of work, so a fact
+ * reader does not read them again: a participation's occasion (`null`
+ * when there is none).
+ */
+export type PreloadedFacts = Readonly<{ occasion?: Occasion | null }>;
+
 type FactReader<K extends ApplicationKind> = (
   ctx: FactContext,
   target: TargetOf<K>,
   now: Date,
+  preloaded: PreloadedFacts,
 ) => Promise<PremiseFactsOf<K>>;
 
 const FACT_READERS: { readonly [K in ApplicationKind]: FactReader<K> } = {
   registration: async () => ({}),
   affiliation: membershipFacts,
   leave: membershipFacts,
-  participation: async (ctx, target, now) =>
+  participation: async (ctx, target, now, preloaded) =>
     readParticipationFacts(
       ctx,
       target,
-      (await ctx.occasionRepository.findById(target.occasionId))?.entity ??
-        null,
+      preloaded.occasion !== undefined
+        ? preloaded.occasion
+        : ((await ctx.occasionRepository.findById(target.occasionId))?.entity ??
+            null),
       now,
     ),
   revision: async (ctx, target) => ({
@@ -235,6 +245,7 @@ export async function readPremiseFacts<T extends ApplicationTarget>(
   ctx: FactContext,
   target: T,
   now: Date,
+  preloaded: PreloadedFacts = {},
 ): Promise<FactsFor<SpecOfTarget<ApplicationKindMap, T>>> {
   // Kind generics cannot follow a runtime kind; the table above is typed
   // per kind, so the lookup only erases the correlation.
@@ -242,8 +253,9 @@ export async function readPremiseFacts<T extends ApplicationTarget>(
     ctx: FactContext,
     target: T,
     now: Date,
+    preloaded: PreloadedFacts,
   ) => Promise<FactsFor<SpecOfTarget<ApplicationKindMap, T>>>;
-  return read(ctx, target, now);
+  return read(ctx, target, now, preloaded);
 }
 
 /**
@@ -255,8 +267,12 @@ export async function evaluatePremise<T extends ApplicationTarget>(
   ctx: FactContext,
   target: T,
   now: Date,
+  preloaded: PreloadedFacts = {},
 ): Promise<PremiseResultFor<SpecOfTarget<ApplicationKindMap, T>>> {
-  return Premise.evaluate(target, await readPremiseFacts(ctx, target, now));
+  return Premise.evaluate(
+    target,
+    await readPremiseFacts(ctx, target, now, preloaded),
+  );
 }
 
 /**

@@ -3,7 +3,6 @@ import type {
   ApplicationOf,
   Application as ApplicationValue,
 } from "@repo/core/domain/application/application";
-import { APPLICATION_KINDS } from "@repo/core/domain/application/kinds";
 import type { SubjectFilter } from "@repo/core/domain/application/ports/applicationRepository";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
@@ -59,12 +58,8 @@ export type ApplicationsForSubject = Readonly<{
   underReviewCount: number | null;
 }>;
 
-const isRegisteredKind = (kind: string): kind is ApplicationKind =>
-  Object.hasOwn(APPLICATION_KINDS, kind);
-
-/** The registered kinds among `names`: the region and occasion kinds join in stage 3. */
-const kindsNamed = (names: readonly string[]): readonly ApplicationKind[] =>
-  names.filter(isRegisteredKind);
+const REGION_KINDS: readonly ApplicationKind[] = ["affiliation", "leave"];
+const OCCASION_KINDS: readonly ApplicationKind[] = ["participation"];
 
 /**
  * What each managed target lists and who may read it: a region its
@@ -81,12 +76,12 @@ function scopeOf(subject: StewardedRef): Readonly<{
     case "region":
       return {
         operation: "manage_target",
-        filter: { kinds: kindsNamed(["affiliation", "leave"]) },
+        filter: { kinds: REGION_KINDS },
       };
     case "occasion":
       return {
         operation: "manage_target",
-        filter: { kinds: kindsNamed(["participation"]) },
+        filter: { kinds: OCCASION_KINDS },
       };
     case "place":
       return {

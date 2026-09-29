@@ -21,6 +21,7 @@ import {
   ListingContent,
   type ListingContentInput,
 } from "@repo/core/domain/listing/content";
+import type { Occasion } from "@repo/core/domain/occasion/occasion";
 import { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import type { PlaceProfile } from "@repo/core/domain/place/profile";
 import { PlaceRevision } from "@repo/core/domain/place/revision";
@@ -102,6 +103,8 @@ async function resubmitWith(
   reply: () => ReturnReply | null,
   premise: PremiseHolds,
   now: Date,
+  /** A participation's occasion, read with its premise. */
+  occasion: Occasion | null,
 ): Promise<Resubmitted> {
   const requireProfile = (): PlaceProfile => {
     if (profile === null) throw new Error("The profile was not prepared");
@@ -157,9 +160,6 @@ async function resubmitWith(
     }
     case "participation": {
       const returned = app as Returned<ApplicationOf<"participation">>;
-      const occasion = await ctx.occasionRepository.findById(
-        returned.target.occasionId,
-      );
       // Listings attached before the return stay attachable to it
       // (`current`); only newly attached ones must be attachable now.
       const content = await participationDetails(
@@ -167,7 +167,7 @@ async function resubmitWith(
         amended,
         {
           placeId: returned.target.placeId,
-          period: occasion?.entity.content.period ?? null,
+          period: occasion?.content.period ?? null,
           today: LocalDate.fromInstant(now),
         },
         returned.content,
@@ -257,7 +257,19 @@ export async function resubmitApplication({
     await requireHandledBy(ctx, actor, app);
     const returned = Application.requireReturned(app);
     assertApplicantVersion(returned, input.version);
-    const result = await evaluatePremise(ctx, returned.target, now);
+    // A participation's occasion gives both its premise and its period.
+    const preloaded =
+      returned.target.kind === "participation"
+        ? {
+            occasion:
+              (
+                await ctx.occasionRepository.findById(
+                  returned.target.occasionId,
+                )
+              )?.entity ?? null,
+          }
+        : {};
+    const result = await evaluatePremise(ctx, returned.target, now, preloaded);
     if (!result.holds) {
       const lapse = Application.reassess(returned, result, now);
       await ctx.applicationRepository.save(lapse.entity, found.expectedVersion);
@@ -276,6 +288,7 @@ export async function resubmitApplication({
       () => (input.reply === null ? null : ReturnReply.create(input.reply)),
       Premise.require(result),
       now,
+      preloaded.occasion ?? null,
     );
     await claimApplicationPhotos(
       ctx,

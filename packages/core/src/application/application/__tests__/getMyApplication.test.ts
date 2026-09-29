@@ -1,6 +1,7 @@
 import type { PhotoId, PlaceId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
+import { revokeSteward } from "../../authority/revokeSteward";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { approveNewListing } from "../approveNewListing";
 import { approveStewardshipClaim } from "../approveStewardshipClaim";
@@ -466,7 +467,11 @@ describe("getMyApplication", () => {
 
   it("getMyApplication#23 店舗 p1 について店舗管理者として行った申請 a6 がある。T は p1 の管理権限を解除されている / T が、自分が提出した a6 を確かめる", async () => {
     const { k, p1, T, a6 } = await participationSetUp();
-    await k.removeSteward(placeRef(p1), T);
+    await revokeSteward({
+      container: k.container,
+      actor: k.O.actor,
+      input: { target: placeRef(p1), accountId: T.accountId },
+    });
 
     await expectCode(k.mine(T, a6.id), ForbiddenError);
   });

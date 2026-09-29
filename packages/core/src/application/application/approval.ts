@@ -99,7 +99,7 @@ export async function approveApplication<K extends ApplicationKind, R>(
     input: ApproveApplicationInput;
     kind: K;
     /** Reads what `reflect` needs; must not write. */
-    load: (ctx: UnitOfWorkContext, app: Approving<K>) => Promise<R>;
+    load: (ctx: UnitOfWorkContext, app: Approving<K>, now: Date) => Promise<R>;
     /** Writes the target aggregate from what `load` read; must not read. */
     reflect: (
       ctx: UnitOfWorkContext,
@@ -125,7 +125,7 @@ export async function approveApplication<K extends ApplicationKind, R>(
     const { app, as } = requireDecision(typed, permission, input.version);
     const lapsed = await lapseIfBroken(ctx, app, found.expectedVersion, now);
     if (lapsed.kind === "lapsed") return lapsed.outcome;
-    const loaded = await args.load(ctx, app);
+    const loaded = await args.load(ctx, app, now);
     const reflected = Application.reflectedRef(app);
     const photos = await readOwnedPhotos(ctx, app);
     const reflection = await args.reflect(ctx, app, loaded, now);

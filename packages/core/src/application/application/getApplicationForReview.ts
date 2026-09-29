@@ -161,12 +161,18 @@ function readViewability(
 const OTHER_REASON: HiddenBy = { suspended: false, placeSuspended: false };
 
 /**
- * `HiddenBy` of each place and listing the application is about (its
- * proposed listing included), from the aggregates `source` read or read
- * here. What does not exist (yet) is absent.
+ * `HiddenBy` of each place, listing, region and occasion the application
+ * is about (its proposed listing included), from the aggregates `source`
+ * read or read here. What does not exist (yet) is absent.
  */
 async function readHiddenBy(
-  ctx: Pick<UnitOfWorkContext, "placeRepository" | "listingRepository">,
+  ctx: Pick<
+    UnitOfWorkContext,
+    | "placeRepository"
+    | "listingRepository"
+    | "regionRepository"
+    | "occasionRepository"
+  >,
   app: Application,
   source: ContentSource,
 ): Promise<ReadonlyMap<string, HiddenBy>> {
@@ -209,6 +215,16 @@ async function readHiddenBy(
       judged.set(ContentRef.key(ref), {
         suspended: listing.suspension.suspended,
         placeSuspended: place !== null && Place.isSuspended(place),
+      });
+    } else if (ref.kind === "region" || ref.kind === "occasion") {
+      const found =
+        ref.kind === "region"
+          ? await ctx.regionRepository.findById(ref.id)
+          : await ctx.occasionRepository.findById(ref.id);
+      if (found === null) continue;
+      judged.set(ContentRef.key(ref), {
+        suspended: found.entity.suspension.suspended,
+        placeSuspended: false,
       });
     }
   }

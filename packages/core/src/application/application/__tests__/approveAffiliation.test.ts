@@ -1,7 +1,7 @@
 import type { ApplicationId, PlaceId } from "@repo/core/domain/common/ids";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
-import { expectCode } from "../../authority/__tests__/kit";
+import { commitAfter, expectCode } from "../../authority/__tests__/kit";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { expectLapsed } from "./kit";
 import { type StewardSeatKit, stewardSeatKit } from "./stewardSeatKit";
@@ -312,5 +312,45 @@ describe("approveAffiliation", () => {
     const leave = await k.leaveAsPlace(S, { placeId: p1, regionId: X });
 
     await expectCode(k.approveAffiliationAs(R, leave.id), NotFoundError);
+  });
+
+  // D-17: the seat's stewardship the stance rested on must still hold at
+  // the commit, so a stance is never stored for facts that changed.
+  it("an overdue proxy's approval is refused when the seat lost its last steward before it committed, and is the approver's once it is vacant", async () => {
+    const k = await stewardSeatKit();
+    const { X, R, p1, b1 } = await setting(k);
+    k.passDays(10);
+
+    await expectCode(
+      k.approveAffiliationAs(k.O, b1.id, {
+        container: commitAfter(k.week, () =>
+          k.removeSteward(k.regionRef(X), R),
+        ),
+      }),
+      ForbiddenError,
+    );
+    expect(await k.app(b1.id)).toEqual(b1);
+    await expectNotAffiliated(k, p1);
+
+    const result = await k.approveAffiliationAs(k.O, b1.id);
+    expect(result.outcome).toBe("approved");
+    await expectApproved(k, b1.id, "approver");
+  });
+
+  it("an absence proxy's approval is refused when a steward took the seat before it committed", async () => {
+    const k = await stewardSeatKit();
+    const X = await k.addRegion({ name: "X" });
+    const p1 = await k.place("山田珈琲店");
+    const S = await k.manager(p1, "S");
+    const b1 = await k.affiliateAsPlace(S, { placeId: p1, regionId: X });
+
+    await expectCode(
+      k.approveAffiliationAs(k.O, b1.id, {
+        container: commitAfter(k.week, () => k.regionSteward(X, "R")),
+      }),
+      ForbiddenError,
+    );
+    expect(await k.app(b1.id)).toEqual(b1);
+    await expectNotAffiliated(k, p1);
   });
 });

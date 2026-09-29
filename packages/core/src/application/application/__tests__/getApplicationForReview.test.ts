@@ -5,6 +5,7 @@ import type {
   PlaceId,
   RegionId,
 } from "@repo/core/domain/common/ids";
+import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import type { Person } from "../../authority/__tests__/kit";
 import { expectCode } from "../../authority/__tests__/kit";
@@ -530,6 +531,56 @@ describe("getApplicationForReview", () => {
       }),
       { id: l3, deleted: true },
     ]);
+  });
+
+  it("a suspended region or occasion subject is shown as hidden by the operators", async () => {
+    const { k, region, R, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 1,
+    });
+    if (R === null) throw new Error("R");
+    await k.suspendRegion(region);
+    const { k: k2, e1, V, b2 } = await participationSetUp(0);
+    await k2.suspendOccasion(e1);
+
+    const onRegion = await reviewOnWeek(k, R, b1.id);
+    const onOccasion = await reviewOnWeek(k2, V, b2.id);
+
+    expect(onRegion.subjects).toContainEqual(
+      expect.objectContaining({
+        ref: regionRef(region),
+        viewability: "notViewable",
+        hiddenBy: { suspended: true, placeSuspended: false },
+      }),
+    );
+    expect(onOccasion.subjects).toContainEqual(
+      expect.objectContaining({
+        ref: occasionRef(e1),
+        viewability: "notViewable",
+        hiddenBy: { suspended: true, placeSuspended: false },
+      }),
+    );
+  });
+
+  it("an unpublished region is hidden for another reason", async () => {
+    const { k, region, R, b1 } = await affiliationSetUp({
+      regionName: "X",
+      stewarded: true,
+      days: 1,
+    });
+    if (R === null) throw new Error("R");
+    await k.changeRegion(region, (r, now) => Region.unpublish(r, now).entity);
+
+    const view = await reviewOnWeek(k, R, b1.id);
+
+    expect(view.subjects).toContainEqual(
+      expect.objectContaining({
+        ref: regionRef(region),
+        viewability: "notViewable",
+        hiddenBy: { suspended: false, placeSuspended: false },
+      }),
+    );
   });
 
   it("getApplicationForReview#18 地域 X に運営者がいる。b1 は3日前から確認中。O は X の運営者でない / O が b1 を確かめる", async () => {
