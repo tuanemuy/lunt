@@ -9,8 +9,8 @@
 | 通知を持つ利用者がいる。ログインしていない | `Actor` なしで読む | `UnauthorizedError`。どの通知も返さない | |
 | 利用者 A は、店舗 P の店舗管理者、地域 R の地域運営者、編集担当者を兼ねる。それぞれの立場宛ての出来事と、A が個人として行った申請の承認が起きた | A として読む | すべての通知が、1つの並びに新しい順で現れる。立場ごとに分かれない（AC-41） | |
 | 利用者 A と利用者 B が店舗 P の店舗管理者で、店舗 P が運営による非公開になった。B には別の通知もある | A として読む | A の通知だけを返す。`count` は A の件数。B の通知は現れない | |
-| 店舗 P の掲載 L が運営による非公開になり、店舗管理者 A に通知が届いた | A として読む | 通知は `direct` で、`pointedContent` は掲載 L、`vacantTarget` は `null`。`labels` は掲載 L の名称を持つ。掲載 L は閲覧できないが、名称は解決される。行き先は掲載 L の `listingManagement` | |
-| 店舗管理者が不在の店舗 V の掲載 LV が運営による非公開になり、サービス運営者 O に通知が届いた | O として読む | 通知は `proxy` で、`vacantTarget` は店舗 V、`pointedContent` は掲載 LV。`labels` は掲載 LV の名称を持つ。行き先は店舗 V の `proxyOperation`（`target` は `vacantTarget`）で、`direct` は掲載 LV の `listingManagement` | |
+| 店舗 P の掲載 L が運営による非公開になり、店舗管理者 A に通知が届いた | A として読む | 通知は `direct` で、`pointedContent` は掲載 L、`vacantTarget` は `null`。`labels` は掲載 L の名称を持つ。掲載 L は閲覧できないが、名称は解決される。行き先は掲載 L と店舗 P の `listingManagement` | |
+| 店舗管理者が不在の店舗 V の掲載 LV が運営による非公開になり、サービス運営者 O に通知が届いた | O として読む | 通知は `proxy` で、`vacantTarget` は店舗 V、`pointedContent` は掲載 LV。`labels` は掲載 LV の名称を持つ。行き先は店舗 V の `proxyOperation`（`target` は `vacantTarget`）で、`direct` は掲載 LV と店舗 V の `listingManagement` | |
 | 店舗管理者として行った申請 Ap が、最後の店舗管理者の退会で失効し、サービス運営者 O に失効の通知が届いた | O として読む | 通知は `proxy` で、`vacantTarget` はその店舗、`pointedContent` は `null`、`occurrence` が Ap を指す。`labels` は Ap の種類と対象の名称を持つ。行き先はその店舗の `proxyOperation` で、`direct` は Ap の `ownApplication`（AC-66） | |
 | 利用者 A の店舗の登録申請 Ap が否認され、A に通知が届いた。店舗は作られていない | A として読む | `labels` は、Ap の種類と、Ap の内容の店名を持つ。`null` にならない。行き先は Ap の `ownApplication` | |
 | 利用者 A の登録申請 Ap1 が承認されて店舗が作られ、その後に店舗の名称が変更された | A として読む | 承認の通知の `labels` は、Ap1 の内容の店名を持つ（変更後の名称ではない） | |

@@ -256,7 +256,7 @@ type DirectDestination =
   | Readonly<{ kind: "applicationReview"; applicationId: ApplicationId }>   // 承認者として判断する申請
   | Readonly<{ kind: "placeManagement"; placeId: PlaceId; facet: PlaceFacet }>
   | Readonly<{ kind: "participationEditing"; placeId: PlaceId; occasionId: OccasionId }>
-  | Readonly<{ kind: "listingManagement"; listingId: ListingId }>
+  | Readonly<{ kind: "listingManagement"; listingId: ListingId; placeId: PlaceId }> // placeId は掲載の店舗。掲載が削除された後も店舗の掲載の一覧へ入れる
   | Readonly<{ kind: "confirmationRequest"; reportId: InfoReportId }>
   | Readonly<{ kind: "regionManagement"; regionId: RegionId; facet: "content" | "occasionLinks" }>
   | Readonly<{ kind: "occasionManagement"; occasionId: OccasionId; facet: "content" | "regionLinks" }>
@@ -284,7 +284,7 @@ type NotificationDestination =
 | `approver` | `applicationReview` |
 | `contentManagers` / 店舗の `suspended`・`unsuspended` | `placeManagement`（`overview`） |
 | `contentManagers` / 店舗の `photos_taken_down` | `placeManagement`（`profile`） |
-| `contentManagers` / 掲載 | `listingManagement` |
+| `contentManagers` / 掲載 | `listingManagement`（`placeId` は出来事が指す掲載の店舗） |
 | `contentManagers` / 地域 | `regionManagement`（`content`） |
 | `contentManagers` / イベント | `occasionManagement`（`content`） |
 | `contentManagers` / 読みもの | `articleEditing` |

@@ -16,8 +16,8 @@
 
 | 前提条件 | 操作 | 期待結果 | 実装ステータス |
 |---|---|---|---|
-| `direct` の、`contentManagers` / 掲載 L の `suspended` の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "listingManagement", listingId: L }` | |
-| `proxy` の、`contentManagers` / 掲載 LV の `suspended` の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "proxyOperation", target: 店舗 V, direct: { kind: "listingManagement", listingId: LV } }`（`target` は `vacantTarget`。掲載 LV は店舗 V に紐づく） | |
+| `direct` の、`contentManagers` / 掲載 L の `suspended` の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "listingManagement", listingId: L, placeId: 掲載 L の店舗 }` | |
+| `proxy` の、`contentManagers` / 掲載 LV の `suspended` の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "proxyOperation", target: 店舗 V, direct: { kind: "listingManagement", listingId: LV, placeId: V } }`（`target` は `vacantTarget`。掲載 LV は店舗 V に紐づく） | |
 | `direct` の、`applicant` / `returned`（個人として行った申請 Ap）の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "ownApplication", applicationId: Ap }` | |
 | `proxy` の、`applicant` / `lapsed`（店舗 V の店舗管理者として行った申請 Ap）の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "proxyOperation", target: 店舗 V, direct: { kind: "ownApplication", applicationId: Ap } }`（`target` は `vacantTarget`） | |
 | `proxy` の、`contentManagers` / 店舗 V の `photos_taken_down` の `NotificationMail` | `render` を呼ぶ | `link` は `{ kind: "proxyOperation", target: 店舗 V, direct: { kind: "placeManagement", placeId: V, facet: "profile" } }` | |
