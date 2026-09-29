@@ -301,11 +301,19 @@ export function OccasionEditor({
         case "saved":
           return {
             title: "イベント情報を保存しました",
-            body: data.viewable
-              ? `公開中のイベントページに変更を反映しました。${holdingNow === null ? "" : `開催の状態は、開催期間と今日の日付から${holdingNow}です。`}`
-              : data.suspended
-                ? "保存しました。このイベントは運営による非公開のため、閲覧者には表示されていません。"
-                : `保存しました。イベントは${occasionPublicationLabel(data.publication)}のままで、閲覧者には表示されていません。`,
+            body: `${
+              data.viewable
+                ? "公開中のイベントページに変更を反映しました。"
+                : data.suspended
+                  ? "保存しました。このイベントは運営による非公開のため、閲覧者には表示されていません。"
+                  : `保存しました。イベントは${occasionPublicationLabel(data.publication)}のままで、閲覧者には表示されていません。`
+            }${
+              data.cancelled
+                ? "イベントは中止にしているため、開催期間にかかわらず開催の状態は「中止」のままです。中止を取り消すと、開催の状態は開催期間と今日の日付から決まる状態に戻ります。"
+                : data.viewable && holdingNow !== null
+                  ? `開催の状態は、開催期間と今日の日付から${holdingNow}です。`
+                  : ""
+            }`,
             actions: (
               <>
                 {pageLink}

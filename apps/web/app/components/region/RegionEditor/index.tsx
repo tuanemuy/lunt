@@ -2,7 +2,7 @@
 
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ManageBody } from "@/components/layout/ManageShell";
+import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -64,7 +64,14 @@ type Outcome =
   | Readonly<{ kind: "published" }>
   | Readonly<{ kind: "unpublished" }>
   | Readonly<{ kind: "missing" }>
-  | Readonly<{ kind: "lostAccess" }>;
+  | Readonly<{ kind: "lostAccess" }>
+  | Readonly<{ kind: "lostProxy"; attempt: Attempt }>;
+
+const LOST_PROXY_NOT_APPLIED: Readonly<Record<Attempt, string>> = {
+  save: "変更は保存していません。",
+  publish: "公開していません。",
+  unpublish: "公開を取り下げていません。",
+};
 
 const INPUT_CHECK: ErrorState = {
   kind: "invalidInput",
@@ -88,22 +95,18 @@ function FieldLinks({ fields }: { fields: RegionFieldErrors }) {
 
 /**
  * The alert above RM-02's form after a failed save, publish or
- * unpublish: CS-15, CS-07, CS-08, CS-10 (the fields to fix, the unmet
- * publish requirements) and CS-02. Each new failure takes the focus, which
- * also scrolls it into view from the dock's buttons.
+ * unpublish: CS-07, CS-08, CS-10 (the fields to fix, the unmet publish
+ * requirements) and CS-02. Each new failure takes the focus, which also
+ * scrolls it into view from the dock's buttons.
  */
 function FailureAlert({
   failure,
-  regionId,
-  proxy,
   publicationText,
   busy,
   onReload,
   onRetry,
 }: {
   failure: Failure;
-  regionId: string;
-  proxy: boolean;
   publicationText: string;
   busy: boolean;
   onReload: () => void;
@@ -115,24 +118,6 @@ function FailureAlert({
   }, []);
   const { state, attempt, fields } = failure;
   const body = (() => {
-    if (state.kind === "forbidden" && proxy) {
-      return (
-        <Alert
-          title="この地域は代行できません"
-          actions={
-            <ButtonLink
-              variant="secondary"
-              to="/ops/subjects/$kind/$id"
-              params={{ kind: "region", id: regionId }}
-            >
-              地域の運営へ戻る
-            </ButtonLink>
-          }
-        >
-          この地域には地域運営者が就きました。変更は保存していません。地域の運営の画面で、運営者がいることを確かめてください。
-        </Alert>
-      );
-    }
     if (state.kind === "conflict") {
       return (
         <Alert
@@ -265,8 +250,10 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
       setOutcome({ kind: "missing" });
       return;
     }
-    if (state.kind === "forbidden" && !proxy) {
-      setOutcome({ kind: "lostAccess" });
+    if (state.kind === "forbidden") {
+      setOutcome(
+        proxy ? { kind: "lostProxy", attempt } : { kind: "lostAccess" },
+      );
       router.clearCache();
       return;
     }
@@ -370,6 +357,31 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
           </FocusOnMount>
         </ManageBody>
       </RegionPage>
+    );
+  }
+
+  if (outcome?.kind === "lostProxy") {
+    return (
+      <ManagePage title={null}>
+        <ManageBody>
+          <FocusOnMount role="alert">
+            <EmptyPanel
+              title="この地域は代行できません"
+              headingLevel="h1"
+              actions={
+                <ButtonLink
+                  to="/ops/subjects/$kind/$id"
+                  params={{ kind: "region", id: data.regionId }}
+                >
+                  地域の運営へ戻る
+                </ButtonLink>
+              }
+            >
+              {`${name}には地域運営者が就きました。不在の代行はできません。${LOST_PROXY_NOT_APPLIED[outcome.attempt]}地域の運営の画面で、運営者がいることを確かめてください。`}
+            </EmptyPanel>
+          </FocusOnMount>
+        </ManageBody>
+      </ManagePage>
     );
   }
 
@@ -491,8 +503,6 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
           <FailureAlert
             key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
             failure={failure}
-            regionId={data.regionId}
-            proxy={proxy}
             publicationText={regionPublicationLabel(publication)}
             busy={busy}
             onReload={() =>

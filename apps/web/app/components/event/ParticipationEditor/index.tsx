@@ -676,7 +676,7 @@ function ParticipationEditor({
                 }
                 {...(side === "occasion"
                   ? {
-                      sub: data.place.hasSteward
+                      sub: stewardArrived
                         ? "店舗管理者のいる店舗"
                         : "管理者のいない店舗",
                     }
@@ -694,7 +694,9 @@ function ParticipationEditor({
             </div>
             {side === "occasion" && mode === "edit" ? (
               <p className="m-field__help">
-                店舗管理者のいない参加店舗です。参加内容は、イベントの運営者が変更できます。参加店舗から外すときは、参加店舗と申請で除外します。
+                {stewardArrived
+                  ? "店舗管理者のいる参加店舗です。参加内容は、店舗管理者が変更します。イベントの運営者は変更できません。"
+                  : "店舗管理者のいない参加店舗です。参加内容は、イベントの運営者が変更できます。参加店舗から外すときは、参加店舗と申請で除外します。"}
               </p>
             ) : null}
           </div>
