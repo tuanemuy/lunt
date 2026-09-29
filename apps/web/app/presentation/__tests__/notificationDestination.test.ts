@@ -40,7 +40,7 @@ describe("notificationDestinationPath", () => {
         listingId: L,
         placeId: P,
       }),
-    ).toBe("/manage/places/p1/listings/l1");
+    ).toBe("/manage/places/p1/listings/l1?from=notifications");
     expect(
       notificationDestinationPath({
         kind: "occasionManagement",
@@ -71,7 +71,7 @@ describe("notificationDestinationPath", () => {
         target: place,
         direct: { kind: "listingManagement", listingId: L, placeId: P },
       }),
-    ).toBe("/manage/places/p1/listings/l1");
+    ).toBe("/manage/places/p1/listings/l1?from=notifications");
     expect(
       notificationDestinationPath({
         kind: "proxyOperation",

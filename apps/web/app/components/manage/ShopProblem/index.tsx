@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocation, useRouter } from "@tanstack/react-router";
+import { useLocation, useRouter, useSearch } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { ManageBody } from "@/components/layout/ManageShell";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -54,6 +54,10 @@ export function ShopProblem({
 }: ShopProblemProps) {
   const frame = usePlaceFrame();
   const here = useLocation({ select: (location) => location.href });
+  const fromNotifications = useSearch({
+    strict: false,
+    select: (search) => search.from === "notifications",
+  });
   const params = { placeId: frame.placeId };
   const body = (() => {
     switch (kind) {
@@ -62,16 +66,23 @@ export function ShopProblem({
           <EmptyPanel
             title={missingTitle}
             actions={
-              <ButtonLink
-                to={
-                  back.to === "listings"
-                    ? "/manage/places/$placeId/listings"
-                    : "/manage/places/$placeId"
-                }
-                params={params}
-              >
-                {back.label}
-              </ButtonLink>
+              <>
+                <ButtonLink
+                  to={
+                    back.to === "listings"
+                      ? "/manage/places/$placeId/listings"
+                      : "/manage/places/$placeId"
+                  }
+                  params={params}
+                >
+                  {back.label}
+                </ButtonLink>
+                {fromNotifications ? (
+                  <ButtonLink to="/me/notifications" variant="secondary">
+                    通知一覧へ戻る
+                  </ButtonLink>
+                ) : null}
+              </>
             }
           >
             削除されたか、存在しない対象です。操作は反映していません。

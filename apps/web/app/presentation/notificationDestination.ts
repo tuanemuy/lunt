@@ -62,7 +62,9 @@ function directPath(d: DirectDestination): string {
     case "participationEditing":
       return `/manage/places/${segment(d.placeId)}/events/${segment(d.occasionId)}`;
     case "listingManagement":
-      return `${placePath(d.placeId, "listings")}/${segment(d.listingId)}`;
+      // A listing may be deleted before the notification is opened: SM-04's
+      // CS-17 then leads back to MY-03 as well as to the store's listings.
+      return `${placePath(d.placeId, "listings")}/${segment(d.listingId)}?from=notifications`;
     case "confirmationRequest":
       return `/manage/checks/${segment(d.reportId)}`;
     case "regionManagement":

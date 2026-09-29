@@ -10,6 +10,8 @@ const searchSchema = z.object({
   copyFrom: z.string().min(1).max(64).optional().catch(undefined),
   /** Arrived from SM-04 新規 after saving the draft (CS-13). */
   created: z.literal(true).optional().catch(undefined),
+  /** Opened from a notification (MY-03 or its mail): CS-17 leads back there too. */
+  from: z.literal("notifications").optional().catch(undefined),
 });
 
 /** SM-04 掲載の編集. */
