@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ManageSection } from "@/components/layout/ManageShell";
 import { FramedPhoto } from "@/components/photo/FramedPhoto";
 import { Badge } from "@/components/ui/Badge";
+import { Row, RowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
 import type {
   AttachedLine,
@@ -95,23 +96,28 @@ export function ValueView({
 function AttachedLines({ lines }: { lines: readonly AttachedLine[] }) {
   if (lines.length === 0) return <>（なし）</>;
   return (
-    <ul className="cm01-attached">
-      {lines.map((line) => (
-        <li key={line.id}>
-          {line.href === null ? (
-            <span>{line.name}</span>
-          ) : (
-            <TextLink to={line.href}>{line.name}</TextLink>
-          )}
-          <span className="m-row__sub">
-            {line.hidden
-              ? line.name === line.state
-                ? "閲覧者に表示されていません"
-                : `${line.state}（閲覧者に表示されていません）`
-              : line.state}
-          </span>
-        </li>
-      ))}
+    <ul className="m-rows">
+      {lines.map((line) => {
+        const row = {
+          photo:
+            line.photoUrl === null ? null : { src: line.photoUrl, alt: "" },
+          name: line.name,
+          meta: line.hidden
+            ? line.name === line.state
+              ? "閲覧者に表示されていません"
+              : `${line.state}（閲覧者に表示されていません）`
+            : line.state,
+        };
+        return (
+          <li key={line.id}>
+            {line.href === null ? (
+              <Row {...row} />
+            ) : (
+              <RowLink to={line.href} {...row} />
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

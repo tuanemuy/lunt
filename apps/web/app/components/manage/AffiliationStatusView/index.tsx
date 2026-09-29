@@ -155,7 +155,7 @@ function RegionItem({
     representative !== null &&
     representative.regionId !== region.regionId;
   const row = {
-    photo: null,
+    photo: region.photoUrl === null ? null : { src: region.photoUrl, alt: "" },
     name: nameOf(region),
     meta: `${region.since}から所属`,
     sub: (
@@ -216,6 +216,7 @@ function OutcomeAlert({ outcome }: { outcome: Outcome }) {
   const here = useLocation({ select: (location) => location.href });
   switch (outcome.kind) {
     case "chosen":
+    case "forbidden":
       return null;
     case "notAffiliated":
       return (
@@ -233,15 +234,6 @@ function OutcomeAlert({ outcome }: { outcome: Outcome }) {
       return (
         <Alert title="代表地域を変えられませんでした">
           ほかの操作と重なりました。最新の所属と代表地域を読み直しました。もう一度選んでください。
-        </Alert>
-      );
-    case "forbidden":
-      return (
-        <Alert
-          title="この店舗を管理する権限がありません"
-          actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
-        >
-          店舗の管理権限がなくなりました。代表地域は変えていません。
         </Alert>
       );
     case "loginRequired":
@@ -335,6 +327,35 @@ export function AffiliationStatusView({
       }
     });
   };
+
+  if (outcome?.kind === "forbidden") {
+    // CS-05: the store's regions and their operations are no longer the
+    // viewer's to see, so they are not left on screen.
+    return (
+      <ShopPage frame={frame} heading={HEADING}>
+        <ManageBody>
+          <FocusOnMount role="alert">
+            <EmptyPanel
+              title="この店舗を管理する権限がありません"
+              actions={
+                <>
+                  <ButtonLink to="/me">マイページへ戻る</ButtonLink>
+                  <ButtonLink
+                    variant="secondary"
+                    to={placePagePath(frame.placeId)}
+                  >
+                    店舗ページを見る
+                  </ButtonLink>
+                </>
+              }
+            >
+              店舗の管理権限がなくなったため、代表地域は変えていません。
+            </EmptyPanel>
+          </FocusOnMount>
+        </ManageBody>
+      </ShopPage>
+    );
+  }
 
   if (outcome?.kind === "chosen" && !choosing) {
     const chosen = regions.find(

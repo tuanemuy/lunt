@@ -352,6 +352,7 @@ describe("region and event applications", () => {
               state: "提供中",
               hidden: false,
               href: `/listings/${shown}`,
+              photoUrl: null,
             },
             {
               id: gone,
@@ -359,6 +360,7 @@ describe("region and event applications", () => {
               state: "削除された掲載",
               hidden: true,
               href: null,
+              photoUrl: null,
             },
           ],
         },

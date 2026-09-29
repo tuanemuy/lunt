@@ -1,14 +1,22 @@
 "use client";
 
 import { useRouter } from "@tanstack/react-router";
-import { useRef, useState, useTransition } from "react";
-import { CandidateSearch } from "@/components/event/CandidatePicker";
+import {
+  type MouseEvent,
+  useCallback,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import {
+  CandidateSearch,
+  type CandidateSnapshot,
+} from "@/components/event/CandidatePicker";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChipButton, ChipLink } from "@/components/ui/ChipButton";
-import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Fieldset } from "@/components/ui/Field";
@@ -42,6 +50,7 @@ import {
   shopEventsPath,
 } from "@/presentation/applyRelationsView";
 import { applicationPath, shopHomePath } from "@/presentation/applyView";
+import { useEntryDraft } from "@/presentation/entryDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
   jpDate,
@@ -55,6 +64,10 @@ import {
   type PeriodView,
   periodText,
 } from "@/presentation/occasionView";
+import {
+  type ParticipationDraft,
+  participationDraftSchema,
+} from "@/presentation/participationDraft";
 import { useReconcile } from "@/presentation/reconcile";
 import { KeepOutcome } from "../ApplyOutcome";
 import {
@@ -67,7 +80,7 @@ import {
   SubmitFailureAlert,
   useScrollTopOn,
 } from "../ApplyParts";
-import { RelationRefused } from "../RelationParts";
+import { CandidateRadios, RelationRefused } from "../RelationParts";
 
 /** The codes a submission is refused with for a reason of 「受け付けない事情」. */
 const REFUSED_CODES: ReadonlySet<string> = new Set([
@@ -187,9 +200,25 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
   useScrollTopOn(`${stage}:${done === null}:${refusal === null}`);
   const attempt = useRef<{ id: string; key: string } | null>(null);
   const refusals = useRef<Map<string, CandidateRefusal>>(new Map());
+  // CF-02: the input survives a visit to a linked detail and back.
+  const eventSearch = useRef<CandidateSnapshot | null>(null);
+  const [restored, setRestored] = useState<
+    Readonly<{ count: number; search: CandidateSnapshot | null }>
+  >({ count: 0, search: null });
+  const keepEventSearch = useCallback((snapshot: CandidateSnapshot) => {
+    eventSearch.current = snapshot;
+  }, []);
+  const draft = useEntryDraft("rq06", participationDraftSchema, (kept) =>
+    restore(kept),
+  );
 
   const occasion = choice?.occasion ?? null;
   const period = occasion?.period ?? null;
+  // The stores' reasons are about the event DT-04 chose; another event
+  // is judged for the store chosen.
+  const onPreset =
+    occasion !== null &&
+    occasion.occasionId === data.choice?.occasion.occasionId;
   const ready =
     place !== null &&
     occasion !== null &&
@@ -239,7 +268,12 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
   };
 
   /** Reads the event for the store again: its reason, and the attachable listings now. */
-  const load = (placeId: string, occasionId: string, reset: boolean) =>
+  const load = (
+    placeId: string,
+    occasionId: string,
+    reset: boolean,
+    stillPicking = false,
+  ) =>
     startLoad(async () => {
       try {
         const next = await participationChoiceFn({
@@ -253,7 +287,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
               ...next.attachable.map((item) => [item.id, item.name] as const),
             ]),
         );
-        setPicking(next.occasion.refusal !== null);
+        setPicking(stillPicking || next.occasion.refusal !== null);
         if (reset) {
           setListingIds([]);
           setDates([]);
@@ -264,6 +298,59 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
         fail(classifyError(error), {});
       }
     });
+
+  function restore(kept: ParticipationDraft) {
+    const keptPlace =
+      kept.placeId === null
+        ? null
+        : (data.managed.find((item) => item.placeId === kept.placeId) ??
+          (data.place?.placeId === kept.placeId ? data.place : null));
+    setPlace(keptPlace);
+    setListingIds(kept.listingIds);
+    setDates(kept.dates);
+    setReply(kept.reply);
+    setPicked((current) => new Map([...current, ...kept.picked]));
+    refusals.current = new Map(Object.entries(kept.search?.refusals ?? {}));
+    setRestored((current) => ({
+      count: current.count + 1,
+      search:
+        kept.search === null
+          ? null
+          : { keyword: kept.search.keyword, found: kept.search.found },
+    }));
+    if (keptPlace === null || kept.occasionId === null) {
+      setChoice(
+        kept.occasionId !== null &&
+          kept.occasionId === data.choice?.occasion.occasionId
+          ? data.choice
+          : null,
+      );
+      setPicking(kept.picking);
+      return;
+    }
+    // Read again: the event's reason and the attachable listings may have
+    // changed while the user was away.
+    load(keptPlace.placeId, kept.occasionId, false, kept.picking);
+  }
+
+  const stashOnLeave = (event: MouseEvent<HTMLFormElement>) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("a[href]") === null) return;
+    const search = eventSearch.current;
+    draft.stash({
+      placeId: place?.placeId ?? null,
+      occasionId: choice?.occasion.occasionId ?? null,
+      picking,
+      listingIds,
+      picked: [...picked.entries()],
+      dates,
+      reply,
+      search:
+        search === null
+          ? null
+          : { ...search, refusals: Object.fromEntries(refusals.current) },
+    });
+  };
 
   const choosePlace = (next: PlaceOption) => {
     setPlace(next);
@@ -332,6 +419,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
             return;
           }
           router.clearCache();
+          draft.clear();
           setDone(resubmit.applicationId);
           return;
         }
@@ -344,6 +432,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
         });
         attempt.current = null;
         router.clearCache();
+        draft.clear();
         setDone(applicationId);
       } catch (error) {
         const failed = classifyError(error);
@@ -510,6 +599,16 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
     return kept.deleted ? "削除された掲載" : (kept.name ?? "名称未設定");
   };
 
+  const listingPhoto = (
+    id: string,
+  ): Readonly<{ src: string; alt: string }> | null => {
+    const kept = held.get(id);
+    const url =
+      attachable.get(id)?.photoUrl ??
+      (kept === undefined || kept.deleted ? null : kept.photoUrl);
+    return url === null ? null : { src: url, alt: "" };
+  };
+
   const listingLine = (id: string): string => {
     const item = attachable.get(id);
     if (item !== undefined)
@@ -646,7 +745,9 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
           </Notice>
         ) : null}
         <CandidateSearch
-          key={place.placeId}
+          key={`${place.placeId}:${restored.count}`}
+          initial={restored.search}
+          keep={keepEventSearch}
           id="rq06-event-q"
           label="イベントを探す"
           placeholder="イベントの名称など"
@@ -738,6 +839,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
       <form
         className="m-body"
         id="rq06-form"
+        onClickCapture={stashOnLeave}
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -793,25 +895,40 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
         )}
 
         {fromEvent && resubmit === null ? (
-          <div id="rq06-place">
-            <ChoiceGroup<string>
-              legend="申請する店舗"
+          <fieldset className="m-field" id="rq06-place">
+            <legend className="m-field__label" id="rq06-place-label">
+              申請する店舗
+              <span className="m-field__req">必須</span>
+            </legend>
+            <CandidateRadios
               name="rq06-place"
-              requirement="required"
+              labelledBy="rq06-place-label"
+              items={data.managed.map((item) => ({
+                id: item.placeId,
+                name: item.name,
+                meta: item.meta,
+                photoUrl: item.photoUrl,
+                // Each store was judged for the event DT-04 chose.
+                refusal: onPreset ? item.refusal : null,
+                detailHref: item.viewable
+                  ? `/places/${encodeURIComponent(item.placeId)}`
+                  : null,
+              }))}
               value={place?.placeId ?? null}
+              disabled={busy}
+              invalid={errors.place !== undefined}
               onChange={(id) => {
                 const next = data.managed.find((item) => item.placeId === id);
                 if (next !== undefined) choosePlace(next);
               }}
-              choices={data.managed.map((item) => ({
-                value: item.placeId,
-                label: item.name,
-                disabled: busy,
-              }))}
-              help="管理する店舗から選びます。選んだ店舗は、あとで選び直せます。"
-              {...(errors.place === undefined ? {} : { error: errors.place })}
             />
-          </div>
+            {errors.place === undefined ? null : (
+              <p className="m-field__error">{errors.place}</p>
+            )}
+            <p className="m-field__help">
+              管理する店舗から選びます。選んだ店舗は、あとで選び直せます。
+            </p>
+          </fieldset>
         ) : null}
 
         {place === null && occasion !== null ? (
@@ -903,14 +1020,14 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
                           <RowLink
                             to="/listings/$listingId"
                             params={{ listingId: id }}
-                            photo={null}
+                            photo={listingPhoto(id)}
                             name={name}
                             meta={meta}
                             sub={place.name}
                           />
                         ) : (
                           <Row
-                            photo={null}
+                            photo={listingPhoto(id)}
                             name={name}
                             meta={
                               <span
@@ -976,7 +1093,11 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
                           <RowLink
                             to="/listings/$listingId"
                             params={{ listingId: item.id }}
-                            photo={null}
+                            photo={
+                              item.photoUrl === null
+                                ? null
+                                : { src: item.photoUrl, alt: "" }
+                            }
                             name={name}
                             meta={offeringText(item)}
                           />

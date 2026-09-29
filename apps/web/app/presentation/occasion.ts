@@ -5,6 +5,7 @@ import type {
   CandidatePage,
   OccasionFrame,
   ParticipantItem,
+  SubjectApplicationItem,
 } from "./occasionView";
 import { validateInput } from "./validator";
 
@@ -241,6 +242,21 @@ export const listParticipantsFn = createServerFn({ method: "GET" })
     > => {
       const { loadParticipantPage } = await import("./occasionData");
       return loadParticipantPage(data.occasionId, data.page);
+    },
+  );
+
+/** EM-01: the next page of the participation applications (CF-05). */
+export const listOccasionApplicationsFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(participantPageSchema))
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      Readonly<{ items: readonly SubjectApplicationItem[]; count: number }>
+    > => {
+      const { loadOccasionApplicationPage } = await import("./occasionData");
+      return loadOccasionApplicationPage(data.occasionId, data.page);
     },
   );
 

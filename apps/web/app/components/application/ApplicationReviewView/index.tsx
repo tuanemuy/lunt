@@ -72,9 +72,11 @@ type Outcome =
   | Readonly<{
       kind: "approved";
       result: Extract<ApprovalResult, { outcome: "approved" }>;
+      /** The stance the screen showed when the decision was taken. */
+      stance: ReviewStance;
     }>
   | Readonly<{ kind: "lapsed"; premises: readonly string[] }>
-  | Readonly<{ kind: "rejected"; overdueProxy: boolean }>
+  | Readonly<{ kind: "rejected"; overdueProxy: boolean; stance: ReviewStance }>
   | Readonly<{ kind: "returned" }>
   | Readonly<{
       kind: "error";
@@ -521,6 +523,34 @@ function OutcomeAlert({
   }
 }
 
+/**
+ * The operator's stance moved between the screen and the decision's commit
+ * (`spec/domains/application.md`: 判断は、判断の時点の事実だけで決まる): the
+ * decision is recorded as it was taken, which the screen had not shown.
+ * `""` when the recorded stance is the one shown.
+ */
+function stanceMoved(
+  data: ApplicationReviewData,
+  shown: ReviewStance | null,
+  recordedOverdue: boolean,
+  word: string,
+): string {
+  if (data.frame.kind !== "ops" || shown === null) return "";
+  const words = data.seat === null ? null : seatWords(data.seat);
+  const seatName = data.seat?.name ?? "";
+  if (shown === "overdueProxy" && !recordedOverdue) {
+    return words === null
+      ? `判断の時点で、運営者がいなくなっていました。この${word}は、期間超過の代行ではなく、運営者が不在の申請の判断として記録しました。`
+      : `判断の時点で、${seatName}の${words.stewards}がいなくなっていました。この${word}は、期間超過の代行ではなく、サービス運営者が${words.role}に代わって行う、運営者が不在の申請の判断として記録しました。`;
+  }
+  if (shown === "approver" && recordedOverdue) {
+    return words === null
+      ? `判断の時点で、運営者が就いていました。一定の期間を過ぎた申請のため、この${word}は期間超過の代行として記録しました。`
+      : `判断の時点で、${seatName}に${words.stewards}が就いていました。一定の期間を過ぎた申請のため、この${word}は期間超過の代行として記録しました。`;
+  }
+  return "";
+}
+
 function Done({
   data,
   outcome,
@@ -543,6 +573,16 @@ function Done({
     data.seat === null || seat === null
       ? "運営者に代わって判断したことが、申請に記録されます。"
       : `${data.seat.name}の${seat.stewards}に代わって判断したことが、申請に記録されます。`;
+  const moved = stanceMoved(
+    data,
+    outcome.kind === "returned" ? null : outcome.stance,
+    outcome.kind === "approved"
+      ? outcome.result.overdueProxy
+      : outcome.kind === "rejected"
+        ? outcome.overdueProxy
+        : false,
+    DECISION_WORD[outcome.kind === "approved" ? "approve" : "reject"],
+  );
   switch (outcome.kind) {
     case "approved": {
       const { result } = outcome;
@@ -577,8 +617,8 @@ function Done({
           {result.companionId !== null
             ? "店舗を登録して公開しました。併せて出された管理権限の申請を、続けて判断できます。"
             : result.overdueProxy
-              ? `${data.approvedText}${proxyRecord}判断は変えられません。`
-              : `${data.approvedText}申請者に通知が届きます。判断は変えられません。`}
+              ? `${moved}${data.approvedText}${proxyRecord}判断は変えられません。`
+              : `${moved}${data.approvedText}申請者に通知が届きます。判断は変えられません。`}
         </DonePanel>
       );
     }
@@ -592,7 +632,7 @@ function Done({
           }
           actions={back}
         >
-          {`申請者に、理由とともに通知が届きます。${outcome.overdueProxy ? proxyRecord : ""}判断は変えられません。`}
+          {`${moved}申請者に、理由とともに通知が届きます。${outcome.overdueProxy ? proxyRecord : ""}判断は変えられません。`}
         </DonePanel>
       );
     case "returned":
@@ -796,13 +836,17 @@ export function ApplicationReviewView({
           });
           next =
             result.outcome === "approved"
-              ? { kind: "approved", result }
+              ? { kind: "approved", result, stance }
               : { kind: "lapsed", premises: result.premises };
         } else if (decision === "reject") {
           const result = await rejectApplicationFn({
             data: { ...base, reason },
           });
-          next = { kind: "rejected", overdueProxy: result.overdueProxy };
+          next = {
+            kind: "rejected",
+            overdueProxy: result.overdueProxy,
+            stance,
+          };
         } else {
           await sendBackApplicationFn({ data: { ...base, request } });
           next = { kind: "returned" };

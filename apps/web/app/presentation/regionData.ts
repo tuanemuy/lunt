@@ -199,6 +199,7 @@ export async function loadAffiliatedPlaces(
     items: page.items.map((place) => ({
       placeId: place.placeId,
       name: place.name,
+      photoUrl: place.cover?.displayRef.url ?? null,
       operatingStatus: place.operatingStatus,
       suspended: place.suspended,
     })),
@@ -359,6 +360,7 @@ export async function loadRegionLinks(
     items: page.items.map(({ status, linkedAt, occasion }) => ({
       occasionId: occasion.id,
       name: occasion.name,
+      photoUrl: occasion.cover?.displayRef.url ?? null,
       status,
       linkedAt: linkedAt.toISOString(),
       period:

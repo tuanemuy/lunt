@@ -381,7 +381,7 @@ export function ModeNotice({
       );
     case "resubmit":
       return (
-        <Notice variant="manage" title="運営からの追加の確認">
+        <Notice variant="manage" title={`${mode.requestedBy}からの追加の確認`}>
           {mode.request}
         </Notice>
       );

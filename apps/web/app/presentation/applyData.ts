@@ -246,6 +246,7 @@ async function startedFrom(
             applicationId: app.id,
             version: app.version,
             request: status.request,
+            requestedBy: "運営",
           },
         }
       : { kind: "notReturned", applicationId: app.id, status: status.kind };

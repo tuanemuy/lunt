@@ -148,7 +148,9 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
   const [kind, setKind] = useState<MembershipKind>(data.kind);
   // The region the entry chose, for the kind: a region to leave is one of
   // the store's affiliations and starts chosen only when it can be chosen;
-  // a region to join is shown with its reason when it cannot (DT-03).
+  // a region to join is shown with its reason when it cannot (DT-03). The
+  // preset was judged for `data.kind` only, so the other kind starts with
+  // no region and judges its choice by its own rules.
   const startRegion = (of: MembershipKind): RegionOption | null => {
     if (preset === null) return null;
     if (resubmit !== null) return preset;
@@ -158,7 +160,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
     if (of === "leave") {
       return listed !== undefined && listed.refusal === null ? listed : null;
     }
-    return listed === undefined ? preset : null;
+    return listed === undefined && data.kind === "affiliation" ? preset : null;
   };
   const [region, setRegion] = useState<RegionOption | null>(() =>
     startRegion(data.kind),
@@ -580,7 +582,11 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
           <CandidateRadios
             name="rq05-region-found"
             items={items.map(regionCandidate)}
-            value={region?.regionId ?? null}
+            // A refused region is not chosen: finding it again (judged
+            // afresh for this store and kind) must be able to choose it.
+            value={
+              region === null || regionRefusal !== null ? null : region.regionId
+            }
             disabled={sending}
             invalid={errors.region !== undefined}
             onChange={(id) => {

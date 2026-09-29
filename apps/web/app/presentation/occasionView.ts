@@ -100,6 +100,8 @@ export type AttachedListingItem =
       id: string;
       deleted: false;
       name: string | null;
+      /** The listing's representative photo. */
+      photoUrl: string | null;
       publication: PublicationView;
       suspended: boolean;
       offeringStatus: OfferingStatus;
@@ -119,6 +121,8 @@ export type ParticipationItem = Readonly<{
 export type ParticipantItem = Readonly<{
   placeId: string;
   name: string;
+  /** The place's representative photo. */
+  photoUrl: string | null;
   operatingStatus: OperatingStatus;
   suspended: boolean;
   hasSteward: boolean;
@@ -141,7 +145,9 @@ export type SubjectApplicationItem = Readonly<{
 export type ParticipantBoardData = Readonly<{
   participants: readonly ParticipantItem[];
   count: number;
+  /** The first page of the participation applications, active ones first. */
   applications: readonly SubjectApplicationItem[];
+  applicationCount: number;
   underReviewCount: number;
   /** The place a notification opened this with (`?participant=`), when it names one. */
   focus: Readonly<{
@@ -153,6 +159,9 @@ export type ParticipantBoardData = Readonly<{
 }>;
 
 export const PARTICIPANT_PAGE_SIZE = 50;
+
+/** EM-01's participation applications per page (CF-05). */
+export const APPLICATION_PAGE_SIZE = 50;
 
 /** What EM-02 edits: the content, the states and the address lists. */
 export type OccasionEditorData = Readonly<{
@@ -185,6 +194,8 @@ export type OccasionEditorData = Readonly<{
 export type RegionLinkItem = Readonly<{
   regionId: string;
   name: string | null;
+  /** The region's representative photo. */
+  photoUrl: string | null;
   status: "linked" | "detached";
   publication: PublicationView;
   suspended: boolean;
@@ -217,6 +228,8 @@ export type CandidatePage = Readonly<{
 export type AttachableItem = Readonly<{
   id: string;
   name: string | null;
+  /** The listing's representative photo. */
+  photoUrl: string | null;
   offeringStatus: OfferingStatus;
 }>;
 
@@ -233,12 +246,14 @@ export type ParticipationEditorData = Readonly<{
     publication: PublicationView;
     suspended: boolean;
     holding: HoldingStatus | null;
+    photoUrl: string | null;
   }>;
   place: Readonly<{
     id: string;
     name: string | null;
     operatingStatus: OperatingStatus | null;
     hasSteward: boolean;
+    photoUrl: string | null;
   }>;
   /** `null` while the place does not take part (the add, or after it was dissolved). */
   participation: ParticipationItem | null;

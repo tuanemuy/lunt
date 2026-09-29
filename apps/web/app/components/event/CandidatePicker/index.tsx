@@ -2,6 +2,7 @@
 
 import {
   type ReactNode,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -34,7 +35,17 @@ type CandidateSearchProps = {
   autoFocus?: boolean;
   /** What a search that found nothing says, in place of the generic line (RQ-06: 参加を申請できるイベントがない). */
   noMatch?: (keyword: string) => ReactNode;
+  /** The search as it stood when the input was kept (RQ-06: a return from a candidate's detail). */
+  initial?: CandidateSnapshot | null;
+  /** Receives the search as it stands, to keep it with the input. */
+  keep?: (snapshot: CandidateSnapshot) => void;
 };
+
+/** A search as it stood: what is typed, and what the last search found. */
+export type CandidateSnapshot = Readonly<{
+  keyword: string;
+  found: Readonly<{ keyword: string; page: CandidatePage }> | null;
+}>;
 
 type Result =
   | Readonly<{ kind: "idle" }>
@@ -59,10 +70,25 @@ export function CandidateSearch({
   disabled = false,
   autoFocus = false,
   noMatch,
+  initial = null,
+  keep,
 }: CandidateSearchProps) {
-  const [keyword, setKeyword] = useState("");
-  const [result, setResult] = useState<Result>({ kind: "idle" });
+  const [keyword, setKeyword] = useState(initial?.keyword ?? "");
+  const [result, setResult] = useState<Result>(
+    initial === null || initial.found === null
+      ? { kind: "idle" }
+      : { kind: "found", ...initial.found },
+  );
   const [searching, startSearch] = useTransition();
+  useEffect(() => {
+    keep?.({
+      keyword,
+      found:
+        result.kind === "found"
+          ? { keyword: result.keyword, page: result.page }
+          : null,
+    });
+  }, [keep, keyword, result]);
   const run = () =>
     startSearch(async () => {
       const typed = keyword.trim();

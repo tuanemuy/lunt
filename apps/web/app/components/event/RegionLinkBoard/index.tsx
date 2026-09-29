@@ -88,6 +88,7 @@ function RegionRow({
       {item.status === "detached" ? <Badge tone="muted">解除済み</Badge> : null}
     </span>
   );
+  const photo = item.photoUrl === null ? null : { src: item.photoUrl, alt: "" };
   const meta =
     item.status === "detached"
       ? "地域の運営者が関連づけを解除しました"
@@ -97,13 +98,13 @@ function RegionRow({
       {viewable ? (
         <RowLink
           to={regionPagePath(item.regionId)}
-          photo={null}
+          photo={photo}
           name={name}
           meta={meta}
           sub={badges}
         />
       ) : (
-        <Row photo={null} name={name} meta={meta} sub={badges} />
+        <Row photo={photo} name={name} meta={meta} sub={badges} />
       )}
       {item.status === "detached" ? (
         <p className="p-item__text">
@@ -179,7 +180,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
     setOutcome({ kind: "failed", title, error: state });
   };
 
-  const link = (regionId: string, name: string) =>
+  const link = (regionId: string, name: string, photoUrl: string | null) =>
     startBusy(async () => {
       setPicking(false);
       setOutcome(null);
@@ -188,6 +189,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
         item: {
           regionId,
           name,
+          photoUrl,
           status: "linked",
           publication: { status: "published", reason: null },
           suspended: false,
@@ -267,6 +269,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
                       unlink({
                         regionId: linked.regionId,
                         name: linked.name,
+                        photoUrl: null,
                         status: "linked",
                         publication: { status: "published", reason: null },
                         suspended: false,
@@ -415,7 +418,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
           }
           detailPath={regionPagePath}
           detailLabel="地域ページ"
-          onPick={(item) => link(item.id, item.name)}
+          onPick={(item) => link(item.id, item.name, item.photoUrl)}
           disabled={busy}
           autoFocus
         />

@@ -43,6 +43,8 @@ export type ApplyMode =
       version: number;
       /** The approver's request (追加で必要な確認). */
       request: string;
+      /** Who asked, as MY-05 names the approver: 運営, or the region's / event's stewards. */
+      requestedBy: string;
     }>;
 
 /**

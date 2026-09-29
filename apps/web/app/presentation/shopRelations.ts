@@ -54,6 +54,8 @@ export type AffiliatedRegionItem = Readonly<{
   regionId: string;
   /** `null` while the region has no name. */
   name: string | null;
+  /** The region's representative photo. */
+  photoUrl: string | null;
   /** `2026年3月` / `3月` (the year only when it is not this year). */
   since: string;
   publication: ContentPublication;
@@ -100,6 +102,8 @@ export type AttachedListingLine =
 export type ShopEventItem = Readonly<{
   occasionId: string;
   name: string | null;
+  /** The event's representative photo. */
+  photoUrl: string | null;
   periodText: string | null;
   publication: ContentPublication;
   suspended: boolean;

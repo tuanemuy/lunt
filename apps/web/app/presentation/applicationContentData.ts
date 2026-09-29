@@ -218,6 +218,7 @@ export function attachedLine(listing: AttachedListingView): AttachedLine {
       state: "削除された掲載",
       hidden: true,
       href: null,
+      photoUrl: null,
     };
   }
   const name = listing.name ?? "名称未設定の掲載";
@@ -227,6 +228,7 @@ export function attachedLine(listing: AttachedListingView): AttachedLine {
     state,
     hidden: true,
     href: null,
+    photoUrl: null,
   });
   if (listing.suspended) return hidden("運営による非公開");
   if (listing.publication.status === "unpublished") return hidden("一時非公開");
@@ -238,6 +240,7 @@ export function attachedLine(listing: AttachedListingView): AttachedLine {
     state: OFFERING_PHASE_LABEL[listing.offeringStatus.phase],
     hidden: false,
     href: `/listings/${encodeURIComponent(listing.id)}`,
+    photoUrl: listing.cover?.display?.url ?? null,
   };
 }
 

@@ -28,6 +28,8 @@ export type AttachedLine = Readonly<{
   state: string;
   hidden: boolean;
   href: string | null;
+  /** The representative photo, only while viewers see the listing. */
+  photoUrl: string | null;
 }>;
 
 export type ContentValue =

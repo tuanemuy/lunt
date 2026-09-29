@@ -312,14 +312,22 @@ export function AffiliationBoard({ data }: { data: AffiliationsData }) {
                   <li className="p-item" key={place.placeId}>
                     {place.suspended ? (
                       <Row
-                        photo={null}
+                        photo={
+                          place.photoUrl === null
+                            ? null
+                            : { src: place.photoUrl, alt: "" }
+                        }
                         name={place.name}
                         sub={<PlaceBadges place={place} />}
                       />
                     ) : (
                       <RowLink
                         to={placeDetailPath(place.placeId)}
-                        photo={null}
+                        photo={
+                          place.photoUrl === null
+                            ? null
+                            : { src: place.photoUrl, alt: "" }
+                        }
                         name={place.name}
                         sub={<PlaceBadges place={place} />}
                       />

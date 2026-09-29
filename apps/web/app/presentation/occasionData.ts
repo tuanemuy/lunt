@@ -8,7 +8,6 @@ import { findSelectionCandidates } from "@repo/core/application/discovery/findSe
 import { viewPlace } from "@repo/core/application/discovery/viewPlace";
 import {
   ForbiddenError,
-  isForbiddenError,
   isNotFoundError,
   NotFoundError,
 } from "@repo/core/application/errors";
@@ -35,6 +34,7 @@ import { loadAreaLists, townOfAddress } from "./areaData";
 import { missingChildFirst } from "./childTargets";
 import { publicationView } from "./listingData";
 import {
+  APPLICATION_PAGE_SIZE,
   type AttachedListingItem,
   type CandidatePage,
   OCCASION_PROXY_UNAVAILABLE,
@@ -50,6 +50,7 @@ import {
   type ParticipationSide,
   type RegionLinkItem,
   type RegionLinksData,
+  type SubjectApplicationItem,
 } from "./occasionView";
 import type { AreaLists } from "./placeView";
 import { participationApplicationItem } from "./subjectApplications";
@@ -146,13 +147,16 @@ export async function loadOccasionFrame(
   return frameOf(view);
 }
 
-const attachedItem = (listing: AttachedListingView): AttachedListingItem =>
+export const attachedItem = (
+  listing: AttachedListingView,
+): AttachedListingItem =>
   listing.deleted
     ? { id: listing.id, deleted: true }
     : {
         id: listing.id,
         deleted: false,
         name: listing.name,
+        photoUrl: listing.cover?.display?.url ?? null,
         publication: publicationView(listing.publication),
         suspended: listing.suspended,
         offeringStatus: listing.offeringStatus,
@@ -169,6 +173,7 @@ const participationItem = (p: ParticipationView): ParticipationItem => ({
 const participantItem = (item: ParticipantView): ParticipantItem => ({
   placeId: item.place.id,
   name: item.place.name,
+  photoUrl: item.place.cover?.displayRef.url ?? null,
   operatingStatus: item.place.operatingStatus,
   suspended: item.place.suspended,
   hasSteward: item.placeHasSteward,
@@ -190,6 +195,28 @@ export async function loadParticipantPage(
     },
   });
   return { items: result.items.map(participantItem), count: result.count };
+}
+
+/** EM-01: a page of the participation applications, active ones first (CF-05). */
+export async function loadOccasionApplicationPage(
+  rawId: string,
+  page: number,
+): Promise<
+  Readonly<{ items: readonly SubjectApplicationItem[]; count: number }>
+> {
+  const { container, actor } = await actorAndContainer();
+  const result = await listApplicationsForSubject({
+    container,
+    actor,
+    input: {
+      subject: { kind: "occasion", id: occasionIdOf(rawId) },
+      pagination: { page, limit: APPLICATION_PAGE_SIZE },
+    },
+  });
+  return {
+    items: result.items.map(participationApplicationItem),
+    count: result.count,
+  };
 }
 
 /** Every participant of the event (a management list, capped by its size). */
@@ -249,7 +276,7 @@ export async function loadParticipantBoard(
       actor,
       input: {
         subject: { kind: "occasion", id: occasionId },
-        pagination: { page: 1, limit: 50 },
+        pagination: { page: 1, limit: APPLICATION_PAGE_SIZE },
       },
     }),
   ]);
@@ -284,6 +311,7 @@ export async function loadParticipantBoard(
     participants: items,
     count: participants.count,
     applications: applications.items.map(participationApplicationItem),
+    applicationCount: applications.count,
     underReviewCount: applications.underReviewCount ?? 0,
     focus,
   };
@@ -374,6 +402,7 @@ async function allRegionLinks(
       ...result.items.map((link) => ({
         regionId: link.region.id,
         name: link.region.name,
+        photoUrl: link.region.cover?.displayRef.url ?? null,
         status: link.status,
         publication: publicationView(link.region.publication),
         suspended: link.region.suspended,
@@ -509,15 +538,12 @@ export async function loadParticipationEditor(
       "Only the place's stewards change its participation from the place",
     );
   }
-  const [attachable, name] = await Promise.all([
-    listAttachableListings({
-      container,
-      actor,
-      input: { occasionId, placeId, pagination: { page: 1, limit: 100 } },
-    }),
-    placeFacts(container, actor, occasionId, placeId, details.participation),
-  ]);
-  const occasion = details.occasion;
+  const attachable = await listAttachableListings({
+    container,
+    actor,
+    input: { occasionId, placeId, pagination: { page: 1, limit: 100 } },
+  });
+  const { occasion, place } = details;
   return {
     side: input.side,
     occasion: {
@@ -530,12 +556,14 @@ export async function loadParticipationEditor(
       publication: publicationView(occasion.publication),
       suspended: occasion.suspended,
       holding: occasion.holdingStatus,
+      photoUrl: occasion.cover?.displayRef.url ?? null,
     },
     place: {
       id: placeId,
-      name: name.name,
-      operatingStatus: name.operatingStatus,
+      name: place.name,
+      operatingStatus: place.operatingStatus,
       hasSteward: details.placeHasSteward,
+      photoUrl: place.cover?.displayRef.url ?? null,
     },
     participation:
       details.participation === null
@@ -544,52 +572,10 @@ export async function loadParticipationEditor(
     attachable: attachable.items.map((listing) => ({
       id: listing.id,
       name: listing.name,
+      photoUrl: listing.cover?.display?.url ?? null,
       offeringStatus: listing.offeringStatus,
     })),
   };
-}
-
-/**
- * The place's name and operating status: from the participants when it
- * takes part (the list shows suspended places too), else as viewers see it.
- */
-async function placeFacts(
-  container: RequestContainer,
-  actor: Actor,
-  occasionId: OccasionId,
-  placeId: PlaceIdType,
-  participation: ParticipationView | null,
-): Promise<
-  Readonly<{
-    name: string | null;
-    operatingStatus: ParticipantView["place"]["operatingStatus"] | null;
-  }>
-> {
-  if (participation !== null) {
-    const listed = await allParticipants(container, actor, occasionId).catch(
-      (error: unknown) => {
-        if (isForbiddenError(error)) return [];
-        throw error;
-      },
-    );
-    const found = listed.find((item) => item.place.id === placeId);
-    if (found !== undefined) {
-      return {
-        name: found.place.name,
-        operatingStatus: found.place.operatingStatus,
-      };
-    }
-  }
-  try {
-    const viewed = await viewPlace({ container, actor, input: { placeId } });
-    return {
-      name: viewed.place.name,
-      operatingStatus: viewed.place.standing.operating,
-    };
-  } catch (error) {
-    if (isNotFoundError(error)) return { name: null, operatingStatus: null };
-    throw error;
-  }
 }
 
 /**

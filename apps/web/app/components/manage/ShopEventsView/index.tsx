@@ -62,7 +62,7 @@ function EventItem({ item }: { item: ShopEventItem }) {
   const frame = usePlaceFrame();
   const hidden = hiddenReason(item.publication, item.suspended);
   const row = {
-    photo: null,
+    photo: item.photoUrl === null ? null : { src: item.photoUrl, alt: "" },
     name: item.name ?? "名称未設定のイベント",
     ...(item.periodText === null ? {} : { meta: item.periodText }),
     sub: <EventBadges item={item} />,

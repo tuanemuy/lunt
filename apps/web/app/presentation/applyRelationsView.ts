@@ -117,6 +117,8 @@ export type OccasionOption = Readonly<{
 export type AttachableOption = Readonly<{
   id: string;
   name: string | null;
+  /** The listing's representative photo. */
+  photoUrl: string | null;
   offeringStatus: OfferingStatus;
 }>;
 

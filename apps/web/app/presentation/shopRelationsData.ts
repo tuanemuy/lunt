@@ -89,6 +89,7 @@ export async function loadAffiliationStatus(
     regions: status.regions.map((region) => ({
       regionId: region.regionId,
       name: region.name,
+      photoUrl: region.cover?.displayRef.url ?? null,
       since: monthText(region.affiliatedAt, today),
       publication: region.publication.status,
       suspended: region.suspended,
@@ -155,6 +156,7 @@ export async function loadShopEvents(
       items.push({
         occasionId: occasion.id,
         name: occasion.name,
+        photoUrl: occasion.cover?.displayRef.url ?? null,
         periodText: periodText(occasion.period),
         publication: occasion.publication.status,
         suspended: occasion.suspended,

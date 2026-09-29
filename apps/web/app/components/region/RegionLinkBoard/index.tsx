@@ -89,7 +89,7 @@ function LinkBadges({ item }: { item: RegionLinkItem }) {
 
 function LinkRow({ item }: { item: RegionLinkItem }) {
   const content = {
-    photo: null,
+    photo: item.photoUrl === null ? null : { src: item.photoUrl, alt: "" },
     name: occasionName(item),
     ...(item.period === null ? {} : { meta: periodText(item.period) }),
     sub: <LinkBadges item={item} />,

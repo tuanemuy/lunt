@@ -656,7 +656,7 @@ function ParticipationEditor({
             <p className="m-field__label">イベント</p>
             <RowLink
               to={occasionPagePath(occasion.id)}
-              photo={null}
+              photo={photoOf(occasion.photoUrl)}
               name={eventName}
               meta={period === null ? "開催期間は未設定" : periodText(period)}
               sub={<OccasionBadges occasion={occasion} />}
@@ -667,7 +667,7 @@ function ParticipationEditor({
             <div className="cm04-item">
               <RowLink
                 to={placePagePath(data.place.id)}
-                photo={null}
+                photo={photoOf(data.place.photoUrl)}
                 name={shopName}
                 meta={
                   data.place.operatingStatus === null
@@ -750,7 +750,7 @@ function ParticipationEditor({
                     <li key={item.id} className="cm04-item">
                       <RowLink
                         to={listingPagePath(item.id)}
-                        photo={null}
+                        photo={photoOf(item.photoUrl)}
                         name={name}
                         {...listingMeta(item.offeringStatus)}
                         sub={<OfferingBadge status={item.offeringStatus} />}
@@ -960,6 +960,9 @@ function OccasionBadges({
   );
 }
 
+const photoOf = (url: string | null) =>
+  url === null ? null : { src: url, alt: "" };
+
 function AttachedRow({
   id,
   stored,
@@ -974,6 +977,7 @@ function AttachedRow({
   /** As an attachable listing, when it is one now. */
   candidate: Readonly<{
     name: string | null;
+    photoUrl: string | null;
     offeringStatus: OfferingStatus;
   }> | null;
   /** The name it had when attached in this form, before the save. */
@@ -1014,7 +1018,7 @@ function AttachedRow({
       <li className="cm04-item">
         <RowLink
           to={listingPagePath(id)}
-          photo={null}
+          photo={photoOf(candidate.photoUrl)}
           name={name}
           {...listingMeta(candidate.offeringStatus)}
           sub={
@@ -1047,7 +1051,7 @@ function AttachedRow({
       {state.hidden ? (
         <RowLink
           to={listingPagePath(id)}
-          photo={null}
+          photo={photoOf(stored.photoUrl)}
           name={name}
           meta="閲覧者に表示されていません"
           sub={
@@ -1059,7 +1063,7 @@ function AttachedRow({
       ) : (
         <RowLink
           to={listingPagePath(id)}
-          photo={null}
+          photo={photoOf(stored.photoUrl)}
           name={name}
           {...listingMeta(stored.offeringStatus)}
           sub={

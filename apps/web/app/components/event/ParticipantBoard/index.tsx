@@ -14,6 +14,8 @@ import { ProxyUnavailablePanel } from "@/components/event/EventShell/EventProble
 import { useOccasionFrame } from "@/components/event/EventShell/useOccasionFrame";
 import { ManageBody, ManageStatus } from "@/components/layout/ManageShell";
 import { listingPagePath, placePagePath } from "@/components/manage/ShopShell";
+import { ListFooter } from "@/components/region/ListFooter";
+import { usePagedList } from "@/components/region/usePagedList";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -30,15 +32,18 @@ import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { jpDateWithWeekday } from "@/presentation/listingView";
 import {
   excludeParticipantFn,
+  listOccasionApplicationsFn,
   listParticipantsFn,
 } from "@/presentation/occasion";
 import {
+  APPLICATION_PAGE_SIZE,
   attachedListingState,
   occasionName,
   PARTICIPANT_PAGE_SIZE,
   type ParticipantBoardData,
   type ParticipantItem,
   periodText,
+  type SubjectApplicationItem,
 } from "@/presentation/occasionView";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
@@ -98,6 +103,82 @@ export function ParticipationSummary({ item }: { item: ParticipantItem }) {
         </p>
       ))}
     </div>
+  );
+}
+
+const applicationKey = (item: SubjectApplicationItem) => item.applicationId;
+
+/** 参加の申請: every application with its state, a page at a time (CF-05). */
+function ApplicationsSection({
+  data,
+  occasionId,
+}: {
+  data: ParticipantBoardData;
+  occasionId: string;
+}) {
+  const fetchPage = useCallback(
+    (page: number) =>
+      listOccasionApplicationsFn({ data: { occasionId, page } }),
+    [occasionId],
+  );
+  const list = usePagedList(
+    { items: data.applications, count: data.applicationCount },
+    APPLICATION_PAGE_SIZE,
+    applicationKey,
+    fetchPage,
+  );
+  return (
+    <section className="m-section" aria-labelledby="em01-apply">
+      <div className="em-head">
+        <SectionTitle variant="manage" id="em01-apply">
+          参加の申請
+        </SectionTitle>
+        {data.underReviewCount > 0 ? (
+          <Badge tone="accent">{`確認中 ${data.underReviewCount}件`}</Badge>
+        ) : null}
+      </div>
+      {list.items.length === 0 ? (
+        <p className="m-field__help">
+          申請はありません。店舗から参加の申請が届くと、ここに並びます。
+        </p>
+      ) : (
+        <>
+          <LinkList>
+            {list.items.map((application) => (
+              <li key={application.applicationId}>
+                <ListRowLink
+                  to="/manage/applications/$applicationId"
+                  params={{ applicationId: application.applicationId }}
+                  search={{
+                    from: reviewFrom({ kind: "occasion", id: occasionId }),
+                  }}
+                  title={application.title}
+                  meta={
+                    application.detail === null ? (
+                      application.meta
+                    ) : (
+                      <>
+                        {application.meta}
+                        <span className="em-apply__detail">
+                          {application.detail}
+                        </span>
+                      </>
+                    )
+                  }
+                  end={
+                    <Badge tone={application.tone}>{application.status}</Badge>
+                  }
+                />
+              </li>
+            ))}
+          </LinkList>
+          <p className="m-field__help">
+            確認中の申請を選ぶと、申請の判断へ進みます。
+          </p>
+          <ListFooter {...list} endText="すべての申請を表示しました" />
+        </>
+      )}
+    </section>
   );
 }
 
@@ -326,61 +407,7 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
           </Alert>
         ) : null}
 
-        <section className="m-section" aria-labelledby="em01-apply">
-          <div className="em-head">
-            <SectionTitle variant="manage" id="em01-apply">
-              参加の申請
-            </SectionTitle>
-            {data.underReviewCount > 0 ? (
-              <Badge tone="accent">{`確認中 ${data.underReviewCount}件`}</Badge>
-            ) : null}
-          </div>
-          {data.applications.length === 0 ? (
-            <p className="m-field__help">
-              申請はありません。店舗から参加の申請が届くと、ここに並びます。
-            </p>
-          ) : (
-            <>
-              <LinkList>
-                {data.applications.map((application) => (
-                  <li key={application.applicationId}>
-                    <ListRowLink
-                      to="/manage/applications/$applicationId"
-                      params={{ applicationId: application.applicationId }}
-                      search={{
-                        from: reviewFrom({
-                          kind: "occasion",
-                          id: frame.occasionId,
-                        }),
-                      }}
-                      title={application.title}
-                      meta={
-                        application.detail === null ? (
-                          application.meta
-                        ) : (
-                          <>
-                            {application.meta}
-                            <span className="em-apply__detail">
-                              {application.detail}
-                            </span>
-                          </>
-                        )
-                      }
-                      end={
-                        <Badge tone={application.tone}>
-                          {application.status}
-                        </Badge>
-                      }
-                    />
-                  </li>
-                ))}
-              </LinkList>
-              <p className="m-field__help">
-                確認中の申請を選ぶと、申請の判断へ進みます。
-              </p>
-            </>
-          )}
-        </section>
+        <ApplicationsSection data={data} occasionId={frame.occasionId} />
 
         <section
           className="m-section"
@@ -422,7 +449,11 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
                   >
                     <RowLink
                       to={placePagePath(item.placeId)}
-                      photo={null}
+                      photo={
+                        item.photoUrl === null
+                          ? null
+                          : { src: item.photoUrl, alt: "" }
+                      }
                       name={item.name}
                       meta={
                         item.hasSteward

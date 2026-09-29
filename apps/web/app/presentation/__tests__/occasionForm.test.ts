@@ -95,6 +95,7 @@ describe("occasion wording", () => {
         id: "l2",
         deleted: false,
         name: "パン",
+        photoUrl: null,
         publication: { status: "published", reason: null },
         suspended: false,
         offeringStatus: { phase: "ended", cause: "schedule" },

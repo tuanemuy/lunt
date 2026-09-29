@@ -32,7 +32,6 @@ import {
   NotFoundError,
 } from "@repo/core/application/errors";
 import { listPlaceListings } from "@repo/core/application/listing/listPlaceListings";
-import type { AttachedListingView } from "@repo/core/application/occasion/attachedListings";
 import { listAttachableListings } from "@repo/core/application/occasion/listAttachableListings";
 import {
   listStewardedPlaces,
@@ -71,7 +70,8 @@ import type {
 } from "./applyRelationsView";
 import { MEMBERSHIP_KIND_LABEL, MEMBERSHIP_MODE } from "./applyRelationsView";
 import type { ApplyMode } from "./applyView";
-import { publicationView } from "./listingData";
+import { approverText } from "./myApplicationDetailData";
+import { attachedItem } from "./occasionData";
 import type { CandidatePage } from "./occasionView";
 import { periodText } from "./occasionView";
 import { OPERATING_STATUS_LABEL } from "./placeView";
@@ -145,6 +145,7 @@ async function startedFrom(
             applicationId: app.id,
             version: app.version,
             request: status.request,
+            requestedBy: approverText(app),
           },
         }
       : { kind: "notReturned", applicationId: app.id, status: status.kind };
@@ -433,6 +434,39 @@ function participationCandidateRefusal(
   return null;
 }
 
+/**
+ * A managed store's reason for the event DT-04 chose (RQ-06's store
+ * choice): the event's reason, worded for the store where it is about the
+ * store (参加中, 申請中).
+ */
+function participationPlaceRefusal(
+  eligibility: SubmissionEligibility | "forbidden",
+  placeId: PlaceId,
+  occasionId: OccasionId,
+  placeName: string,
+): CandidateRefusal | null {
+  const refusal = participationCandidateRefusal(
+    eligibility,
+    placeId,
+    occasionId,
+    { placeName, targetName: "" },
+  );
+  switch (refusal?.go?.kind) {
+    case "participation":
+      return {
+        ...refusal,
+        reason: `${placeName}は、このイベントに参加しています。`,
+      };
+    case "application":
+      return {
+        ...refusal,
+        reason: `${placeName}の、このイベントへの参加の申請が確認中か差し戻しです。`,
+      };
+    default:
+      return refusal;
+  }
+}
+
 // --- Regions ------------------------------------------------------------------
 
 function summaryOption(region: RegionSummary, photos: PhotoRefs): RegionOption {
@@ -530,7 +564,7 @@ async function leaveCandidates(
           : region.publication.status === "published"
             ? "所属中 · 地域は公開中"
             : "所属中 · 地域は公開を取り下げています",
-        photoUrl: null,
+        photoUrl: region.cover?.displayRef.url ?? null,
         badges: [
           ...(representative
             ? [{ label: "代表地域", tone: "accent" } as const]
@@ -790,7 +824,13 @@ async function membershipForm(
     return refused(notSteward(read, false));
   }
   if (actingAs === "individual" && !read.vacant) {
-    return refused(notSteward(read, false));
+    // A reapplication as an individual meets 「店舗に店舗管理者がいる」; a
+    // new one opened on a store with a steward is CS-05 (RQ-05).
+    return refused(
+      opened.steward === false
+        ? { kind: "hasSteward", placeId: read.option.placeId, listingId: null }
+        : notSteward(read, false),
+    );
   }
   const placeId = placeIdOf(read.option.placeId);
   const placeName = read.option.name;
@@ -813,30 +853,54 @@ async function membershipForm(
       opened.kind === "leave"
         ? leaving.find((item) => item.regionId === opened.regionId)
         : undefined;
-    region =
-      listed ??
-      ({
-        ...(await readRegion(container, opened.regionId, opened.regionName)),
-        refusal: membershipCandidateRefusal(
-          await eligibilityOf(container, actor, membershipInput(target)),
-          target,
-          { placeName, targetName: opened.regionName },
-        ),
-      } satisfies RegionOption);
+    if (listed !== undefined) {
+      region = listed;
+    } else {
+      const [seen, eligibility] = await Promise.all([
+        readRegion(container, opened.regionId, opened.regionName),
+        eligibilityOf(container, actor, membershipInput(target)),
+      ]);
+      // 離脱 of a region the store no longer belongs to (SM-05's link, a
+      // reapplication after the affiliation was dissolved) meets 「所属が
+      // ない」, which no other region chosen here can avoid: refused.
+      if (
+        opened.kind === "leave" &&
+        eligibility !== "forbidden" &&
+        eligibility.brokenPremises[0] === "affiliated"
+      ) {
+        return refused({
+          kind: "notAffiliated",
+          placeId: read.option.placeId,
+          placeName,
+          regionName: seen.name,
+          steward: actingAs === "steward",
+        });
+      }
+      region = {
+        ...seen,
+        refusal: membershipCandidateRefusal(eligibility, target, {
+          placeName,
+          targetName: seen.name,
+        }),
+      };
+    }
   }
+  const kind =
+    opened.kind === "leave" && leaving.length === 0
+      ? "affiliation"
+      : opened.kind;
   return {
     kind: "form",
     data: {
       mode: opened.mode,
       opening: "place",
-      kind:
-        opened.kind === "leave" && leaving.length === 0
-          ? "affiliation"
-          : opened.kind,
+      kind,
       kindFixed: false,
       place: read.option,
       managed: [],
-      region,
+      // Judged for the kind the entry named, a region would carry the
+      // wrong reason for another kind.
+      region: kind === opened.kind ? region : null,
       affiliated: leaving,
     },
   };
@@ -1037,6 +1101,7 @@ async function attachableOf(
       ...read.items.map((item) => ({
         id: item.id,
         name: item.name,
+        photoUrl: item.cover?.display?.url ?? null,
         offeringStatus: item.offeringStatus,
       })),
     );
@@ -1195,21 +1260,6 @@ export async function findParticipationOccasions(
   return { items, count: found.candidates.count, refusals };
 }
 
-const attachedItem = (
-  listing: AttachedListingView,
-): ParticipationFormData["held"][number] =>
-  listing.deleted
-    ? { id: listing.id, deleted: true }
-    : {
-        id: listing.id,
-        deleted: false,
-        name: listing.name,
-        publication: publicationView(listing.publication),
-        suspended: listing.suspended,
-        offeringStatus: listing.offeringStatus,
-        viewable: listing.viewable,
-      };
-
 /**
  * RQ-06's first load: a new application from SM-06 (the store) or DT-04
  * (the event), a reapplication, or a resubmission.
@@ -1352,7 +1402,24 @@ export async function loadParticipationPage(
   if (stewarded.length === 0) {
     return refused({ kind: "noManagedPlace", occasionId });
   }
-  const managed = stewarded.map(stewardedOption);
+  const managed = await Promise.all(
+    stewarded.map(async (place): Promise<PlaceOption> => {
+      const option = stewardedOption(place);
+      return {
+        ...option,
+        refusal: participationPlaceRefusal(
+          await eligibilityOf(
+            container,
+            actor,
+            participationInput(place.placeId, occasionId),
+          ),
+          place.placeId,
+          occasionId,
+          option.name,
+        ),
+      };
+    }),
+  );
   const [only] = managed;
   const place = managed.length === 1 && only !== undefined ? only : null;
   return {

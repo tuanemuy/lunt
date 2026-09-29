@@ -92,6 +92,8 @@ export const REGION_LIST_PAGE_SIZE = 20;
 export type AffiliatedPlaceItem = Readonly<{
   placeId: string;
   name: string;
+  /** The place's representative photo. */
+  photoUrl: string | null;
   operatingStatus: OperatingStatus;
   suspended: boolean;
 }>;
@@ -151,6 +153,8 @@ export const HOLDING_STATUS_LABEL = {
 export type RegionLinkItem = Readonly<{
   occasionId: string;
   name: string | null;
+  /** The occasion's representative photo. */
+  photoUrl: string | null;
   status: "linked" | "detached";
   /** ISO 8601. */
   linkedAt: string;

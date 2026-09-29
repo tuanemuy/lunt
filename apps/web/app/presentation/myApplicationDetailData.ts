@@ -36,7 +36,7 @@ const subjectOfKind = (
  * the operators, or the region's / event's stewards (the operators stand
  * in for them, which the applicant need not tell apart).
  */
-function approverText(view: MyApplicationView): string {
+export function approverText(view: MyApplicationView): string {
   switch (view.kind) {
     case "registration":
     case "revision":
