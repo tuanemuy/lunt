@@ -8,7 +8,10 @@ import { Pagination } from "@repo/core/domain/common/pagination";
 import { Listing } from "@repo/core/domain/listing/listing";
 import type { OfferingStatus } from "@repo/core/domain/listing/offering";
 import type { ListingName } from "@repo/core/domain/listing/values";
+import type { ListingPhotoView } from "../listing/managedListing";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
+import { listingCover, listingCoverIds } from "./attachedListings";
 import { requireOccasion } from "./managedOccasion";
 import { authorizeAsPlaceOrOccasion } from "./participationAccess";
 import { requireParticipantPlace } from "./participations";
@@ -22,6 +25,8 @@ export type ListAttachableListingsInput = Readonly<{
 export type AttachableListingView = Readonly<{
   id: ListingId;
   name: ListingName | null;
+  /** The listing's first photo. */
+  cover: ListingPhotoView | null;
   offeringStatus: OfferingStatus;
 }>;
 
@@ -33,7 +38,8 @@ export type AttachableListingsView = Readonly<{
 /**
  * The place's attachable listings — the candidates for a participation's
  * listings — as `ListingRepository.findPageAttachable` returns them
- * (newest update first), so the candidates and the check at a write
+ * (newest update first), each with its name, cover and offering status,
+ * so the candidates and the check at a write
  * (`Listing.attachableIds`) follow one rule (`spec/usecases/occasion.md`
  * 「listAttachableListings」; EVT-01, EVT-02, EVT-10 / CM-04, RQ-06).
  *
@@ -64,10 +70,15 @@ export async function listAttachableListings({
       pagination,
     );
   });
+  const refs = await displayRefsOf(
+    container.photoStorage,
+    listingCoverIds(page.items),
+  );
   return {
     items: page.items.map((listing) => ({
       id: listing.id,
       name: listing.content.name,
+      cover: listingCover(listing, refs),
       offeringStatus: Listing.offeringStatus(listing, today),
     })),
     count: page.count,

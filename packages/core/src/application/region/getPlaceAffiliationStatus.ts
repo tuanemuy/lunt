@@ -7,6 +7,12 @@ import type { Region } from "@repo/core/domain/region/region";
 import type { RegionName } from "@repo/core/domain/region/values";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import {
+  coverIdOf,
+  coverView,
+  displayRefsOf,
+  type PhotoView,
+} from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 
 export type GetPlaceAffiliationStatusInput = Readonly<{ placeId: PlaceId }>;
@@ -16,6 +22,8 @@ export type AffiliatedRegionView = Readonly<{
   regionId: RegionId;
   affiliatedAt: Date;
   name: RegionName | null;
+  /** The region's first photo. */
+  cover: PhotoView | null;
   publication: Publication;
   suspended: boolean;
   /** `VisibilityPolicy.isRegionViewable`. */
@@ -33,7 +41,7 @@ export type PlaceAffiliationStatus = Readonly<{
 
 /**
  * The place's steward (`act_as_place` — no absence proxy) reads the
- * place's affiliated regions with their states, the representative and
+ * place's affiliated regions with their states and covers, the representative and
  * the region viewers are shown (REG-01, REG-02, REG-04, REG-05).
  * Affiliations made while the place had no steward are included, and so
  * are unpublished and suspended regions. Pending applications are not.
@@ -71,6 +79,13 @@ export async function getPlaceAffiliationStatus({
   const byId = new Map<RegionId, Region>(
     read.regions.map((region) => [region.id, region]),
   );
+  const refs = await displayRefsOf(
+    container.photoStorage,
+    read.regions.flatMap((region) => {
+      const id = coverIdOf(region.content.photos);
+      return id === null ? [] : [id];
+    }),
+  );
   const regions = read.affiliations.affiliations.flatMap(
     (affiliation): AffiliatedRegionView[] => {
       const region = byId.get(affiliation.regionId);
@@ -80,6 +95,7 @@ export async function getPlaceAffiliationStatus({
           regionId: region.id,
           affiliatedAt: affiliation.affiliatedAt,
           name: region.content.name,
+          cover: coverView(refs, coverIdOf(region.content.photos)),
           publication: region.publication,
           suspended: region.suspension.suspended,
           viewable: VisibilityPolicy.isRegionViewable(region),

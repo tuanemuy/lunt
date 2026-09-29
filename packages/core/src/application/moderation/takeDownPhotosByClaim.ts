@@ -145,10 +145,9 @@ async function takeDown(
  * last photo while published, `{listing|region|occasion}.unpublished`
  * (`photoTakedown`). Removed photos cannot be restored.
  *
- * Checked in order: `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`);
- * `ForbiddenError` (`operate_service`, also when revoked before the
- * commit);
- * `BusinessRuleError` `MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED` /
+ * Checked in the order the spec fixes: `ForbiddenError`
+ * (`operate_service`, also when revoked before the commit);
+ * `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`); `BusinessRuleError` `MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED` /
  * `MODERATION_TAKEDOWN_CLAIM_TARGET_MISMATCH`; `NotFoundError`
  * (`CONTENT_NOT_FOUND`) for a gone target; `BusinessRuleError`
  * `{LISTING|PLACE|REGION|OCCASION}_PHOTO_NOT_FOUND` when any photo is not the target's
@@ -166,8 +165,8 @@ export async function takeDownPhotosByClaim({
   ];
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
-    const claim = await requireTakedownClaim(ctx, input.claimId);
     await authorizeRole(ctx, actor, "operate_service");
+    const claim = await requireTakedownClaim(ctx, input.claimId);
     TakedownClaim.authorizePhotoRemoval(claim.entity, input.target, photoIds);
     const removal = await takeDown(ctx, input.target, photoIds, now);
     ctx.collectEvents(removal.eventDrafts);

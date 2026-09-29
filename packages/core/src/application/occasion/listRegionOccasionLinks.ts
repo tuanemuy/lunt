@@ -4,9 +4,11 @@ import { Pagination } from "@repo/core/domain/common/pagination";
 import type { RegionLinkStatus } from "@repo/core/domain/occasion/regionLink";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 import {
   type OccasionStateView,
+  occasionCoverIds,
   occasionStateView,
   present,
   readOccasions,
@@ -30,8 +32,8 @@ export type RegionOccasionLinksView = Readonly<{
 
 /**
  * The occasions linked to the region, newest link first — `linked` ones
- * and those the region detached — with each occasion's name, period,
- * publication, suspension and holding status, unpublished, suspended and
+ * and those the region detached — with each occasion's name, cover,
+ * period, publication, suspension and holding status, unpublished, suspended and
  * cancelled ones included (`spec/usecases/occasion.md`
  * 「listRegionOccasionLinks」; REG-11, REG-13 / RM-03).
  *
@@ -50,29 +52,37 @@ export async function listRegionOccasionLinks({
     kind: "region",
     id: input.regionId,
   });
-  return container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeOnTarget(ctx, actor, "manage_target", {
-      kind: "region",
-      id: input.regionId,
-    });
-    const page = await ctx.regionLinkRepository.findByRegion(
-      input.regionId,
-      pagination,
-    );
-    const occasions = await readOccasions(
-      ctx,
-      page.items.map((link) => link.key.occasionId),
-    );
-    return {
-      items: page.items.map((link) => ({
-        status: link.status,
-        linkedAt: link.linkedAt,
-        occasion: occasionStateView(
-          present(occasions, link.key.occasionId),
-          today,
-        ),
-      })),
-      count: page.count,
-    };
-  });
+  const { page, occasions } = await container.unitOfWorkProvider.run(
+    async (ctx) => {
+      await authorizeOnTarget(ctx, actor, "manage_target", {
+        kind: "region",
+        id: input.regionId,
+      });
+      const page = await ctx.regionLinkRepository.findByRegion(
+        input.regionId,
+        pagination,
+      );
+      const occasions = await readOccasions(
+        ctx,
+        page.items.map((link) => link.key.occasionId),
+      );
+      return { page, occasions };
+    },
+  );
+  const refs = await displayRefsOf(
+    container.photoStorage,
+    occasionCoverIds(occasions.values()),
+  );
+  return {
+    items: page.items.map((link) => ({
+      status: link.status,
+      linkedAt: link.linkedAt,
+      occasion: occasionStateView(
+        present(occasions, link.key.occasionId),
+        today,
+        refs,
+      ),
+    })),
+    count: page.count,
+  };
 }

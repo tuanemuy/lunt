@@ -48,23 +48,6 @@ describe("a missing claim, report or place is reported before access (index.md �
           input: { claimId, outcome: "措置を行わない" },
         }),
     ],
-    [
-      "takeDownPhotosByClaim",
-      async (k, who, claimId) => {
-        const place = await k.placeWithPhotos(1);
-        const [photo] = place.photos;
-        if (photo === undefined) throw new Error("no photo");
-        return takeDownPhotosByClaim({
-          container: k.container,
-          actor: who.actor,
-          input: {
-            claimId,
-            target: { kind: "place", id: place.id },
-            photoIds: [photo],
-          },
-        });
-      },
-    ],
   ];
 
   for (const [name, call] of byClaim) {
@@ -84,6 +67,39 @@ describe("a missing claim, report or place is reported before access (index.md �
       await expectCode(call(k, who, claimId), ForbiddenError);
     });
   }
+
+  it("takeDownPhotosByClaim fixes its own order (moderation.md: 可否 before 申立ての有無): someone without the operator role gets ForbiddenError for a missing claim as for an existing one; an operator gets NotFoundError for a missing claim", async () => {
+    const k = await moderationKit();
+    const who = await outsider(k);
+    const place = await k.placeWithPhotos(1);
+    const [photo] = place.photos;
+    if (photo === undefined) throw new Error("no photo");
+    const takeDown = (actor: Person["actor"], claimId: TakedownClaimId) =>
+      takeDownPhotosByClaim({
+        container: k.container,
+        actor,
+        input: {
+          claimId,
+          target: { kind: "place", id: place.id },
+          photoIds: [photo],
+        },
+      });
+    await expectCode(
+      takeDown(who.actor, TakedownClaimId.create(k.newId())),
+      ForbiddenError,
+    );
+    const claimId = await k.claim({
+      target: { kind: "place", id: place.id },
+      photoIds: [photo],
+    });
+    await expectCode(takeDown(who.actor, claimId), ForbiddenError);
+    const operator = await k.operator();
+    await expectCode(
+      takeDown(operator.actor, TakedownClaimId.create(k.newId())),
+      NotFoundError,
+      TAKEDOWN_CLAIM_NOT_FOUND,
+    );
+  });
 
   const byReport: ReadonlyArray<
     readonly [

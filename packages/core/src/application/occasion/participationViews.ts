@@ -1,17 +1,26 @@
 import type { DateRange } from "@repo/core/domain/common/dateRange";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import type { ListingId, OccasionId } from "@repo/core/domain/common/ids";
+import type {
+  ListingId,
+  OccasionId,
+  PhotoId,
+  PlaceId,
+} from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { Version } from "@repo/core/domain/common/version";
 import type { Listing } from "@repo/core/domain/listing/listing";
+import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
 import type { HoldingStatus } from "@repo/core/domain/occasion/holdingStatus";
 import { Occasion } from "@repo/core/domain/occasion/occasion";
 import type { Participation } from "@repo/core/domain/occasion/participation";
 import type { OccasionRepositories } from "@repo/core/domain/occasion/ports/unitOfWork";
 import type { OccasionName } from "@repo/core/domain/occasion/values";
-import type { Place } from "@repo/core/domain/place/place";
+import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
+import { Place } from "@repo/core/domain/place/place";
+import { type PlaceName, PlaceProfile } from "@repo/core/domain/place/profile";
 import { SystemError, SystemErrorCode } from "../errors";
+import { coverIdOf, coverView, type PhotoView } from "../place/photos";
 import {
   type AttachedListingView,
   attachedListingViews,
@@ -20,12 +29,14 @@ import { splitDates } from "./participations";
 
 /**
  * An occasion's name, period and states, as the participation and
- * region-link reads show it. The publication (with its `reason`), the
- * operator suspension and the holding status are independent.
+ * region-link reads show it, with its cover (first photo). The publication
+ * (with its `reason`), the operator suspension and the holding status are
+ * independent.
  */
 export type OccasionStateView = Readonly<{
   id: OccasionId;
   name: OccasionName | null;
+  cover: PhotoView | null;
   period: DateRange | null;
   publication: Publication;
   suspended: boolean;
@@ -33,12 +44,24 @@ export type OccasionStateView = Readonly<{
   holdingStatus: HoldingStatus | null;
 }>;
 
+/** The occasion's cover, for `PhotoStorage.displayRefs`. */
+export const occasionCoverIds = (
+  occasions: Iterable<Occasion>,
+): readonly PhotoId[] =>
+  [...occasions].flatMap((occasion) => {
+    const id = coverIdOf(occasion.content.photos);
+    return id === null ? [] : [id];
+  });
+
+/** `refs` holds the display ref of the occasion's cover (`occasionCoverIds`). */
 export const occasionStateView = (
   occasion: Occasion,
   today: LocalDate,
+  refs: ReadonlyMap<PhotoId, PhotoDisplayRef>,
 ): OccasionStateView => ({
   id: occasion.id,
   name: occasion.content.name,
+  cover: coverView(refs, coverIdOf(occasion.content.photos)),
   period: occasion.content.period,
   publication: occasion.publication,
   suspended: occasion.suspension.suspended,
@@ -63,18 +86,58 @@ export type ParticipationView = Readonly<{
   outOfPeriodDates: readonly LocalDate[];
 }>;
 
+/** `refs` holds the display refs of the attached listings' covers. */
 export const participationView = (
   p: Participation,
   period: DateRange | null,
   listings: ReadonlyMap<ListingId, Listing>,
   place: Place | null,
   today: LocalDate,
+  refs: ReadonlyMap<PhotoId, PhotoDisplayRef>,
 ): ParticipationView => ({
   version: p.version,
   participatedAt: p.participatedAt,
-  listings: attachedListingViews(p.details.listingIds, listings, place, today),
+  listings: attachedListingViews(
+    p.details.listingIds,
+    listings,
+    place,
+    today,
+    refs,
+  ),
   dates: p.details.dates,
   ...splitDates(p, period),
+});
+
+/**
+ * A participating place as the participation reads show it: its name,
+ * states and cover (first photo).
+ */
+export type ParticipantPlaceView = Readonly<{
+  id: PlaceId;
+  name: PlaceName;
+  operatingStatus: OperatingStatus;
+  /** Suspended by the operator (非公開). */
+  suspended: boolean;
+  cover: PhotoView | null;
+}>;
+
+/** The places' covers, for `PhotoStorage.displayRefs`. */
+export const placeCoverIds = (places: Iterable<Place>): readonly PhotoId[] =>
+  [...places].flatMap((place) => {
+    const id = PlaceProfile.cover(place.profile);
+    return id === null ? [] : [id];
+  });
+
+/** `refs` holds the display ref of the place's cover (`placeCoverIds`). */
+export const participantPlaceView = (
+  place: Place,
+  refs: ReadonlyMap<PhotoId, PhotoDisplayRef>,
+): ParticipantPlaceView => ({
+  id: place.id,
+  name: place.profile.name,
+  operatingStatus: place.operatingStatus,
+  suspended: Place.isSuspended(place),
+  cover: coverView(refs, PlaceProfile.cover(place.profile)),
 });
 
 /** The listings attached to any of `participations`. */

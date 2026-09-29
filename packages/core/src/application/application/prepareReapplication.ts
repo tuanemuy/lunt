@@ -21,6 +21,7 @@ import type { ListingContent } from "@repo/core/domain/listing/content";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { ListingPatch } from "@repo/core/domain/listing/patch";
 import { PhotoAsset } from "@repo/core/domain/media/photoAsset";
+import type { PhotoStorage } from "@repo/core/domain/media/ports/photoStorage";
 import { ParticipationDetails } from "@repo/core/domain/occasion/participation";
 import type { PlaceProfile } from "@repo/core/domain/place/profile";
 import {
@@ -36,6 +37,7 @@ import {
 import {
   type AttachedListingView,
   attachedListingViews,
+  listingCoverIds,
   readListings,
 } from "../occasion/attachedListings";
 import { displayRefsOf, type PhotoView, photoView } from "../place/photos";
@@ -71,7 +73,7 @@ export type ReapplicationContent =
       dates: readonly LocalDate[];
       /**
        * Its listings left out — suspended by their manager or the
-       * operator, or deleted — with their state, in its order.
+       * operator, or deleted — with their state and cover, in its order.
        */
       removedListings: readonly AttachedListingView[];
       /** Its days outside the period now (every day without one). */
@@ -115,6 +117,7 @@ const categoryResolved = (
  */
 async function participationInitial(
   ctx: UnitOfWorkContext,
+  photoStorage: PhotoStorage,
   app: ApplicationOf<"participation">,
   now: Date,
 ): Promise<Initial> {
@@ -130,6 +133,10 @@ async function participationInitial(
   );
   const period = occasion?.entity.content.period ?? null;
   const dates = ParticipationDetails.datesWithin(app.content, period);
+  const refs = await displayRefsOf(
+    photoStorage,
+    listingCoverIds(listings.values()),
+  );
   return {
     target: app.target,
     content: {
@@ -141,6 +148,7 @@ async function participationInitial(
         listings,
         place?.entity ?? null,
         today,
+        refs,
       ),
       removedDates: app.content.dates.filter((date) => !dates.includes(date)),
     },
@@ -150,6 +158,7 @@ async function participationInitial(
 /** The initial content before its photos are duplicated. */
 async function initialOf(
   ctx: UnitOfWorkContext,
+  photoStorage: PhotoStorage,
   app: ApplicationOf<ApplicationTarget["kind"]>,
   actor: ActorServiceArgs<unknown>["actor"],
   now: Date,
@@ -204,6 +213,7 @@ async function initialOf(
     case "participation":
       return participationInitial(
         ctx,
+        photoStorage,
         app as ApplicationOf<"participation">,
         now,
       );
@@ -361,7 +371,7 @@ export async function prepareReapplication({
     await requireHandledBy(ctx, actor, found.entity);
     const closed = Application.requireClosed(found.entity);
     return {
-      initial: await initialOf(ctx, closed, actor, now),
+      initial: await initialOf(ctx, container.photoStorage, closed, actor, now),
       owned: ApplicationCase.ownedPhotoIds(closed),
     };
   });

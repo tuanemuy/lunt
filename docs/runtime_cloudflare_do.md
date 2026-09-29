@@ -74,6 +74,33 @@ The answer lists `redriven` and `failed` (a letter whose event can no longer be 
 
 The endpoints exist only when `OPS_TOKEN` is set (at least 32 characters; the public development token is refused unless `DEV_TOOLS=1`).
 
+## Daily jobs that stop early
+
+The daily jobs share one progression rule (`drainPages`, `packages/core/src/application/workers/dailyJobs.ts`; `spec/flows/index.md` 「共通の前提」). Each target runs in its own unit of work, and a failing target — a row that cannot be restored included — is logged and counted, never retried in the same run. The three jobs whose query drops a target once it is done (`"shrinking"`) re-read page 1 after every page and stop at a page holding no target the run has not tried yet:
+
+| Job | Query (page of 100) | Target key in the logs | Events it emits (their consumers) |
+| --- | --- | --- | --- |
+| `sweepUnownedPhotos` | `findPageSweepable`: oldest `registeredAt` first, then photo id | photo id | none; it also finishes the deletions `discardReleasedPhotos` (on `photos.released`) left behind |
+| `detectEndedOfferings` | `findPageDrifted`: listing id ascending | listing id | `listing.offering_ended` (`deliverNotifications`) |
+| `recordEndedOccasions` | `findToObserve`: occasion id ascending | occasion id | `occasion.ended` (`deliverNotifications`, `reassessApplicationPremises`) |
+
+The order is fixed, so a target that fails every run stays at the head of the query. With 100 or more such targets at the head, page 1 holds only targets the run has already tried: every run stops there (`abandoned: true`) and nothing behind them is processed, day after day, while the job reports no crash. Fewer than 100 only cost their own failure. `notifyOverdueReviews` reads its pages in turn (`"stable"`) and `purgeClosedLoginChallenges` does not page, so neither is held up this way.
+
+What to watch, per run (Workers logs: `wrangler tail lunt` while the cron fires at 00:05 JST, or the dashboard's logs):
+
+- `[daily] <job> completed` with `{ processed, failed, skipped, abandoned }`. `processed: 0`, `failed: 100` (one full page) and `abandoned: true` on consecutive days is the stuck state above; a `failed` count that grows from run to run is its warning.
+- `[daily] <job>: target <key> failed` (error level, `cause` attached): the target's own unit of work threw — for these jobs typically a `RehydrationError` from the aggregate it re-reads, or a storage failure (`SystemError`; for photos, R2).
+- `[daily] <job>: target <key> cannot be read; skipped` (warn level, `cause` attached): the query's own row for that key does not restore (the ledger row or the photo record).
+- `[daily] <job> crashed`: the page read itself threw; nothing of that job ran (a broken JSON column fails the whole page, not one row).
+
+Procedure, per job, once a key keeps coming back:
+
+1. Collect the keys: the `target` field of the failed / unreadable lines of the last runs. The same key on consecutive days is a persistent failure; a key seen once is transient and the next run retries it.
+2. Check the dead letters for the same ids (`GET /__ops/dead-letters?limit=100`, see above; match the key against each letter's `aggregateId` and `payload`). The job's own failures never reach the queue, but a broken aggregate usually breaks its consumers too: `discardReleasedPhotos` letters whose `photos.released` payload holds the photo id (`sweepUnownedPhotos`), `deliverNotifications` letters for `listing.offering_ended` or other events of the listing (`detectEndedOfferings`), `deliverNotifications` / `reassessApplicationPremises` letters for `occasion.ended` or other events of the occasion (`recordEndedOccasions`). The letter holds no error: the cause is on the `[queue] <consumer> failed on <type> <eventId>` lines of its retries (error level, `cause` attached), and the same error as the job's confirms the diagnosis.
+3. Fix the cause and deploy. A `RehydrationError` means a stored row no longer matches its aggregate's snapshot shape: either make the adapter restore it (the row was written by an earlier version) or repair it with a data migration in the state object's schema (`packages/core/src/adapters/do/store/schema.ts`, the next free version; the object applies it on its next start). A storage failure (R2 for `sweepUnownedPhotos`) is fixed on the storage side; nothing in the state object needs to change.
+4. Let the next 00:05 run pick the targets up: the query still selects them, and the stopped run left everything behind them untouched, so one successful run drains the backlog. Then re-drive the dead letters found in step 2 (`POST /__ops/dead-letters/redrive`); the consumers are idempotent.
+5. Confirm on the next `[daily] <job> completed` line: `failed` back to 0 and `abandoned: false`.
+
 ## Opening the service: the first operator
 
 Every operator screen needs an operator, and only an operator can grant the role, so the first one is made by the opening procedure (`establishFirstOperator`, `spec/usecases/authority.md`):

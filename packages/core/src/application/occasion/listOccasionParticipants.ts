@@ -1,17 +1,19 @@
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
-import type { OccasionId, PlaceId } from "@repo/core/domain/common/ids";
+import type { OccasionId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
-import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
-import type { PlaceName } from "@repo/core/domain/place/profile";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
-import { readListings, readPlaces } from "./attachedListings";
+import { listingCoverIds, readListings, readPlaces } from "./attachedListings";
 import {
   attachedIdsOf,
+  type ParticipantPlaceView,
   type ParticipationView,
+  participantPlaceView,
   participationView,
+  placeCoverIds,
   present,
 } from "./participationViews";
 
@@ -21,13 +23,7 @@ export type ListOccasionParticipantsInput = Readonly<{
 }>;
 
 export type ParticipantView = Readonly<{
-  place: Readonly<{
-    id: PlaceId;
-    name: PlaceName;
-    operatingStatus: OperatingStatus;
-    /** Suspended by the operator (非公開). */
-    suspended: boolean;
-  }>;
+  place: ParticipantPlaceView;
   placeHasSteward: boolean;
   participation: ParticipationView;
 }>;
@@ -40,7 +36,7 @@ export type OccasionParticipantsView = Readonly<{
 /**
  * The places taking part in the occasion, newest participation first,
  * whatever their operating status or suspension, with each place's
- * states, whether it has a steward, and the participation's listings
+ * states and cover, whether it has a steward, and the participation's listings
  * (deleted ones included), dates and out-of-period dates
  * (`spec/usecases/occasion.md` 「listOccasionParticipants」; EVT-07,
  * EVT-10, EVT-13 / EM-01, CM-04).
@@ -60,7 +56,7 @@ export async function listOccasionParticipants({
     kind: "occasion",
     id: input.occasionId,
   });
-  return container.unitOfWorkProvider.run(async (ctx) => {
+  const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "manage_target", {
       kind: "occasion",
       id: input.occasionId,
@@ -85,21 +81,29 @@ export async function listOccasionParticipants({
         .map((s) => s.target.id),
     );
     const period = occasion?.entity.content.period ?? null;
-    return {
-      items: page.items.map((p) => {
-        const place = present(places, p.key.placeId);
-        return {
-          place: {
-            id: place.id,
-            name: place.profile.name,
-            operatingStatus: place.operatingStatus,
-            suspended: place.suspension.suspended,
-          },
-          placeHasSteward: stewarded.has(place.id),
-          participation: participationView(p, period, listings, place, today),
-        };
-      }),
-      count: page.count,
-    };
+    return { page, places, listings, stewarded, period };
   });
+  const { page, places, listings, stewarded, period } = read;
+  const refs = await displayRefsOf(container.photoStorage, [
+    ...placeCoverIds(places.values()),
+    ...listingCoverIds(listings.values()),
+  ]);
+  return {
+    items: page.items.map((p) => {
+      const place = present(places, p.key.placeId);
+      return {
+        place: participantPlaceView(place, refs),
+        placeHasSteward: stewarded.has(place.id),
+        participation: participationView(
+          p,
+          period,
+          listings,
+          place,
+          today,
+          refs,
+        ),
+      };
+    }),
+    count: page.count,
+  };
 }

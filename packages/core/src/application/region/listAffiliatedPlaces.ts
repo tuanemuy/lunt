@@ -2,9 +2,10 @@ import type { PlaceId, RegionId } from "@repo/core/domain/common/ids";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import { Place } from "@repo/core/domain/place/place";
-import type { PlaceName } from "@repo/core/domain/place/profile";
+import { type PlaceName, PlaceProfile } from "@repo/core/domain/place/profile";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import { coverView, displayRefsOf, type PhotoView } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 
 export type ListAffiliatedPlacesInput = Readonly<{
@@ -15,6 +16,8 @@ export type ListAffiliatedPlacesInput = Readonly<{
 export type AffiliatedPlaceView = Readonly<{
   placeId: PlaceId;
   name: PlaceName;
+  /** The place's first photo. */
+  cover: PhotoView | null;
   operatingStatus: OperatingStatus;
   /** 運営による非公開. */
   suspended: boolean;
@@ -29,7 +32,7 @@ export type AffiliatedPlacesView = Readonly<{
 /**
  * The region's operator (`manage_target`) reads the places affiliated
  * with it, newest affiliation first, closed and suspended ones included
- * with their state (REG-08, REG-13). Pending affiliation and leave
+ * with their state and cover (REG-08, REG-13). Pending affiliation and leave
  * applications are not included.
  *
  * - `NotFoundError` (`REGION_NOT_FOUND`) without the region, checked
@@ -61,6 +64,13 @@ export async function listAffiliatedPlaces({
     return { page, places };
   });
   const places = new Map(read.places.map((place) => [place.id, place]));
+  const refs = await displayRefsOf(
+    container.photoStorage,
+    read.places.flatMap((place) => {
+      const id = PlaceProfile.cover(place.profile);
+      return id === null ? [] : [id];
+    }),
+  );
   return {
     items: read.page.items.flatMap((id): AffiliatedPlaceView[] => {
       const place = places.get(id);
@@ -69,6 +79,7 @@ export async function listAffiliatedPlaces({
         {
           placeId: place.id,
           name: place.profile.name,
+          cover: coverView(refs, PlaceProfile.cover(place.profile)),
           operatingStatus: place.operatingStatus,
           suspended: Place.isSuspended(place),
         },

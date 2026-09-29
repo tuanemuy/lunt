@@ -1,6 +1,7 @@
 import type { Actor } from "@repo/core/domain/common/actor";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { PhotoId } from "@repo/core/domain/common/ids";
+import type { PhotoItem, PhotoSet } from "@repo/core/domain/common/photoSet";
 import type { PhotoOwnerRef } from "@repo/core/domain/common/refs";
 import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
 import { PhotoOwnership } from "@repo/core/domain/media/photoOwnership";
@@ -79,3 +80,13 @@ export function photoView(
   }
   return { photoId, displayRef };
 }
+
+/** The first photo of `photos` — the cover a row shows — or `null`. */
+export const coverIdOf = (photos: PhotoSet<PhotoItem>): PhotoId | null =>
+  photos.items[0]?.photoId ?? null;
+
+/** `photoView` of a cover, `null` without one. */
+export const coverView = (
+  refs: ReadonlyMap<PhotoId, PhotoDisplayRef>,
+  photoId: PhotoId | null,
+): PhotoView | null => (photoId === null ? null : photoView(refs, photoId));

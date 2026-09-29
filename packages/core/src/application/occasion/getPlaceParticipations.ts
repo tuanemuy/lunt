@@ -3,11 +3,13 @@ import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
-import { readListings } from "./attachedListings";
+import { listingCoverIds, readListings } from "./attachedListings";
 import {
   attachedIdsOf,
   type OccasionStateView,
+  occasionCoverIds,
   occasionStateView,
   type ParticipationView,
   participationView,
@@ -32,8 +34,8 @@ export type PlaceParticipationsView = Readonly<{
 
 /**
  * The occasions the place takes part in, newest participation first, with
- * each occasion's name, period, publication, suspension and holding status
- * (unpublished, suspended, cancelled and ended ones included) and the
+ * each occasion's name, cover, period, publication, suspension and holding
+ * status (unpublished, suspended, cancelled and ended ones included) and the
  * participation's listings (deleted ones included), dates and
  * out-of-period dates (`spec/usecases/occasion.md`
  * 「getPlaceParticipations」; EVT-01, EVT-02, EVT-03 / SM-06).
@@ -53,7 +55,7 @@ export async function getPlaceParticipations({
     kind: "place",
     id: input.placeId,
   });
-  return container.unitOfWorkProvider.run(async (ctx) => {
+  const read = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeOnTarget(ctx, actor, "act_as_place", {
       kind: "place",
       id: input.placeId,
@@ -70,21 +72,28 @@ export async function getPlaceParticipations({
       ctx.placeRepository.findById(input.placeId),
       readListings(ctx, attachedIdsOf(page.items)),
     ]);
-    return {
-      items: page.items.map((p) => {
-        const occasion = present(occasions, p.key.occasionId);
-        return {
-          occasion: occasionStateView(occasion, today),
-          participation: participationView(
-            p,
-            occasion.content.period,
-            listings,
-            place?.entity ?? null,
-            today,
-          ),
-        };
-      }),
-      count: page.count,
-    };
+    return { page, occasions, place: place?.entity ?? null, listings };
   });
+  const { page, occasions, place, listings } = read;
+  const refs = await displayRefsOf(container.photoStorage, [
+    ...occasionCoverIds(occasions.values()),
+    ...listingCoverIds(listings.values()),
+  ]);
+  return {
+    items: page.items.map((p) => {
+      const occasion = present(occasions, p.key.occasionId);
+      return {
+        occasion: occasionStateView(occasion, today, refs),
+        participation: participationView(
+          p,
+          occasion.content.period,
+          listings,
+          place,
+          today,
+          refs,
+        ),
+      };
+    }),
+    count: page.count,
+  };
 }

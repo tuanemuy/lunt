@@ -54,6 +54,7 @@ import type { CategoryView } from "../listing/managedListing";
 import {
   type AttachedListingView,
   attachedListingViews,
+  listingCoverIds,
   readListings,
 } from "../occasion/attachedListings";
 import { readCompanion } from "./companion";
@@ -228,7 +229,8 @@ export type ApplicationContentView =
       occasionId: OccasionId;
       /**
        * Every attached listing in the application's order with its state
-       * read now — one no longer attachable, or deleted, stays listed.
+       * and cover read now — one no longer attachable, or deleted, stays
+       * listed.
        */
       listings: readonly AttachedListingView[];
       /** 参加日, ascending. */
@@ -285,7 +287,7 @@ export type ContentSource =
   | Readonly<{
       kind: "participation";
       app: ApplicationOf<"participation">;
-      listings: readonly AttachedListingView[];
+      attached: AttachedListingsRead;
     }>;
 
 type SourceContext = Pick<
@@ -342,33 +344,36 @@ export async function readContentSource(
     case "participation":
       return {
         ...c,
-        listings: await readAttachedListings(ctx, c.app, today),
+        attached: await readAttachedListings(ctx, c.app, today),
       };
   }
 }
 
 /**
- * A participation application's attached listings as read now
- * (「添えた掲載」: all of them, deleted ones as deleted), their viewability
- * judged with the applying place.
+ * A participation application's attached listings as read now, with the
+ * applying place their viewability is judged with and the day their
+ * offering status is dated by.
  */
+export type AttachedListingsRead = Readonly<{
+  listings: ReadonlyMap<ListingId, Listing>;
+  place: Place | null;
+  today: LocalDate;
+}>;
+
+/** The stored listings a participation application attaches (「添えた掲載」). */
 export async function readAttachedListings(
   ctx: Pick<SourceContext, "listingRepository" | "placeRepository">,
   app: ApplicationOf<"participation">,
   today: LocalDate,
-): Promise<readonly AttachedListingView[]> {
+): Promise<AttachedListingsRead> {
   const { listingIds } = app.content;
-  if (listingIds.length === 0) return [];
+  if (listingIds.length === 0)
+    return { listings: new Map(), place: null, today };
   const [listings, place] = await Promise.all([
     readListings(ctx, listingIds),
     ctx.placeRepository.findById(app.target.placeId),
   ]);
-  return attachedListingViews(
-    listingIds,
-    listings,
-    place?.entity ?? null,
-    today,
-  );
+  return { listings, place: place?.entity ?? null, today };
 }
 
 /** A registration's companion claim as read; `null` for other kinds. */
@@ -397,8 +402,9 @@ export function photoIdsOf(source: ContentSource): readonly PhotoId[] {
     case "stewardship":
     case "affiliation":
     case "leave":
-    case "participation":
       return [];
+    case "participation":
+      return listingCoverIds(source.attached.listings.values());
     case "listing":
       return ids(source.app.content.photos.items);
     case "listingRevision": {
@@ -647,7 +653,13 @@ export function contentView(
         kind: "participation",
         placeId: source.app.target.placeId,
         occasionId: source.app.target.occasionId,
-        listings: source.listings,
+        listings: attachedListingViews(
+          source.app.content.listingIds,
+          source.attached.listings,
+          source.attached.place,
+          source.attached.today,
+          refs,
+        ),
         dates: source.app.content.dates,
       };
   }

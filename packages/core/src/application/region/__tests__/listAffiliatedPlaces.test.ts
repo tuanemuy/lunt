@@ -32,12 +32,14 @@ describe("listAffiliatedPlaces", () => {
         {
           placeId: Q.id,
           name: "店舗Q",
+          cover: null,
           operatingStatus: "open",
           suspended: false,
         },
         {
           placeId: P.id,
           name: "店舗P",
+          cover: null,
           operatingStatus: "open",
           suspended: false,
         },
@@ -59,12 +61,14 @@ describe("listAffiliatedPlaces", () => {
       {
         placeId: hidden.id,
         name: "非公開の店",
+        cover: null,
         operatingStatus: "open",
         suspended: true,
       },
       {
         placeId: closed.id,
         name: "閉店した店",
+        cover: null,
         operatingStatus: "permanentlyClosed",
         suspended: false,
       },

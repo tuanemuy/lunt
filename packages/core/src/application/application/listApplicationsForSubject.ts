@@ -4,19 +4,28 @@ import type {
   Application as ApplicationValue,
 } from "@repo/core/domain/application/application";
 import type { SubjectFilter } from "@repo/core/domain/application/ports/applicationRepository";
-import type { ApplicationId } from "@repo/core/domain/common/ids";
+import type {
+  ApplicationId,
+  ListingId,
+  PlaceId,
+} from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
+import type { Listing } from "@repo/core/domain/listing/listing";
+import type { Place } from "@repo/core/domain/place/place";
 import { authorizeOnTarget } from "../authority/access";
 import { requireExistingTarget } from "../authority/targets";
+import type { RequestContainer } from "../di/types";
 import type { UnitOfWorkContext } from "../execution/unitOfWork";
 import {
   type AttachedListingView,
   attachedListingViews,
+  listingCoverIds,
   readListings,
   readPlaces,
 } from "../occasion/attachedListings";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 import {
   type ApplicationSummary,
@@ -33,8 +42,8 @@ export type ListApplicationsForSubjectInput = Readonly<{
 /** A participation application's attached listings and days (EM-01). */
 export type ParticipationRequestView = Readonly<{
   /**
-   * Every attached listing in the application's order with its state read
-   * now — one no longer attachable, or deleted, stays listed.
+   * Every attached listing in the application's order with its state and
+   * cover read now — one no longer attachable, or deleted, stays listed.
    */
   listings: readonly AttachedListingView[];
   /** 参加日, ascending. */
@@ -95,14 +104,21 @@ const isParticipation = (
   app: ApplicationValue,
 ): app is ApplicationOf<"participation"> => app.target.kind === "participation";
 
-/** The attached listings and days of each participation application among `apps`. */
+type ParticipationRequestsRead = Readonly<{
+  participations: readonly ApplicationOf<"participation">[];
+  listings: ReadonlyMap<ListingId, Listing>;
+  places: ReadonlyMap<PlaceId, Place>;
+}>;
+
+/** The participation applications among `apps`, with the listings and places they attach. */
 async function readParticipationRequests(
   ctx: Pick<UnitOfWorkContext, "listingRepository" | "placeRepository">,
   apps: readonly ApplicationValue[],
-  today: LocalDate,
-): Promise<ReadonlyMap<ApplicationId, ParticipationRequestView>> {
+): Promise<ParticipationRequestsRead> {
   const participations = apps.filter(isParticipation);
-  if (participations.length === 0) return new Map();
+  if (participations.length === 0) {
+    return { participations, listings: new Map(), places: new Map() };
+  }
   const [listings, places] = await Promise.all([
     readListings(
       ctx,
@@ -113,6 +129,21 @@ async function readParticipationRequests(
       participations.map((app) => app.target.placeId),
     ),
   ]);
+  return { participations, listings, places };
+}
+
+/** The attached listings (with their covers) and days of each participation application. */
+async function participationRequests(
+  container: Pick<RequestContainer, "photoStorage">,
+  read: ParticipationRequestsRead,
+  today: LocalDate,
+): Promise<ReadonlyMap<ApplicationId, ParticipationRequestView>> {
+  const { participations, listings, places } = read;
+  if (participations.length === 0) return new Map();
+  const refs = await displayRefsOf(
+    container.photoStorage,
+    listingCoverIds(listings.values()),
+  );
   return new Map(
     participations.map((app) => [
       app.id,
@@ -122,6 +153,7 @@ async function readParticipationRequests(
           listings,
           places.get(app.target.placeId) ?? null,
           today,
+          refs,
         ),
         dates: app.content.dates,
       },
@@ -177,18 +209,17 @@ export async function listApplicationsForSubject({
       count: page.count,
       underReviewCount,
       reads: await readSummaryReads(ctx, items),
-      participations: await readParticipationRequests(ctx, items, today),
+      participations: await readParticipationRequests(ctx, items),
     };
   });
-  const summaries = await summarizeAll(
-    container.contentDirectory,
-    read.items,
-    read.reads,
-  );
+  const [summaries, participations] = await Promise.all([
+    summarizeAll(container.contentDirectory, read.items, read.reads),
+    participationRequests(container, read.participations, today),
+  ]);
   return {
     items: summaries.map((summary) => ({
       ...summary,
-      participation: read.participations.get(summary.id) ?? null,
+      participation: participations.get(summary.id) ?? null,
     })),
     count: read.count,
     underReviewCount: read.underReviewCount,

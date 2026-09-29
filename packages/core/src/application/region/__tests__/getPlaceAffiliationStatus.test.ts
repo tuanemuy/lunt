@@ -13,6 +13,14 @@ const status = (k: RegionKit, who: Person, placeId: PlaceId) =>
     input: { placeId },
   });
 
+/** The region's first photo as the read shows it. */
+async function coverOf(k: RegionKit, region: Region) {
+  const [first] = region.content.photos.items;
+  if (first === undefined) throw new Error("no photo");
+  const refs = await k.container.photoStorage.displayRefs([first.photoId]);
+  return { photoId: first.photoId, displayRef: refs.get(first.photoId) };
+}
+
 /** A place p stewarded by S. */
 async function stewardedPlace() {
   const k = regionKit();
@@ -35,6 +43,7 @@ describe("getPlaceAffiliationStatus", () => {
           regionId: X.id,
           affiliatedAt: a.affiliations[0]?.affiliatedAt,
           name: "X",
+          cover: await coverOf(k, X),
           publication: X.publication,
           suspended: false,
           viewable: true,
@@ -43,6 +52,7 @@ describe("getPlaceAffiliationStatus", () => {
           regionId: Y.id,
           affiliatedAt: a.affiliations[1]?.affiliatedAt,
           name: "Y",
+          cover: await coverOf(k, Y),
           publication: Y.publication,
           suspended: false,
           viewable: true,

@@ -330,6 +330,7 @@ describe("region and event applications", () => {
           id: shown,
           deleted: false,
           name: ListingName.create("いちじくのパフェ"),
+          cover: null,
           publication: { status: "published", firstPublishedAt: new Date(0) },
           suspended: false,
           offeringStatus: { phase: "available" },
@@ -372,6 +373,7 @@ describe("region and event applications", () => {
         id: shown,
         deleted: false,
         name: null,
+        cover: null,
         publication: {
           status: "unpublished",
           firstPublishedAt: new Date(0),

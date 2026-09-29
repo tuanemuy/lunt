@@ -1,7 +1,8 @@
 import type { OccasionId, PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
+import { displayRefsOf } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
-import { readListings } from "./attachedListings";
+import { listingCoverIds, readListings } from "./attachedListings";
 import { requireOccasion } from "./managedOccasion";
 import {
   authorizeAsPlaceOrOccasion,
@@ -10,9 +11,13 @@ import {
 import { placeHasSteward, requireParticipantPlace } from "./participations";
 import {
   type OccasionStateView,
+  occasionCoverIds,
   occasionStateView,
+  type ParticipantPlaceView,
   type ParticipationView,
+  participantPlaceView,
   participationView,
+  placeCoverIds,
 } from "./participationViews";
 
 export type GetParticipationDetailsInput = Readonly<{
@@ -23,6 +28,8 @@ export type GetParticipationDetailsInput = Readonly<{
 export type ParticipationDetailsView = Readonly<{
   occasion: OccasionStateView;
   placeId: PlaceId;
+  /** The place's name, states and cover, suspended or not. */
+  place: ParticipantPlaceView;
   placeHasSteward: boolean;
   /** `null` while the place does not take part. */
   participation: ParticipationView | null;
@@ -32,7 +39,8 @@ export type ParticipationDetailsView = Readonly<{
 
 /**
  * One place's participation in one occasion with what editing it needs:
- * the occasion's period and states, the attached listings with their
+ * the occasion's period, states and cover, the place's name, states and
+ * cover, the attached listings with their
  * states (deleted ones included), the out-of-period dates and whether the
  * place has a steward (`spec/usecases/occasion.md`
  * 「getParticipationDetails」; EVT-02, EVT-10 / CM-04). A pair that does
@@ -49,7 +57,7 @@ export async function getParticipationDetails({
   input,
 }: ActorServiceArgs<GetParticipationDetailsInput>): Promise<ParticipationDetailsView> {
   const today = LocalDate.fromInstant(container.clock.now());
-  return container.unitOfWorkProvider.run(async (ctx) => {
+  const read = await container.unitOfWorkProvider.run(async (ctx) => {
     const occasion = (await requireOccasion(ctx, input.occasionId)).entity;
     const place = await requireParticipantPlace(ctx, input.placeId);
     const side = await authorizeAsPlaceOrOccasion(
@@ -67,21 +75,30 @@ export async function getParticipationDetails({
       ctx,
       participation?.details.listingIds ?? [],
     );
-    return {
-      occasion: occasionStateView(occasion, today),
-      placeId: input.placeId,
-      placeHasSteward: hasSteward,
-      participation:
-        participation === null
-          ? null
-          : participationView(
-              participation,
-              occasion.content.period,
-              listings,
-              place,
-              today,
-            ),
-      side,
-    };
+    return { occasion, place, participation, listings, hasSteward, side };
   });
+  const { occasion, place, participation, listings, hasSteward, side } = read;
+  const refs = await displayRefsOf(container.photoStorage, [
+    ...occasionCoverIds([occasion]),
+    ...placeCoverIds([place]),
+    ...listingCoverIds(listings.values()),
+  ]);
+  return {
+    occasion: occasionStateView(occasion, today, refs),
+    placeId: input.placeId,
+    place: participantPlaceView(place, refs),
+    placeHasSteward: hasSteward,
+    participation:
+      participation === null
+        ? null
+        : participationView(
+            participation,
+            occasion.content.period,
+            listings,
+            place,
+            today,
+            refs,
+          ),
+    side,
+  };
 }
