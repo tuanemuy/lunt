@@ -2,6 +2,7 @@ import type { PhotoId, PlaceId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
 import { ForbiddenError, NotFoundError } from "../../errors";
+import { approveNewListing } from "../approveNewListing";
 import { approvePlaceRegistration } from "../approvePlaceRegistration";
 import { approvePlaceRevision } from "../approvePlaceRevision";
 import type { ApplicationContentView } from "../detail";
@@ -461,5 +462,99 @@ describe("getApplicationForReview", () => {
     const k = await reviewKit();
 
     await expectCode(k.forReview(k.O, absentApplicationId(k)), NotFoundError);
+  });
+
+  describe("why a subject is hidden (CM-01)", () => {
+    const OTHER = { suspended: false, placeSuspended: false } as const;
+
+    it("tells a listing suspended by the operators from its place", async () => {
+      const { k, A, setup, p1, l1 } = await listingSetUp();
+      const a7 = await k.reviseListing(A, l1, { name: "夏のブレンド" });
+      await k.suspend(setup, l1);
+
+      const view = await k.forReview(k.O, a7.id);
+
+      expect(view.subjects).toMatchObject([
+        { ref: placeRef(p1), viewability: "viewable" },
+        {
+          ref: { kind: "listing", id: l1 },
+          viewability: "notViewable",
+          hiddenBy: { suspended: true, placeSuspended: false },
+        },
+      ]);
+    });
+
+    it("tells a listing hidden with its suspended place", async () => {
+      const { k, A, p1, l1 } = await listingSetUp();
+      const a7 = await k.reviseListing(A, l1, { name: "夏のブレンド" });
+      await k.suspendPlace(p1);
+
+      const view = await k.forReview(k.O, a7.id);
+
+      expect(view.subjects).toMatchObject([
+        {
+          ref: placeRef(p1),
+          viewability: "notViewable",
+          hiddenBy: { suspended: true, placeSuspended: false },
+        },
+        {
+          ref: { kind: "listing", id: l1 },
+          viewability: "notViewable",
+          hiddenBy: { suspended: false, placeSuspended: true },
+        },
+      ]);
+    });
+
+    it("gives another reason for a listing its stewards unpublished", async () => {
+      const { k, A, setup, l1 } = await listingSetUp();
+      const a7 = await k.reviseListing(A, l1, { name: "夏のブレンド" });
+      await k.unpublish(setup, l1);
+
+      const view = await k.forReview(k.O, a7.id);
+
+      expect(view.subjects[1]).toMatchObject({
+        ref: { kind: "listing", id: l1 },
+        viewability: "notViewable",
+        hiddenBy: OTHER,
+      });
+    });
+
+    it("reads a place the content does not read (a stewardship claim's)", async () => {
+      const k = await reviewKit();
+      const A = await k.person("A");
+      const { placeId, claim } = await k.claimOnPlace(A);
+      await k.suspendPlace(placeId);
+
+      const view = await k.forReview(k.O, claim.id);
+
+      expect(view.subjects).toMatchObject([
+        {
+          ref: placeRef(placeId),
+          viewability: "notViewable",
+          hiddenBy: { suspended: true, placeSuspended: false },
+        },
+      ]);
+    });
+
+    it("reads the listing an approved listing application created", async () => {
+      const k = await reviewKit();
+      const A = await k.person("A");
+      const setup = await k.setupOperator();
+      const p1 = await k.place();
+      const a4 = await k.newListing(A, p1, { name: "季節のパフェ" });
+      await k.approveAs(approveNewListing, k.O, a4.id);
+      const { reflected } = await k.forReview(k.O, a4.id);
+      if (reflected?.kind !== "listing") throw new Error("not reflected");
+      await k.suspend(setup, reflected.id);
+
+      const view = await k.forReview(k.O, a4.id);
+
+      expect(view.subjects.find((s) => s.ref.kind === "listing")).toMatchObject(
+        {
+          viewability: "notViewable",
+          hiddenBy: { suspended: true, placeSuspended: false },
+        },
+      );
+    });
   });
 });

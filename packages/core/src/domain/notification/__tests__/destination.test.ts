@@ -69,7 +69,7 @@ describe("NotificationDestination.of", () => {
         placeId: P,
         matter: { kind: "suspended" },
       }),
-    ).toEqual({ kind: "listingManagement", listingId: L });
+    ).toEqual({ kind: "listingManagement", listingId: L, placeId: P });
     expect(
       content({
         to: "contentManagers",

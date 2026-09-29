@@ -181,7 +181,11 @@ describe("listNotifications", () => {
       delivery: "direct",
       pointedContent: L,
       vacantTarget: null,
-      destination: { kind: "listingManagement", listingId: L.id },
+      destination: {
+        kind: "listingManagement",
+        listingId: L.id,
+        placeId: P.id,
+      },
     });
     expect(item?.labels).toContainEqual({ ref: L, label: "掲載L" });
   });
@@ -200,7 +204,7 @@ describe("listNotifications", () => {
       destination: {
         kind: "proxyOperation",
         target: V,
-        direct: { kind: "listingManagement", listingId: LV.id },
+        direct: { kind: "listingManagement", listingId: LV.id, placeId: V.id },
       },
     });
     expect(item?.labels).toContainEqual({ ref: LV, label: "掲載LV" });

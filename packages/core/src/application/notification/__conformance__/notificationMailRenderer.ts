@@ -217,7 +217,7 @@ export function describeNotificationMailRendererContract(
             },
             delivery: "direct",
           },
-          { kind: "listingManagement", listingId: L },
+          { kind: "listingManagement", listingId: L, placeId: P },
         );
       });
 
@@ -236,7 +236,7 @@ export function describeNotificationMailRendererContract(
           {
             kind: "proxyOperation",
             target: { kind: "place", id: V },
-            direct: { kind: "listingManagement", listingId: LV },
+            direct: { kind: "listingManagement", listingId: LV, placeId: V },
           },
         );
       });

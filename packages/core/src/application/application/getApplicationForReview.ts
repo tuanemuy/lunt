@@ -1,13 +1,19 @@
 import {
   Application,
+  ApplicationCase,
   type ApplicationKind,
 } from "@repo/core/domain/application/application";
 import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import { Address } from "@repo/core/domain/common/address";
-import type { ApplicationId, PlaceId } from "@repo/core/domain/common/ids";
+import type {
+  ApplicationId,
+  ListingId,
+  PlaceId,
+} from "@repo/core/domain/common/ids";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import type { Version } from "@repo/core/domain/common/version";
 import { VisibilityPolicy } from "@repo/core/domain/discovery/visibilityPolicy";
+import type { Listing } from "@repo/core/domain/listing/listing";
 import { PlaceMatchCriteria } from "@repo/core/domain/place/matching";
 import { Place } from "@repo/core/domain/place/place";
 import type { PlaceName } from "@repo/core/domain/place/profile";
@@ -55,8 +61,22 @@ export type SubjectViewability =
   | "notYet"
   | "missing";
 
+/**
+ * Why viewers cannot see a subject, as far as CM-01 tells it: the subject
+ * is suspended by the operators (運営による非公開), and — for a listing —
+ * its place is. Both `false`: another reason (a listing not published, a
+ * place that is gone, …).
+ */
+export type HiddenBy = Readonly<{
+  suspended: boolean;
+  placeSuspended: boolean;
+}>;
+
 export type ReviewSubjectView = SubjectView &
-  Readonly<{ viewability: SubjectViewability }>;
+  (
+    | Readonly<{ viewability: Exclude<SubjectViewability, "notViewable"> }>
+    | Readonly<{ viewability: "notViewable"; hiddenBy: HiddenBy }>
+  );
 
 /** An existing place close to a registration's name or address (suspended ones included). */
 export type SimilarPlaceView = Readonly<{
@@ -133,6 +153,63 @@ function readViewability(
           ? "viewable"
           : "notViewable",
     );
+  }
+  return judged;
+}
+
+const OTHER_REASON: HiddenBy = { suspended: false, placeSuspended: false };
+
+/**
+ * `HiddenBy` of each place and listing the application is about (its
+ * proposed listing included), from the aggregates `source` read or read
+ * here. What does not exist (yet) is absent.
+ */
+async function readHiddenBy(
+  ctx: Pick<UnitOfWorkContext, "placeRepository" | "listingRepository">,
+  app: Application,
+  source: ContentSource,
+): Promise<ReadonlyMap<string, HiddenBy>> {
+  const places = new Map<PlaceId, Place | null>();
+  const listings = new Map<ListingId, Listing | null>();
+  if (source.kind === "revision") {
+    places.set(source.app.target.placeId, source.place);
+  }
+  if (source.kind === "listingRevision") {
+    places.set(source.app.placeId, source.place);
+    listings.set(source.app.target.listingId, source.listing);
+  }
+  const placeOf = async (id: PlaceId): Promise<Place | null> => {
+    if (places.has(id)) return places.get(id) ?? null;
+    const found = (await ctx.placeRepository.findById(id))?.entity ?? null;
+    places.set(id, found);
+    return found;
+  };
+  const listingOf = async (id: ListingId): Promise<Listing | null> =>
+    listings.has(id)
+      ? (listings.get(id) ?? null)
+      : ((await ctx.listingRepository.findById(id))?.entity ?? null);
+  const refs = [
+    ...Application.subjects(app),
+    ...ApplicationCase.contentNames(app).map(({ ref }) => ref),
+  ];
+  const judged = new Map<string, HiddenBy>();
+  for (const ref of refs) {
+    if (ref.kind === "place") {
+      const place = await placeOf(ref.id);
+      if (place === null) continue;
+      judged.set(ContentRef.key(ref), {
+        suspended: Place.isSuspended(place),
+        placeSuspended: false,
+      });
+    } else if (ref.kind === "listing") {
+      const listing = await listingOf(ref.id);
+      if (listing === null) continue;
+      const place = await placeOf(listing.placeId);
+      judged.set(ContentRef.key(ref), {
+        suspended: listing.suspension.suspended,
+        placeSuspended: place !== null && Place.isSuspended(place),
+      });
+    }
   }
   return judged;
 }
@@ -216,6 +293,7 @@ export async function getApplicationForReview({
       permission,
       source,
       facts: await readFacts(ctx, source),
+      hiddenBy: await readHiddenBy(ctx, app, source),
       reads: await readSummaryReads(ctx, [app]),
     };
   });
@@ -229,10 +307,19 @@ export async function getApplicationForReview({
   const withViewability = await Promise.all(
     named.map(async (subject): Promise<ReviewSubjectView> => {
       if (subject.notYet) return { ...subject, viewability: "notYet" };
-      const known = judged.get(ContentRef.key(subject.ref));
-      if (known !== undefined) return { ...subject, viewability: known };
-      const viewable = await container.referenceQueries.isViewable(subject.ref);
-      return { ...subject, viewability: viewable ? "viewable" : "notViewable" };
+      const key = ContentRef.key(subject.ref);
+      const viewability =
+        judged.get(key) ??
+        ((await container.referenceQueries.isViewable(subject.ref))
+          ? "viewable"
+          : "notViewable");
+      return viewability === "notViewable"
+        ? {
+            ...subject,
+            viewability,
+            hiddenBy: read.hiddenBy.get(key) ?? OTHER_REASON,
+          }
+        : { ...subject, viewability };
     }),
   );
   return {

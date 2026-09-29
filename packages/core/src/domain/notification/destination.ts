@@ -37,7 +37,12 @@ export type DirectDestination =
       placeId: PlaceId;
       occasionId: OccasionId;
     }>
-  | Readonly<{ kind: "listingManagement"; listingId: ListingId }>
+  | Readonly<{
+      kind: "listingManagement";
+      listingId: ListingId;
+      /** The listing's place: its listings stay reachable once it is deleted. */
+      placeId: PlaceId;
+    }>
   | Readonly<{ kind: "confirmationRequest"; reportId: InfoReportId }>
   | Readonly<{
       kind: "regionManagement";
@@ -108,6 +113,13 @@ function placeMatterDestination(
 }
 
 function contentDestination(o: ContentOccurrence): DirectDestination {
+  if ("placeId" in o) {
+    return {
+      kind: "listingManagement",
+      listingId: o.content.id,
+      placeId: o.placeId,
+    };
+  }
   switch (o.content.kind) {
     case "place":
       return {
@@ -115,8 +127,6 @@ function contentDestination(o: ContentOccurrence): DirectDestination {
         placeId: o.content.id,
         facet: o.matter.kind === "photos_taken_down" ? "profile" : "overview",
       };
-    case "listing":
-      return { kind: "listingManagement", listingId: o.content.id };
     case "region":
       return {
         kind: "regionManagement",
