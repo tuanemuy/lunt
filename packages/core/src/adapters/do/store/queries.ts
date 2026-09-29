@@ -9,6 +9,7 @@ import { accountQueryHandlers } from "./account";
 import { applicationQueryHandlers } from "./application";
 import { areaQueryHandlers } from "./area";
 import { authorityQueryHandlers } from "./authority";
+import { bookmarkQueryHandlers } from "./bookmark";
 import { discoveryQueryHandlers } from "./discovery";
 import { listingQueryHandlers } from "./listing";
 import { mediaQueryHandlers } from "./media";
@@ -40,6 +41,7 @@ export const queryHandlers = {
   ...discoveryQueryHandlers,
   ...regionQueryHandlers,
   ...occasionQueryHandlers,
+  ...bookmarkQueryHandlers,
 } satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(

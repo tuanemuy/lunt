@@ -3,6 +3,7 @@ import { ACCOUNT_MIGRATIONS } from "./account";
 import { APPLICATION_MIGRATIONS } from "./application";
 import { AREA_MIGRATIONS } from "./area";
 import { AUTHORITY_MIGRATIONS } from "./authority";
+import { BOOKMARK_MIGRATIONS } from "./bookmark";
 import { DEAD_LETTER_MIGRATION } from "./deadLetters";
 import { DEV_CLOCK_MIGRATIONS } from "./devClock";
 import { DEV_MAILBOX_MIGRATIONS } from "./devMailbox";
@@ -71,7 +72,7 @@ const CORE_MIGRATION: Migration = {
  * 5 authority, 6 application, 7 notification, 8 development mailbox,
  * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery,
  * 14 moderation, 15 application (stage 2), 16 notification (stage 2),
- * 17 region, 18 occasion.
+ * 17 region, 18 occasion, 19 bookmark.
  */
 export const MIGRATIONS: readonly Migration[] = [
   CORE_MIGRATION,
@@ -90,6 +91,7 @@ export const MIGRATIONS: readonly Migration[] = [
   ...MODERATION_MIGRATIONS,
   ...REGION_MIGRATIONS,
   ...OCCASION_MIGRATIONS,
+  ...BOOKMARK_MIGRATIONS,
 ].sort((a, b) => a.version - b.version);
 
 const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS _schema_migrations (

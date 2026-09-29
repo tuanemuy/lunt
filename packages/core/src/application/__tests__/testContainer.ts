@@ -5,6 +5,7 @@ import { createTestAccountServices } from "../account/__tests__/testServices";
 import { createTestApplicationServices } from "../application/__tests__/testServices";
 import { createTestAreaServices } from "../area/__tests__/testServices";
 import { createTestAuthorityServices } from "../authority/__tests__/testServices";
+import { createTestBookmarkServices } from "../bookmark/__tests__/testServices";
 import type { RequestContainer } from "../di/types";
 import { createTestDiscoveryServices } from "../discovery/__tests__/testServices";
 import type { EventDecoderRegistry } from "../events/registry";
@@ -112,6 +113,7 @@ export function createTestContainer(
     ...createTestPlaceServices(deps),
     ...createTestListingServices(deps),
     ...createTestDiscoveryServices(deps),
+    ...createTestBookmarkServices(deps),
     ...createTestOccasionServices(deps),
     ...createTestRegionServices(deps),
     ...(options.overrides?.(deps) ?? {}),

@@ -4,6 +4,7 @@ import { accountCommandHandlers } from "./account";
 import { applicationCommandHandlers } from "./application";
 import { areaCommandHandlers } from "./area";
 import { authorityCommandHandlers } from "./authority";
+import { bookmarkCommandHandlers } from "./bookmark";
 import { discoveryCommandHandlers } from "./discovery";
 import { listingCommandHandlers } from "./listing";
 import { mediaCommandHandlers } from "./media";
@@ -36,6 +37,7 @@ export const commandHandlers = {
   ...moderationCommandHandlers,
   ...regionCommandHandlers,
   ...occasionCommandHandlers,
+  ...bookmarkCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

@@ -3,6 +3,7 @@ import { createAccountRepositories } from "./account";
 import { createApplicationRepositories } from "./application";
 import { createAreaRepositories } from "./area";
 import { createAuthorityRepositories } from "./authority";
+import { createBookmarkRepositories } from "./bookmark";
 import type { RepositoryDeps } from "./deps";
 import { createDiscoveryRepositories } from "./discovery";
 import { createListingRepositories } from "./listing";
@@ -32,5 +33,6 @@ export function createRepositories(
     ...createModerationRepositories(deps),
     ...createRegionRepositories(deps),
     ...createOccasionRepositories(deps),
+    ...createBookmarkRepositories(deps),
   };
 }

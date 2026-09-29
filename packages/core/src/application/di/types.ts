@@ -2,6 +2,7 @@ import type { AccountServices } from "../account/services";
 import type { ApplicationServices } from "../application/services";
 import type { AreaServices } from "../area/services";
 import type { AuthorityServices } from "../authority/services";
+import type { BookmarkServices } from "../bookmark/services";
 import type { DevServices } from "../dev/services";
 import type { DiscoveryServices } from "../discovery/services";
 import type { UnitOfWorkProvider } from "../execution/unitOfWork";
@@ -78,7 +79,8 @@ export type RequestContainer = SharedDeps &
   ListingServices &
   DiscoveryServices &
   RegionServices &
-  OccasionServices;
+  OccasionServices &
+  BookmarkServices;
 
 /**
  * Container of the outbox relay, which runs inside the state Durable
