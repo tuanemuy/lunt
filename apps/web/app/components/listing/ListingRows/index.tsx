@@ -85,7 +85,9 @@ function Row({ row, viewable }: { row: ListingRowItem; viewable: boolean }) {
           {row.suspended
             ? "閲覧者には表示されていません。運営による非公開は、サービス運営者だけが解除できます。"
             : row.publication.status === "unpublished"
-              ? "閲覧者には表示されていません。再公開は掲載の編集で行えます。"
+              ? row.publication.reason === "photoTakedown"
+                ? "申立てにより写真が削除され、一時非公開になっています。写真を登録して保存し、再公開すると、閲覧者に表示されます。"
+                : "閲覧者には表示されていません。再公開は掲載の編集で行えます。"
               : "店舗の非公開が解除されるまで、閲覧者には表示されません。"}
         </p>
       )}
