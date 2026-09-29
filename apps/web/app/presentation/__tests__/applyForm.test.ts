@@ -5,6 +5,7 @@ import {
   listingChangedFields,
   listingMissing,
   offeringDraftText,
+  offeringInputError,
   placeChangedFields,
   replyOf,
 } from "../applyForm";
@@ -79,6 +80,34 @@ describe("listing forms", () => {
       "category",
     ]);
     expect(listingMissing(listing)).toEqual({});
+  });
+
+  it("refuses before the review the offerings the submission refuses", () => {
+    const code = (offering: ListingFormValues["offering"]) =>
+      offeringInputError(offering)?.code ?? null;
+    expect(
+      code({ kind: "period", start: "2026-10-10", end: "2026-10-09" }),
+    ).toBe("LISTING_INVALID_OFFERING_PERIOD");
+    expect(code({ kind: "period", start: "", end: "" })).toBe(
+      "LISTING_INVALID_OFFERING_PERIOD",
+    );
+    expect(code({ kind: "dates", dates: [] })).toBe(
+      "LISTING_INVALID_OPEN_DATES",
+    );
+    expect(
+      code({ kind: "period", start: "2026-10-10", end: "2026-10-10" }),
+    ).toBeNull();
+    expect(code({ kind: "period", start: "", end: "2026-10-10" })).toBeNull();
+    expect(code({ kind: "period", start: "2026-10-10", end: "" })).toBeNull();
+    expect(code({ kind: "dates", dates: ["2026-10-10"] })).toBeNull();
+    expect(code({ kind: "none" })).toBeNull();
+    expect(
+      offeringInputError({
+        kind: "period",
+        start: "2026-10-10",
+        end: "2026-10-09",
+      })?.message,
+    ).toBe("提供期間は開始日か終了日を入れ、終了日は開始日以降にしてください");
   });
 
   it("counts a new framing as a change of the photos", () => {

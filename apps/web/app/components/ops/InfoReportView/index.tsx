@@ -218,7 +218,7 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
         <div role="status">
           {outcome?.kind === "requested" ? (
             <Notice variant="manage" title="店舗管理者に確認を依頼しました">
-              {`${placeName}の店舗管理者 ${stewardCount}人に、連絡の内容を添えた依頼が届きました。連絡は確認依頼中になりました。`}
+              {`${placeName}のすべての店舗管理者に、連絡の内容を添えた依頼が届きました。連絡は確認依頼中になりました。`}
             </Notice>
           ) : null}
           {outcome?.kind === "resolved" ? (
@@ -436,11 +436,9 @@ export function InfoReportView({ data }: { data: InfoReportData }) {
                 <div>
                   <dt>依頼</dt>
                   <dd>
-                    {`${
-                      data.requestedAt === null
-                        ? "依頼済み"
-                        : `${dayText(data.requestedAt)}に依頼済み`
-                    } · 店舗管理者 ${stewardCount}人に届きました`}
+                    {data.requestedAt === null
+                      ? "依頼済み"
+                      : `${dayText(data.requestedAt)}に依頼済み`}
                   </dd>
                 </div>
               </dl>

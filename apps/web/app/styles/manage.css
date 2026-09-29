@@ -442,6 +442,14 @@
     font-weight: var(--weight-medium);
     color: var(--ink);
   }
+  /* A `Field`'s id (an in-page link's target) is its control's: keep the label above it in view. */
+  .m-main .m-field:has(> label.m-field__label) > [id] {
+    scroll-margin-top: calc(
+      var(--space-16) +
+      var(--leading-ui) +
+      var(--space-8)
+    );
+  }
   fieldset.m-field > legend.m-field__label {
     margin-bottom: var(--space-8);
   }
@@ -885,6 +893,15 @@
     /* In-page links (a failure alert's 「カテゴリー」) land below the sticky band. */
     .m-main [id] {
       scroll-margin-top: calc(69px + var(--space-16));
+    }
+    /* A `Field`'s control, with its label, lands below the band too. */
+    .m-main .m-field:has(> label.m-field__label) > [id] {
+      scroll-margin-top: calc(
+        69px +
+        var(--space-16) +
+        var(--leading-ui) +
+        var(--space-8)
+      );
     }
     .m-main {
       grid-area: main;

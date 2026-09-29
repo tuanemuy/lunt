@@ -1,4 +1,5 @@
 import type { ClaimValues, PlaceStateValues } from "./applyView";
+import { listingErrorCatalog } from "./errorCatalog/listing";
 import type { ErrorState } from "./errorState";
 import {
   LISTING_FIELDS,
@@ -196,6 +197,43 @@ export function listingMissing(values: ListingFormValues): ListingFieldErrors {
     errors.category = "カテゴリーを1つ選んでください";
   }
   return errors;
+}
+
+/**
+ * CF-06 as the submission accepts it (`Offering`: a period has a day and
+ * its end is not before its start; open dates have a day), refused with
+ * the code and wording SM-04's save shows. The review step checks it so
+ * the confirmation never shows an offering the submission would refuse.
+ */
+export function offeringInputError(
+  offering: OfferingDraft,
+): Extract<ErrorState, { kind: "invalidInput" }> | null {
+  const refuse = (
+    code: "LISTING_INVALID_OFFERING_PERIOD" | "LISTING_INVALID_OPEN_DATES",
+  ) => ({
+    kind: "invalidInput" as const,
+    code,
+    message: listingErrorCatalog[code].message,
+    fieldErrors: {},
+    missing: [],
+  });
+  switch (offering.kind) {
+    case "none":
+      return null;
+    case "period": {
+      const { start, end } = offering;
+      if (start === "" && end === "") {
+        return refuse("LISTING_INVALID_OFFERING_PERIOD");
+      }
+      return start !== "" && end !== "" && end < start
+        ? refuse("LISTING_INVALID_OFFERING_PERIOD")
+        : null;
+    }
+    case "dates":
+      return offering.dates.length === 0
+        ? refuse("LISTING_INVALID_OPEN_DATES")
+        : null;
+  }
 }
 
 /** The code an unchanged revision is refused with (CS-10). */

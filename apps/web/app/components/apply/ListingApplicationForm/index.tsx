@@ -33,6 +33,7 @@ import {
   listingMissing,
   NO_CHANGE_ERROR,
   offeringDraftText,
+  offeringInputError,
   replyError,
   replyOf,
 } from "@/presentation/applyForm";
@@ -277,8 +278,18 @@ export function ListingApplicationForm({ apply }: { apply: ListingApplyData }) {
 
   const check = () => {
     const missing = listingMissing(values);
+    const offering = offeringInputError(values.offering);
     if (Object.keys(missing).length > 0) {
-      fail(INPUT_ERROR, { listing: missing });
+      fail(INPUT_ERROR, {
+        listing:
+          offering === null
+            ? missing
+            : { ...missing, offering: offering.message },
+      });
+      return;
+    }
+    if (offering !== null) {
+      fail(offering, { listing: { offering: offering.message } });
       return;
     }
     if (revision !== null && changed.length === 0) {

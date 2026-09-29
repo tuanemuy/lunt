@@ -95,7 +95,7 @@ function MyApplicationsError({ error }: ErrorComponentProps) {
   }
   if (state.kind === "forbidden" && place !== null) {
     return (
-      <ManagePage title={<Title filtered={place} />}>
+      <ManagePage title={<Title filtered={null} />}>
         <ManageBody>
           <EmptyPanel
             title="この店舗の申請は見られません"

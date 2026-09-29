@@ -447,17 +447,21 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
                   tone="paper"
                   title="申立人が示した写真は、すでに対象から外されています"
                 >
-                  残る写真を確かめて、削除が要るかを判断します。
+                  {photos.length === 0
+                    ? "対象に写真は残っていないため、削除する写真はありません。対象の運営へ進むか、結果を添えて対応を終えます。"
+                    : "残る写真を確かめて、削除が要るかを判断します。"}
                 </Notice>
               ) : null}
               {photos.length === 0 ? (
-                <Notice
-                  variant="manage"
-                  tone="paper"
-                  title="対象に写真がありません"
-                >
-                  削除する写真はありません。対象の運営へ進むか、結果を添えて対応を終えます。
-                </Notice>
+                data.removedClaimedCount > 0 ? null : (
+                  <Notice
+                    variant="manage"
+                    tone="paper"
+                    title="対象に写真がありません"
+                  >
+                    削除する写真はありません。対象の運営へ進むか、結果を添えて対応を終えます。
+                  </Notice>
+                )
               ) : (
                 <>
                   <ul className="m-photos">
