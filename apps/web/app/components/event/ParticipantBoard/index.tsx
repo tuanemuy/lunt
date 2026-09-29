@@ -505,7 +505,9 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
           <li>店舗と掲載の公開状態・提供状態は変わりません</li>
           <li>他のイベントへの参加は変わりません</li>
           <li>
-            除外は取り消せません。再び参加するには、店舗からの参加の申請が必要です
+            {confirming?.hasSteward === false
+              ? "除外は取り消せません。店舗管理者のいない店舗は、運営者が参加店舗に直接加え直せます"
+              : "除外は取り消せません。再び参加するには、店舗からの参加の申請が必要です"}
           </li>
         </ul>
       </ConfirmDialog>
