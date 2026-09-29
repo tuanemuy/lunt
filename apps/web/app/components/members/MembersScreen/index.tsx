@@ -2,6 +2,7 @@
 
 import type { StewardedKind } from "@repo/core/domain/common/refs";
 import { type ReactNode, type Usable, useCallback, useState } from "react";
+import { EventNav } from "@/components/event/EventShell";
 import { RouteErrorContent } from "@/components/feedback/RouteErrorView";
 import {
   ManageBody,
@@ -17,6 +18,7 @@ import {
   ReportReturnLink,
   useReportReturn,
 } from "@/components/ops/ProxyReturn";
+import { RegionNav, RegionTarget } from "@/components/region/RegionShell";
 import { ButtonLink } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
@@ -116,14 +118,25 @@ function frameLayout(
       nav: <ShopNav frame={frame.shop} />,
     };
   }
+  if (frame.region !== null) {
+    return {
+      context: words.area,
+      homeTo: homePath(frame.kind, frame.id),
+      back: null,
+      target: <RegionTarget frame={frame.region} />,
+      nav: <RegionNav frame={frame.region} />,
+    };
+  }
   if (frame.steward) {
-    // A region's / event's manager: their areas' navs arrive with S3A.
     return {
       context: words.area,
       homeTo: homePath(frame.kind, frame.id),
       back: null,
       target: <StaticTarget name={frame.name} status={frame.state} />,
-      nav: null,
+      nav:
+        frame.kind === "occasion" ? (
+          <EventNav occasionId={frame.id} proxy={false} />
+        ) : null,
     };
   }
   return {

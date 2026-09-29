@@ -8,6 +8,7 @@ import type { PlaceDetailPage } from "@/presentation/detail";
 import type { PlaceDetailData } from "@/presentation/detailView";
 import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
 import { DetailPhotos } from "../DetailPhotos";
+import { OccasionRows, RegionRows } from "../RelatedRows";
 import { PlaceListings } from "./PlaceListings";
 
 /** SM-01 of the store, a plain path (the SM screens belong to another area). */
@@ -15,6 +16,7 @@ const shopHomePath = (placeId: string): string =>
   `/manage/places/${encodeURIComponent(placeId)}`;
 
 function OperatingNotice({ data }: { data: PlaceDetailData }) {
+  const [displayed] = data.regions;
   switch (data.operating) {
     case "open":
       return null;
@@ -26,8 +28,24 @@ function OperatingNotice({ data }: { data: PlaceDetailData }) {
       );
     case "permanentlyClosed":
       return (
-        <Notice title="このお店は閉店しました">
-          お店の情報と地図は、このまま見られます。
+        <Notice
+          title="このお店は閉店しました"
+          {...(displayed === undefined
+            ? {}
+            : {
+                actions: (
+                  <TextLink
+                    to="/regions/$regionId"
+                    params={{ regionId: displayed.regionId }}
+                  >
+                    {`${displayed.name}のお店を見る`}
+                  </TextLink>
+                ),
+              })}
+        >
+          {displayed === undefined
+            ? "お店の情報と地図は、このまま見られます。"
+            : "お店の情報と地図は、このまま見られます。同じ街のほかのお店も探せます。"}
         </Notice>
       );
   }
@@ -59,8 +77,8 @@ function PlaceMap({ data }: { data: PlaceDetailData }) {
  * (SM-01) for its steward, otherwise 「このお店を管理する」 (RQ-03); the
  * applications of a place without a steward (RQ-02, RQ-04) or the report
  * for one with a steward (RQ-08); the takedown claim (RQ-07) always. The
- * affiliation application (RQ-05) and the save toggle (CF-04) join with
- * their stages.
+ * affiliation application (RQ-05, stage 3b) and the save toggle (CF-04,
+ * stage 4) join with their stages.
  */
 function PlaceProcedures({ data }: { data: PlaceDetailData }) {
   const { placeId } = data;
@@ -113,14 +131,16 @@ function PlaceProcedures({ data }: { data: PlaceDetailData }) {
 
 /**
  * DT-02 店舗詳細 (`spec/pages/detail.md`): the place in the reference scene
- * with its operating status, its listings (CF-05) and its position. The
- * regions, occasions and articles sections have no entries before their
- * stages and are not shown. A steward of the place gets the way to its
- * management (SM-01); the other procedure entries (RQ-02〜RQ-05, RQ-07,
- * RQ-08) and the save toggle (CF-04) join with their stages.
+ * with its operating status and displayed region, its listings (CF-05),
+ * its position, all its viewable regions (DT-03, the displayed one first)
+ * and the upcoming and ongoing occasions it takes part in (DT-04,
+ * discovery scene). A section with nothing to show is left out; articles
+ * have none before their stage. The procedures close it
+ * (`PlaceProcedures`).
  */
 export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
   const { place: data, listings } = page;
+  const [displayed] = data.regions;
   return (
     <div className="container detail-page">
       <div className="detail detail--split">
@@ -128,6 +148,9 @@ export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
         <div className="detail__main">
           <div className="hero__text">
             <h1 className="hero__name">{data.name}</h1>
+            {displayed === undefined ? null : (
+              <p className="hero__place">{displayed.name}</p>
+            )}
             {data.operating === "open" ? null : (
               <StatusTags>
                 <StatusTag quiet>
@@ -178,6 +201,19 @@ export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
             </dl>
             <PlaceMap data={data} />
           </section>
+
+          {data.regions.length === 0 ? null : (
+            <section aria-label="所属する街">
+              <RegionRows items={data.regions} />
+            </section>
+          )}
+
+          {data.occasions.length === 0 ? null : (
+            <section className="detail-section" aria-labelledby="dt02-events">
+              <SectionTitle id="dt02-events">参加しているイベント</SectionTitle>
+              <OccasionRows items={data.occasions} />
+            </section>
+          )}
 
           <PlaceProcedures data={data} />
         </div>

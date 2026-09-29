@@ -327,6 +327,37 @@
     accent-color: var(--green);
   }
 
+  /* SM-05 */
+  .sm05-rep {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .sm05-rep__name {
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+
+  /* SM-06: the participation's listings and days under its row */
+  .sm06-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+  .sm06-sub__label {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  .sm06-sub .p-item__text[data-tone="alert"] {
+    color: var(--focus);
+  }
+
   /* CM-03: DT-01's hero and the card, at the width a viewer's phone shows them */
   .cm03-detail {
     max-width: 480px;

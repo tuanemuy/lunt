@@ -1,6 +1,7 @@
 /*
-  Viewer detail screens (DT-01, DT-02), after the 「詳細（DT-01〜DT-04）の共通」,
-  DiscoverCard and 「DT-02 店舗詳細（画面固有）」 blocks of spec/design/pages.
+  Viewer detail screens (DT-01〜DT-04), after the 「詳細（DT-01〜DT-04）の共通」,
+  DiscoverCard, EditorialFeature, ContentRow and the 「DT-02」「DT-03」「DT-04」
+  （画面固有） blocks of spec/design/pages.
 */
 @layer components {
   /* A photo in its design box; `Photo` places the image by its framing. */
@@ -333,6 +334,251 @@
     }
     .dt02-map {
       scroll-margin-top: calc(122px + var(--space-24));
+    }
+  }
+
+  /* ContentRow (21:165): regions, occasions and places in a detail's sections */
+  .detail-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    min-width: 0;
+  }
+  .content-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    min-width: 0;
+    border-radius: var(--radius-2);
+  }
+  .content-row__photo {
+    flex: none;
+    width: 88px;
+    height: 88px;
+    border-radius: var(--radius-2);
+    background: var(--paper);
+  }
+  .content-row__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter var(--transition-default);
+  }
+  .content-row__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .content-row__name {
+    font-family: var(--font-display);
+    font-size: var(--text-name);
+    line-height: var(--leading-name);
+    letter-spacing: var(--tracking-display);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .content-row__meta {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .content-row__area {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  a.content-row:focus-visible {
+    outline-offset: var(--space-4);
+  }
+  a.content-row:active .content-row__photo img {
+    filter: brightness(0.92);
+  }
+
+  /* EditorialFeature: DT-03's region at the head */
+  .feature {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    color: var(--ink);
+  }
+  .feature::before,
+  .feature::after {
+    content: "";
+    display: block;
+    height: var(--border-1);
+    background: var(--line);
+  }
+  .feature__head,
+  .feature__foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .feature__location {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  .feature__catch {
+    font-family: var(--font-display);
+    font-size: var(--text-catch);
+    line-height: var(--leading-catch);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    overflow-wrap: anywhere;
+  }
+  .feature__photo {
+    aspect-ratio: 348 / 193;
+    width: 100%;
+    border-radius: var(--radius-2);
+    background: var(--paper);
+  }
+  .feature__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .feature__name {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    overflow-wrap: anywhere;
+  }
+  .feature__description {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  /* DT-03 */
+  .dt03-title {
+    font-family: var(--font-display);
+    font-size: var(--text-page);
+    line-height: var(--leading-page);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .dt03-tabs {
+    gap: var(--space-16);
+  }
+  .dt03-empty {
+    padding-block: var(--space-24);
+  }
+  .dt03-skeleton--location {
+    width: 150px;
+    height: 16px;
+  }
+  .dt03-skeleton--catch-1 {
+    width: 238px;
+    height: 28px;
+  }
+  .dt03-skeleton--catch-2 {
+    width: 304px;
+    height: 28px;
+  }
+  .dt03-skeleton--photo {
+    width: 100%;
+    aspect-ratio: 348 / 193;
+  }
+
+  /* DT-04 */
+  .dt04-catch {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .dt04-participant {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    column-gap: var(--space-16);
+    row-gap: var(--space-4);
+    min-width: 0;
+  }
+  .dt04-participant > .content-row {
+    grid-column: 1 / -1;
+  }
+  .dt04-listings {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-8);
+  }
+  .dt04-listings__state {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+
+  @media (hover: hover) {
+    a.content-row:hover .content-row__photo img {
+      filter: brightness(0.92);
+    }
+    a.content-row:hover .content-row__name {
+      text-decoration: underline;
+      text-underline-offset: var(--space-4);
+      text-decoration-thickness: var(--border-1);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .detail-rows--grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--space-32);
+      row-gap: var(--space-24);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .detail--split .detail-rows--grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .feature {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas:
+        "rule-top rule-top"
+        "head photo"
+        "foot photo"
+        "rule-bottom rule-bottom";
+      column-gap: var(--space-32);
+      row-gap: var(--space-16);
+    }
+    .feature::before {
+      grid-area: rule-top;
+    }
+    .feature::after {
+      grid-area: rule-bottom;
+    }
+    .feature__head {
+      grid-area: head;
+    }
+    .feature__photo {
+      grid-area: photo;
+    }
+    .feature__foot {
+      grid-area: foot;
+      align-self: start;
+    }
+    .dt03-skeleton--photo {
+      max-width: 700px;
+    }
+    .dt03-gallery {
+      grid-template-columns: repeat(8, minmax(0, 1fr));
     }
   }
 }

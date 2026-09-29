@@ -33,17 +33,34 @@ import {
 import { invitedOnText } from "@/presentation/members";
 import type {
   ListingSubjectData,
+  OccasionSubjectData,
   OpsSubjectData,
   PlaceSubjectData,
+  RegionSubjectData,
 } from "@/presentation/opsSubject";
+import { changeSuspensionFn } from "@/presentation/opsSuspension";
 import { suspendPlaceFn, unsuspendPlaceFn } from "@/presentation/place";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
+import {
+  HOLDING_STATUS_LABEL,
+  occasionPagePath,
+  periodText,
+  regionMembersPath,
+  regionPagePath,
+  regionPublicationLabel,
+  regionStateText,
+} from "@/presentation/regionView";
 import { OpsSearchReturnLink } from "../OpsSearchReturn";
 import { OpsNav } from "../OpsShell";
 import { forgetReportProxy } from "../ProxyReturn";
 
-const KIND_LABEL = { place: "店舗", listing: "掲載" } as const;
+const KIND_LABEL = {
+  place: "店舗",
+  listing: "掲載",
+  region: "地域",
+  occasion: "イベント",
+} as const satisfies Readonly<Record<OpsSubjectData["kind"], string>>;
 
 function Title({ kind, name }: { kind: OpsSubjectData["kind"]; name: string }) {
   return (
@@ -127,14 +144,17 @@ function FailureAlert({
   );
 }
 
+const MISSING_TITLE = {
+  place: "店舗が見つかりません",
+  listing: "この掲載は削除されています",
+  region: "地域が見つかりません",
+  occasion: "イベントが見つかりません",
+} as const satisfies Readonly<Record<OpsSubjectData["kind"], string>>;
+
 function Missing({ kind }: { kind: OpsSubjectData["kind"] }) {
   return (
     <EmptyPanel
-      title={
-        kind === "listing"
-          ? "この掲載は削除されています"
-          : "店舗が見つかりません"
-      }
+      title={MISSING_TITLE[kind]}
       actions={<OpsSearchReturnLink variant="button" />}
     >
       運営する対象がありません。非公開と解除の操作は反映していません。
@@ -502,19 +522,288 @@ function ListingSubject({ data }: { data: ListingSubjectData }) {
   );
 }
 
+/** What differs between a region's and an event's OM-03. */
+type StewardedWords = Readonly<{
+  role: string;
+  target: string;
+  pagePath: string;
+  membersPath: string;
+  /** What viewers stop seeing (CS-12). */
+  hidden: readonly string[];
+}>;
+
+function stewardedWords(
+  data: RegionSubjectData | OccasionSubjectData,
+): StewardedWords {
+  return data.kind === "region"
+    ? {
+        role: "地域運営者",
+        target: "地域",
+        pagePath: regionPagePath(data.regionId),
+        membersPath: regionMembersPath(data.regionId),
+        hidden: [
+          "地域は、閲覧者が閲覧できなくなります",
+          "フィード・マップ・まち・検索にも表示されなくなります",
+          "所属店舗と掲載にも、所属地域として表示されなくなります",
+          "所属関係とイベントの関連づけは保たれます",
+        ],
+      }
+    : {
+        role: "イベント運営者",
+        target: "イベント",
+        pagePath: occasionPagePath(data.occasionId),
+        membersPath: `/manage/events/${encodeURIComponent(data.occasionId)}/members`,
+        hidden: [
+          "イベントは、閲覧者が閲覧できなくなります",
+          "フィード・イベントの一覧・検索にも表示されなくなります",
+          "参加店舗と開催地域の関連づけは保たれます",
+        ],
+      };
+}
+
 /**
- * OM-03 対象の運営 of a store or a listing (MOD-07, MOD-08, MOD-09): its
- * state and stewards, suspension and its lifting, and the way to CM-02.
- * OM-03 has no absence-proxy entry; OM-02 has them.
+ * OM-03 of a region or an event (MOD-07, REG-13, EVT-13): 運営による非公開
+ * laid over its publication, its operators and the way to CM-02.
+ */
+function StewardedSubject({
+  data,
+}: {
+  data: RegionSubjectData | OccasionSubjectData;
+}) {
+  const id = data.kind === "region" ? data.regionId : data.occasionId;
+  const suspension = useSuspension(data.suspended, (suspend) =>
+    changeSuspensionFn({ data: { kind: data.kind, id, suspend } }),
+  );
+  const { shown, outcome } = suspension;
+  const words = stewardedWords(data);
+  const name = data.name ?? `名称未設定の${words.target}`;
+  const pubLabel = regionPublicationLabel(data.publication);
+  const holding =
+    data.kind === "occasion" && data.holdingStatus !== null
+      ? HOLDING_STATUS_LABEL[data.holdingStatus]
+      : null;
+  const viewable = data.viewable && !shown;
+  const vacant = data.stewardCount === 0;
+  const invitations = data.invitations.length;
+  return (
+    <ManagePage title={<Title kind={data.kind} name={name} />} nav={<OpsNav />}>
+      <ManageBody>
+        {outcome?.kind === "missing" ? (
+          <Missing kind={data.kind} />
+        ) : (
+          <>
+            <div role="status">
+              {outcome?.kind === "done" ? (
+                <Notice
+                  variant="manage"
+                  title={
+                    outcome.suspended
+                      ? `${name}を非公開にしました`
+                      : "運営による非公開を解除しました"
+                  }
+                >
+                  {outcome.suspended
+                    ? `${words.target}は、閲覧者が閲覧できません。${words.role}は情報を更新できますが、公開状態は変えられません。`
+                    : `${name}は、非公開の前の公開状態「${pubLabel}」に戻りました。`}
+                </Notice>
+              ) : null}
+            </div>
+            {outcome?.kind === "failed" ? (
+              <FailureAlert
+                error={outcome.error}
+                retry={() => suspension.change(!data.suspended)}
+              />
+            ) : null}
+            <ManageStatus tone={shown ? "alert" : "accent"}>
+              {[
+                regionStateText({
+                  publication: data.publication,
+                  suspended: shown,
+                }),
+                ...(holding === null ? [] : [holding]),
+              ].join(" · ")}
+            </ManageStatus>
+            {data.cover === null ? (
+              <div className="m-photo-empty">写真はありません</div>
+            ) : (
+              <div className="m-photo">
+                <img src={data.cover.url} alt={`${name}の代表写真`} />
+              </div>
+            )}
+            <ManageSection id="om03-state" title="公開の状態">
+              <dl className="om-facts">
+                <div>
+                  <dt>公開状態</dt>
+                  <dd>{pubLabel}</dd>
+                </div>
+                {data.kind === "occasion" ? (
+                  <div>
+                    <dt>開催の状態</dt>
+                    <dd>
+                      {[
+                        holding ?? "開催期間は未設定",
+                        ...(data.period === null
+                          ? []
+                          : [periodText(data.period)]),
+                      ].join(" · ")}
+                    </dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>運営による非公開</dt>
+                  <dd>
+                    {shown ? (
+                      <>
+                        <Badge tone="alert">運営による非公開</Badge>{" "}
+                        {`公開状態「${pubLabel}」に重ねています。解除できるのはサービス運営者だけです`}
+                      </>
+                    ) : (
+                      "非公開ではありません"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>閲覧者に見えるページ</dt>
+                  <dd>
+                    {viewable ? (
+                      <TextLink to={words.pagePath}>
+                        {`${words.target}詳細を開く`}
+                      </TextLink>
+                    ) : shown ? (
+                      "非公開の間は、閲覧者は閲覧できません"
+                    ) : (
+                      "公開していないため、閲覧者は閲覧できません"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              {shown ? (
+                <>
+                  <Button
+                    className="om03-act"
+                    disabled={suspension.pending}
+                    onClick={() => suspension.change(false)}
+                  >
+                    非公開を解除する
+                  </Button>
+                  <p className="m-field__help">
+                    {`解除すると、非公開の前の公開状態「${pubLabel}」に戻り${data.publication.status === "published" ? "、閲覧者に再び表示されます" : "ます"}。解除は確認なしですぐに反映します。`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    className="om03-act"
+                    disabled={suspension.pending}
+                    onClick={() => suspension.setConfirming(true)}
+                  >
+                    {`${words.target}を非公開にする`}
+                  </Button>
+                  <p className="m-field__help">
+                    確定の前に、閲覧者への見え方の変化を確かめます。
+                  </p>
+                </>
+              )}
+            </ManageSection>
+            <hr className="m-divider" />
+            <ManageSection id="om03-members" title="管理者">
+              <dl className="om-facts">
+                <div>
+                  <dt>{words.role}</dt>
+                  <dd>
+                    {vacant ? (
+                      <Badge tone="alert">運営者なし</Badge>
+                    ) : (
+                      `${data.stewardCount}人`
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>承諾前の招待</dt>
+                  <dd>
+                    {invitations === 0
+                      ? "ありません"
+                      : `${invitations}件: ${data.invitations
+                          .map(
+                            (invitation) =>
+                              `${invitation.email}（${invitedOnText(invitation.invitedAt)}）`,
+                          )
+                          .join("、")}`}
+                  </dd>
+                </div>
+              </dl>
+              {vacant ? (
+                <p className="m-field__help">
+                  {`運営者のいない${words.target}への申請は、サービス運営者が承認者として判断します。不在の代行は、対象を探すの結果から開きます。${words.target}の管理権限の付与は、メンバーの管理で行えます。`}
+                </p>
+              ) : (
+                <Notice
+                  variant="manage"
+                  tone="paper"
+                  title="管理者がいるため、不在の代行はできません"
+                >
+                  {`${words.role}は、非公開の間も${words.target}情報を更新できます。公開状態は変えられません。管理者の権限の解除は、メンバーの管理で行えます。`}
+                </Notice>
+              )}
+              <LinkList>
+                <li>
+                  <ListRowLink
+                    to={words.membersPath}
+                    title="メンバーの管理"
+                    meta={[
+                      `${words.role} ${data.stewardCount}人`,
+                      vacant ? "管理権限の付与" : "権限の解除",
+                      ...(invitations === 0
+                        ? []
+                        : [`承諾前の招待 ${invitations}件`]),
+                    ].join(" · ")}
+                  />
+                </li>
+              </LinkList>
+            </ManageSection>
+          </>
+        )}
+      </ManageBody>
+      <ConfirmDialog
+        open={suspension.confirming}
+        title={`${name}を非公開にしますか`}
+        confirmLabel="非公開にする"
+        pending={suspension.pending}
+        onConfirm={() => suspension.change(true)}
+        onCancel={() => suspension.setConfirming(false)}
+      >
+        <p>確定すると、すぐに閲覧者への表示が変わります。</p>
+        <ul>
+          {words.hidden.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+          <li>{`${words.role}は情報を更新できますが、公開状態は変えられなくなります`}</li>
+          <li>解除できるのは、サービス運営者だけです</li>
+        </ul>
+      </ConfirmDialog>
+    </ManagePage>
+  );
+}
+
+/**
+ * OM-03 対象の運営 (MOD-07, MOD-08, MOD-09, REG-13, EVT-13): a store's,
+ * listing's, region's or event's state and managers, suspension and its
+ * lifting, and the way to CM-02. OM-03 has no absence-proxy entry; OM-02
+ * has them.
  */
 export function OpsSubjectView({ data }: { data: OpsSubjectData }) {
   // CM-02 opened from here leads back here, not to a report.
   useEffect(forgetReportProxy, []);
-  return data.kind === "place" ? (
-    <PlaceSubject data={data} />
-  ) : (
-    <ListingSubject data={data} />
-  );
+  switch (data.kind) {
+    case "place":
+      return <PlaceSubject data={data} />;
+    case "listing":
+      return <ListingSubject data={data} />;
+    case "region":
+    case "occasion":
+      return <StewardedSubject data={data} />;
+  }
 }
 
 /** OM-03 when the subject could not be read (CS-17, CS-02). */

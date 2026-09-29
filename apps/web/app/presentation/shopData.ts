@@ -199,6 +199,7 @@ export async function loadPlaceEditor(
   const { profile } = place;
   const town = await townOfAddress(container, profile.address);
   return {
+    regionNames: view.regions.map((region) => region.name ?? "名称のない地域"),
     placeId: place.id,
     version: place.version,
     name: profile.name,

@@ -1,7 +1,13 @@
 // Server-only: import from server-function handlers (dynamically) or
 // server-only loaders, never from components.
 import { NotFoundError } from "@repo/core/application/errors";
-import { CategoryId, ListingId, PlaceId } from "@repo/core/domain/common/ids";
+import {
+  CategoryId,
+  ListingId,
+  OccasionId,
+  PlaceId,
+  RegionId,
+} from "@repo/core/domain/common/ids";
 
 /**
  * A target id taken from the URL or a request. An id that cannot be one
@@ -28,3 +34,9 @@ export const listingIdOf = (raw: string): ListingId =>
 
 export const categoryIdOf = (raw: string): CategoryId =>
   parseTargetId(CategoryId.create, raw, "LISTING_CATEGORY_NOT_FOUND");
+
+export const regionIdOf = (raw: string): RegionId =>
+  parseTargetId(RegionId.create, raw, "REGION_NOT_FOUND");
+
+export const occasionIdOf = (raw: string): OccasionId =>
+  parseTargetId(OccasionId.create, raw, "OCCASION_NOT_FOUND");

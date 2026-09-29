@@ -24,7 +24,11 @@ export function ListingHeroText({
         <p className="hero__kind">{hero.categoryName}</p>
       )}
       <Name className="hero__name">{hero.name ?? "名称未設定"}</Name>
-      <p className="hero__place">{hero.placeName}</p>
+      <p className="hero__place">
+        {hero.regionName === null
+          ? hero.placeName
+          : `${hero.placeName} ・ ${hero.regionName}`}
+      </p>
       {offering.phase === "available" && operating === "open" ? null : (
         <StatusTags>
           {offering.phase === "upcoming" ? (

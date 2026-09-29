@@ -33,6 +33,7 @@ import {
 } from "@/presentation/members";
 import { useReconcile } from "@/presentation/reconcile";
 import { useEndMembership } from "../MembersEnding";
+import { GrantForm } from "./GrantForm";
 import { InviteForm } from "./InviteForm";
 
 type Lists = Readonly<{
@@ -43,7 +44,8 @@ type Lists = Readonly<{
 type OptimisticAction =
   | Readonly<{ type: "invite"; invitation: InvitationItem }>
   | Readonly<{ type: "cancel"; invitationId: string }>
-  | Readonly<{ type: "revoke"; accountId: string }>;
+  | Readonly<{ type: "revoke"; accountId: string }>
+  | Readonly<{ type: "grant"; member: MemberItem }>;
 
 function applyAction(current: Lists, action: OptimisticAction): Lists {
   switch (action.type) {
@@ -72,6 +74,13 @@ function applyAction(current: Lists, action: OptimisticAction): Lists {
           (steward) => steward.accountId !== action.accountId,
         ),
       };
+    case "grant":
+      return current.stewards.some(
+        (steward) =>
+          steward.email.toLowerCase() === action.member.email.toLowerCase(),
+      )
+        ? current
+        : { ...current, stewards: [...current.stewards, action.member] };
   }
 }
 
@@ -82,6 +91,7 @@ type Outcome =
   | Readonly<{ kind: "invitationGone"; email: string }>
   | Readonly<{ kind: "stewardArrived" }>
   | Readonly<{ kind: "revoked"; email: string }>
+  | Readonly<{ kind: "granted"; email: string }>
   | Readonly<{ kind: "notSteward"; email: string }>
   | Readonly<{ kind: "forbidden" }>
   | Readonly<{ kind: "failed"; title: string; message: string }>;
@@ -90,7 +100,8 @@ type Outcome =
 const isNotice = (outcome: Outcome): boolean =>
   outcome.kind === "invited" ||
   outcome.kind === "cancelled" ||
-  outcome.kind === "revoked";
+  outcome.kind === "revoked" ||
+  outcome.kind === "granted";
 
 /** A state that replaces the board: the viewer no longer manages the target. */
 type Ending = "resigned" | "notSteward";
@@ -153,6 +164,12 @@ function OutcomeBand({
           {`${outcome.email} は、${data.name}の${words.role}ではなくなりました。本人に通知が届きます。`}
         </Notice>
       );
+    case "granted":
+      return (
+        <Notice variant="manage" title="管理権限を付与しました">
+          {`${outcome.email} は、${data.name}の${words.role}になりました。本人に通知が届きます。`}
+        </Notice>
+      );
     case "notSteward":
       return (
         <Alert title="管理権限を解除できませんでした">
@@ -185,8 +202,8 @@ function failedMessage(error: ReturnType<typeof classifyError>): string {
  * cancel and resign for a manager; revoke (and cancel while vacant) for
  * an operator. Owns both lists, since every operation changes their
  * membership: each dispatches into one optimistic state and reconciles
- * with the server. Granting a region's / event's stewardship joins with
- * those targets (S3A).
+ * with the server. An operator also grants a region's / event's
+ * stewardship to an existing account.
  */
 export function MemberBoard({ data }: { data: MemberBoardData }) {
   const words = MEMBER_WORDS[data.kind];
@@ -486,6 +503,34 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
             }}
             onAttempt={() => setOutcome(null)}
             onInvited={(email) => setOutcome({ kind: "invited", email })}
+            onForbidden={() => setOutcome({ kind: "forbidden" })}
+          />
+        </section>
+      ) : null}
+
+      {data.operator && data.kind !== "place" ? (
+        <section className="m-section" aria-labelledby="cm02-grant-title">
+          <SectionTitle variant="manage" id="cm02-grant-title">
+            管理権限を付与する
+          </SectionTitle>
+          <GrantForm
+            kind={data.kind}
+            targetId={data.id}
+            targetName={data.name}
+            stewardEmails={lists.stewards.map((member) => member.email)}
+            onAttempt={() => setOutcome(null)}
+            onOptimisticAdd={(email) =>
+              applyOptimistic({
+                type: "grant",
+                member: {
+                  accountId: `pending:${email}`,
+                  email,
+                  isSelf: false,
+                  pending: true,
+                },
+              })
+            }
+            onGranted={(email) => setOutcome({ kind: "granted", email })}
             onForbidden={() => setOutcome({ kind: "forbidden" })}
           />
         </section>

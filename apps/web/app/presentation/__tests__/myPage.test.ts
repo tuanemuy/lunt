@@ -47,7 +47,7 @@ describe("myPageSections", () => {
     expect(sections[1]?.entries[0]?.title).toBe("名称未設定");
   });
 
-  it("opens SM-01 from a stewarded store; regions and events have no destination before their stage", () => {
+  it("opens SM-01 from a stewarded store, RM-01 from a region and EM-01 from an event", () => {
     const sections = myPageSections(
       [],
       [
@@ -58,8 +58,8 @@ describe("myPageSections", () => {
     );
     expect(sections.slice(1).map((section) => section.entries[0]?.to)).toEqual([
       "/manage/places/p%201",
-      null,
-      null,
+      "/manage/regions/r1",
+      "/manage/events/o1",
     ]);
   });
 });

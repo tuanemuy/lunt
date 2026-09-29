@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import type { PlaceFrame } from "./placeView";
+import type { RegionFrame } from "./regionView";
 import { parseGeneratedId, validateInput } from "./validator";
 
 /**
@@ -81,6 +82,8 @@ export type MembersFrame = Readonly<{
   operator: boolean;
   /** A store's management frame (switcher, nav) when its steward opens it. */
   shop: PlaceFrame | null;
+  /** A region's management frame (nav) when its steward opens it. */
+  region: RegionFrame | null;
 }>;
 
 export type MemberItem = Readonly<{
@@ -284,6 +287,47 @@ export const resignStewardshipFn = createServerFn({ method: "POST" })
       container,
       actor,
       input: { target: StewardedRef.create(data.kind, data.id) },
+    });
+    return null;
+  });
+
+export const grantStewardshipSchema = z.object({
+  kind: z.enum(["region", "occasion"]),
+  id: idField,
+  email: emailField,
+});
+
+/**
+ * An operator makes an existing account a manager of a region or an
+ * event (CM-02 付与; REG-12, EVT-12). Stores are never granted.
+ */
+export const grantStewardshipFn = createServerFn({ method: "POST" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(grantStewardshipSchema))
+  .handler(async ({ data }) => {
+    const [
+      { getContainer },
+      { requireActor },
+      { grantStewardship },
+      { OccasionId, RegionId },
+    ] = await Promise.all([
+      import("@repo/core/application/di/containerStore"),
+      import("./actor"),
+      import("@repo/core/application/authority/grantStewardship"),
+      import("@repo/core/domain/common/ids"),
+    ]);
+    const container = await getContainer();
+    const actor = await requireActor(container);
+    await grantStewardship({
+      container,
+      actor,
+      input: {
+        target:
+          data.kind === "region"
+            ? { kind: "region", id: RegionId.create(data.id) }
+            : { kind: "occasion", id: OccasionId.create(data.id) },
+        email: data.email,
+      },
     });
     return null;
   });

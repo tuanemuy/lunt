@@ -357,6 +357,20 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
             {proxy ? null : (
               <li>
                 <ListRowLink
+                  to="/manage/places/$placeId/regions"
+                  params={{ placeId: frame.placeId }}
+                  title="所属地域の状況"
+                  meta={
+                    data.regionNames.length === 0
+                      ? "所属している地域はありません"
+                      : `所属中 · ${data.regionNames.join("、")}`
+                  }
+                />
+              </li>
+            )}
+            {proxy ? null : (
+              <li>
+                <ListRowLink
                   to={placeMembersPath(frame.placeId)}
                   title="メンバーの管理"
                   meta="店舗管理者の確認と招待"

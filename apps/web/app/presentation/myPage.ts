@@ -75,16 +75,17 @@ export const SHOP_ENTRY: MyPageEntry = {
 
 /**
  * The management home a stewarded target's entry opens: SM-01 for a
- * store. RM-01 / EM-01 arrive with regions and events (S3A); until then
- * those entries have no destination.
+ * store, RM-01 for a region, EM-01 for an event.
  */
-function targetHome(target: MyPageTarget): string | null {
+function targetHome(target: MyPageTarget): string {
+  const id = encodeURIComponent(target.id);
   switch (target.kind) {
     case "place":
-      return `/manage/places/${encodeURIComponent(target.id)}`;
+      return `/manage/places/${id}`;
     case "region":
+      return `/manage/regions/${id}`;
     case "occasion":
-      return null;
+      return `/manage/events/${id}`;
   }
 }
 

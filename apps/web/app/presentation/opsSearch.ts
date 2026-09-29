@@ -4,6 +4,7 @@ import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import type { OfferingStatus, PublicationView } from "./listingView";
 import { paginationSchema } from "./pagination";
 import type { OperatingStatus } from "./placeView";
+import type { HoldingStatus } from "./regionView";
 import { validateInput } from "./validator";
 
 /** Characters of a search term (the keyword's own limit is 100). */
@@ -13,7 +14,8 @@ const termField = z.string().max(TERM_MAX);
 
 /**
  * OM-02's URL: `kind=place` with `name` / `address`, or `kind=keyword`
- * with `q`. A hand-edited value falls back to the empty search.
+ * with `q` (listings, regions and events). A hand-edited value falls back
+ * to the empty search.
  */
 export const opsSearchSearchSchema = z.object({
   kind: z.enum(["place", "keyword"]).optional().catch(undefined),
@@ -43,6 +45,27 @@ export type ListingMatchItem = Readonly<{
   publication: PublicationView;
   suspended: boolean;
   offeringStatus: OfferingStatus;
+  hasSteward: boolean;
+}>;
+
+/** One region of OM-02's keyword results. */
+export type RegionMatchItem = Readonly<{
+  regionId: string;
+  name: string | null;
+  /** The address text, or `null` while the region has none. */
+  address: string | null;
+  publication: PublicationView;
+  suspended: boolean;
+  hasSteward: boolean;
+}>;
+
+/** One event of OM-02's keyword results. */
+export type OccasionMatchItem = Readonly<{
+  occasionId: string;
+  name: string | null;
+  publication: PublicationView;
+  suspended: boolean;
+  holdingStatus: HoldingStatus | null;
   hasSteward: boolean;
 }>;
 
@@ -79,4 +102,22 @@ export const searchListingsFn = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<MatchPage<ListingMatchItem>> => {
     const { searchListings } = await import("./opsData");
     return searchListings(data.q, { page: data.page, limit: data.limit });
+  });
+
+/** OM-02: a further page of regions matching the keyword. */
+export const searchRegionsFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(searchListingsSchema))
+  .handler(async ({ data }): Promise<MatchPage<RegionMatchItem>> => {
+    const { searchRegions } = await import("./opsData");
+    return searchRegions(data.q, { page: data.page, limit: data.limit });
+  });
+
+/** OM-02: a further page of events matching the keyword. */
+export const searchOccasionsFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(searchListingsSchema))
+  .handler(async ({ data }): Promise<MatchPage<OccasionMatchItem>> => {
+    const { searchOccasions } = await import("./opsData");
+    return searchOccasions(data.q, { page: data.page, limit: data.limit });
   });

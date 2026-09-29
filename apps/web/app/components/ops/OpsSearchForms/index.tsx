@@ -4,15 +4,50 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
+import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import type { OpsSearch } from "@/presentation/opsSearch";
 import { useRememberOpsSearch } from "../OpsSearchReturn";
 import { forgetReportProxy } from "../ProxyReturn";
 
 /**
- * OM-02's two searches: stores by name and / or address, listings by
- * keyword. Each puts its terms in the URL, which the results follow.
- * Regions and events join the keyword search with their stages.
+ * OM-02 新しく登録する: a region's RM-02 and an event's EM-02, opened new.
+ * A store's proxy registration is offered only after a store search.
+ */
+export function RegisterEntries({ divided = true }: { divided?: boolean }) {
+  return (
+    <section className="m-section" aria-labelledby="om02-new">
+      {divided ? <hr className="m-divider" /> : null}
+      <SectionTitle variant="manage" id="om02-new">
+        新しく登録する
+      </SectionTitle>
+      <LinkList>
+        <li>
+          <ListRowLink
+            to="/manage/regions/new"
+            title="地域を登録"
+            meta="運営者のいない地域として登録し、地域情報を入力します"
+          />
+        </li>
+        <li>
+          <ListRowLink
+            to="/manage/events/new"
+            title="イベントを登録"
+            meta="運営者のいないイベントとして登録し、イベント情報を入力します"
+          />
+        </li>
+      </LinkList>
+      <p className="m-field__help">
+        店舗の代理登録は、店舗を探して同じ店舗がないことを確かめてから進みます。
+      </p>
+    </section>
+  );
+}
+
+/**
+ * OM-02's two searches: stores by name and / or address; listings,
+ * regions and events by keyword. Each puts its terms in the URL, which
+ * the results follow.
  */
 export function OpsSearchForms({ search }: { search: OpsSearch }) {
   const navigate = useNavigate();
@@ -114,19 +149,19 @@ export function OpsSearchForms({ search }: { search: OpsSearch }) {
           }}
         >
           <SectionTitle variant="manage" id="om02-keyword">
-            掲載を探す
+            掲載・地域・イベントを探す
           </SectionTitle>
           <Field
             id="om02-q"
             label="キーワード"
-            help="下書き・一時非公開・運営による非公開の掲載と、非公開の店舗の掲載も含めて探します。"
+            help="下書き・一時非公開・公開の取り下げ・運営による非公開のものと、非公開の店舗の掲載も含めて探します。"
           >
             {(control) => (
               <div className="m-inline">
                 <Input
                   {...control}
                   name="q"
-                  placeholder="例: パフェ"
+                  placeholder="例: 器、こもれび商店街"
                   maxLength={100}
                   value={keyword}
                   onChange={(event) => setKeyword(event.currentTarget.value)}

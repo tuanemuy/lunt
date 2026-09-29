@@ -43,25 +43,42 @@ import { Route as AccountMeApplicationsApplicationIdRouteImport } from './routes
 import { Route as ApplyApplyPlacesNewRouteImport } from './routes/_apply/apply/places/new'
 import { Route as ManageManageApplicationsApplicationIdRouteImport } from './routes/_manage/manage/applications/$applicationId'
 import { Route as ManageManageChecksReportIdRouteImport } from './routes/_manage/manage/checks/$reportId'
+import { Route as ManageManageEventsOccasionIdRouteImport } from './routes/_manage/manage/events/$occasionId'
+import { Route as ManageManageEventsNewRouteImport } from './routes/_manage/manage/events/new'
 import { Route as ManageManagePlacesPlaceIdRouteImport } from './routes/_manage/manage/places/$placeId'
 import { Route as ManageManagePlacesNewRouteImport } from './routes/_manage/manage/places/new'
+import { Route as ManageManageRegionsRegionIdRouteImport } from './routes/_manage/manage/regions/$regionId'
+import { Route as ManageManageRegionsNewRouteImport } from './routes/_manage/manage/regions/new'
 import { Route as ManageOpsReportsReportIdRouteImport } from './routes/_manage/ops/reports/$reportId'
 import { Route as ManageOpsTakedownsClaimIdRouteImport } from './routes/_manage/ops/takedowns/$claimId'
 import { Route as ReportInfoReportKindIdRouteImport } from './routes/_report/info-report/$kind/$id'
 import { Route as ReportTakedownKindIdRouteImport } from './routes/_report/takedown/$kind/$id'
+import { Route as ViewerEventsOccasionIdIndexRouteImport } from './routes/_viewer/events/$occasionId/index'
+import { Route as ViewerRegionsRegionIdIndexRouteImport } from './routes/_viewer/regions/$regionId/index'
 import { Route as AccountLoginExternalProviderIndexRouteImport } from './routes/_account/login/external/$provider/index'
 import { Route as AccountLoginExternalProviderCallbackRouteImport } from './routes/_account/login/external/$provider/callback'
 import { Route as ApplyApplyListingsListingIdRevisionRouteImport } from './routes/_apply/apply/listings/$listingId/revision'
 import { Route as ApplyApplyPlacesPlaceIdRevisionRouteImport } from './routes/_apply/apply/places/$placeId/revision'
 import { Route as ApplyApplyPlacesPlaceIdStewardshipRouteImport } from './routes/_apply/apply/places/$placeId/stewardship'
+import { Route as ManageManageEventsOccasionIdIndexRouteImport } from './routes/_manage/manage/events/$occasionId/index'
+import { Route as ManageManageEventsOccasionIdInfoRouteImport } from './routes/_manage/manage/events/$occasionId/info'
+import { Route as ManageManageEventsOccasionIdRegionsRouteImport } from './routes/_manage/manage/events/$occasionId/regions'
 import { Route as ManageManageEventsOccasionIdMembersRouteImport } from './routes/_manage/manage/events/$occasionId_/members'
 import { Route as ManageManagePlacesPlaceIdIndexRouteImport } from './routes/_manage/manage/places/$placeId/index'
 import { Route as ManageManagePlacesPlaceIdInfoRouteImport } from './routes/_manage/manage/places/$placeId/info'
+import { Route as ManageManagePlacesPlaceIdRegionsRouteImport } from './routes/_manage/manage/places/$placeId/regions'
 import { Route as ManageManagePlacesPlaceIdMembersRouteImport } from './routes/_manage/manage/places/$placeId_/members'
+import { Route as ManageManageRegionsRegionIdIndexRouteImport } from './routes/_manage/manage/regions/$regionId/index'
+import { Route as ManageManageRegionsRegionIdEventsRouteImport } from './routes/_manage/manage/regions/$regionId/events'
+import { Route as ManageManageRegionsRegionIdInfoRouteImport } from './routes/_manage/manage/regions/$regionId/info'
 import { Route as ManageManageRegionsRegionIdMembersRouteImport } from './routes/_manage/manage/regions/$regionId_/members'
 import { Route as ManageOpsSubjectsKindIdRouteImport } from './routes/_manage/ops/subjects/$kind/$id'
 import { Route as ApplyApplyPlacesPlaceIdListingsNewRouteImport } from './routes/_apply/apply/places/$placeId/listings/new'
+import { Route as ManageManageEventsOccasionIdParticipantsPlaceIdRouteImport } from './routes/_manage/manage/events/$occasionId/participants/$placeId'
+import { Route as ManageManageEventsOccasionIdParticipantsNewRouteImport } from './routes/_manage/manage/events/$occasionId/participants/new'
 import { Route as ManageManagePlacesPlaceIdChecksReportIdRouteImport } from './routes/_manage/manage/places/$placeId/checks/$reportId'
+import { Route as ManageManagePlacesPlaceIdEventsIndexRouteImport } from './routes/_manage/manage/places/$placeId/events/index'
+import { Route as ManageManagePlacesPlaceIdEventsOccasionIdRouteImport } from './routes/_manage/manage/places/$placeId/events/$occasionId'
 import { Route as ManageManagePlacesPlaceIdListingsIndexRouteImport } from './routes/_manage/manage/places/$placeId/listings/index'
 import { Route as ManageManagePlacesPlaceIdListingsNewRouteImport } from './routes/_manage/manage/places/$placeId/listings/new'
 import { Route as ManageManagePlacesPlaceIdListingsListingIdIndexRouteImport } from './routes/_manage/manage/places/$placeId/listings/$listingId/index'
@@ -244,6 +261,17 @@ const ManageManageChecksReportIdRoute =
     path: '/manage/checks/$reportId',
     getParentRoute: () => ManageRoute,
   } as any)
+const ManageManageEventsOccasionIdRoute =
+  ManageManageEventsOccasionIdRouteImport.update({
+    id: '/manage/events/$occasionId',
+    path: '/manage/events/$occasionId',
+    getParentRoute: () => ManageRoute,
+  } as any)
+const ManageManageEventsNewRoute = ManageManageEventsNewRouteImport.update({
+  id: '/manage/events/new',
+  path: '/manage/events/new',
+  getParentRoute: () => ManageRoute,
+} as any)
 const ManageManagePlacesPlaceIdRoute =
   ManageManagePlacesPlaceIdRouteImport.update({
     id: '/manage/places/$placeId',
@@ -253,6 +281,17 @@ const ManageManagePlacesPlaceIdRoute =
 const ManageManagePlacesNewRoute = ManageManagePlacesNewRouteImport.update({
   id: '/manage/places/new',
   path: '/manage/places/new',
+  getParentRoute: () => ManageRoute,
+} as any)
+const ManageManageRegionsRegionIdRoute =
+  ManageManageRegionsRegionIdRouteImport.update({
+    id: '/manage/regions/$regionId',
+    path: '/manage/regions/$regionId',
+    getParentRoute: () => ManageRoute,
+  } as any)
+const ManageManageRegionsNewRoute = ManageManageRegionsNewRouteImport.update({
+  id: '/manage/regions/new',
+  path: '/manage/regions/new',
   getParentRoute: () => ManageRoute,
 } as any)
 const ManageOpsReportsReportIdRoute =
@@ -277,6 +316,18 @@ const ReportTakedownKindIdRoute = ReportTakedownKindIdRouteImport.update({
   path: '/takedown/$kind/$id',
   getParentRoute: () => ReportRoute,
 } as any)
+const ViewerEventsOccasionIdIndexRoute =
+  ViewerEventsOccasionIdIndexRouteImport.update({
+    id: '/events/$occasionId/',
+    path: '/events/$occasionId/',
+    getParentRoute: () => ViewerRoute,
+  } as any)
+const ViewerRegionsRegionIdIndexRoute =
+  ViewerRegionsRegionIdIndexRouteImport.update({
+    id: '/regions/$regionId/',
+    path: '/regions/$regionId/',
+    getParentRoute: () => ViewerRoute,
+  } as any)
 const AccountLoginExternalProviderIndexRoute =
   AccountLoginExternalProviderIndexRouteImport.update({
     id: '/login/external/$provider/',
@@ -307,6 +358,24 @@ const ApplyApplyPlacesPlaceIdStewardshipRoute =
     path: '/apply/places/$placeId/stewardship',
     getParentRoute: () => ApplyRoute,
   } as any)
+const ManageManageEventsOccasionIdIndexRoute =
+  ManageManageEventsOccasionIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ManageManageEventsOccasionIdRoute,
+  } as any)
+const ManageManageEventsOccasionIdInfoRoute =
+  ManageManageEventsOccasionIdInfoRouteImport.update({
+    id: '/info',
+    path: '/info',
+    getParentRoute: () => ManageManageEventsOccasionIdRoute,
+  } as any)
+const ManageManageEventsOccasionIdRegionsRoute =
+  ManageManageEventsOccasionIdRegionsRouteImport.update({
+    id: '/regions',
+    path: '/regions',
+    getParentRoute: () => ManageManageEventsOccasionIdRoute,
+  } as any)
 const ManageManageEventsOccasionIdMembersRoute =
   ManageManageEventsOccasionIdMembersRouteImport.update({
     id: '/manage/events/$occasionId_/members',
@@ -325,11 +394,35 @@ const ManageManagePlacesPlaceIdInfoRoute =
     path: '/info',
     getParentRoute: () => ManageManagePlacesPlaceIdRoute,
   } as any)
+const ManageManagePlacesPlaceIdRegionsRoute =
+  ManageManagePlacesPlaceIdRegionsRouteImport.update({
+    id: '/regions',
+    path: '/regions',
+    getParentRoute: () => ManageManagePlacesPlaceIdRoute,
+  } as any)
 const ManageManagePlacesPlaceIdMembersRoute =
   ManageManagePlacesPlaceIdMembersRouteImport.update({
     id: '/manage/places/$placeId_/members',
     path: '/manage/places/$placeId/members',
     getParentRoute: () => ManageRoute,
+  } as any)
+const ManageManageRegionsRegionIdIndexRoute =
+  ManageManageRegionsRegionIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ManageManageRegionsRegionIdRoute,
+  } as any)
+const ManageManageRegionsRegionIdEventsRoute =
+  ManageManageRegionsRegionIdEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => ManageManageRegionsRegionIdRoute,
+  } as any)
+const ManageManageRegionsRegionIdInfoRoute =
+  ManageManageRegionsRegionIdInfoRouteImport.update({
+    id: '/info',
+    path: '/info',
+    getParentRoute: () => ManageManageRegionsRegionIdRoute,
   } as any)
 const ManageManageRegionsRegionIdMembersRoute =
   ManageManageRegionsRegionIdMembersRouteImport.update({
@@ -348,10 +441,34 @@ const ApplyApplyPlacesPlaceIdListingsNewRoute =
     path: '/apply/places/$placeId/listings/new',
     getParentRoute: () => ApplyRoute,
   } as any)
+const ManageManageEventsOccasionIdParticipantsPlaceIdRoute =
+  ManageManageEventsOccasionIdParticipantsPlaceIdRouteImport.update({
+    id: '/participants/$placeId',
+    path: '/participants/$placeId',
+    getParentRoute: () => ManageManageEventsOccasionIdRoute,
+  } as any)
+const ManageManageEventsOccasionIdParticipantsNewRoute =
+  ManageManageEventsOccasionIdParticipantsNewRouteImport.update({
+    id: '/participants/new',
+    path: '/participants/new',
+    getParentRoute: () => ManageManageEventsOccasionIdRoute,
+  } as any)
 const ManageManagePlacesPlaceIdChecksReportIdRoute =
   ManageManagePlacesPlaceIdChecksReportIdRouteImport.update({
     id: '/checks/$reportId',
     path: '/checks/$reportId',
+    getParentRoute: () => ManageManagePlacesPlaceIdRoute,
+  } as any)
+const ManageManagePlacesPlaceIdEventsIndexRoute =
+  ManageManagePlacesPlaceIdEventsIndexRouteImport.update({
+    id: '/events/',
+    path: '/events/',
+    getParentRoute: () => ManageManagePlacesPlaceIdRoute,
+  } as any)
+const ManageManagePlacesPlaceIdEventsOccasionIdRoute =
+  ManageManagePlacesPlaceIdEventsOccasionIdRouteImport.update({
+    id: '/events/$occasionId',
+    path: '/events/$occasionId',
     getParentRoute: () => ManageManagePlacesPlaceIdRoute,
   } as any)
 const ManageManagePlacesPlaceIdListingsIndexRoute =
@@ -408,27 +525,44 @@ export interface FileRoutesByFullPath {
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
   '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/manage/events/$occasionId': typeof ManageManageEventsOccasionIdRouteWithChildren
+  '/manage/events/new': typeof ManageManageEventsNewRoute
   '/manage/places/$placeId': typeof ManageManagePlacesPlaceIdRouteWithChildren
   '/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/manage/regions/$regionId': typeof ManageManageRegionsRegionIdRouteWithChildren
+  '/manage/regions/new': typeof ManageManageRegionsNewRoute
   '/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
   '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
   '/me/applications/': typeof AccountMeApplicationsIndexRoute
+  '/events/$occasionId/': typeof ViewerEventsOccasionIdIndexRoute
+  '/regions/$regionId/': typeof ViewerRegionsRegionIdIndexRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
+  '/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
+  '/manage/places/$placeId/regions': typeof ManageManagePlacesPlaceIdRegionsRoute
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
+  '/manage/regions/$regionId/events': typeof ManageManageRegionsRegionIdEventsRoute
+  '/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
   '/manage/regions/$regionId/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
+  '/manage/events/$occasionId/': typeof ManageManageEventsOccasionIdIndexRoute
   '/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/manage/regions/$regionId/': typeof ManageManageRegionsRegionIdIndexRoute
   '/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/manage/events/$occasionId/participants/$placeId': typeof ManageManageEventsOccasionIdParticipantsPlaceIdRoute
+  '/manage/events/$occasionId/participants/new': typeof ManageManageEventsOccasionIdParticipantsNewRoute
   '/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
+  '/manage/places/$placeId/events/$occasionId': typeof ManageManagePlacesPlaceIdEventsOccasionIdRoute
   '/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
+  '/manage/places/$placeId/events/': typeof ManageManagePlacesPlaceIdEventsIndexRoute
   '/manage/places/$placeId/listings/': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
   '/manage/places/$placeId/listings/$listingId/': typeof ManageManagePlacesPlaceIdListingsListingIdIndexRoute
@@ -461,26 +595,41 @@ export interface FileRoutesByTo {
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
   '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/manage/events/new': typeof ManageManageEventsNewRoute
   '/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/manage/regions/new': typeof ManageManageRegionsNewRoute
   '/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
   '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
   '/me/applications': typeof AccountMeApplicationsIndexRoute
+  '/events/$occasionId': typeof ViewerEventsOccasionIdIndexRoute
+  '/regions/$regionId': typeof ViewerRegionsRegionIdIndexRoute
   '/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
+  '/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
+  '/manage/places/$placeId/regions': typeof ManageManagePlacesPlaceIdRegionsRoute
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
+  '/manage/regions/$regionId/events': typeof ManageManageRegionsRegionIdEventsRoute
+  '/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
   '/manage/regions/$regionId/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
+  '/manage/events/$occasionId': typeof ManageManageEventsOccasionIdIndexRoute
   '/manage/places/$placeId': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/manage/regions/$regionId': typeof ManageManageRegionsRegionIdIndexRoute
   '/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/manage/events/$occasionId/participants/$placeId': typeof ManageManageEventsOccasionIdParticipantsPlaceIdRoute
+  '/manage/events/$occasionId/participants/new': typeof ManageManageEventsOccasionIdParticipantsNewRoute
   '/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
+  '/manage/places/$placeId/events/$occasionId': typeof ManageManagePlacesPlaceIdEventsOccasionIdRoute
   '/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
+  '/manage/places/$placeId/events': typeof ManageManagePlacesPlaceIdEventsIndexRoute
   '/manage/places/$placeId/listings': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
   '/manage/places/$placeId/listings/$listingId': typeof ManageManagePlacesPlaceIdListingsListingIdIndexRoute
@@ -520,27 +669,44 @@ export interface FileRoutesById {
   '/_apply/apply/places/new': typeof ApplyApplyPlacesNewRoute
   '/_manage/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/_manage/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
+  '/_manage/manage/events/$occasionId': typeof ManageManageEventsOccasionIdRouteWithChildren
+  '/_manage/manage/events/new': typeof ManageManageEventsNewRoute
   '/_manage/manage/places/$placeId': typeof ManageManagePlacesPlaceIdRouteWithChildren
   '/_manage/manage/places/new': typeof ManageManagePlacesNewRoute
+  '/_manage/manage/regions/$regionId': typeof ManageManageRegionsRegionIdRouteWithChildren
+  '/_manage/manage/regions/new': typeof ManageManageRegionsNewRoute
   '/_manage/ops/reports/$reportId': typeof ManageOpsReportsReportIdRoute
   '/_manage/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/_report/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/_report/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
   '/_account/me/applications/': typeof AccountMeApplicationsIndexRoute
+  '/_viewer/events/$occasionId/': typeof ViewerEventsOccasionIdIndexRoute
+  '/_viewer/regions/$regionId/': typeof ViewerRegionsRegionIdIndexRoute
   '/_account/login/external/$provider/callback': typeof AccountLoginExternalProviderCallbackRoute
   '/_apply/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/_apply/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/_apply/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/_manage/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
+  '/_manage/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/_manage/manage/events/$occasionId_/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/_manage/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
+  '/_manage/manage/places/$placeId/regions': typeof ManageManagePlacesPlaceIdRegionsRoute
   '/_manage/manage/places/$placeId_/members': typeof ManageManagePlacesPlaceIdMembersRoute
+  '/_manage/manage/regions/$regionId/events': typeof ManageManageRegionsRegionIdEventsRoute
+  '/_manage/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
   '/_manage/manage/regions/$regionId_/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/_manage/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
+  '/_manage/manage/events/$occasionId/': typeof ManageManageEventsOccasionIdIndexRoute
   '/_manage/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
+  '/_manage/manage/regions/$regionId/': typeof ManageManageRegionsRegionIdIndexRoute
   '/_apply/apply/places/$placeId/listings/new': typeof ApplyApplyPlacesPlaceIdListingsNewRoute
+  '/_manage/manage/events/$occasionId/participants/$placeId': typeof ManageManageEventsOccasionIdParticipantsPlaceIdRoute
+  '/_manage/manage/events/$occasionId/participants/new': typeof ManageManageEventsOccasionIdParticipantsNewRoute
   '/_manage/manage/places/$placeId/checks/$reportId': typeof ManageManagePlacesPlaceIdChecksReportIdRoute
+  '/_manage/manage/places/$placeId/events/$occasionId': typeof ManageManagePlacesPlaceIdEventsOccasionIdRoute
   '/_manage/manage/places/$placeId/listings/new': typeof ManageManagePlacesPlaceIdListingsNewRoute
+  '/_manage/manage/places/$placeId/events/': typeof ManageManagePlacesPlaceIdEventsIndexRoute
   '/_manage/manage/places/$placeId/listings/': typeof ManageManagePlacesPlaceIdListingsIndexRoute
   '/_manage/manage/places/$placeId/listings/$listingId/preview': typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
   '/_manage/manage/places/$placeId/listings/$listingId/': typeof ManageManagePlacesPlaceIdListingsListingIdIndexRoute
@@ -576,27 +742,44 @@ export interface FileRouteTypes {
     | '/apply/places/new'
     | '/manage/applications/$applicationId'
     | '/manage/checks/$reportId'
+    | '/manage/events/$occasionId'
+    | '/manage/events/new'
     | '/manage/places/$placeId'
     | '/manage/places/new'
+    | '/manage/regions/$regionId'
+    | '/manage/regions/new'
     | '/ops/reports/$reportId'
     | '/ops/takedowns/$claimId'
     | '/info-report/$kind/$id'
     | '/takedown/$kind/$id'
     | '/me/applications/'
+    | '/events/$occasionId/'
+    | '/regions/$regionId/'
     | '/login/external/$provider/callback'
     | '/apply/listings/$listingId/revision'
     | '/apply/places/$placeId/revision'
     | '/apply/places/$placeId/stewardship'
+    | '/manage/events/$occasionId/info'
+    | '/manage/events/$occasionId/regions'
     | '/manage/events/$occasionId/members'
     | '/manage/places/$placeId/info'
+    | '/manage/places/$placeId/regions'
     | '/manage/places/$placeId/members'
+    | '/manage/regions/$regionId/events'
+    | '/manage/regions/$regionId/info'
     | '/manage/regions/$regionId/members'
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider/'
+    | '/manage/events/$occasionId/'
     | '/manage/places/$placeId/'
+    | '/manage/regions/$regionId/'
     | '/apply/places/$placeId/listings/new'
+    | '/manage/events/$occasionId/participants/$placeId'
+    | '/manage/events/$occasionId/participants/new'
     | '/manage/places/$placeId/checks/$reportId'
+    | '/manage/places/$placeId/events/$occasionId'
     | '/manage/places/$placeId/listings/new'
+    | '/manage/places/$placeId/events/'
     | '/manage/places/$placeId/listings/'
     | '/manage/places/$placeId/listings/$listingId/preview'
     | '/manage/places/$placeId/listings/$listingId/'
@@ -629,26 +812,41 @@ export interface FileRouteTypes {
     | '/apply/places/new'
     | '/manage/applications/$applicationId'
     | '/manage/checks/$reportId'
+    | '/manage/events/new'
     | '/manage/places/new'
+    | '/manage/regions/new'
     | '/ops/reports/$reportId'
     | '/ops/takedowns/$claimId'
     | '/info-report/$kind/$id'
     | '/takedown/$kind/$id'
     | '/me/applications'
+    | '/events/$occasionId'
+    | '/regions/$regionId'
     | '/login/external/$provider/callback'
     | '/apply/listings/$listingId/revision'
     | '/apply/places/$placeId/revision'
     | '/apply/places/$placeId/stewardship'
+    | '/manage/events/$occasionId/info'
+    | '/manage/events/$occasionId/regions'
     | '/manage/events/$occasionId/members'
     | '/manage/places/$placeId/info'
+    | '/manage/places/$placeId/regions'
     | '/manage/places/$placeId/members'
+    | '/manage/regions/$regionId/events'
+    | '/manage/regions/$regionId/info'
     | '/manage/regions/$regionId/members'
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider'
+    | '/manage/events/$occasionId'
     | '/manage/places/$placeId'
+    | '/manage/regions/$regionId'
     | '/apply/places/$placeId/listings/new'
+    | '/manage/events/$occasionId/participants/$placeId'
+    | '/manage/events/$occasionId/participants/new'
     | '/manage/places/$placeId/checks/$reportId'
+    | '/manage/places/$placeId/events/$occasionId'
     | '/manage/places/$placeId/listings/new'
+    | '/manage/places/$placeId/events'
     | '/manage/places/$placeId/listings'
     | '/manage/places/$placeId/listings/$listingId/preview'
     | '/manage/places/$placeId/listings/$listingId'
@@ -687,27 +885,44 @@ export interface FileRouteTypes {
     | '/_apply/apply/places/new'
     | '/_manage/manage/applications/$applicationId'
     | '/_manage/manage/checks/$reportId'
+    | '/_manage/manage/events/$occasionId'
+    | '/_manage/manage/events/new'
     | '/_manage/manage/places/$placeId'
     | '/_manage/manage/places/new'
+    | '/_manage/manage/regions/$regionId'
+    | '/_manage/manage/regions/new'
     | '/_manage/ops/reports/$reportId'
     | '/_manage/ops/takedowns/$claimId'
     | '/_report/info-report/$kind/$id'
     | '/_report/takedown/$kind/$id'
     | '/_account/me/applications/'
+    | '/_viewer/events/$occasionId/'
+    | '/_viewer/regions/$regionId/'
     | '/_account/login/external/$provider/callback'
     | '/_apply/apply/listings/$listingId/revision'
     | '/_apply/apply/places/$placeId/revision'
     | '/_apply/apply/places/$placeId/stewardship'
+    | '/_manage/manage/events/$occasionId/info'
+    | '/_manage/manage/events/$occasionId/regions'
     | '/_manage/manage/events/$occasionId_/members'
     | '/_manage/manage/places/$placeId/info'
+    | '/_manage/manage/places/$placeId/regions'
     | '/_manage/manage/places/$placeId_/members'
+    | '/_manage/manage/regions/$regionId/events'
+    | '/_manage/manage/regions/$regionId/info'
     | '/_manage/manage/regions/$regionId_/members'
     | '/_manage/ops/subjects/$kind/$id'
     | '/_account/login/external/$provider/'
+    | '/_manage/manage/events/$occasionId/'
     | '/_manage/manage/places/$placeId/'
+    | '/_manage/manage/regions/$regionId/'
     | '/_apply/apply/places/$placeId/listings/new'
+    | '/_manage/manage/events/$occasionId/participants/$placeId'
+    | '/_manage/manage/events/$occasionId/participants/new'
     | '/_manage/manage/places/$placeId/checks/$reportId'
+    | '/_manage/manage/places/$placeId/events/$occasionId'
     | '/_manage/manage/places/$placeId/listings/new'
+    | '/_manage/manage/places/$placeId/events/'
     | '/_manage/manage/places/$placeId/listings/'
     | '/_manage/manage/places/$placeId/listings/$listingId/preview'
     | '/_manage/manage/places/$placeId/listings/$listingId/'
@@ -969,6 +1184,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageManageChecksReportIdRouteImport
       parentRoute: typeof ManageRoute
     }
+    '/_manage/manage/events/$occasionId': {
+      id: '/_manage/manage/events/$occasionId'
+      path: '/manage/events/$occasionId'
+      fullPath: '/manage/events/$occasionId'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdRouteImport
+      parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/events/new': {
+      id: '/_manage/manage/events/new'
+      path: '/manage/events/new'
+      fullPath: '/manage/events/new'
+      preLoaderRoute: typeof ManageManageEventsNewRouteImport
+      parentRoute: typeof ManageRoute
+    }
     '/_manage/manage/places/$placeId': {
       id: '/_manage/manage/places/$placeId'
       path: '/manage/places/$placeId'
@@ -981,6 +1210,20 @@ declare module '@tanstack/react-router' {
       path: '/manage/places/new'
       fullPath: '/manage/places/new'
       preLoaderRoute: typeof ManageManagePlacesNewRouteImport
+      parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/regions/$regionId': {
+      id: '/_manage/manage/regions/$regionId'
+      path: '/manage/regions/$regionId'
+      fullPath: '/manage/regions/$regionId'
+      preLoaderRoute: typeof ManageManageRegionsRegionIdRouteImport
+      parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/regions/new': {
+      id: '/_manage/manage/regions/new'
+      path: '/manage/regions/new'
+      fullPath: '/manage/regions/new'
+      preLoaderRoute: typeof ManageManageRegionsNewRouteImport
       parentRoute: typeof ManageRoute
     }
     '/_manage/ops/reports/$reportId': {
@@ -1010,6 +1253,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/takedown/$kind/$id'
       preLoaderRoute: typeof ReportTakedownKindIdRouteImport
       parentRoute: typeof ReportRoute
+    }
+    '/_viewer/events/$occasionId/': {
+      id: '/_viewer/events/$occasionId/'
+      path: '/events/$occasionId'
+      fullPath: '/events/$occasionId/'
+      preLoaderRoute: typeof ViewerEventsOccasionIdIndexRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/regions/$regionId/': {
+      id: '/_viewer/regions/$regionId/'
+      path: '/regions/$regionId'
+      fullPath: '/regions/$regionId/'
+      preLoaderRoute: typeof ViewerRegionsRegionIdIndexRouteImport
+      parentRoute: typeof ViewerRoute
     }
     '/_account/login/external/$provider/': {
       id: '/_account/login/external/$provider/'
@@ -1046,6 +1303,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyApplyPlacesPlaceIdStewardshipRouteImport
       parentRoute: typeof ApplyRoute
     }
+    '/_manage/manage/events/$occasionId/': {
+      id: '/_manage/manage/events/$occasionId/'
+      path: '/'
+      fullPath: '/manage/events/$occasionId/'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdIndexRouteImport
+      parentRoute: typeof ManageManageEventsOccasionIdRoute
+    }
+    '/_manage/manage/events/$occasionId/info': {
+      id: '/_manage/manage/events/$occasionId/info'
+      path: '/info'
+      fullPath: '/manage/events/$occasionId/info'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdInfoRouteImport
+      parentRoute: typeof ManageManageEventsOccasionIdRoute
+    }
+    '/_manage/manage/events/$occasionId/regions': {
+      id: '/_manage/manage/events/$occasionId/regions'
+      path: '/regions'
+      fullPath: '/manage/events/$occasionId/regions'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdRegionsRouteImport
+      parentRoute: typeof ManageManageEventsOccasionIdRoute
+    }
     '/_manage/manage/events/$occasionId_/members': {
       id: '/_manage/manage/events/$occasionId_/members'
       path: '/manage/events/$occasionId/members'
@@ -1067,12 +1345,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageManagePlacesPlaceIdInfoRouteImport
       parentRoute: typeof ManageManagePlacesPlaceIdRoute
     }
+    '/_manage/manage/places/$placeId/regions': {
+      id: '/_manage/manage/places/$placeId/regions'
+      path: '/regions'
+      fullPath: '/manage/places/$placeId/regions'
+      preLoaderRoute: typeof ManageManagePlacesPlaceIdRegionsRouteImport
+      parentRoute: typeof ManageManagePlacesPlaceIdRoute
+    }
     '/_manage/manage/places/$placeId_/members': {
       id: '/_manage/manage/places/$placeId_/members'
       path: '/manage/places/$placeId/members'
       fullPath: '/manage/places/$placeId/members'
       preLoaderRoute: typeof ManageManagePlacesPlaceIdMembersRouteImport
       parentRoute: typeof ManageRoute
+    }
+    '/_manage/manage/regions/$regionId/': {
+      id: '/_manage/manage/regions/$regionId/'
+      path: '/'
+      fullPath: '/manage/regions/$regionId/'
+      preLoaderRoute: typeof ManageManageRegionsRegionIdIndexRouteImport
+      parentRoute: typeof ManageManageRegionsRegionIdRoute
+    }
+    '/_manage/manage/regions/$regionId/events': {
+      id: '/_manage/manage/regions/$regionId/events'
+      path: '/events'
+      fullPath: '/manage/regions/$regionId/events'
+      preLoaderRoute: typeof ManageManageRegionsRegionIdEventsRouteImport
+      parentRoute: typeof ManageManageRegionsRegionIdRoute
+    }
+    '/_manage/manage/regions/$regionId/info': {
+      id: '/_manage/manage/regions/$regionId/info'
+      path: '/info'
+      fullPath: '/manage/regions/$regionId/info'
+      preLoaderRoute: typeof ManageManageRegionsRegionIdInfoRouteImport
+      parentRoute: typeof ManageManageRegionsRegionIdRoute
     }
     '/_manage/manage/regions/$regionId_/members': {
       id: '/_manage/manage/regions/$regionId_/members'
@@ -1095,11 +1401,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyApplyPlacesPlaceIdListingsNewRouteImport
       parentRoute: typeof ApplyRoute
     }
+    '/_manage/manage/events/$occasionId/participants/$placeId': {
+      id: '/_manage/manage/events/$occasionId/participants/$placeId'
+      path: '/participants/$placeId'
+      fullPath: '/manage/events/$occasionId/participants/$placeId'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdParticipantsPlaceIdRouteImport
+      parentRoute: typeof ManageManageEventsOccasionIdRoute
+    }
+    '/_manage/manage/events/$occasionId/participants/new': {
+      id: '/_manage/manage/events/$occasionId/participants/new'
+      path: '/participants/new'
+      fullPath: '/manage/events/$occasionId/participants/new'
+      preLoaderRoute: typeof ManageManageEventsOccasionIdParticipantsNewRouteImport
+      parentRoute: typeof ManageManageEventsOccasionIdRoute
+    }
     '/_manage/manage/places/$placeId/checks/$reportId': {
       id: '/_manage/manage/places/$placeId/checks/$reportId'
       path: '/checks/$reportId'
       fullPath: '/manage/places/$placeId/checks/$reportId'
       preLoaderRoute: typeof ManageManagePlacesPlaceIdChecksReportIdRouteImport
+      parentRoute: typeof ManageManagePlacesPlaceIdRoute
+    }
+    '/_manage/manage/places/$placeId/events/': {
+      id: '/_manage/manage/places/$placeId/events/'
+      path: '/events'
+      fullPath: '/manage/places/$placeId/events/'
+      preLoaderRoute: typeof ManageManagePlacesPlaceIdEventsIndexRouteImport
+      parentRoute: typeof ManageManagePlacesPlaceIdRoute
+    }
+    '/_manage/manage/places/$placeId/events/$occasionId': {
+      id: '/_manage/manage/places/$placeId/events/$occasionId'
+      path: '/events/$occasionId'
+      fullPath: '/manage/places/$placeId/events/$occasionId'
+      preLoaderRoute: typeof ManageManagePlacesPlaceIdEventsOccasionIdRouteImport
       parentRoute: typeof ManageManagePlacesPlaceIdRoute
     }
     '/_manage/manage/places/$placeId/listings/': {
@@ -1215,11 +1549,41 @@ const ManageOpsRouteWithChildren = ManageOpsRoute._addFileChildren(
   ManageOpsRouteChildren,
 )
 
+interface ManageManageEventsOccasionIdRouteChildren {
+  ManageManageEventsOccasionIdInfoRoute: typeof ManageManageEventsOccasionIdInfoRoute
+  ManageManageEventsOccasionIdRegionsRoute: typeof ManageManageEventsOccasionIdRegionsRoute
+  ManageManageEventsOccasionIdIndexRoute: typeof ManageManageEventsOccasionIdIndexRoute
+  ManageManageEventsOccasionIdParticipantsPlaceIdRoute: typeof ManageManageEventsOccasionIdParticipantsPlaceIdRoute
+  ManageManageEventsOccasionIdParticipantsNewRoute: typeof ManageManageEventsOccasionIdParticipantsNewRoute
+}
+
+const ManageManageEventsOccasionIdRouteChildren: ManageManageEventsOccasionIdRouteChildren =
+  {
+    ManageManageEventsOccasionIdInfoRoute:
+      ManageManageEventsOccasionIdInfoRoute,
+    ManageManageEventsOccasionIdRegionsRoute:
+      ManageManageEventsOccasionIdRegionsRoute,
+    ManageManageEventsOccasionIdIndexRoute:
+      ManageManageEventsOccasionIdIndexRoute,
+    ManageManageEventsOccasionIdParticipantsPlaceIdRoute:
+      ManageManageEventsOccasionIdParticipantsPlaceIdRoute,
+    ManageManageEventsOccasionIdParticipantsNewRoute:
+      ManageManageEventsOccasionIdParticipantsNewRoute,
+  }
+
+const ManageManageEventsOccasionIdRouteWithChildren =
+  ManageManageEventsOccasionIdRoute._addFileChildren(
+    ManageManageEventsOccasionIdRouteChildren,
+  )
+
 interface ManageManagePlacesPlaceIdRouteChildren {
   ManageManagePlacesPlaceIdInfoRoute: typeof ManageManagePlacesPlaceIdInfoRoute
+  ManageManagePlacesPlaceIdRegionsRoute: typeof ManageManagePlacesPlaceIdRegionsRoute
   ManageManagePlacesPlaceIdIndexRoute: typeof ManageManagePlacesPlaceIdIndexRoute
   ManageManagePlacesPlaceIdChecksReportIdRoute: typeof ManageManagePlacesPlaceIdChecksReportIdRoute
+  ManageManagePlacesPlaceIdEventsOccasionIdRoute: typeof ManageManagePlacesPlaceIdEventsOccasionIdRoute
   ManageManagePlacesPlaceIdListingsNewRoute: typeof ManageManagePlacesPlaceIdListingsNewRoute
+  ManageManagePlacesPlaceIdEventsIndexRoute: typeof ManageManagePlacesPlaceIdEventsIndexRoute
   ManageManagePlacesPlaceIdListingsIndexRoute: typeof ManageManagePlacesPlaceIdListingsIndexRoute
   ManageManagePlacesPlaceIdListingsListingIdPreviewRoute: typeof ManageManagePlacesPlaceIdListingsListingIdPreviewRoute
   ManageManagePlacesPlaceIdListingsListingIdIndexRoute: typeof ManageManagePlacesPlaceIdListingsListingIdIndexRoute
@@ -1228,11 +1592,17 @@ interface ManageManagePlacesPlaceIdRouteChildren {
 const ManageManagePlacesPlaceIdRouteChildren: ManageManagePlacesPlaceIdRouteChildren =
   {
     ManageManagePlacesPlaceIdInfoRoute: ManageManagePlacesPlaceIdInfoRoute,
+    ManageManagePlacesPlaceIdRegionsRoute:
+      ManageManagePlacesPlaceIdRegionsRoute,
     ManageManagePlacesPlaceIdIndexRoute: ManageManagePlacesPlaceIdIndexRoute,
     ManageManagePlacesPlaceIdChecksReportIdRoute:
       ManageManagePlacesPlaceIdChecksReportIdRoute,
+    ManageManagePlacesPlaceIdEventsOccasionIdRoute:
+      ManageManagePlacesPlaceIdEventsOccasionIdRoute,
     ManageManagePlacesPlaceIdListingsNewRoute:
       ManageManagePlacesPlaceIdListingsNewRoute,
+    ManageManagePlacesPlaceIdEventsIndexRoute:
+      ManageManagePlacesPlaceIdEventsIndexRoute,
     ManageManagePlacesPlaceIdListingsIndexRoute:
       ManageManagePlacesPlaceIdListingsIndexRoute,
     ManageManagePlacesPlaceIdListingsListingIdPreviewRoute:
@@ -1246,12 +1616,36 @@ const ManageManagePlacesPlaceIdRouteWithChildren =
     ManageManagePlacesPlaceIdRouteChildren,
   )
 
+interface ManageManageRegionsRegionIdRouteChildren {
+  ManageManageRegionsRegionIdEventsRoute: typeof ManageManageRegionsRegionIdEventsRoute
+  ManageManageRegionsRegionIdInfoRoute: typeof ManageManageRegionsRegionIdInfoRoute
+  ManageManageRegionsRegionIdIndexRoute: typeof ManageManageRegionsRegionIdIndexRoute
+}
+
+const ManageManageRegionsRegionIdRouteChildren: ManageManageRegionsRegionIdRouteChildren =
+  {
+    ManageManageRegionsRegionIdEventsRoute:
+      ManageManageRegionsRegionIdEventsRoute,
+    ManageManageRegionsRegionIdInfoRoute: ManageManageRegionsRegionIdInfoRoute,
+    ManageManageRegionsRegionIdIndexRoute:
+      ManageManageRegionsRegionIdIndexRoute,
+  }
+
+const ManageManageRegionsRegionIdRouteWithChildren =
+  ManageManageRegionsRegionIdRoute._addFileChildren(
+    ManageManageRegionsRegionIdRouteChildren,
+  )
+
 interface ManageRouteChildren {
   ManageOpsRoute: typeof ManageOpsRouteWithChildren
   ManageManageApplicationsApplicationIdRoute: typeof ManageManageApplicationsApplicationIdRoute
   ManageManageChecksReportIdRoute: typeof ManageManageChecksReportIdRoute
+  ManageManageEventsOccasionIdRoute: typeof ManageManageEventsOccasionIdRouteWithChildren
+  ManageManageEventsNewRoute: typeof ManageManageEventsNewRoute
   ManageManagePlacesPlaceIdRoute: typeof ManageManagePlacesPlaceIdRouteWithChildren
   ManageManagePlacesNewRoute: typeof ManageManagePlacesNewRoute
+  ManageManageRegionsRegionIdRoute: typeof ManageManageRegionsRegionIdRouteWithChildren
+  ManageManageRegionsNewRoute: typeof ManageManageRegionsNewRoute
   ManageManageEventsOccasionIdMembersRoute: typeof ManageManageEventsOccasionIdMembersRoute
   ManageManagePlacesPlaceIdMembersRoute: typeof ManageManagePlacesPlaceIdMembersRoute
   ManageManageRegionsRegionIdMembersRoute: typeof ManageManageRegionsRegionIdMembersRoute
@@ -1262,8 +1656,14 @@ const ManageRouteChildren: ManageRouteChildren = {
   ManageManageApplicationsApplicationIdRoute:
     ManageManageApplicationsApplicationIdRoute,
   ManageManageChecksReportIdRoute: ManageManageChecksReportIdRoute,
+  ManageManageEventsOccasionIdRoute:
+    ManageManageEventsOccasionIdRouteWithChildren,
+  ManageManageEventsNewRoute: ManageManageEventsNewRoute,
   ManageManagePlacesPlaceIdRoute: ManageManagePlacesPlaceIdRouteWithChildren,
   ManageManagePlacesNewRoute: ManageManagePlacesNewRoute,
+  ManageManageRegionsRegionIdRoute:
+    ManageManageRegionsRegionIdRouteWithChildren,
+  ManageManageRegionsNewRoute: ManageManageRegionsNewRoute,
   ManageManageEventsOccasionIdMembersRoute:
     ManageManageEventsOccasionIdMembersRoute,
   ManageManagePlacesPlaceIdMembersRoute: ManageManagePlacesPlaceIdMembersRoute,
@@ -1291,12 +1691,16 @@ interface ViewerRouteChildren {
   ViewerIndexRoute: typeof ViewerIndexRoute
   ViewerListingsListingIdRoute: typeof ViewerListingsListingIdRoute
   ViewerPlacesPlaceIdRoute: typeof ViewerPlacesPlaceIdRoute
+  ViewerEventsOccasionIdIndexRoute: typeof ViewerEventsOccasionIdIndexRoute
+  ViewerRegionsRegionIdIndexRoute: typeof ViewerRegionsRegionIdIndexRoute
 }
 
 const ViewerRouteChildren: ViewerRouteChildren = {
   ViewerIndexRoute: ViewerIndexRoute,
   ViewerListingsListingIdRoute: ViewerListingsListingIdRoute,
   ViewerPlacesPlaceIdRoute: ViewerPlacesPlaceIdRoute,
+  ViewerEventsOccasionIdIndexRoute: ViewerEventsOccasionIdIndexRoute,
+  ViewerRegionsRegionIdIndexRoute: ViewerRegionsRegionIdIndexRoute,
 }
 
 const ViewerRouteWithChildren =

@@ -141,6 +141,8 @@ export type ShopHomeData = Readonly<{
 
 /** What SM-02 edits: the whole profile, the status and the lists the address starts from. */
 export type PlaceEditorData = Readonly<{
+  /** The affiliated regions' names, first affiliation first (any state). */
+  regionNames: readonly string[];
   placeId: string;
   version: number;
   name: string;

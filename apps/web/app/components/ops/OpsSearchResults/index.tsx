@@ -2,6 +2,7 @@
 
 import { useRouter } from "@tanstack/react-router";
 import { type RefObject, useCallback, useTransition } from "react";
+import { regionProxyKey } from "@/components/region/RegionShell";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChipLink } from "@/components/ui/ChipButton";
@@ -16,12 +17,21 @@ import {
 import {
   type ListingMatchItem,
   type MatchPage,
+  type OccasionMatchItem,
   OPS_SEARCH_PAGE_SIZE,
   type PlaceMatchItem,
+  type RegionMatchItem,
   searchListingsFn,
+  searchOccasionsFn,
   searchPlacesFn,
+  searchRegionsFn,
 } from "@/presentation/opsSearch";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
+import {
+  HOLDING_STATUS_LABEL,
+  regionPublicationLabel,
+} from "@/presentation/regionView";
+import { RegisterEntries } from "../OpsSearchForms";
 import { rememberProxyVisit } from "../ProxyReturn";
 import { useLoadMore } from "./useLoadMore";
 
@@ -73,6 +83,55 @@ function StewardCell({ hasSteward }: { hasSteward: boolean }) {
     <td data-label="管理者">
       <span>
         {hasSteward ? "店舗管理者あり" : <Badge tone="alert">管理者なし</Badge>}
+      </span>
+    </td>
+  );
+}
+
+/** A region's or an event's operators: 地域運営者あり / 運営者なし. */
+function OperatorCell({
+  hasSteward,
+  roleLabel,
+}: {
+  hasSteward: boolean;
+  roleLabel: string;
+}) {
+  return (
+    <td data-label="管理者">
+      <span>
+        {hasSteward ? (
+          `${roleLabel}あり`
+        ) : (
+          <Badge tone="alert">運営者なし</Badge>
+        )}
+      </span>
+    </td>
+  );
+}
+
+/** 公開 · 開催前 (· 運営による非公開), the state cell of a region or an event. */
+function StateCell({
+  publication,
+  suspended,
+  holding,
+}: {
+  publication: RegionMatchItem["publication"];
+  suspended: boolean;
+  holding: string | null;
+}) {
+  return (
+    <td data-label="状態">
+      <span>
+        {[
+          regionPublicationLabel(publication),
+          ...(holding === null ? [] : [holding]),
+        ].join(" · ")}
+        {suspended ? (
+          <>
+            {" · "}
+            <strong className="om02-flag">運営による非公開</strong>
+          </>
+        ) : null}
       </span>
     </td>
   );
@@ -216,105 +275,336 @@ export function PlaceResults({
   );
 }
 
-/** OM-02 掲載の結果: each listing with its store, states and steward. */
-export function ListingResults({
-  first,
-  keyword,
-}: {
-  first: MatchPage<ListingMatchItem>;
-  keyword: string;
-}) {
+const regionKey = (item: RegionMatchItem) => item.regionId;
+const occasionKey = (item: OccasionMatchItem) => item.occasionId;
+
+function useKeywordPage<T>(
+  keyword: string,
+  first: MatchPage<T>,
+  keyOf: (item: T) => string,
+  search: (
+    input: Readonly<{ data: { q: string; page: number; limit: number } }>,
+  ) => Promise<MatchPage<T>>,
+) {
   const fetchPage = useCallback(
     (page: number) =>
-      searchListingsFn({
-        data: { q: keyword, page, limit: OPS_SEARCH_PAGE_SIZE },
-      }),
-    [keyword],
+      search({ data: { q: keyword, page, limit: OPS_SEARCH_PAGE_SIZE } }),
+    [keyword, search],
   );
-  const list = useLoadMore(first, OPS_SEARCH_PAGE_SIZE, listingKey, fetchPage);
+  return useLoadMore(first, OPS_SEARCH_PAGE_SIZE, keyOf, fetchPage);
+}
 
-  if (list.items.length === 0) {
+/** One kind's further pages; the end is said once after all kinds. */
+function KindFooter(props: Parameters<typeof Footer>[0]) {
+  return props.hasMore || props.failure !== null ? <Footer {...props} /> : null;
+}
+
+function NoneOfKind({ label }: { label: string }) {
+  return <p className="m-field__help">{`合う${label}はありません。`}</p>;
+}
+
+/**
+ * OM-02 キーワードの結果: listings, regions and events, each kind in its
+ * own table with its own further pages (CF-05); OM-03 for every target,
+ * the absence proxy (SM-04, RM-01, EM-01) for those without a manager.
+ * No match of any kind leads on to the registrations (CS-09).
+ */
+export function KeywordResults({
+  keyword,
+  listings,
+  regions,
+  occasions,
+}: {
+  keyword: string;
+  listings: MatchPage<ListingMatchItem>;
+  regions: MatchPage<RegionMatchItem>;
+  occasions: MatchPage<OccasionMatchItem>;
+}) {
+  const listingList = useKeywordPage(
+    keyword,
+    listings,
+    listingKey,
+    searchListingsFn,
+  );
+  const regionList = useKeywordPage(
+    keyword,
+    regions,
+    regionKey,
+    searchRegionsFn,
+  );
+  const occasionList = useKeywordPage(
+    keyword,
+    occasions,
+    occasionKey,
+    searchOccasionsFn,
+  );
+  const total = listingList.count + regionList.count + occasionList.count;
+
+  if (total === 0) {
     return (
-      <section className="m-section" aria-labelledby="om02-empty">
-        <hr className="m-divider" />
-        <EmptyPanel
-          titleId="om02-empty"
-          title={`「${keyword}」に合う掲載はありません`}
-        >
-          閲覧者に表示されていないものを含めて探しました。キーワードを変えて探し直してください。
-        </EmptyPanel>
-      </section>
+      <>
+        <section className="m-section" aria-labelledby="om02-empty">
+          <hr className="m-divider" />
+          <EmptyPanel
+            titleId="om02-empty"
+            title={`「${keyword}」に合う掲載・地域・イベントはありません`}
+          >
+            閲覧者に表示されていないものを含めて探しました。キーワードを変えて探し直すか、地域・イベントを登録します。
+          </EmptyPanel>
+        </section>
+        <RegisterEntries divided={false} />
+      </>
     );
   }
   return (
-    <section className="m-section" aria-labelledby="om02-listings">
+    <section className="m-section" aria-labelledby="om02-keyword-results">
       <hr className="m-divider" />
       <div className="om-count">
-        <SectionTitle variant="manage" id="om02-listings">
-          {`「${keyword}」の掲載`}
+        <SectionTitle variant="manage" id="om02-keyword-results">
+          {`「${keyword}」の結果`}
         </SectionTitle>
-        <Badge>{`${list.count}件`}</Badge>
+        <Badge>{`${total}件`}</Badge>
       </div>
-      <table className="om-table" aria-busy={list.loading}>
-        <thead>
-          <tr>
-            <th scope="col">掲載と店舗</th>
-            <th scope="col">状態</th>
-            <th scope="col">管理者</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.items.map((listing) => (
-            <tr key={listing.listingId}>
-              <th scope="row">
-                <span className="om-table__title">
-                  {listing.name ?? "名称未設定"}
-                </span>
-                <span className="om-table__sub">
-                  {listing.placeName ?? "店舗が見つかりません"}
-                </span>
-              </th>
-              <td data-label="状態">
-                <span>
-                  {`${publicationLabel(listing.publication)} · ${offeringPhaseLabel(listing.offeringStatus)}`}
-                  {listing.suspended ? (
-                    <>
-                      {" · "}
-                      <strong className="om02-flag">運営による非公開</strong>
-                    </>
-                  ) : null}
-                </span>
-              </td>
-              <StewardCell hasSteward={listing.hasSteward} />
-              <td className="om-table__ops">
-                <div className="om-table__opsbox">
-                  <ChipLink
-                    to="/ops/subjects/$kind/$id"
-                    params={{ kind: "listing", id: listing.listingId }}
-                  >
-                    対象の運営
-                  </ChipLink>
-                  {listing.hasSteward ? null : (
-                    <ChipLink
-                      to="/manage/places/$placeId/listings/$listingId"
-                      params={{
-                        placeId: listing.placeId,
-                        listingId: listing.listingId,
-                      }}
-                      onClick={() => rememberProxyVisit(listing.placeId)}
-                    >
-                      掲載を代行
-                    </ChipLink>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Footer {...list} />
+      <nav className="m-tabs" aria-label="結果の種類">
+        <a className="m-tab" href="#om02-kw-listing">
+          掲載<span>{listingList.count}</span>
+        </a>
+        <a className="m-tab" href="#om02-kw-region">
+          地域<span>{regionList.count}</span>
+        </a>
+        <a className="m-tab" href="#om02-kw-event">
+          イベント<span>{occasionList.count}</span>
+        </a>
+      </nav>
+
+      <h3 className="om02-sub" id="om02-kw-listing">
+        掲載
+      </h3>
+      {listingList.items.length === 0 ? (
+        <NoneOfKind label="掲載" />
+      ) : (
+        <>
+          <ListingTable list={listingList} />
+          <KindFooter {...listingList} />
+        </>
+      )}
+
+      <h3 className="om02-sub" id="om02-kw-region">
+        地域
+      </h3>
+      {regionList.items.length === 0 ? (
+        <NoneOfKind label="地域" />
+      ) : (
+        <>
+          <table
+            className="om-table"
+            aria-labelledby="om02-kw-region"
+            aria-busy={regionList.loading}
+          >
+            <thead>
+              <tr>
+                <th scope="col">地域</th>
+                <th scope="col">状態</th>
+                <th scope="col">管理者</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {regionList.items.map((region) => (
+                <tr key={region.regionId}>
+                  <th scope="row">
+                    <span className="om-table__title">
+                      {region.name ?? "名称未設定の地域"}
+                    </span>
+                    <span className="om-table__sub">
+                      {region.address ?? "所在地は未設定"}
+                    </span>
+                  </th>
+                  <StateCell
+                    publication={region.publication}
+                    suspended={region.suspended}
+                    holding={null}
+                  />
+                  <OperatorCell
+                    hasSteward={region.hasSteward}
+                    roleLabel="地域運営者"
+                  />
+                  <td className="om-table__ops">
+                    <div className="om-table__opsbox">
+                      <ChipLink
+                        to="/ops/subjects/$kind/$id"
+                        params={{ kind: "region", id: region.regionId }}
+                      >
+                        対象の運営
+                      </ChipLink>
+                      {region.hasSteward ? null : (
+                        <ChipLink
+                          to="/manage/regions/$regionId"
+                          params={{ regionId: region.regionId }}
+                          onClick={() =>
+                            rememberProxyVisit(regionProxyKey(region.regionId))
+                          }
+                        >
+                          地域を代行
+                        </ChipLink>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <KindFooter {...regionList} />
+        </>
+      )}
+
+      <h3 className="om02-sub" id="om02-kw-event">
+        イベント
+      </h3>
+      {occasionList.items.length === 0 ? (
+        <NoneOfKind label="イベント" />
+      ) : (
+        <>
+          <table
+            className="om-table"
+            aria-labelledby="om02-kw-event"
+            aria-busy={occasionList.loading}
+          >
+            <thead>
+              <tr>
+                <th scope="col">イベント</th>
+                <th scope="col">状態</th>
+                <th scope="col">管理者</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {occasionList.items.map((occasion) => (
+                <tr key={occasion.occasionId}>
+                  <th scope="row">
+                    <span className="om-table__title">
+                      {occasion.name ?? "名称未設定のイベント"}
+                    </span>
+                  </th>
+                  <StateCell
+                    publication={occasion.publication}
+                    suspended={occasion.suspended}
+                    holding={
+                      occasion.holdingStatus === null
+                        ? null
+                        : HOLDING_STATUS_LABEL[occasion.holdingStatus]
+                    }
+                  />
+                  <OperatorCell
+                    hasSteward={occasion.hasSteward}
+                    roleLabel="イベント運営者"
+                  />
+                  <td className="om-table__ops">
+                    <div className="om-table__opsbox">
+                      <ChipLink
+                        to="/ops/subjects/$kind/$id"
+                        params={{ kind: "occasion", id: occasion.occasionId }}
+                      >
+                        対象の運営
+                      </ChipLink>
+                      {occasion.hasSteward ? null : (
+                        <ChipLink
+                          to="/manage/events/$occasionId"
+                          params={{ occasionId: occasion.occasionId }}
+                          onClick={() =>
+                            rememberProxyVisit(occasion.occasionId)
+                          }
+                        >
+                          イベントを代行
+                        </ChipLink>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <KindFooter {...occasionList} />
+        </>
+      )}
+      {listingList.hasMore ||
+      regionList.hasMore ||
+      occasionList.hasMore ? null : (
+        <p className="om02-end">結果は以上です</p>
+      )}
     </section>
+  );
+}
+
+/** The listing rows of OM-02's keyword results. */
+function ListingTable({
+  list,
+}: {
+  list: Readonly<{ items: readonly ListingMatchItem[]; loading: boolean }>;
+}) {
+  return (
+    <table
+      className="om-table"
+      aria-labelledby="om02-kw-listing"
+      aria-busy={list.loading}
+    >
+      <thead>
+        <tr>
+          <th scope="col">掲載と店舗</th>
+          <th scope="col">状態</th>
+          <th scope="col">管理者</th>
+          <th scope="col">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {list.items.map((listing) => (
+          <tr key={listing.listingId}>
+            <th scope="row">
+              <span className="om-table__title">
+                {listing.name ?? "名称未設定"}
+              </span>
+              <span className="om-table__sub">
+                {listing.placeName ?? "店舗が見つかりません"}
+              </span>
+            </th>
+            <td data-label="状態">
+              <span>
+                {`${publicationLabel(listing.publication)} · ${offeringPhaseLabel(listing.offeringStatus)}`}
+                {listing.suspended ? (
+                  <>
+                    {" · "}
+                    <strong className="om02-flag">運営による非公開</strong>
+                  </>
+                ) : null}
+              </span>
+            </td>
+            <StewardCell hasSteward={listing.hasSteward} />
+            <td className="om-table__ops">
+              <div className="om-table__opsbox">
+                <ChipLink
+                  to="/ops/subjects/$kind/$id"
+                  params={{ kind: "listing", id: listing.listingId }}
+                >
+                  対象の運営
+                </ChipLink>
+                {listing.hasSteward ? null : (
+                  <ChipLink
+                    to="/manage/places/$placeId/listings/$listingId"
+                    params={{
+                      placeId: listing.placeId,
+                      listingId: listing.listingId,
+                    }}
+                    onClick={() => rememberProxyVisit(listing.placeId)}
+                  >
+                    掲載を代行
+                  </ChipLink>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

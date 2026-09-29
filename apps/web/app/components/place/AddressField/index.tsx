@@ -23,6 +23,8 @@ type AddressFieldProps = {
   townError?: string;
   restError?: string;
   disabled?: boolean;
+  /** 必須 (a store), or 公開に必須 (a region or an event, CF-08). */
+  requirement?: "required" | "publish";
 };
 
 const lookupFailure = (error: unknown): string => {
@@ -50,6 +52,7 @@ export function AddressField({
   townError,
   restError,
   disabled = false,
+  requirement = "required",
 }: AddressFieldProps) {
   const ids = {
     postal: "place-postal",
@@ -203,7 +206,10 @@ export function AddressField({
   return (
     <fieldset className="sm02-group" id="address">
       <legend className="m-field__label">
-        所在地<span className="m-field__req">必須</span>
+        所在地
+        <span className="m-field__req">
+          {requirement === "publish" ? "公開に必須" : "必須"}
+        </span>
       </legend>
       <Field
         id={ids.postal}

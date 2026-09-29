@@ -1,0 +1,137 @@
+/*
+  Page-specific rules of the event management (EM-01…EM-03, EM-02 新規)
+  and the participation editor (CM-04), after the `固有` blocks of
+  spec/design/pages. The design's `p-*` blocks shared with the store
+  screens (`.p-items`, `.p-item`, `.p-badges`, `.p-end`) live in
+  manage-screens.css; the rest are `em-*` / `cm04-*` here.
+*/
+@layer components {
+  /* 見出しと件数を1行に */
+  .em-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  /* EM-01: 行の下の添えた掲載と参加日 */
+  .em-sub {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+  .p-item > .em-sub {
+    align-items: flex-start;
+  }
+  .em-label {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  .em-listing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-4);
+    min-height: var(--size-touch);
+  }
+  .p-item__text[data-tone="alert"] {
+    color: var(--focus);
+  }
+
+  /* EM-02: 公開状態・開催の状態の区分 */
+  .em-state {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .em-period {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  @media (min-width: 768px) {
+    .em-period {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-12);
+    }
+  }
+  .em-venue {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  /* CF-02 対象の選択（EM-03 の重なる面、CM-04 の追加） */
+  .em-picker .m-dialog__panel {
+    max-width: 560px;
+  }
+  .em-search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .em-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+  .em-candidate {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    column-gap: var(--space-16);
+    row-gap: var(--space-8);
+    min-width: 0;
+  }
+  .em-candidate > .m-row {
+    grid-column: 1 / -1;
+  }
+  .em-candidate > :not(.m-row) {
+    grid-column: 2;
+  }
+  .em-reason {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--focus);
+  }
+
+  /* CM-04: 添える掲載の行（行 + 行の操作） */
+  .cm04-back {
+    align-self: flex-start;
+  }
+  .cm04-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+  .cm04-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+  }
+  .cm04-item > .m-row {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cm04-item > .chip-button,
+  .cm04-item > .text-button {
+    flex: none;
+  }
+  .cm04-date {
+    padding-block: var(--space-4);
+  }
+  .cm04-date .m-list__text {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-8);
+  }
+  .cm04-withdraw {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+}

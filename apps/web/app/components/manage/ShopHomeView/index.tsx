@@ -104,7 +104,7 @@ function ShopTodoList({
 /**
  * SM-01 店舗ホーム: the store's state, what needs doing (returned
  * applications, confirmation requests), its listings per 区分, and the
- * ways into the other SM screens.
+ * ways into the other SM screens (SM-02, SM-05, SM-06, CM-02).
  */
 export function ShopHomeView({ data }: { data: ShopHomeData }) {
   const frame = usePlaceFrame();
@@ -199,6 +199,22 @@ export function ShopHomeView({ data }: { data: ShopHomeData }) {
                 params={params}
                 title="店舗情報と営業状況"
                 meta={`${status} · 名称・写真・所在地・営業時間・連絡先`}
+              />
+            </li>
+            <li>
+              <ListRowLink
+                to="/manage/places/$placeId/regions"
+                params={params}
+                title="所属地域の状況"
+                meta="所属中の地域と代表地域"
+              />
+            </li>
+            <li>
+              <ListRowLink
+                to="/manage/places/$placeId/events"
+                params={params}
+                title="イベントの状況"
+                meta="参加中のイベントと参加内容"
               />
             </li>
             <li>

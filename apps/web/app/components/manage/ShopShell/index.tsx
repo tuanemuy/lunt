@@ -50,14 +50,12 @@ export function ShopShell({
   );
 }
 
-export type ShopNavItem = "home" | "listings" | "info";
-
 /**
  * 店舗側の管理ナビゲーション (D-07: ホーム / 掲載 / イベント / 店舗情報).
- * SM-06 (イベント) joins with its stage. While an operator stands in for
- * an absent steward (CS-14) the nav says so and leads back to OM-02, or to
- * OM-05 when the report being handled opened the proxy; SM-01 is not
- * opened by proxy, so ホーム is left out.
+ * While an operator stands in for an absent steward (CS-14) the nav says
+ * so and leads back to OM-02, or to OM-05 when the report being handled
+ * opened the proxy; SM-01 and SM-06 are not opened by proxy, so ホーム and
+ * イベント are left out.
  */
 export function ShopNav({ frame }: { frame: PlaceFrame }) {
   const params = { placeId: frame.placeId };
@@ -100,6 +98,15 @@ export function ShopNav({ frame }: { frame: PlaceFrame }) {
       >
         掲載
       </ManageNavItem>
+      {proxy ? null : (
+        <ManageNavItem
+          to="/manage/places/$placeId/events"
+          params={params}
+          activeProps={{ "aria-current": "page" }}
+        >
+          イベント
+        </ManageNavItem>
+      )}
       <ManageNavItem
         to="/manage/places/$placeId/info"
         params={params}

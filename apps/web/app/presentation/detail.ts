@@ -3,13 +3,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   type ListingDetailData,
+  type OccasionDetailData,
   OTHER_LISTINGS_LIMIT,
   PLACE_LISTINGS_PAGE_SIZE,
   type PlaceDetailData,
   type PlaceListingsPage,
+  REGION_SECTION_LIMIT,
+  type RegionDetailData,
   toListingDetailData,
+  toOccasionDetailData,
   toPlaceDetailData,
   toPlaceListingsPage,
+  toRegionDetailData,
 } from "./detailView";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { classifyError } from "./errorState";
@@ -112,7 +117,7 @@ export const loadPlaceDetailFn = createServerFn({ method: "GET" })
       }),
     ]);
     return {
-      place: toPlaceDetailData(place),
+      place: toPlaceDetailData(place, today),
       listings: toPlaceListingsPage(listings, today),
     };
   });
@@ -144,4 +149,66 @@ export const listPlaceListingsFn = createServerFn({ method: "GET" })
       },
     });
     return toPlaceListingsPage(output, today);
+  });
+
+/**
+ * DT-03: the region as viewers see it, its linked occasions, and the first
+ * places and listings of its sections. `NotFoundError`
+ * (`REGION_NOT_FOUND`) when it is a draft, unpublished, suspended or
+ * missing — the route answers CS-06 with HTTP 404.
+ */
+export const loadRegionDetailFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ regionId: idParam })))
+  .handler(async ({ data }): Promise<RegionDetailData> => {
+    const [
+      { container, today },
+      { viewRegion },
+      { listPlacesOfRegion },
+      { listListingsOfRegion },
+      { RegionId },
+    ] = await Promise.all([
+      loadDeps(),
+      import("@repo/core/application/discovery/viewRegion"),
+      import("@repo/core/application/discovery/listPlacesOfRegion"),
+      import("@repo/core/application/discovery/listListingsOfRegion"),
+      import("@repo/core/domain/common/ids"),
+    ]);
+    const regionId = RegionId.create(data.regionId);
+    const pagination = { page: 1, limit: REGION_SECTION_LIMIT };
+    const [region, places, listings] = await Promise.all([
+      viewRegion({ container, input: { regionId } }),
+      listPlacesOfRegion({ container, input: { regionId, pagination } }),
+      listListingsOfRegion({ container, input: { regionId, pagination } }),
+    ]);
+    return toRegionDetailData(region, places, listings, today);
+  });
+
+/**
+ * DT-04: the occasion as viewers see it, with its participants and their
+ * attached listings and days, and its linked regions. `NotFoundError`
+ * (`OCCASION_NOT_FOUND`) when it is a draft, unpublished, suspended or
+ * missing — the route answers CS-06 with HTTP 404.
+ */
+export const loadOccasionDetailFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ occasionId: idParam })))
+  .handler(async ({ data }): Promise<OccasionDetailData> => {
+    const [
+      { container, today },
+      { viewOccasion },
+      { OccasionId },
+      { resolveActor },
+    ] = await Promise.all([
+      loadDeps(),
+      import("@repo/core/application/discovery/viewOccasion"),
+      import("@repo/core/domain/common/ids"),
+      import("./actor"),
+    ]);
+    const output = await viewOccasion({
+      container,
+      actor: await resolveActor(container),
+      input: { occasionId: OccasionId.create(data.occasionId) },
+    });
+    return toOccasionDetailData(output, today);
   });

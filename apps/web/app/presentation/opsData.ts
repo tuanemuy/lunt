@@ -2,18 +2,39 @@
 // (dynamically), never from client components.
 import { viewMembers } from "@repo/core/application/authority/viewMembers";
 import { getContainer } from "@repo/core/application/di/containerStore";
+import type { RequestContainer } from "@repo/core/application/di/types";
 import { getManagedListing } from "@repo/core/application/listing/getManagedListing";
 import { searchListingsForOperation } from "@repo/core/application/listing/searchListingsForOperation";
+import { getManagedOccasion } from "@repo/core/application/occasion/getManagedOccasion";
+import { searchOccasionsForOperation } from "@repo/core/application/occasion/searchOccasionsForOperation";
+import { suspendOccasion } from "@repo/core/application/occasion/suspendOccasion";
+import { unsuspendOccasion } from "@repo/core/application/occasion/unsuspendOccasion";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
 import { matchPlacesForOperation } from "@repo/core/application/place/matchPlacesForOperation";
+import { getManagedRegion } from "@repo/core/application/region/getManagedRegion";
+import { searchRegionsForOperation } from "@repo/core/application/region/searchRegionsForOperation";
+import { suspendRegion } from "@repo/core/application/region/suspendRegion";
+import { unsuspendRegion } from "@repo/core/application/region/unsuspendRegion";
+import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
 import type { Pagination } from "@repo/core/domain/common/pagination";
+import type { StewardedRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
 import { listingPhotoItem, publicationView } from "./listingData";
 import { requireOperator } from "./operatorAccess";
-import type { ListingMatchItem, MatchPage, PlaceMatchItem } from "./opsSearch";
-import type { OpsSubjectData, OpsSubjectKind } from "./opsSubject";
-import { listingIdOf, placeIdOf } from "./targetIds";
+import type {
+  ListingMatchItem,
+  MatchPage,
+  OccasionMatchItem,
+  PlaceMatchItem,
+  RegionMatchItem,
+} from "./opsSearch";
+import type {
+  OpsSubjectData,
+  OpsSubjectKind,
+  SuspendableKind,
+} from "./opsSubject";
+import { listingIdOf, occasionIdOf, placeIdOf, regionIdOf } from "./targetIds";
 
 async function actorAndContainer() {
   const container = await getContainer();
@@ -78,7 +99,98 @@ export async function searchListings(
   };
 }
 
-/** OM-03: one store or listing, whatever its state. */
+/** OM-02: regions by keyword, drafts, unpublished and suspended ones included. */
+export async function searchRegions(
+  keyword: string,
+  pagination: Pagination,
+): Promise<MatchPage<RegionMatchItem>> {
+  const { container, actor } = await actorAndContainer();
+  const page = await searchRegionsForOperation({
+    container,
+    actor,
+    input: { keyword, pagination },
+  });
+  return {
+    count: page.count,
+    items: page.items.map(({ region, hasSteward }) => ({
+      regionId: region.id,
+      name: region.content.name,
+      address:
+        region.content.address === null
+          ? null
+          : Address.text(region.content.address),
+      publication: publicationView(region.publication),
+      suspended: region.suspension.suspended,
+      hasSteward,
+    })),
+  };
+}
+
+/** OM-02: events by keyword, in any state. */
+export async function searchOccasions(
+  keyword: string,
+  pagination: Pagination,
+): Promise<MatchPage<OccasionMatchItem>> {
+  const { container, actor } = await actorAndContainer();
+  const page = await searchOccasionsForOperation({
+    container,
+    actor,
+    input: { keyword, pagination },
+  });
+  return {
+    count: page.count,
+    items: page.items.map((occasion) => ({
+      occasionId: occasion.id,
+      name: occasion.name,
+      publication: publicationView(occasion.publication),
+      suspended: occasion.suspended,
+      holdingStatus: occasion.holdingStatus,
+      hasSteward: occasion.hasSteward,
+    })),
+  };
+}
+
+/** OM-03: suspends or lifts the suspension of a region or an event (MOD-07). */
+export async function changeSuspension(
+  kind: SuspendableKind,
+  rawId: string,
+  suspend: boolean,
+): Promise<void> {
+  const { container, actor } = await actorAndContainer();
+  if (kind === "region") {
+    const input = { regionId: regionIdOf(rawId) };
+    await (suspend ? suspendRegion : unsuspendRegion)({
+      container,
+      actor,
+      input,
+    });
+    return;
+  }
+  const input = { occasionId: occasionIdOf(rawId) };
+  await (suspend ? suspendOccasion : unsuspendOccasion)({
+    container,
+    actor,
+    input,
+  });
+}
+
+/** The stewards counted and the pending invitations, for OM-03's 管理者. */
+async function invitationsOf(
+  container: RequestContainer,
+  actor: Actor,
+  target: StewardedRef,
+) {
+  const members = await viewMembers({ container, actor, input: { target } });
+  return {
+    stewardCount: members.stewards.length,
+    invitations: members.invitations.map((invitation) => ({
+      email: invitation.email,
+      invitedAt: invitation.invitedAt.toISOString(),
+    })),
+  };
+}
+
+/** OM-03: one store, listing, region or event, whatever its state. */
 export async function loadOpsSubject(
   kind: OpsSubjectKind,
   rawId: string,
@@ -138,6 +250,53 @@ export async function loadOpsSubject(
           suspended: view.place.suspended,
           hasSteward: view.access.hasSteward,
         },
+      };
+    }
+    case "region": {
+      const regionId = regionIdOf(rawId);
+      const [view, members] = await Promise.all([
+        getManagedRegion({ container, actor, input: { regionId } }),
+        invitationsOf(container, actor, { kind: "region", id: regionId }),
+      ]);
+      const [cover] = view.photos;
+      return {
+        kind: "region",
+        regionId,
+        name: view.region.content.name,
+        cover:
+          cover === undefined
+            ? null
+            : { photoId: cover.photoId, url: cover.displayRef.url },
+        publication: publicationView(view.region.publication),
+        suspended: view.suspended,
+        viewable: view.viewable,
+        ...members,
+      };
+    }
+    case "occasion": {
+      const occasionId = occasionIdOf(rawId);
+      const [view, members] = await Promise.all([
+        getManagedOccasion({ container, actor, input: { occasionId } }),
+        invitationsOf(container, actor, { kind: "occasion", id: occasionId }),
+      ]);
+      const cover = view.photos.find((photo) => photo.display !== null);
+      return {
+        kind: "occasion",
+        occasionId,
+        name: view.name,
+        cover:
+          cover?.display == null
+            ? null
+            : { photoId: cover.photoId, url: cover.display.url },
+        publication: publicationView(view.publication),
+        suspended: view.suspended,
+        holdingStatus: view.holdingStatus,
+        period:
+          view.period === null
+            ? null
+            : { start: view.period.start, end: view.period.end },
+        viewable: view.viewable,
+        ...members,
       };
     }
   }

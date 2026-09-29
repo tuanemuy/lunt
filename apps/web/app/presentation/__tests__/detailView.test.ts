@@ -1,3 +1,4 @@
+import { DateRange } from "@repo/core/domain/common/dateRange";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import {
   Offering,
@@ -5,7 +6,13 @@ import {
   OpenDates,
 } from "@repo/core/domain/listing/offering";
 import { describe, expect, it } from "vitest";
-import { formatDay, offeringLabel, offeringText } from "../detailView";
+import {
+  daysText,
+  formatDay,
+  offeringLabel,
+  offeringText,
+  periodText,
+} from "../detailView";
 import { invitedOnText } from "../members";
 
 const day = (value: string | null): LocalDate | null =>
@@ -70,5 +77,42 @@ describe("offeringLabel", () => {
 describe("invitedOnText", () => {
   it("uses the Japan-time calendar day", () => {
     expect(invitedOnText("2026-09-19T15:30:00.000Z")).toBe("9月20日に招待");
+  });
+});
+
+describe("periodText", () => {
+  const range = (start: string, end: string) =>
+    DateRange.create(LocalDate.parse(start), LocalDate.parse(end));
+
+  it("words a one-day period as its day", () => {
+    expect(periodText(range("2026-10-17", "2026-10-17"), "2026-09-29")).toBe(
+      "10月17日（土）",
+    );
+  });
+
+  it("joins two days in a row with ・, the second without its month", () => {
+    expect(periodText(range("2026-10-17", "2026-10-18"), "2026-09-29")).toBe(
+      "10月17日（土）・18日（日）",
+    );
+  });
+
+  it("spans longer periods with 〜, in full across months and years", () => {
+    expect(periodText(range("2026-10-10", "2026-10-12"), "2026-09-29")).toBe(
+      "10月10日（土）〜12日（月）",
+    );
+    expect(periodText(range("2026-10-31", "2026-11-01"), "2026-09-29")).toBe(
+      "10月31日（土）・11月1日（日）",
+    );
+    expect(periodText(range("2026-12-31", "2027-01-02"), "2026-09-29")).toBe(
+      "12月31日（木）〜2027年1月2日（土）",
+    );
+  });
+});
+
+describe("daysText", () => {
+  it("shortens each later day within the same month", () => {
+    expect(
+      daysText(["2026-10-17", "2026-10-18", "2026-11-01"], "2026-09-29"),
+    ).toBe("10月17日（土）・18日（日）・11月1日（日）");
   });
 });

@@ -16,10 +16,7 @@ import { renderOpsSubject } from "../../-render";
 const isSubjectKind = (kind: string): kind is OpsSubjectKind =>
   (OPS_SUBJECT_KINDS as readonly string[]).includes(kind);
 
-/**
- * OM-03 対象の運営 (`/ops/subjects/{place|listing}/$id`). Regions and
- * events join with their stages; until then those kinds are not found.
- */
+/** OM-03 対象の運営 (`/ops/subjects/{place|listing|region|occasion}/$id`). */
 export const Route = createFileRoute("/_manage/ops/subjects/$kind/$id")({
   loader: async ({ params }) => {
     if (!isSubjectKind(params.kind)) throw notFound();

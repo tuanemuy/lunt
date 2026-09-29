@@ -16,13 +16,25 @@ const UNAVAILABLE = {
     title: "このお店は見られません。",
     body: "ほかのお店を探してみてください。",
   },
+  region: {
+    title: "この街は見られません。",
+    body: "ほかの街を探してみてください。",
+  },
+  occasion: {
+    title: "このイベントは見られません。",
+    body: "ほかのイベントを探してみてください。",
+  },
 } as const;
 
 /**
- * CS-06 of DT-01 / DT-02: the target is not viewable. Neither its name
- * nor its photo is shown, and why is not told.
+ * CS-06 of DT-01〜DT-04: the target is not viewable. Neither its name nor
+ * its photo is shown, and why is not told.
  */
-export function DetailUnavailable({ kind }: { kind: "listing" | "place" }) {
+export function DetailUnavailable({
+  kind,
+}: {
+  kind: keyof typeof UNAVAILABLE;
+}) {
   const words = UNAVAILABLE[kind];
   return (
     <div className="container detail-page">

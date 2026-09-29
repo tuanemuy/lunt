@@ -10,6 +10,7 @@ import {
 import { DetailPhotos } from "../DetailPhotos";
 import { ListingCards } from "../ListingCard";
 import { ListingHeroText } from "../ListingHero";
+import { OccasionRows, RegionRows } from "../RelatedRows";
 
 function PlaceNotice({ data }: { data: ListingDetailData }) {
   const { name, operating } = data.place;
@@ -66,11 +67,12 @@ function ListingProcedures({ data }: { data: ListingDetailData }) {
 
 /**
  * DT-01 掲載詳細 (`spec/pages/detail.md`): the listing in the reference
- * scene with its offering and place states, the way to its place, and the
- * other listings (discovery scene). Regions, occasions and articles have
- * no entries before their stages, so their sections are not shown
- * (「対象が1件もない区分は、区分ごと表示しない」). The procedures close it
- * (`ListingProcedures`).
+ * scene with its offering and place states, the way to its place, the
+ * place's viewable regions (DT-03), the upcoming and ongoing occasions the
+ * listing is attached to (DT-04, discovery scene) and the other listings
+ * (discovery scene). A section with nothing to show is left out
+ * (「対象が1件もない区分は、区分ごと表示しない」); articles have none before
+ * their stage. The procedures close it (`ListingProcedures`).
  */
 export function ListingDetail({ data }: { data: ListingDetailData }) {
   const { offering, place } = data;
@@ -109,6 +111,20 @@ export function ListingDetail({ data }: { data: ListingDetailData }) {
           <ButtonLink to="/places/$placeId" params={{ placeId: place.placeId }}>
             お店を見る
           </ButtonLink>
+
+          {data.regions.length === 0 ? null : (
+            <section className="detail-section" aria-labelledby="dt01-regions">
+              <SectionTitle id="dt01-regions">この街も歩いてみる</SectionTitle>
+              <RegionRows items={data.regions} />
+            </section>
+          )}
+
+          {data.occasions.length === 0 ? null : (
+            <section className="detail-section" aria-labelledby="dt01-events">
+              <SectionTitle id="dt01-events">出会えるイベント</SectionTitle>
+              <OccasionRows items={data.occasions} />
+            </section>
+          )}
 
           {hasOthers ? (
             <section

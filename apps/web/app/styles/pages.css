@@ -342,4 +342,13 @@
       flex: 1;
     }
   }
+
+  /* OM-02 固有: the keyword results' per-kind headings. */
+  .om02-sub {
+    margin-top: var(--space-8);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
 }

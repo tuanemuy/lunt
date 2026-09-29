@@ -5,9 +5,11 @@ import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { NotFoundError } from "@repo/core/application/errors";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
+import { getManagedRegion } from "@repo/core/application/region/getManagedRegion";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { StewardedRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
+import { publicationView } from "./listingData";
 import type {
   MemberBoardData,
   MembersFrame,
@@ -15,8 +17,10 @@ import type {
 } from "./members";
 import { isOperator } from "./operatorAccess";
 import { placeStateText } from "./placeView";
+import { loadRegionFrame } from "./regionData";
+import { regionNameText, regionStateText } from "./regionView";
 import { loadPlaceFrame } from "./shopData";
-import { placeIdOf } from "./targetIds";
+import { placeIdOf, regionIdOf } from "./targetIds";
 
 type TargetFacts = Readonly<{
   name: string;
@@ -36,6 +40,26 @@ async function readTarget(
   actor: Actor,
   input: MemberTargetInput,
 ): Promise<TargetFacts> {
+  if (input.kind === "occasion") {
+    const { readOccasionMembersTarget } = await import("./occasionData");
+    return readOccasionMembersTarget(container, actor, input.id);
+  }
+  if (input.kind === "region") {
+    const view = await getManagedRegion({
+      container,
+      actor,
+      input: { regionId: regionIdOf(input.id) },
+    });
+    return {
+      name: regionNameText(view.region.content.name),
+      state: regionStateText({
+        publication: publicationView(view.region.publication),
+        suspended: view.suspended,
+      }),
+      steward: view.management.allowed && view.management.basis === "steward",
+      vacant: !view.hasSteward,
+    };
+  }
   if (input.kind !== "place") {
     throw new NotFoundError(
       "STEWARDED_TARGET_NOT_FOUND",
@@ -72,23 +96,31 @@ export async function loadMembersFrame(
     target.steward && input.kind === "place"
       ? await loadPlaceFrame(container, actor, input.id)
       : null;
-  const kindLabel = input.kind === "place" ? "店舗" : "";
+  const region =
+    target.steward && input.kind === "region"
+      ? await loadRegionFrame(input.id)
+      : null;
+  const kindLabel = { place: "店舗", region: "地域", occasion: "イベント" }[
+    input.kind
+  ];
+  const vacancyLabel = {
+    place: "管理者のいない店舗",
+    region: "運営者が不在の地域",
+    occasion: "運営者が不在のイベント",
+  }[input.kind];
   return {
     kind: input.kind,
     id: input.id,
     name: target.name,
     state: target.steward
       ? target.state
-      : [
-          kindLabel,
-          target.state,
-          ...(target.vacant ? ["管理者のいない店舗"] : []),
-        ]
+      : [kindLabel, target.state, ...(target.vacant ? [vacancyLabel] : [])]
           .filter((part) => part !== "")
           .join(" · "),
     steward: target.steward,
     operator,
     shop,
+    region,
   };
 }
 
