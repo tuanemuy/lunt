@@ -108,11 +108,22 @@ export async function loadCategoryOptions(): Promise<
   return categories.map(({ id, name }) => ({ id, name }));
 }
 
+/** The names of the store's regions, first affiliation first. */
+const regionNames = (
+  regions: readonly Readonly<{ name: string | null }>[],
+): readonly string[] =>
+  regions.map((region) => region.name ?? "名称未設定の地域");
+
 /** SM-04 (新規): the categories and the store the listing will belong to. */
 export async function loadNewListing(rawPlaceId: string): Promise<
   Readonly<{
     categories: readonly CategoryOption[];
-    place: Readonly<{ id: string; name: string; address: string }>;
+    place: Readonly<{
+      id: string;
+      name: string;
+      address: string;
+      regions: readonly string[];
+    }>;
   }>
 > {
   const { container, actor } = await actorAndContainer();
@@ -131,6 +142,7 @@ export async function loadNewListing(rawPlaceId: string): Promise<
       id: view.place.id,
       name: view.place.profile.name,
       address: Address.text(view.place.profile.address),
+      regions: regionNames(view.regions),
     },
   };
 }
@@ -153,6 +165,7 @@ function editorData(view: ManagedListingView): ListingEditorData {
       name: view.place.name,
       address: Address.text(view.place.address),
       suspended: view.place.suspended,
+      regions: regionNames(view.place.regions),
     },
   };
 }

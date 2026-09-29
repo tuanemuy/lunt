@@ -42,6 +42,7 @@ import {
 } from "@/presentation/occasionView";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
+import { reviewFrom } from "@/presentation/reviewOrigin";
 
 type Outcome =
   | Readonly<{ kind: "excluded"; name: string }>
@@ -346,6 +347,12 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
                     <ListRowLink
                       to="/manage/applications/$applicationId"
                       params={{ applicationId: application.applicationId }}
+                      search={{
+                        from: reviewFrom({
+                          kind: "occasion",
+                          id: frame.occasionId,
+                        }),
+                      }}
                       title={application.title}
                       meta={
                         application.detail === null ? (

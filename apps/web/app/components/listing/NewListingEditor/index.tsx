@@ -42,7 +42,12 @@ export function NewListingEditor({
   place,
 }: {
   categories: readonly CategoryOption[];
-  place: Readonly<{ id: string; name: string; address: string }>;
+  place: Readonly<{
+    id: string;
+    name: string;
+    address: string;
+    regions: readonly string[];
+  }>;
 }) {
   const frame = usePlaceFrame();
   const router = useRouter();

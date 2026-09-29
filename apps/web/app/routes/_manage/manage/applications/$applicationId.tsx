@@ -14,13 +14,19 @@ import {
   ManageShell,
   ManageTitle,
 } from "@/components/layout/ManageShell";
-import { OPS_HOME, OpsNav } from "@/components/ops/OpsShell";
+import { OpsNav } from "@/components/ops/OpsShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { TextLink } from "@/components/ui/TextButton";
 import { loadApplicationReviewFn } from "@/presentation/applicationReview";
 import { classifyError } from "@/presentation/errorState";
+import {
+  type ReviewOrigin,
+  reviewOriginFrame,
+  reviewOriginOf,
+  reviewSearchSchema,
+} from "@/presentation/reviewOrigin";
 
 /**
  * CM-01 申請の判断. The management layout requires a login (CS-04); the
@@ -28,11 +34,13 @@ import { classifyError } from "@/presentation/errorState";
  * (CS-05) and a missing application (CS-17) reach the error view
  * classified. The loaded screen draws its frame by who judges
  * (`ReviewFrame`); before the application is read — loading, and the
- * error states — the frame is the service-operation one.
+ * error states — the list it was opened from (`?from=`) names the frame
+ * and the way back, and without one the frame is a neutral one.
  */
 export const Route = createFileRoute(
   "/_manage/manage/applications/$applicationId",
 )({
+  validateSearch: reviewSearchSchema,
   loader: ({ params }) =>
     loadApplicationReviewFn({
       data: { applicationId: params.applicationId },
@@ -43,21 +51,25 @@ export const Route = createFileRoute(
   errorComponent: ReviewError,
 });
 
-function Frame({ nav, children }: { nav: boolean; children: ReactNode }) {
+function Frame({
+  origin,
+  children,
+}: {
+  origin: ReviewOrigin | null;
+  children: ReactNode;
+}) {
+  const { context, back } = reviewOriginFrame(origin);
+  const nav = origin?.kind === "ops";
   return (
-    <ManageShell
-      context="サービス運営"
-      homeTo={nav ? OPS_HOME : "/me"}
-      solo={!nav}
-    >
+    <ManageShell context={context} homeTo={back?.to ?? "/me"} solo={!nav}>
       <ManagePage
         title={
           <ManageTitle>
-            {nav ? (
-              <TextLink to={OPS_HOME} className="cm01-back">
-                対応が必要なものへ戻る
+            {back === null ? null : (
+              <TextLink to={back.to} className="cm01-back">
+                {back.label}
               </TextLink>
-            ) : null}
+            )}
             <ManageHeading>申請の判断</ManageHeading>
           </ManageTitle>
         }
@@ -69,13 +81,14 @@ function Frame({ nav, children }: { nav: boolean; children: ReactNode }) {
   );
 }
 
-/**
- * Who opened it is not known until the application is read (a region's or
- * event's steward is framed in its own nav): no nav meanwhile.
- */
+function useOrigin(): ReviewOrigin | null {
+  return reviewOriginOf(Route.useSearch());
+}
+
+/** Framed by the list it was opened from until the application is read. */
 function ReviewPending() {
   return (
-    <Frame nav={false}>
+    <Frame origin={useOrigin()}>
       <ApplicationDetailSkeleton />
     </Frame>
   );
@@ -90,17 +103,19 @@ function ReviewPage() {
 function ReviewError({ error }: ErrorComponentProps) {
   const router = useRouter();
   const [retrying, startRetry] = useTransition();
+  const origin = useOrigin();
+  const { context, back } = reviewOriginFrame(origin);
   const state = classifyError(error);
   switch (state.kind) {
     case "loginRequired":
       return (
-        <ManageShell context="サービス運営" homeTo="/me" solo>
+        <ManageShell context={context} homeTo="/me" solo>
           <RouteErrorContent problem={{ kind: "error", error }} inManageShell />
         </ManageShell>
       );
     case "forbidden":
       return (
-        <Frame nav={false}>
+        <Frame origin={origin}>
           <ManageBody>
             <EmptyPanel
               title="この申請の承認者ではありません"
@@ -119,30 +134,36 @@ function ReviewError({ error }: ErrorComponentProps) {
         </Frame>
       );
     case "notFound":
-      // The list it came from (OM-01, RM-01, EM-01) is not known without
-      // the application: MY-01 leads to each of them.
+      // Without the application only `?from=` names the list it came from
+      // (OM-01, RM-01, EM-01); otherwise MY-01 leads to each of them.
       return (
-        <Frame nav={false}>
+        <Frame origin={origin}>
           <ManageBody>
             <EmptyPanel
               title="申請が見つかりません"
               actions={
-                <>
-                  <ButtonLink to="/me">マイページへ戻る</ButtonLink>
-                  <ButtonLink variant="secondary" to="/me/notifications">
-                    通知へ戻る
-                  </ButtonLink>
-                </>
+                back === null ? (
+                  <>
+                    <ButtonLink to="/me">マイページへ戻る</ButtonLink>
+                    <ButtonLink variant="secondary" to="/me/notifications">
+                      通知へ戻る
+                    </ButtonLink>
+                  </>
+                ) : (
+                  <ButtonLink to={back.to}>{back.label}</ButtonLink>
+                )
               }
             >
-              開いた申請はありません。マイページから申請の一覧（対応が必要なもの、所属店舗と申請、参加店舗と申請）を開き、もう一度選んでください。
+              {back === null
+                ? "開いた申請はありません。マイページから申請の一覧（対応が必要なもの、所属店舗と申請、参加店舗と申請）を開き、もう一度選んでください。"
+                : "開いた申請はありません。申請の一覧から、もう一度選んでください。"}
             </EmptyPanel>
           </ManageBody>
         </Frame>
       );
     default:
       return (
-        <Frame nav>
+        <Frame origin={origin}>
           <ManageBody>
             <Alert
               title="申請を読み込めませんでした"

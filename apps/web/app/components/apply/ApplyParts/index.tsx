@@ -20,6 +20,7 @@ import { Notice } from "@/components/ui/Notice";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   BROKEN_PREMISE_TEXT,
+  monthDayText,
   STATUS_LABEL,
 } from "@/presentation/applicationWords";
 import {
@@ -35,7 +36,6 @@ import {
   shopHomePath,
 } from "@/presentation/applyView";
 import type { ErrorState } from "@/presentation/errorState";
-import { jpDate } from "@/presentation/listingView";
 
 /**
  * Back to the top of the page when a form moves to another step (input,
@@ -376,7 +376,7 @@ export function ModeNotice({
           tone="paper"
           title="前の申請の内容で始めています"
         >
-          {`${ENDED_TEXT[mode.ended]} ${jpDate(mode.submittedAt.slice(0, 10))}の申請の${reapplied}が入っています。新しい申請として提出します。前の申請はそのまま残ります。`}
+          {`${ENDED_TEXT[mode.ended]} ${monthDayText(mode.submittedAt)}の申請の${reapplied}が入っています。新しい申請として提出します。前の申請はそのまま残ります。`}
         </Notice>
       );
     case "resubmit":

@@ -18,7 +18,13 @@ type ListingFormFieldsProps = {
   onChange: (change: Partial<ListingFormValues>) => void;
   errors: ListingFieldErrors;
   categories: readonly CategoryOption[];
-  place: Readonly<{ id: string; name: string; address: string }>;
+  place: Readonly<{
+    id: string;
+    name: string;
+    address: string;
+    /** The store's regions by name; shown in the 掲載する店舗 block. */
+    regions?: readonly string[];
+  }>;
   disabled?: boolean;
   /**
    * `required` on an application (RQ-04), which is submitted only when it
@@ -165,7 +171,9 @@ export function ListingFormFields({
                 to="/manage/places/$placeId/info"
                 params={{ placeId: place.id }}
                 title={place.name}
-                meta={place.address}
+                meta={[place.address, (place.regions ?? []).join("、")]
+                  .filter((part) => part !== "")
+                  .join(" · ")}
               />
             </li>
           </LinkList>

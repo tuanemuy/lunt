@@ -10,6 +10,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChipButton, ChipLink } from "@/components/ui/ChipButton";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
+import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Fieldset } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
@@ -27,6 +28,7 @@ import {
   checkParticipationFn,
   findParticipationOccasionsFn,
   participationChoiceFn,
+  participationListingsFn,
   submitParticipationFn,
 } from "@/presentation/applyRelations";
 import {
@@ -360,8 +362,23 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
           // CS-08: the input stays; the listings that can no longer be
           // attached are marked against the latest candidates.
           try {
-            const next = await participationChoiceFn({ data: target });
+            const next =
+              resubmit === null || choice === null
+                ? await participationChoiceFn({ data: target })
+                : {
+                    ...choice,
+                    ...(await participationListingsFn({ data: target })),
+                  };
             setChoice(next);
+            setPicked(
+              (current) =>
+                new Map([
+                  ...current,
+                  ...next.attachable.map(
+                    (item) => [item.id, item.name] as const,
+                  ),
+                ]),
+            );
             const now = new Set(next.attachable.map((item) => item.id));
             setStale(listingIds.filter((id) => !now.has(id) && !held.has(id)));
           } catch {
@@ -657,6 +674,14 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
             return <ChipLink to={link.href}>{link.label}</ChipLink>;
           }}
           onPick={(item) => load(place.placeId, item.id, true)}
+          noMatch={(keyword) => (
+            <EmptyPanel
+              headingLevel="h3"
+              title="参加を申請できるイベントがありません"
+            >
+              {`「${keyword}」に当たる、開催前か開催中のイベントはありません。語を変えて探し直せます。`}
+            </EmptyPanel>
+          )}
         />
         {occasion !== null && occasion.refusal === null ? (
           <TextButton onClick={() => setPicking(false)}>
@@ -976,6 +1001,23 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
               <p className="m-field__help">
                 この店舗の公開中の掲載から、複数を選べます。提供開始前・提供終了の掲載も選べます。下書き・一時非公開・運営による非公開の掲載は、候補に出ません。
               </p>
+              {(choice?.attachable.length ?? 0) > 0 && choice?.unpublished ? (
+                <Notice
+                  variant="manage"
+                  tone="paper"
+                  title="公開していない掲載があります"
+                  actions={
+                    <TextLink
+                      to="/manage/places/$placeId/listings"
+                      params={{ placeId: place.placeId }}
+                    >
+                      掲載の一覧へ
+                    </TextLink>
+                  }
+                >
+                  添えたい掲載が公開されていなければ、先に掲載の編集で公開してください。公開すると、ここで添えられます。
+                </Notice>
+              ) : null}
             </section>
 
             <Fieldset

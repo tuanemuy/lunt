@@ -35,6 +35,7 @@ import {
   type RegionApplicationItem,
   regionNameText,
 } from "@/presentation/regionView";
+import { reviewFrom } from "@/presentation/reviewOrigin";
 import { ListFooter } from "../ListFooter";
 import { RegionPage } from "../RegionShell";
 import { useRegionFrame } from "../RegionShell/useRegionFrame";
@@ -93,6 +94,9 @@ function ApplicationsSection({ data }: { data: AffiliationsData }) {
                 <ListRowLink
                   to="/manage/applications/$applicationId"
                   params={{ applicationId: item.applicationId }}
+                  search={{
+                    from: reviewFrom({ kind: "region", id: data.regionId }),
+                  }}
                   title={item.title}
                   meta={item.meta}
                   end={<Badge tone={item.tone}>{item.statusLabel}</Badge>}

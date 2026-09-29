@@ -32,6 +32,8 @@ type CandidateSearchProps = {
   disabled?: boolean;
   /** Focus the field when shown (a dialog's first control). */
   autoFocus?: boolean;
+  /** What a search that found nothing says, in place of the generic line (RQ-06: 参加を申請できるイベントがない). */
+  noMatch?: (keyword: string) => ReactNode;
 };
 
 type Result =
@@ -56,6 +58,7 @@ export function CandidateSearch({
   refusedAction,
   disabled = false,
   autoFocus = false,
+  noMatch,
 }: CandidateSearchProps) {
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<Result>({ kind: "idle" });
@@ -127,9 +130,11 @@ export function CandidateSearch({
           result.keyword === "" ? (
             <p className="m-field__help">キーワードを入力して探します。</p>
           ) : result.page.items.length === 0 ? (
-            <p className="m-field__help">
-              {`「${result.keyword}」に当たる候補はありません。別のキーワードで探してください。`}
-            </p>
+            (noMatch?.(result.keyword) ?? (
+              <p className="m-field__help">
+                {`「${result.keyword}」に当たる候補はありません。別のキーワードで探してください。`}
+              </p>
+            ))
           ) : (
             <p className="m-field__label">{`候補 ${result.page.count}件`}</p>
           )

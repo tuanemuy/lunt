@@ -31,6 +31,7 @@ import {
   isNotFoundError,
   NotFoundError,
 } from "@repo/core/application/errors";
+import { listPlaceListings } from "@repo/core/application/listing/listPlaceListings";
 import type { AttachedListingView } from "@repo/core/application/occasion/attachedListings";
 import { listAttachableListings } from "@repo/core/application/occasion/listAttachableListings";
 import {
@@ -61,6 +62,7 @@ import type {
   ParticipationChoice,
   ParticipationEntry,
   ParticipationFormData,
+  ParticipationListings,
   PlaceOption,
   RegionOption,
   RelationPage,
@@ -1043,6 +1045,48 @@ async function attachableOf(
   return items;
 }
 
+/** The listings the store can attach to the event, and whether it has any not published. */
+async function listingsOf(
+  container: RequestContainer,
+  actor: Actor,
+  placeId: PlaceId,
+  occasionId: OccasionId,
+): Promise<ParticipationListings> {
+  const [attachable, shelves] = await Promise.all([
+    orNull(() => attachableOf(container, actor, placeId, occasionId)),
+    orNull(() =>
+      listPlaceListings({
+        container,
+        actor,
+        input: {
+          placeId,
+          shelf: { publication: null, phase: null },
+          pagination: { page: 1, limit: 1 },
+        },
+      }),
+    ),
+  ]);
+  const counts = shelves?.counts.publication;
+  return {
+    attachable: attachable ?? [],
+    unpublished: counts !== undefined && counts.draft + counts.hidden > 0,
+  };
+}
+
+/** `participationListingsFn`: the store's listings for the event, whatever the event's refusal (a resubmission's own application is active). */
+export async function participationListings(
+  rawPlaceId: string,
+  rawOccasionId: string,
+): Promise<ParticipationListings> {
+  const { container, actor } = await actorAndContainer();
+  return listingsOf(
+    container,
+    actor,
+    placeIdOf(rawPlaceId),
+    occasionIdOf(rawOccasionId),
+  );
+}
+
 async function choiceOf(
   container: RequestContainer,
   actor: Actor,
@@ -1069,12 +1113,9 @@ async function choiceOf(
   );
   return {
     occasion: { ...occasion, refusal },
-    attachable:
-      refusal === null
-        ? await orNull(() =>
-            attachableOf(container, actor, placeId, occasionId),
-          ).then((items) => items ?? [])
-        : [],
+    ...(refusal === null
+      ? await listingsOf(container, actor, placeId, occasionId)
+      : { attachable: [], unpublished: false }),
   };
 }
 
@@ -1098,6 +1139,7 @@ export async function participationChoice(
         },
       },
       attachable: [],
+      unpublished: false,
     };
   }
   return choiceOf(container, actor, stewardedOption(own), occasionId, "");
@@ -1215,10 +1257,12 @@ export async function loadParticipationPage(
           managed: [],
           choice: {
             occasion,
-            attachable:
-              (await orNull(() =>
-                attachableOf(container, actor, placeId, content.occasionId),
-              )) ?? [],
+            ...(await listingsOf(
+              container,
+              actor,
+              placeId,
+              content.occasionId,
+            )),
           },
           start: {
             listingIds: content.listings.map((listing) => listing.id),
@@ -1323,6 +1367,7 @@ export async function loadParticipationPage(
           ? {
               occasion: await readOccasion(container, actor, occasionId, ""),
               attachable: [],
+              unpublished: false,
             }
           : await choiceOf(container, actor, place, occasionId, ""),
       start: empty,

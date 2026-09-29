@@ -121,11 +121,19 @@ export type AttachableOption = Readonly<{
 }>;
 
 /** The chosen event for the chosen store, and what the store can attach to it. */
-export type ParticipationChoice = Readonly<{
-  occasion: OccasionOption;
-  /** Empty when the event cannot be applied for. */
+/** The store's listings as RQ-06 offers them for the event. */
+export type ParticipationListings = Readonly<{
   attachable: readonly AttachableOption[];
+  /** The store has listings not published (下書き・一時非公開・運営による非公開): 先に SM-04 で公開する. */
+  unpublished: boolean;
 }>;
+
+export type ParticipationChoice = ParticipationListings &
+  Readonly<{
+    occasion: OccasionOption;
+    /** Empty (and `unpublished` false) when the event cannot be applied for. */
+    attachable: readonly AttachableOption[];
+  }>;
 
 /** RQ-06 の入力・再提出. */
 export type ParticipationFormData = Readonly<{

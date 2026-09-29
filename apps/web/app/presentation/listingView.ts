@@ -189,6 +189,8 @@ export type ListingEditorData = Readonly<{
     name: string;
     address: string;
     suspended: boolean;
+    /** The regions the store belongs to, by name (SM-04 所属地域). */
+    regions: readonly string[];
   }>;
 }>;
 

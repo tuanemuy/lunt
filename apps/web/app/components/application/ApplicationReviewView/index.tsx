@@ -154,8 +154,29 @@ function statusBadge(status: StatusData): ReactNode {
   }
 }
 
-/** 確認中でない: the current status, and that no decision is needed. */
-function ClosedNotice({ status }: { status: StatusData }) {
+/**
+ * Who decided an approved or rejected application: the overdue proxy, or
+ * the region's or event's operators (運営者が先に判断した申請は、そのことが
+ * 分かる — told to the operators, who could otherwise have stood in).
+ */
+function decidedText(
+  data: ApplicationReviewData,
+  decision: "承認" | "否認",
+  overdueProxy: boolean,
+): string {
+  if (overdueProxy) {
+    return `一定の期間を過ぎたため、サービス運営者が期間超過の代行として${decision}しました。`;
+  }
+  if (data.seat === null) return "";
+  const who = `${data.seat.name}の${seatWords(data.seat).role}`;
+  return data.frame.kind === "ops"
+    ? `${who}が判断し、${decision}しました。期間超過の代行による判断ではありません。`
+    : `${who}が${decision}しました。`;
+}
+
+/** 確認中でない: the current status, who decided it, and that no decision is needed. */
+function ClosedNotice({ data }: { data: ApplicationReviewData }) {
+  const { status } = data;
   switch (status.kind) {
     case "underReview":
       return null;
@@ -172,9 +193,7 @@ function ClosedNotice({ status }: { status: StatusData }) {
           tone="paper"
           title="この申請は承認されています"
         >
-          {status.overdueProxy
-            ? "一定の期間を過ぎたため、サービス運営者が期間超過の代行として承認しました。判断は変えられません。"
-            : "判断は変えられません。"}
+          {`${decidedText(data, "承認", status.overdueProxy)}判断は変えられません。`}
         </Notice>
       );
     case "rejected":
@@ -184,7 +203,7 @@ function ClosedNotice({ status }: { status: StatusData }) {
           tone="paper"
           title="この申請は否認されています"
         >
-          {`${status.overdueProxy ? "一定の期間を過ぎたため、サービス運営者が期間超過の代行として否認しました。" : ""}否認の理由: ${status.reason}`}
+          {`${decidedText(data, "否認", status.overdueProxy)}否認の理由: ${status.reason}`}
         </Notice>
       );
     case "withdrawn":
@@ -997,7 +1016,7 @@ export function ApplicationReviewView({
             </Alert>
           ) : null}
           <StanceNotice data={data} />
-          <ClosedNotice status={data.status} />
+          <ClosedNotice data={data} />
           <ApplicationSection data={data} status={status} />
           <ContentSections
             content={data.content}

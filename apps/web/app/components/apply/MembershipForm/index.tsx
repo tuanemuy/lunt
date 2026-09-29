@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "@tanstack/react-router";
-import { useRef, useState, useTransition } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -34,7 +40,12 @@ import {
   type RelationRefusal,
 } from "@/presentation/applyRelationsView";
 import { applicationPath } from "@/presentation/applyView";
+import { useEntryDraft } from "@/presentation/entryDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import {
+  membershipDraftSchema,
+  type SearchSnapshot,
+} from "@/presentation/membershipDraft";
 import { newId } from "@/presentation/newId";
 import { useReconcile } from "@/presentation/reconcile";
 import { KeepOutcome } from "../ApplyOutcome";
@@ -162,6 +173,55 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
   const [sending, startSend] = useTransition();
   useScrollTopOn(`${stage}:${done === null}:${refusal === null}`);
   const attempt = useRef<{ id: string; key: string } | null>(null);
+  // CF-02: the input survives a visit to a candidate's detail and back.
+  const regionSearch = useRef<SearchSnapshot<RegionOption> | null>(null);
+  const placeSearch = useRef<SearchSnapshot<PlaceOption> | null>(null);
+  const [restored, setRestored] = useState<
+    Readonly<{
+      count: number;
+      regionFor: string | null;
+      region: SearchSnapshot<RegionOption> | null;
+      place: SearchSnapshot<PlaceOption> | null;
+    }>
+  >({ count: 0, regionFor: null, region: null, place: null });
+  const draft = useEntryDraft("rq05", membershipDraftSchema, (kept) => {
+    setPlace(kept.place);
+    setKind(kept.kind);
+    setRegion(kept.region);
+    setPicking(kept.picking);
+    setReply(kept.reply);
+    setRestored((current) => ({
+      count: current.count + 1,
+      regionFor: kept.place?.placeId ?? null,
+      region: kept.regionSearch,
+      place: kept.placeSearch,
+    }));
+  });
+  const keepRegionSearch = useCallback(
+    (snapshot: SearchSnapshot<RegionOption>) => {
+      regionSearch.current = snapshot;
+    },
+    [],
+  );
+  const keepPlaceSearch = useCallback(
+    (snapshot: SearchSnapshot<PlaceOption>) => {
+      placeSearch.current = snapshot;
+    },
+    [],
+  );
+  const stashOnLeave = (event: MouseEvent<HTMLFormElement>) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("a[href]") === null) return;
+    draft.stash({
+      place,
+      kind,
+      region,
+      picking,
+      reply,
+      regionSearch: regionSearch.current,
+      placeSearch: placeSearch.current,
+    });
+  };
 
   const kindLabel = MEMBERSHIP_KIND_LABEL[kind];
   const regionLabel = kind === "leave" ? "離脱する地域" : "所属する地域";
@@ -251,6 +311,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
             return;
           }
           router.clearCache();
+          draft.clear();
           setDone(resubmit.applicationId);
           return;
         }
@@ -264,6 +325,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
         attempt.current = null;
         // Not reloaded here: its eligibility would now refuse the region.
         router.clearCache();
+        draft.clear();
         setDone(applicationId);
       } catch (error) {
         const failed = classifyError(error);
@@ -370,7 +432,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
               >
                 {resubmit === null
                   ? `${placeName}の${doneRegion}${kind === "leave" ? "からの" : "への"}${words}の申請は、確認中になりました。地域の運営者が確かめて、結果を通知します。${steward ? "所属地域の状況にも、申請中として表示されます。" : ""}${kind === "leave" ? "承認されるまで、所属は続きます。" : ""}`
-                  : "申請は確認中に戻りました。地域運営者が確かめた結果は、通知でお知らせします。"}
+                  : "申請は確認中に戻りました。地域の運営者が確かめた結果は、通知でお知らせします。"}
               </DonePanel>
             </FocusOnMount>
           </ManagePage>
@@ -496,7 +558,9 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
   const joinSearch =
     place === null ? null : (
       <KeywordSearch<RegionOption>
-        key={place.placeId}
+        key={`${place.placeId}:${restored.count}`}
+        initial={restored.regionFor === place.placeId ? restored.region : null}
+        keep={keepRegionSearch}
         label="地域をキーワードで探す"
         placeholder="地域名・まちの名前で探す"
         disabled={sending}
@@ -566,6 +630,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
       <form
         className="m-body"
         id="rq05-form"
+        onClickCapture={stashOnLeave}
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -656,6 +721,9 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
                 管理者のいない店舗（個人として申請）
               </p>
               <KeywordSearch<PlaceOption>
+                key={restored.count}
+                initial={restored.place}
+                keep={keepPlaceSearch}
                 label="管理者のいない店舗をキーワードで探す"
                 placeholder="店舗名・住所で探す"
                 disabled={sending}

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useState, useTransition } from "react";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -19,6 +19,7 @@ import {
 } from "@/presentation/applyRelationsView";
 import { applicationPath } from "@/presentation/applyView";
 import { classifyError } from "@/presentation/errorState";
+import type { SearchSnapshot } from "@/presentation/membershipDraft";
 import { ApplyTitle, RefusalPanel, type RefusedWhat } from "../ApplyParts";
 
 /** One choice of a candidate list (RQ-05's `rq05-cand`). */
@@ -138,16 +139,35 @@ export function KeywordSearch<T>({
   disabled = false,
   search,
   children,
+  initial = null,
+  keep,
 }: {
   label: string;
   placeholder: string;
   disabled?: boolean;
   search: (keyword: string) => Promise<readonly T[]>;
   children: (items: readonly T[]) => ReactNode;
+  /** The search as it stood when the input was kept (a return from a candidate's detail). */
+  initial?: SearchSnapshot<T> | null;
+  /** Receives the search as it stands, to keep it with the input. */
+  keep?: (snapshot: SearchSnapshot<T>) => void;
 }) {
-  const [keyword, setKeyword] = useState("");
-  const [found, setFound] = useState<Found<T>>({ kind: "idle" });
+  const [keyword, setKeyword] = useState(initial?.keyword ?? "");
+  const [found, setFound] = useState<Found<T>>(
+    initial === null || initial.found === null
+      ? { kind: "idle" }
+      : { kind: "found", ...initial.found },
+  );
   const [searching, startSearch] = useTransition();
+  useEffect(() => {
+    keep?.({
+      keyword,
+      found:
+        found.kind === "found"
+          ? { keyword: found.keyword, items: found.items }
+          : null,
+    });
+  }, [keep, keyword, found]);
   const run = () =>
     startSearch(async () => {
       const typed = keyword.trim();

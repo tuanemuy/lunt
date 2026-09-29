@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 type EmptyPanelProps = {
   title: string;
   /** `h1` when the panel stands in for the whole screen (no title band). */
-  headingLevel?: "h1" | "h2";
+  headingLevel?: "h1" | "h2" | "h3";
   /** The title's id, for a section labelled by it. */
   titleId?: string;
   children?: ReactNode;

@@ -12,6 +12,7 @@ import type {
   InboxSection,
   OpsInboxData,
 } from "@/presentation/moderation";
+import { type ReviewSearch, reviewFrom } from "@/presentation/reviewOrigin";
 
 /** CM-01 of an application, a plain path (another area). */
 const applicationReviewPath = (applicationId: string): string =>
@@ -20,6 +21,8 @@ const applicationReviewPath = (applicationId: string): string =>
 type Row = Readonly<{
   key: string;
   to: string;
+  /** CM-01's `?from=`, so its missing-application state leads back here. */
+  search?: ReviewSearch;
   title: string;
   sub: string;
   who: string;
@@ -79,7 +82,13 @@ function Section({
             {rows.map((row) => (
               <tr key={row.key}>
                 <th scope="row" className="om-table__name">
-                  <Link to={row.to} className="om-table__title">
+                  <Link
+                    to={row.to}
+                    {...(row.search === undefined
+                      ? {}
+                      : { search: row.search })}
+                    className="om-table__title"
+                  >
                     {row.title}
                   </Link>
                   <span className="om-table__sub">{row.sub}</span>
@@ -127,6 +136,7 @@ export function OpsInboxView({ data }: { data: OpsInboxData }) {
       (item): Row => ({
         key: item.applicationId,
         to: applicationReviewPath(item.applicationId),
+        search: { from: reviewFrom({ kind: "ops" }) },
         title: item.title,
         sub: item.sub,
         who: item.applicant,

@@ -19,8 +19,10 @@ import {
 } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button, buttonClassName } from "@/components/ui/Button";
+import { Button, ButtonLink, buttonClassName } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyPanel } from "@/components/ui/EmptyPanel";
+import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
@@ -43,7 +45,8 @@ import { ContentSections, SubjectValue } from "../ApplicationParts";
 /** What the last withdrawal ended in; `null` before any. */
 type Outcome =
   | Readonly<{ kind: "withdrawn" }>
-  | Readonly<{ kind: "failed" | "forbidden" }>
+  | Readonly<{ kind: "failed" }>
+  | Readonly<{ kind: "forbidden" }>
   | Readonly<{ kind: "conflict" }>
   | Readonly<{ kind: "changed"; message: string }>;
 
@@ -271,6 +274,41 @@ export function MyApplicationView({ data }: { data: MyApplicationData }) {
     withdrawing,
   });
 
+  // CS-05: the withdrawal found the store's management right gone, so the
+  // application is no longer the viewer's to see (as a reload would show).
+  if (outcome?.kind === "forbidden") {
+    return (
+      <ManagePage
+        title={
+          <ManageTitle>
+            <ManageBackLink to="/me/applications">自分の申請</ManageBackLink>
+            <ManageHeading>申請の詳細</ManageHeading>
+          </ManageTitle>
+        }
+      >
+        <ManageBody>
+          <FocusOnMount role="alert">
+            <EmptyPanel
+              title="この申請は扱えなくなりました"
+              actions={
+                <>
+                  <ButtonLink to="/me/applications">
+                    自分の申請の一覧へ戻る
+                  </ButtonLink>
+                  <ButtonLink variant="secondary" to="/me/notifications">
+                    通知へ戻る
+                  </ButtonLink>
+                </>
+              }
+            >
+              この店舗の管理権限がなくなったため、取り下げは行っていません。申請の内容は表示できません。
+            </EmptyPanel>
+          </FocusOnMount>
+        </ManageBody>
+      </ManagePage>
+    );
+  }
+
   return (
     <>
       <ManagePage
@@ -412,7 +450,8 @@ function OutcomeView({
   reload,
   asSteward,
 }: {
-  outcome: Outcome | null;
+  /** A lost management right (`forbidden`) replaces the whole view instead. */
+  outcome: Exclude<Outcome, Readonly<{ kind: "forbidden" }>> | null;
   asSteward: boolean;
   reload: () => Promise<void>;
 }) {
@@ -453,17 +492,6 @@ function OutcomeView({
           }
         >
           取り下げは行っていません。現在の状態を表示しています。
-        </Alert>
-      );
-    case "forbidden":
-      return (
-        <Alert
-          title="この申請は扱えなくなりました"
-          actions={
-            <TextLink to="/me/applications">自分の申請の一覧へ戻る</TextLink>
-          }
-        >
-          この店舗の管理権限がなくなったため、取り下げは行っていません。
         </Alert>
       );
     case "failed":

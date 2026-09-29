@@ -5,6 +5,7 @@ import type {
   MembershipEntry,
   ParticipationChoice,
   ParticipationEntry,
+  ParticipationListings,
   PlaceOption,
   RegionOption,
   RelationRefusal,
@@ -262,6 +263,20 @@ export const participationChoiceFn = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<ParticipationChoice> => {
     const { participationChoice } = await import("./applyRelationsData");
     return participationChoice(data.placeId, data.occasionId);
+  });
+
+/**
+ * RQ-06's resubmission: the store's listings for the event read again
+ * after one stopped being attachable (CS-08). Unlike
+ * `participationChoiceFn` it does not judge the event, which the
+ * application being resubmitted would itself refuse.
+ */
+export const participationListingsFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(participationTargetSchema))
+  .handler(async ({ data }): Promise<ParticipationListings> => {
+    const { participationListings } = await import("./applyRelationsData");
+    return participationListings(data.placeId, data.occasionId);
   });
 
 /** RQ-06: the refusal a submission met, read afresh; `null` when it would now be accepted. */
