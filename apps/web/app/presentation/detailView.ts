@@ -46,7 +46,7 @@ export type ListingCardItem = Readonly<{
   listingId: string;
   name: string;
   placeName: string;
-  /** The displayed region's name; none before regions exist (stage 3). */
+  /** The displayed region's name; `null` when the place shows none. */
   regionName: string | null;
   photo: PhotoSource | null;
   /** 提供開始前・… / 提供終了 for the reference scene; `null` while available. */

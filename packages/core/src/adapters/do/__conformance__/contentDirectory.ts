@@ -503,7 +503,7 @@ export function describeContentDirectoryContract(
 /**
  * The directory's per-kind lookup mechanism (`describeContent`) over a
  * conformance-only table, so the five-kind order and a kind without
- * storage run before regions, occasions and articles land.
+ * storage (articles, until they land) are exercised.
  */
 export type ContentLookupHarness = Readonly<{
   directory: ContentDirectory;

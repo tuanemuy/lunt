@@ -6,10 +6,7 @@ import {
 import { loadMembersFrameFn } from "@/presentation/members";
 import { renderMemberBoard } from "../../-members";
 
-/**
- * CM-02 メンバーの管理 of a region. Regions arrive in stage 3 (S3A); until
- * then every id reads as a missing target (CS-17).
- */
+/** CM-02 メンバーの管理 of a region. */
 export const Route = createFileRoute(
   "/_manage/manage/regions/$regionId_/members",
 )({

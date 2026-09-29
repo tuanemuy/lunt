@@ -29,10 +29,10 @@ export const DEV_PLACE_HAS_NO_STEWARD = "DEV_PLACE_HAS_NO_STEWARD";
 /**
  * Development tool: makes a place with a steward a participant the way
  * approving a participation application will (`Participation.establish`,
- * `occasion.participation_established`). Stage 3a has no participation
- * applications — they arrive with S3B — so the manual-test seed
- * (`devSeed`) establishes them here; a place without a steward goes
- * through `addParticipationDirectly` instead. The details are checked as
+ * `occasion.participation_established`), so the manual-test seed
+ * (`devSeed`) can prepare participations without filing and approving
+ * applications (design.md D-22); a place without a steward goes through
+ * `addParticipationDirectly` instead. The details are checked as
  * a submission checks them (dates within the period, attachable
  * listings); the approval's premises (holding status, cancellation) are
  * not, so a participation of an occasion that has since ended can be

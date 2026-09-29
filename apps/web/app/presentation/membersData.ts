@@ -32,8 +32,6 @@ type TargetFacts = Readonly<{
 /**
  * The target's name and state, read with an access check: its managers
  * and operators may (`inspect_target`), anyone else gets `ForbiddenError`.
- * Regions and occasions land in stage 3 (S3A); until then no target of
- * those kinds exists (CS-17).
  */
 async function readTarget(
   container: RequestContainer,

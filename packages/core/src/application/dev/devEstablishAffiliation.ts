@@ -15,10 +15,10 @@ export type DevEstablishAffiliationInput = Readonly<{
  * Development tool: affiliates a place with a region the way approving an
  * affiliation application will (`PlaceAffiliations.affiliate`, persisted
  * through `readAffiliations` / `persistAffiliations`, emitting
- * `region.affiliation_established`). Stage 3a has no affiliation
- * applications — they arrive with S3B — so the manual-test seed
- * (`devSeed`) establishes affiliations here. The application's premises
- * are not checked. Refused unless the development tools are on.
+ * `region.affiliation_established`), so the manual-test seed (`devSeed`)
+ * can prepare affiliations without filing and approving applications
+ * (design.md D-22). The application's premises are not checked. Refused
+ * unless the development tools are on.
  *
  * - `NotFoundError` without the place or the region.
  * - `BusinessRuleError` `REGION_ALREADY_AFFILIATED`.

@@ -6,10 +6,7 @@ import {
 import { loadMembersFrameFn } from "@/presentation/members";
 import { renderMemberBoard } from "../../-members";
 
-/**
- * CM-02 メンバーの管理 of an event. Events arrive in stage 3 (S3A); until
- * then every id reads as a missing target (CS-17).
- */
+/** CM-02 メンバーの管理 of an event. */
 export const Route = createFileRoute(
   "/_manage/manage/events/$occasionId_/members",
 )({
