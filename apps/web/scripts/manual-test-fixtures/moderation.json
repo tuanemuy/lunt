@@ -148,5 +148,107 @@
         "longitude": 139.7667
       }
     }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぶらり",
+      "name": "谷中ぶらり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "三丁目"
+      },
+      "location": {
+        "latitude": 35.7253,
+        "longitude": 139.7664
+      },
+      "photos": ["yanaka-1.jpg", "yanaka-2.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "regionop@example.com"
+        }
+      ]
+    },
+    {
+      "key": "根津めぐり",
+      "name": "根津めぐり",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "二丁目"
+      },
+      "location": {
+        "latitude": 35.717,
+        "longitude": 139.7643
+      },
+      "photos": ["nezu-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "regionop@example.com"
+        }
+      ]
+    },
+    {
+      "key": "千駄木さんぽ",
+      "name": "千駄木さんぽ",
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "二丁目"
+      },
+      "location": {
+        "latitude": 35.7257,
+        "longitude": 139.7606
+      },
+      "photos": ["sendagi-1.jpg"],
+      "publication": "published"
+    }
+  ],
+  "affiliations": [
+    {
+      "place": "喫茶ひだまり",
+      "regions": ["谷中ぶらり"]
+    },
+    {
+      "place": "パン工房こむぎ",
+      "regions": ["谷中ぶらり"]
+    },
+    {
+      "place": "古書ほおずき",
+      "regions": ["根津めぐり"]
+    }
+  ],
+  "occasions": [
+    {
+      "key": "谷中あかりまつり",
+      "name": "谷中あかりまつり",
+      "period": {
+        "start": "today+10",
+        "end": "today+12"
+      },
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "三丁目"
+      },
+      "location": {
+        "latitude": 35.7252,
+        "longitude": 139.7662
+      },
+      "photos": ["akari-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "eventop@example.com"
+        }
+      ],
+      "participations": [
+        {
+          "place": "喫茶ひだまり"
+        }
+      ]
+    }
   ]
 }

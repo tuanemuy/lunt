@@ -132,5 +132,53 @@
         "longitude": 139.7665
       }
     }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぐるり",
+      "name": "谷中ぐるり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-1-1"
+      },
+      "location": {
+        "latitude": 35.7259,
+        "longitude": 139.7662
+      },
+      "photos": ["gururi-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "multi@example.com"
+        }
+      ]
+    }
+  ],
+  "occasions": [
+    {
+      "key": "谷中あかり祭り",
+      "name": "谷中あかり祭り",
+      "period": {
+        "start": "today+60",
+        "end": "today+61"
+      },
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-2-1"
+      },
+      "location": {
+        "latitude": 35.7254,
+        "longitude": 139.7666
+      },
+      "photos": ["akari-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "multi@example.com"
+        }
+      ]
+    }
   ]
 }

@@ -232,5 +232,28 @@
         "longitude": 139.7678
       }
     }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぎんざ会",
+      "name": "谷中ぎんざ会",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-13-1"
+      },
+      "location": {
+        "latitude": 35.7273,
+        "longitude": 139.7668
+      },
+      "photos": ["ginza-1.jpg"],
+      "publication": "published"
+    }
+  ],
+  "affiliations": [
+    {
+      "place": "P1",
+      "regions": ["谷中ぎんざ会"]
+    }
   ]
 }

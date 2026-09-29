@@ -48,9 +48,15 @@ mkdirSync(outDir, { recursive: true });
 const outFile = new URL(`seed-${document}-${port}.json`, outDir);
 writeFileSync(outFile, `${JSON.stringify(ids, null, 2)}\n`);
 console.log(JSON.stringify(ids, null, 2));
-for (const kind of ["places", "listings"]) {
+const pages = {
+  places: "places",
+  listings: "listings",
+  regions: "regions",
+  occasions: "events",
+};
+for (const [kind, path] of Object.entries(pages)) {
   for (const [key, id] of Object.entries(ids[kind] ?? {})) {
-    console.log(`${key}: http://localhost:${port}/${kind}/${id}`);
+    console.log(`${key}: http://localhost:${port}/${path}/${id}`);
   }
 }
 console.log(`Saved to ${fileURLToPath(outFile)}`);

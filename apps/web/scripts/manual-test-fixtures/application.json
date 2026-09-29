@@ -200,5 +200,92 @@
         "longitude": 139.768
       }
     }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぐるり",
+      "name": "谷中ぐるり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-1-1"
+      },
+      "location": {
+        "latitude": 35.7259,
+        "longitude": 139.7662
+      },
+      "photos": ["gururi-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-a@example.com"
+        }
+      ]
+    },
+    {
+      "key": "根津さんぽ",
+      "name": "根津さんぽ",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "2-1-1"
+      },
+      "location": {
+        "latitude": 35.7172,
+        "longitude": 139.7644
+      },
+      "photos": ["sanpo-1.jpg"],
+      "publication": "published"
+    }
+  ],
+  "occasions": [
+    {
+      "key": "秋の古書まつり",
+      "name": "秋の古書まつり",
+      "period": {
+        "start": "today+180",
+        "end": "today+182"
+      },
+      "address": {
+        "postalCode": "113-0022",
+        "town": "千駄木",
+        "rest": "2-1-1"
+      },
+      "location": {
+        "latitude": 35.7255,
+        "longitude": 139.7608
+      },
+      "photos": ["koshomatsuri-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-a@example.com"
+        }
+      ]
+    },
+    {
+      "key": "根津の灯りまつり",
+      "name": "根津の灯りまつり",
+      "period": {
+        "start": "today+190",
+        "end": "today+192"
+      },
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "1-2-1"
+      },
+      "location": {
+        "latitude": 35.717,
+        "longitude": 139.7639
+      },
+      "photos": ["akarimatsuri-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-a@example.com"
+        }
+      ]
+    }
   ]
 }

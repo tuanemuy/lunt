@@ -1,0 +1,579 @@
+{
+  "accounts": [
+    "user-a@example.com",
+    "user-b@example.com",
+    "owner1@example.com",
+    "owner1b@example.com",
+    "owner2@example.com",
+    "owner3@example.com",
+    "event-op1@example.com",
+    "event-op2@example.com",
+    "region-op1@example.com",
+    "region-op2@example.com",
+    "region-op3@example.com",
+    "admin1@example.com",
+    "admin2@example.com"
+  ],
+  "operators": ["admin1@example.com", "admin2@example.com"],
+  "places": [
+    {
+      "key": "喫茶みなと",
+      "name": "喫茶みなと",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "101-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner1@example.com"
+        },
+        {
+          "invite": "owner1b@example.com",
+          "by": "owner1@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "みなとブレンド",
+          "name": "みなとブレンド",
+          "description": "深煎りの豆を合わせたコーヒーです。",
+          "category": "食べる",
+          "photos": ["minato-blend.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "夏限定かき氷",
+          "name": "夏限定かき氷",
+          "description": "自家製シロップのかき氷です。",
+          "category": "食べる",
+          "photos": ["kakigori.jpg"],
+          "offering": {
+            "kind": "period",
+            "start": "today+5",
+            "end": "today+40"
+          },
+          "state": "published"
+        },
+        {
+          "key": "春のパフェ",
+          "name": "春のパフェ",
+          "description": "いちごをのせたパフェです。",
+          "category": "食べる",
+          "photos": ["parfait.jpg"],
+          "state": "ended"
+        },
+        {
+          "key": "新作タルト",
+          "name": "新作タルト",
+          "description": "季節の果物のタルトです。",
+          "category": "食べる",
+          "photos": ["tart.jpg"],
+          "state": "draft"
+        },
+        {
+          "key": "季節のケーキ",
+          "name": "季節のケーキ",
+          "description": "月替わりのケーキです。",
+          "category": "食べる",
+          "photos": ["cake.jpg"],
+          "state": "unpublished"
+        },
+        {
+          "key": "港のプリン",
+          "name": "港のプリン",
+          "description": "昔ながらの固めのプリンです。",
+          "category": "食べる",
+          "photos": ["pudding.jpg"],
+          "suspended": true,
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "みなと雑貨",
+      "name": "みなと雑貨",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "102-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner2@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "手ぬぐい「波」",
+          "name": "手ぬぐい「波」",
+          "description": "波の柄を染めた綿の手ぬぐいです。",
+          "category": "買う",
+          "photos": ["tenugui-nami.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "海辺ベーカリー",
+      "name": "海辺ベーカリー",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "103-1"
+      },
+      "location": {
+        "latitude": 35.4449,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner2@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "塩パン",
+          "name": "塩パン",
+          "description": "バターを包んで焼いた塩パンです。",
+          "category": "食べる",
+          "photos": ["shiopan.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "港の本屋",
+      "name": "港の本屋",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "104-1"
+      },
+      "location": {
+        "latitude": 35.4453,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner3@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "港の写真集",
+          "name": "港の写真集",
+          "description": "港の風景を集めた写真集です。",
+          "category": "買う",
+          "photos": ["shashinshu.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "丘の上珈琲",
+      "name": "丘の上珈琲",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "105-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.6485
+      },
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "丘ブレンド",
+          "name": "丘ブレンド",
+          "description": "浅煎りの軽い味わいのコーヒーです。",
+          "category": "食べる",
+          "photos": ["oka-blend.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "古書かもめ",
+      "name": "古書かもめ",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "106-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.6485
+      },
+      "listings": [
+        {
+          "key": "古地図の複製",
+          "name": "古地図の複製",
+          "description": "明治の地図を刷り直した複製です。",
+          "category": "買う",
+          "photos": ["kochizu.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "古書の福袋",
+          "name": "古書の福袋",
+          "description": "店主が選んだ本の詰め合わせです。",
+          "category": "買う",
+          "photos": ["fukubukuro.jpg"],
+          "state": "unpublished"
+        }
+      ]
+    },
+    {
+      "key": "かもめ食堂",
+      "name": "かもめ食堂",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "107-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.6485
+      },
+      "listings": [
+        {
+          "key": "かもめ定食",
+          "name": "かもめ定食",
+          "description": "焼き魚と小鉢の定食です。",
+          "category": "食べる",
+          "photos": ["kamome-teishoku.jpg"],
+          "state": "published"
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "key": "みなと商店街",
+      "name": "みなと商店街",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "201-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "昔ながらの店が並ぶ商店街です。",
+      "tagline": "駅から続く商店街",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op1@example.com"
+        }
+      ]
+    },
+    {
+      "key": "港町通り",
+      "name": "港町通り",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "202-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "倉庫を改装した店が並ぶ通りです。",
+      "tagline": "石畳の通り",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op3@example.com"
+        }
+      ]
+    },
+    {
+      "key": "旧市街",
+      "name": "旧市街",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "203-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "西側に残る古い町並みです。",
+      "tagline": "古い町並み",
+      "publication": "unpublished"
+    },
+    {
+      "key": "運河地区",
+      "name": "運河地区",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "204-1"
+      },
+      "location": {
+        "latitude": 35.4449,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "川沿いに倉庫が残る地区です。",
+      "tagline": "水辺の地区",
+      "publication": "published",
+      "suspended": true
+    },
+    {
+      "key": "山の手エリア",
+      "name": "山の手エリア",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "205-1"
+      },
+      "location": {
+        "latitude": 35.4453,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "丘の上に住宅が並ぶエリアです。",
+      "tagline": "坂のある住宅街",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op2@example.com"
+        }
+      ]
+    }
+  ],
+  "affiliations": [
+    {
+      "place": "港の本屋",
+      "regions": ["港町通り"]
+    }
+  ],
+  "occasions": [
+    {
+      "key": "みなと夏まつり",
+      "name": "みなと夏まつり",
+      "period": {
+        "start": "today+10",
+        "end": "today+12"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "301-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "海辺の夏の祭り",
+      "description": "広場に屋台が集まる夏の催しです。",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        },
+        {
+          "appoint": "event-op2@example.com"
+        }
+      ],
+      "regionLinks": [
+        {
+          "region": "みなと商店街"
+        },
+        {
+          "region": "運河地区"
+        },
+        {
+          "region": "山の手エリア",
+          "detached": true
+        }
+      ],
+      "participations": [
+        {
+          "place": "喫茶みなと",
+          "listings": ["みなとブレンド"],
+          "dates": ["today+10"]
+        },
+        {
+          "place": "古書かもめ",
+          "listings": ["古地図の複製"],
+          "dates": ["today+11"]
+        }
+      ]
+    },
+    {
+      "key": "港の朝市",
+      "name": "港の朝市",
+      "period": {
+        "start": "today-1",
+        "end": "today+1"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "302-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "朝どれの魚と野菜",
+      "description": "岸壁で漁師と農家が品物を売ります。",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ]
+    },
+    {
+      "key": "春の古本市",
+      "name": "春の古本市",
+      "period": {
+        "start": "today-10",
+        "end": "today-8"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "303-1"
+      },
+      "location": {
+        "latitude": 35.4449,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "本好きが集まる週末",
+      "description": "古い本と雑誌を持ち寄って売ります。",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ],
+      "participations": [
+        {
+          "place": "喫茶みなと",
+          "dates": ["today-9"]
+        }
+      ]
+    },
+    {
+      "key": "秋のあかり展",
+      "name": "秋のあかり展",
+      "period": {
+        "start": "today+30",
+        "end": "today+31"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "304-1"
+      },
+      "location": {
+        "latitude": 35.4453,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "光で彩る秋の夜",
+      "description": "手作りのランプを並べて飾ります。",
+      "cancelled": true,
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ],
+      "participations": [
+        {
+          "place": "海辺ベーカリー"
+        }
+      ]
+    },
+    {
+      "key": "冬のマルシェ",
+      "name": "冬のマルシェ",
+      "period": {
+        "start": "today+60",
+        "end": "today+61"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "305-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.6505
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "冬の手仕事の市場",
+      "description": "焼き菓子と編み物の店が並びます。",
+      "publication": "unpublished",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ],
+      "participations": [
+        {
+          "place": "喫茶みなと",
+          "dates": ["today+60"]
+        }
+      ]
+    },
+    {
+      "key": "港の花火大会",
+      "name": "港の花火大会",
+      "period": {
+        "start": "today+40",
+        "end": "today+40"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "306-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.6505
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "夜空を彩る一夜",
+      "description": "海の上に大輪の光が上がります。",
+      "publication": "draft",
+      "members": [
+        {
+          "appoint": "event-op1@example.com"
+        }
+      ]
+    },
+    {
+      "key": "運河フェス",
+      "name": "運河フェス",
+      "period": {
+        "start": "today+20",
+        "end": "today+21"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "307-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.6505
+      },
+      "photos": ["event-photo-1.jpg"],
+      "tagline": "水辺の音楽祭",
+      "description": "川沿いの遊歩道で演奏会を開きます。",
+      "publication": "published"
+    }
+  ]
+}

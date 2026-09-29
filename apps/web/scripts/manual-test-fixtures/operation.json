@@ -139,5 +139,63 @@
         }
       ]
     }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぶらり",
+      "name": "谷中ぶらり",
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-1-1"
+      },
+      "location": {
+        "latitude": 35.7253,
+        "longitude": 139.7664
+      },
+      "photos": ["yanaka-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "regionop@example.com"
+        }
+      ]
+    },
+    {
+      "key": "根津かいわい",
+      "name": "根津かいわい",
+      "address": {
+        "postalCode": "113-0031",
+        "town": "根津",
+        "rest": "2-1-1"
+      },
+      "location": {
+        "latitude": 35.717,
+        "longitude": 139.7643
+      },
+      "photos": ["nezu-1.jpg"],
+      "publication": "published"
+    }
+  ],
+  "occasions": [
+    {
+      "key": "谷中ほおずき市",
+      "name": "谷中ほおずき市",
+      "period": {
+        "start": "today+30",
+        "end": "today+31"
+      },
+      "address": {
+        "postalCode": "110-0001",
+        "town": "谷中",
+        "rest": "3-2-1"
+      },
+      "location": {
+        "latitude": 35.7254,
+        "longitude": 139.7666
+      },
+      "photos": ["hozukiichi-1.jpg"],
+      "publication": "published"
+    }
   ]
 }

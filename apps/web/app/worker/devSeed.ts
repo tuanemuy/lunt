@@ -40,9 +40,11 @@ const memberStep = z.union([
   z.object({ resign: email }).strict(),
 ]);
 
+const key = z.string().min(1).max(100);
+
 const listing = z
   .object({
-    key: z.string().min(1).max(100),
+    key,
     name: text.nullable(),
     description: text.nullable().optional(),
     category: text.nullable().optional(),
@@ -55,35 +57,97 @@ const listing = z
   })
   .strict();
 
+const address = z
+  .object({
+    postalCode: z.string().min(1).max(20),
+    town: z.string().max(200).optional(),
+    rest: text,
+  })
+  .strict();
+
+const location = z
+  .object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+  })
+  .strict();
+
+const members = z.array(memberStep).max(50).optional();
+
 const place = z
   .object({
-    key: z.string().min(1).max(100),
+    key,
     name: text,
     description: text.nullable().optional(),
     businessHours: text.nullable().optional(),
     contact: text.nullable().optional(),
-    address: z
-      .object({
-        postalCode: z.string().min(1).max(20),
-        town: z.string().max(200).optional(),
-        rest: text,
-      })
-      .strict(),
-    location: z
-      .object({
-        latitude: z.number().min(-90).max(90),
-        longitude: z.number().min(-180).max(180),
-      })
-      .strict(),
+    address,
+    location,
     photos: labels.optional(),
     operatingStatus: z
       .enum(["open", "temporarilyClosed", "permanentlyClosed"])
       .optional(),
-    members: z.array(memberStep).max(50).optional(),
+    members,
     listings: z.array(listing).max(50).optional(),
     suspended: z.boolean().optional(),
   })
   .strict();
+
+const content = {
+  key,
+  name: text,
+  address: address.nullable().optional(),
+  location: location.nullable().optional(),
+  photos: labels.optional(),
+  description: text.nullable().optional(),
+  tagline: text.nullable().optional(),
+  publication: z.enum(["draft", "published", "unpublished"]),
+  suspended: z.boolean().optional(),
+  members,
+};
+
+const region = z.object(content).strict();
+
+const affiliation = z
+  .object({
+    place: key,
+    regions: z.array(key).min(1).max(50),
+    representative: key.optional(),
+  })
+  .strict();
+
+const occasion = z
+  .object({
+    ...content,
+    period: z
+      .object({ start: seedDate, end: seedDate })
+      .strict()
+      .nullable()
+      .optional(),
+    cancelled: z.boolean().optional(),
+    regionLinks: z
+      .array(
+        z.object({ region: key, detached: z.boolean().optional() }).strict(),
+      )
+      .max(50)
+      .optional(),
+    participations: z
+      .array(
+        z
+          .object({
+            place: key,
+            listings: z.array(key).max(50).optional(),
+            dates: z.array(seedDate).max(100).optional(),
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
+  })
+  .strict();
+
+const unique = (keys: readonly string[]): boolean =>
+  new Set(keys).size === keys.length;
 
 /** The transport shape of `SeedFixture`; bounds keep one request small. */
 export const seedFixtureSchema = z
@@ -95,16 +159,20 @@ export const seedFixtureSchema = z
     editors: z.array(email).max(20).optional(),
     categories: z.array(z.string().min(1).max(100)).min(1).max(50).optional(),
     places: z.array(place).max(100).optional(),
+    regions: z.array(region).max(50).optional(),
+    affiliations: z.array(affiliation).max(100).optional(),
+    occasions: z.array(occasion).max(50).optional(),
   })
   .strict()
   .refine((fixture) => {
     const places = fixture.places ?? [];
-    const listings = places.flatMap((p) => p.listings ?? []);
     return (
-      new Set(places.map((p) => p.key)).size === places.length &&
-      new Set(listings.map((l) => l.key)).size === listings.length
+      unique(places.map((p) => p.key)) &&
+      unique(places.flatMap((p) => p.listings ?? []).map((l) => l.key)) &&
+      unique((fixture.regions ?? []).map((r) => r.key)) &&
+      unique((fixture.occasions ?? []).map((o) => o.key))
     );
-  }, "Place keys and listing keys must each be unique") satisfies z.ZodType<SeedFixture>;
+  }, "Place, listing, region and occasion keys must each be unique") satisfies z.ZodType<SeedFixture>;
 
 /**
  * `POST /__dev/seed` — the development tool that seeds a manual-test

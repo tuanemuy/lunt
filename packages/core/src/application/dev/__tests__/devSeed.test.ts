@@ -2,11 +2,18 @@ import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralP
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { ForbiddenError, NotFoundError } from "@repo/core/application/errors";
 import { LocalDate } from "@repo/core/domain/common/localDate";
+import { Pagination } from "@repo/core/domain/common/pagination";
 import { describe, expect, it } from "vitest";
 import { invitationEmails, stewardIds } from "../../authority/__tests__/kit";
 import { getManagedListing } from "../../listing/getManagedListing";
 import { listCategories } from "../../listing/listCategories";
+import { getManagedOccasion } from "../../occasion/getManagedOccasion";
+import { listOccasionParticipants } from "../../occasion/listOccasionParticipants";
+import { listOccasionRegionLinks } from "../../occasion/listOccasionRegionLinks";
 import { getManagedPlace } from "../../place/getManagedPlace";
+import { getManagedRegion } from "../../region/getManagedRegion";
+import { getPlaceAffiliationStatus } from "../../region/getPlaceAffiliationStatus";
+import { listAffiliatedPlaces } from "../../region/listAffiliatedPlaces";
 import { devSeed, type SeedFixture } from "../devSeed";
 import { seedPhotoPng } from "../seedPhoto";
 
@@ -115,6 +122,192 @@ const FIXTURE: SeedFixture = {
           state: "published",
         },
       ],
+      suspended: true,
+    },
+  ],
+};
+
+const AREA = { postalCode: "100-0004", rest: "1-1" } as const;
+const NEAR = { latitude: 35.686, longitude: 139.766 } as const;
+
+const AREA_FIXTURE: SeedFixture = {
+  accounts: [
+    "op1@example.com",
+    "region-op@example.com",
+    "region-op2@example.com",
+    "event-op@example.com",
+    "event-op2@example.com",
+    "owner-x@example.com",
+  ],
+  operators: ["op1@example.com"],
+  categories: ["食べる"],
+  places: [
+    {
+      key: "P1",
+      name: "喫茶ひだまり",
+      address: AREA,
+      location: NEAR,
+      members: [{ appoint: "owner-x@example.com" }],
+      listings: [
+        {
+          key: "L1",
+          name: "ブレンドコーヒー",
+          category: "食べる",
+          photos: ["blend.jpg"],
+          state: "published",
+        },
+        {
+          key: "L2",
+          name: "季節のケーキ",
+          category: "食べる",
+          photos: ["cake.jpg"],
+          state: "unpublished",
+        },
+      ],
+    },
+    {
+      key: "P2",
+      name: "古書かもめ",
+      address: AREA,
+      location: NEAR,
+      listings: [
+        {
+          key: "L3",
+          name: "古地図の複製",
+          category: "食べる",
+          photos: ["chizu.jpg"],
+          state: "published",
+        },
+      ],
+      suspended: true,
+    },
+  ],
+  regions: [
+    {
+      key: "R1",
+      name: "甲商店街",
+      address: AREA,
+      location: NEAR,
+      photos: ["region-seed.jpg", "region-seed.jpg"],
+      description: "昔ながらの店が並ぶ商店街です。",
+      tagline: "駅から続く商店街",
+      publication: "published",
+      members: [
+        { appoint: "region-op@example.com" },
+        {
+          invite: "region-op2@example.com",
+          by: "region-op@example.com",
+          accept: true,
+        },
+        { invite: "nobody@example.com", by: "region-op@example.com" },
+      ],
+    },
+    {
+      key: "R2",
+      name: "乙通り",
+      address: AREA,
+      location: NEAR,
+      photos: ["region-seed.jpg"],
+      publication: "unpublished",
+      members: [{ appoint: "region-op@example.com" }],
+    },
+    {
+      key: "R3",
+      name: "丙地区",
+      address: AREA,
+      location: NEAR,
+      photos: ["region-seed.jpg"],
+      publication: "published",
+      suspended: true,
+    },
+    { key: "R4", name: "丁の丘", publication: "draft" },
+    {
+      key: "R5",
+      name: "戊エリア",
+      address: AREA,
+      location: NEAR,
+      photos: ["region-seed.jpg"],
+      publication: "published",
+    },
+  ],
+  affiliations: [
+    { place: "P1", regions: ["R1", "R2"], representative: "R2" },
+    { place: "P2", regions: ["R3", "R1"] },
+  ],
+  occasions: [
+    {
+      key: "O1",
+      name: "甲まつり",
+      period: { start: "today+10", end: "today+12" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      tagline: "海辺の夏の祭り",
+      publication: "published",
+      members: [
+        { appoint: "event-op@example.com" },
+        { appoint: "event-op2@example.com" },
+      ],
+      regionLinks: [
+        { region: "R1" },
+        { region: "R3" },
+        { region: "R5", detached: true },
+      ],
+      participations: [
+        { place: "P1", listings: ["L1", "L2"], dates: ["today+10"] },
+        { place: "P2", listings: ["L3"], dates: ["today+11"] },
+      ],
+    },
+    {
+      key: "O2",
+      name: "乙古本市",
+      period: { start: "today-10", end: "today-8" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      publication: "published",
+      members: [{ appoint: "event-op@example.com" }],
+      participations: [{ place: "P1", dates: ["today-9"] }],
+    },
+    {
+      key: "O3",
+      name: "丙あかり展",
+      period: { start: "today+30", end: "today+31" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      publication: "published",
+      cancelled: true,
+      members: [{ appoint: "event-op@example.com" }],
+    },
+    {
+      key: "O4",
+      name: "丁マルシェ",
+      period: { start: "today+60", end: "today+61" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      publication: "unpublished",
+      members: [{ appoint: "event-op@example.com" }],
+    },
+    {
+      key: "O5",
+      name: "戊花火大会",
+      period: { start: "today+40", end: "today+40" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      publication: "draft",
+      members: [{ appoint: "event-op@example.com" }],
+    },
+    {
+      key: "O6",
+      name: "己フェス",
+      period: { start: "today+20", end: "today+21" },
+      address: AREA,
+      location: NEAR,
+      photos: ["event-photo-1.jpg"],
+      publication: "published",
       suspended: true,
     },
   ],
@@ -243,6 +436,225 @@ describe("devSeed (development tool)", () => {
     ]) {
       expect(types).toContain(type);
     }
+  });
+
+  it("seeds regions, affiliations and occasions with their links and participations", async () => {
+    const t = createTestContainer({ start: START });
+    const { container } = t;
+    const result = await devSeed({ container, input: AREA_FIXTURE });
+    expect(Object.keys(result.regions)).toEqual(["R1", "R2", "R3", "R4", "R5"]);
+    expect(Object.keys(result.occasions)).toEqual([
+      "O1",
+      "O2",
+      "O3",
+      "O4",
+      "O5",
+      "O6",
+    ]);
+
+    const accountOf = (email: string) => {
+      const accountId = result.accounts[email];
+      if (accountId === undefined) throw new Error(email);
+      return { accountId };
+    };
+    const idOf = <T extends string>(
+      ids: Readonly<Record<string, T>>,
+      key: string,
+    ): T => {
+      const id = ids[key];
+      if (id === undefined) throw new Error(key);
+      return id;
+    };
+    const operator = accountOf("op1@example.com");
+    const regionOp = accountOf("region-op@example.com");
+    const eventOp = accountOf("event-op@example.com");
+    const ownerX = accountOf("owner-x@example.com");
+    const page = Pagination.create({ page: 1, limit: 100 });
+
+    const region = (key: string, actor = operator) =>
+      getManagedRegion({
+        container,
+        actor,
+        input: { regionId: idOf(result.regions, key) },
+      });
+    const r1 = await region("R1", regionOp);
+    expect(r1.region.content.name).toBe("甲商店街");
+    expect(r1.region.content.tagline).toBe("駅から続く商店街");
+    expect(r1.region.content.address?.town).toBe("大手町");
+    expect(r1.photos).toHaveLength(2);
+    expect(r1.region.publication.status).toBe("published");
+    expect(r1.management).toMatchObject({ allowed: true });
+    const r1Stewards = await container.unitOfWorkProvider.run((ctx) =>
+      ctx.stewardshipRepository.findById({ kind: "region", id: r1.region.id }),
+    );
+    if (r1Stewards === null) throw new Error("no stewardship");
+    expect(stewardIds(r1Stewards.entity)).toEqual([
+      regionOp.accountId,
+      accountOf("region-op2@example.com").accountId,
+    ]);
+    expect(invitationEmails(r1Stewards.entity)).toEqual(["nobody@example.com"]);
+    expect((await region("R2")).region.publication).toMatchObject({
+      status: "unpublished",
+      reason: "byManager",
+    });
+    const r3 = await region("R3");
+    expect(r3.region.publication.status).toBe("published");
+    expect(r3.suspended).toBe(true);
+    const r4 = await region("R4");
+    expect(r4.region.publication.status).toBe("draft");
+    expect(r4.hasSteward).toBe(false);
+    expect((await region("R5")).viewable).toBe(true);
+
+    const status = await getPlaceAffiliationStatus({
+      container,
+      actor: ownerX,
+      input: { placeId: idOf(result.places, "P1") },
+    });
+    expect(status.regions.map((r) => r.regionId)).toEqual([
+      idOf(result.regions, "R1"),
+      idOf(result.regions, "R2"),
+    ]);
+    expect(status.representative).toEqual({
+      regionId: idOf(result.regions, "R2"),
+      chosen: true,
+    });
+    const affiliated = await listAffiliatedPlaces({
+      container,
+      actor: regionOp,
+      input: { regionId: idOf(result.regions, "R1"), pagination: page },
+    });
+    expect(affiliated.items.map((p) => p.placeId)).toEqual([
+      idOf(result.places, "P2"),
+      idOf(result.places, "P1"),
+    ]);
+    expect(affiliated.items[0]?.suspended).toBe(true);
+
+    const occasion = (key: string, actor = operator) =>
+      getManagedOccasion({
+        container,
+        actor,
+        input: { occasionId: idOf(result.occasions, key) },
+      });
+    const o1 = await occasion("O1", eventOp);
+    expect(o1).toMatchObject({
+      name: "甲まつり",
+      period: { start: day(10), end: day(12) },
+      holdingStatus: "upcoming",
+      publication: { status: "published" },
+      viewable: true,
+      access: { hasSteward: true, manageable: true },
+    });
+    expect(o1.address?.town).toBe("大手町");
+    const links = await listOccasionRegionLinks({
+      container,
+      actor: eventOp,
+      input: { occasionId: o1.id, pagination: page },
+    });
+    expect(links.items.map((link) => [link.region.name, link.status])).toEqual([
+      ["甲商店街", "linked"],
+      ["丙地区", "linked"],
+      ["戊エリア", "detached"],
+    ]);
+    const participants = await listOccasionParticipants({
+      container,
+      actor: eventOp,
+      input: { occasionId: o1.id, pagination: page },
+    });
+    expect(
+      participants.items.map((item) => ({
+        place: item.place.id,
+        hasSteward: item.placeHasSteward,
+        listings: item.participation.listings.map((l) => l.id),
+        dates: item.participation.dates,
+      })),
+    ).toEqual([
+      {
+        place: idOf(result.places, "P2"),
+        hasSteward: false,
+        listings: [idOf(result.listings, "L3")],
+        dates: [day(11)],
+      },
+      {
+        place: idOf(result.places, "P1"),
+        hasSteward: true,
+        listings: [idOf(result.listings, "L1"), idOf(result.listings, "L2")],
+        dates: [day(10)],
+      },
+    ]);
+    expect(participants.items[1]?.participation.listings[1]).toMatchObject({
+      publication: { status: "unpublished" },
+    });
+
+    expect(await occasion("O2", eventOp)).toMatchObject({
+      holdingStatus: "ended",
+    });
+    expect(await occasion("O3", eventOp)).toMatchObject({
+      cancelled: true,
+      holdingStatus: "cancelled",
+      publication: { status: "published" },
+    });
+    expect(await occasion("O4", eventOp)).toMatchObject({
+      publication: { status: "unpublished" },
+    });
+    expect(await occasion("O5", eventOp)).toMatchObject({
+      publication: { status: "draft" },
+      missingRequirements: [],
+    });
+    expect(await occasion("O6")).toMatchObject({
+      suspended: true,
+      access: { hasSteward: false },
+    });
+
+    const events = await t.storedEvents();
+    const payloads = (type: string) =>
+      events.filter((event) => event.type === type).map((e) => e.payload);
+    expect(payloads("region.affiliation_established")).toEqual([
+      expect.objectContaining({ placeId: idOf(result.places, "P1") }),
+      expect.objectContaining({ placeId: idOf(result.places, "P1") }),
+      expect.objectContaining({ placeId: idOf(result.places, "P2") }),
+      expect.objectContaining({ placeId: idOf(result.places, "P2") }),
+    ]);
+    expect(payloads("occasion.participation_established")).toHaveLength(3);
+    expect(payloads("occasion.ended")).toEqual([
+      expect.objectContaining({ occasionId: idOf(result.occasions, "O2") }),
+    ]);
+    expect(payloads("authority.steward_appointed")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          accountId: regionOp.accountId,
+          via: "grant",
+        }),
+        expect.objectContaining({ accountId: eventOp.accountId, via: "grant" }),
+      ]),
+    );
+    const types = new Set(events.map((event) => event.type));
+    for (const type of [
+      "occasion.region_linked",
+      "occasion.region_link_detached",
+      "occasion.cancelled",
+      "occasion.unpublished",
+      "occasion.suspended",
+      "region.unpublished",
+      "region.suspended",
+    ]) {
+      expect(types).toContain(type);
+    }
+  });
+
+  it("refuses a representative region for a place without a steward", async () => {
+    const { container } = createTestContainer({ start: START });
+    await expect(
+      devSeed({
+        container,
+        input: {
+          ...AREA_FIXTURE,
+          affiliations: [
+            { place: "P2", regions: ["R1"], representative: "R1" },
+          ],
+          occasions: [],
+        },
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("adds the categories beyond the initial four", async () => {

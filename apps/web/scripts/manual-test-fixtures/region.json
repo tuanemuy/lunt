@@ -1,0 +1,407 @@
+{
+  "accounts": [
+    "user-a@example.com",
+    "user-b@example.com",
+    "owner1@example.com",
+    "owner1b@example.com",
+    "owner2@example.com",
+    "owner3@example.com",
+    "region-op1@example.com",
+    "region-op2@example.com",
+    "region-op3@example.com",
+    "region-op4@example.com",
+    "event-op@example.com",
+    "admin1@example.com",
+    "admin2@example.com"
+  ],
+  "operators": ["admin1@example.com", "admin2@example.com"],
+  "places": [
+    {
+      "key": "喫茶みなと",
+      "name": "喫茶みなと",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "101-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner1@example.com"
+        },
+        {
+          "invite": "owner1b@example.com",
+          "by": "owner1@example.com",
+          "accept": true
+        }
+      ],
+      "listings": [
+        {
+          "key": "みなとブレンド",
+          "name": "みなとブレンド",
+          "category": "食べる",
+          "photos": ["minato-blend.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "みなと雑貨",
+      "name": "みなと雑貨",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "102-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner2@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "手ぬぐい「波」",
+          "name": "手ぬぐい「波」",
+          "category": "買う",
+          "photos": ["tenugui-nami.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "海辺ベーカリー",
+      "name": "海辺ベーカリー",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "103-1"
+      },
+      "location": {
+        "latitude": 35.4449,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner2@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "塩パン",
+          "name": "塩パン",
+          "category": "食べる",
+          "photos": ["shiopan.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "港の本屋",
+      "name": "港の本屋",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "104-1"
+      },
+      "location": {
+        "latitude": 35.4453,
+        "longitude": 139.648
+      },
+      "members": [
+        {
+          "appoint": "owner3@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "港の写真集",
+          "name": "港の写真集",
+          "category": "買う",
+          "photos": ["shashinshu.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "丘の上珈琲",
+      "name": "丘の上珈琲",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "105-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.6485
+      },
+      "members": [
+        {
+          "appoint": "region-op1@example.com"
+        }
+      ],
+      "listings": [
+        {
+          "key": "丘ブレンド",
+          "name": "丘ブレンド",
+          "category": "食べる",
+          "photos": ["oka-blend.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "古書かもめ",
+      "name": "古書かもめ",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "106-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.6485
+      },
+      "listings": [
+        {
+          "key": "古地図の複製",
+          "name": "古地図の複製",
+          "category": "買う",
+          "photos": ["kochizu.jpg"],
+          "state": "published"
+        }
+      ]
+    },
+    {
+      "key": "かもめ食堂",
+      "name": "かもめ食堂",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "107-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.6485
+      },
+      "listings": [
+        {
+          "key": "かもめ定食",
+          "name": "かもめ定食",
+          "category": "食べる",
+          "photos": ["kamome-teishoku.jpg"],
+          "state": "published"
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "key": "みなと商店街",
+      "name": "みなと商店街",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "201-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg", "region-seed.jpg"],
+      "description": "昔ながらの店が並ぶ商店街です。",
+      "tagline": "駅から続く商店街",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op1@example.com"
+        },
+        {
+          "appoint": "region-op2@example.com"
+        }
+      ]
+    },
+    {
+      "key": "港町通り",
+      "name": "港町通り",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "202-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg", "region-seed.jpg"],
+      "description": "倉庫を改装した店が並ぶ通りです。",
+      "tagline": "石畳の通り",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op3@example.com"
+        }
+      ]
+    },
+    {
+      "key": "旧市街",
+      "name": "旧市街",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "203-1"
+      },
+      "location": {
+        "latitude": 35.4445,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg", "region-seed.jpg"],
+      "description": "みなとの西側に残る古い町並みです。",
+      "tagline": "古い町並み",
+      "publication": "unpublished",
+      "members": [
+        {
+          "appoint": "region-op3@example.com"
+        }
+      ]
+    },
+    {
+      "key": "運河地区",
+      "name": "運河地区",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "204-1"
+      },
+      "location": {
+        "latitude": 35.4449,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg", "region-seed.jpg"],
+      "description": "みなとへ続く運河沿いの地区です。",
+      "tagline": "水辺の地区",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op3@example.com"
+        }
+      ],
+      "suspended": true
+    },
+    {
+      "key": "山の手エリア",
+      "name": "山の手エリア",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "205-1"
+      },
+      "location": {
+        "latitude": 35.4453,
+        "longitude": 139.649
+      },
+      "photos": ["region-seed.jpg", "region-seed.jpg"],
+      "description": "丘の上に住宅が並ぶエリアです。",
+      "tagline": "坂のある住宅街",
+      "publication": "published"
+    },
+    {
+      "key": "港の丘",
+      "name": "港の丘",
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "206-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.6495
+      },
+      "photos": ["region-seed.jpg"],
+      "description": "公園と展望台のある丘です。",
+      "tagline": "海を見下ろす丘",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-op4@example.com"
+        }
+      ]
+    }
+  ],
+  "affiliations": [
+    {
+      "place": "喫茶みなと",
+      "regions": ["みなと商店街", "港町通り", "旧市街"]
+    },
+    {
+      "place": "古書かもめ",
+      "regions": ["みなと商店街", "旧市街"]
+    },
+    {
+      "place": "海辺ベーカリー",
+      "regions": ["運河地区", "みなと商店街"]
+    },
+    {
+      "place": "港の本屋",
+      "regions": ["港町通り"]
+    }
+  ],
+  "occasions": [
+    {
+      "key": "みなと夏まつり",
+      "name": "みなと夏まつり",
+      "period": {
+        "start": "today+10",
+        "end": "today+12"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "301-1"
+      },
+      "location": {
+        "latitude": 35.4437,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-op@example.com"
+        }
+      ],
+      "regionLinks": [
+        {
+          "region": "みなと商店街"
+        }
+      ],
+      "participations": [
+        {
+          "place": "喫茶みなと",
+          "listings": ["みなとブレンド"],
+          "dates": ["today+10"]
+        }
+      ]
+    },
+    {
+      "key": "冬のマルシェ",
+      "name": "冬のマルシェ",
+      "period": {
+        "start": "today+60",
+        "end": "today+61"
+      },
+      "address": {
+        "postalCode": "231-0023",
+        "rest": "302-1"
+      },
+      "location": {
+        "latitude": 35.4441,
+        "longitude": 139.65
+      },
+      "photos": ["event-photo-1.jpg"],
+      "publication": "draft",
+      "members": [
+        {
+          "appoint": "event-op@example.com"
+        }
+      ],
+      "regionLinks": [
+        {
+          "region": "みなと商店街"
+        }
+      ]
+    }
+  ]
+}

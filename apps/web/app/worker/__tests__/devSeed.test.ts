@@ -1,4 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { AssetAreaCatalog } from "@repo/core/adapters/area/assetAreaCatalog";
+import { parseJapanPostCsv } from "@repo/core/adapters/area/japanPost";
+import { InMemoryAreaAssets } from "@repo/core/adapters/area/testing/inMemoryAreaAssets";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { devSeed } from "@repo/core/application/dev/devSeed";
 import { listCategories } from "@repo/core/application/listing/listCategories";
@@ -90,19 +93,48 @@ describe("handleDevSeedRequest", () => {
     expect(duplicateKeys.status).toBe(400);
   });
 
-  it("accepts every manual-test fixture", () => {
+  describe("every manual-test fixture", () => {
     const dir = new URL(
       "../../../scripts/manual-test-fixtures/",
       import.meta.url,
     );
     const files = readdirSync(dir).filter((name) => name.endsWith(".json"));
-    expect(files).toHaveLength(7);
-    for (const name of files) {
-      const parsed = seedFixtureSchema.safeParse(
-        JSON.parse(readFileSync(new URL(name, dir), "utf8")),
-      );
+    const read = (name: string): unknown =>
+      JSON.parse(readFileSync(new URL(name, dir), "utf8"));
+
+    it("is one of the nine documents' fixtures", () => {
+      expect(files).toHaveLength(9);
+    });
+
+    it.each(files)("%s is a fixture and seeds an empty state", async (name) => {
+      const parsed = seedFixtureSchema.safeParse(read(name));
       expect(parsed.error, name).toBeUndefined();
-    }
+      if (!parsed.success) return;
+      const sample = parseJapanPostCsv(
+        readFileSync(
+          new URL("../../../scripts/areaSample.csv", import.meta.url),
+          "utf8",
+        ),
+      );
+      const { container } = createTestContainer();
+      const areaCatalog = new AssetAreaCatalog(
+        InMemoryAreaAssets.fromRows(sample, "/area"),
+        { basePaths: ["/area"] },
+      );
+      const result = await devSeed({
+        container: { ...container, areaCatalog },
+        input: parsed.data,
+      });
+      expect(Object.keys(result.places)).toEqual(
+        (parsed.data.places ?? []).map((place) => place.key),
+      );
+      expect(Object.keys(result.regions)).toEqual(
+        (parsed.data.regions ?? []).map((region) => region.key),
+      );
+      expect(Object.keys(result.occasions)).toEqual(
+        (parsed.data.occasions ?? []).map((occasion) => occasion.key),
+      );
+    });
   });
 
   it("does not exist while the development tools are off", async () => {
