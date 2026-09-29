@@ -137,9 +137,8 @@ function StatusNotice({ data }: { data: MyApplicationData }) {
                 ),
               })}
         >
-          {data.kind === "stewardship"
-            ? "申請者は店舗管理者になりました。店舗の管理へ進めます。"
-            : "申請の内容が反映されました。反映先が閲覧できなくなっていれば、開いた先で閲覧できないことが示されます。"}
+          {data.approvedText ??
+            "申請の内容が反映されました。反映先が閲覧できなくなっていれば、開いた先で閲覧できないことが示されます。"}
         </Notice>
       );
     case "rejected":

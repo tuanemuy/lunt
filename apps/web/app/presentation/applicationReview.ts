@@ -9,6 +9,8 @@ import type {
 } from "./applicationContent";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import type { NextStep } from "./myApplicationDetail";
+import type { OccasionFrame } from "./occasionView";
+import type { RegionFrame } from "./regionView";
 import { validateInput } from "./validator";
 
 /**
@@ -40,9 +42,37 @@ export type ReviewFactsData =
   | Readonly<{ kind: "stewardship"; placeHasSteward: boolean }>
   | Readonly<{ kind: "none" }>;
 
+/**
+ * The area CM-01 is drawn in, by who opened it (`spec/pages/index.md`
+ * 「読みもの編集とサービス運営のナビゲーション」): the region's or event's
+ * steward sees its management nav; everyone else — an operator, also
+ * one deciding for a region or event without stewards — the operators'.
+ */
+export type ReviewFrame =
+  | Readonly<{ kind: "ops" }>
+  | Readonly<{ kind: "region"; frame: RegionFrame }>
+  | Readonly<{ kind: "occasion"; frame: OccasionFrame }>;
+
+/** The region or event whose stewards decide an affiliation, leave or participation. */
+export type ReviewSeat = Readonly<{
+  kind: "region" | "occasion";
+  id: string;
+  name: string;
+}>;
+
 export type ApplicationReviewData = Readonly<{
   id: string;
   kind: ApplicationKind;
+  frame: ReviewFrame;
+  /** `null` for the kinds the operators decide. */
+  seat: ReviewSeat | null;
+  /**
+   * ISO; when the operators may decide in the stewards' place — shown
+   * while the application awaits them (期間超過の前). `null` otherwise.
+   */
+  proxyableAt: string | null;
+  /** What approving did, for CS-13 (`…が、…の所属店舗になりました。`). */
+  approvedText: string;
   /** The version the decision is sent against (CS-07). */
   version: number;
   status: StatusData;
@@ -102,6 +132,9 @@ export const approveApplicationSchema = decisionBase.extend({
     "registration",
     "revision",
     "stewardship",
+    "affiliation",
+    "leave",
+    "participation",
     "listing",
     "listingRevision",
   ]),

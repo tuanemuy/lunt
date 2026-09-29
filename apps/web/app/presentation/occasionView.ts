@@ -130,6 +130,8 @@ export type SubjectApplicationItem = Readonly<{
   applicationId: string;
   title: string;
   meta: string;
+  /** A participation's attached listings and days, in one line. */
+  detail: string | null;
   status: string;
   tone: "accent" | "alert" | "muted" | "neutral";
   underReview: boolean;

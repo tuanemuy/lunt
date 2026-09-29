@@ -7,7 +7,7 @@ import { NotFoundError } from "@repo/core/application/errors";
 import { PlaceId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { requireActor } from "./actor";
-import { applicantText, subjectTitle } from "./applicationSubjects";
+import { applicantText, applicationTitle } from "./applicationSubjects";
 import { APPLICATION_KIND_TITLE, monthDayText } from "./applicationWords";
 import type { MyApplicationItem, MyApplicationsPage } from "./myApplications";
 
@@ -64,7 +64,7 @@ function toItem(
   return {
     id: summary.id,
     kind: summary.kind,
-    title: `${APPLICATION_KIND_TITLE[summary.kind]} · ${subjectTitle(summary.subjects)}`,
+    title: `${APPLICATION_KIND_TITLE[summary.kind]} · ${applicationTitle(summary)}`,
     status: summary.status.kind,
     meta: `申請者 ${applicantText(summary.applicant)} · ${dateText(summary)}`,
     notes: notesOf(summary, companions),

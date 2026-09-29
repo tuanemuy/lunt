@@ -11,7 +11,7 @@ import { Version } from "@repo/core/domain/common/version";
 import { requireActor } from "./actor";
 import {
   applicationIdOf,
-  applyPath,
+  applyHref,
   contentData,
   contentPlaceId,
   shopHomePath,
@@ -22,7 +22,20 @@ import {
 import { applicantText, subjectName } from "./applicationSubjects";
 import type { MyApplicationData, NextStep } from "./myApplicationDetail";
 
-/** Who decides each kind (the approver seat), as the applicant reads it. */
+const subjectOfKind = (
+  view: MyApplicationView,
+  kind: "place" | "region" | "occasion",
+  fallback: string,
+): string => {
+  const subject = view.subjects.find(({ ref }) => ref.kind === kind);
+  return subject === undefined ? fallback : subjectName(subject);
+};
+
+/**
+ * Who decides each kind (the approver seat), as the applicant reads it:
+ * the operators, or the region's / event's stewards (the operators stand
+ * in for them, which the applicant need not tell apart).
+ */
 function approverText(view: MyApplicationView): string {
   switch (view.kind) {
     case "registration":
@@ -31,6 +44,29 @@ function approverText(view: MyApplicationView): string {
     case "listing":
     case "listingRevision":
       return "サービス運営者";
+    case "affiliation":
+    case "leave":
+      return `${subjectOfKind(view, "region", "地域")} の地域運営者`;
+    case "participation":
+      return `${subjectOfKind(view, "occasion", "イベント")} のイベント運営者`;
+  }
+}
+
+/** What an approval did, as the approval's notice says it (MY-05 承認). */
+function approvedText(view: MyApplicationView): string | null {
+  if (view.status.kind !== "approved") return null;
+  const place = subjectOfKind(view, "place", "店舗");
+  switch (view.kind) {
+    case "affiliation":
+      return `${place} は ${subjectOfKind(view, "region", "地域")} に所属しました。地域のページに、${place} と掲載が並びます。`;
+    case "leave":
+      return `${place} は ${subjectOfKind(view, "region", "地域")} から離脱しました。地域のページに、${place} は並びません。`;
+    case "participation":
+      return `${place} は ${subjectOfKind(view, "occasion", "イベント")} に参加します。イベントのページに、${place} と添えた掲載が並びます。`;
+    case "stewardship":
+      return "申請者は店舗管理者になりました。店舗の管理へ進めます。";
+    default:
+      return "申請の内容が反映されました。反映先が閲覧できなくなっていれば、開いた先で閲覧できないことが示されます。";
   }
 }
 
@@ -125,7 +161,29 @@ function nextSteps(view: MyApplicationView): readonly NextStep[] {
                 meta: "店舗に店舗管理者がいなければ、掲載を申請できます",
               },
             ];
-      default:
+      case "placeHasSteward":
+        return placeId === null
+          ? []
+          : [
+              {
+                href: `/apply/places/${encodeURIComponent(placeId)}/stewardship`,
+                title: "店舗の管理権限を申請する",
+                meta: "再び店舗管理者になるには、管理権限を申請します",
+              },
+            ];
+      case "notParticipating":
+        return placeId === null
+          ? []
+          : [
+              {
+                href: `/manage/places/${encodeURIComponent(placeId)}/events`,
+                title: `${placeName} の参加するイベント`,
+                meta: "参加はすでに成立しています。参加内容を変えるなら、参加の状況から変更できます",
+              },
+            ];
+      case "notAffiliated":
+      case "affiliated":
+      case "occasionOpen":
         return [];
     }
   };
@@ -134,7 +192,6 @@ function nextSteps(view: MyApplicationView): readonly NextStep[] {
 
 function toData(view: MyApplicationView): MyApplicationData {
   const status = statusData(view.status);
-  const path = applyPath(view.content);
   const ended =
     status.kind === "rejected" ||
     status.kind === "withdrawn" ||
@@ -161,13 +218,12 @@ function toData(view: MyApplicationView): MyApplicationData {
           ? { id: view.registrationId, kind: "registration", status: null }
           : null,
     reflected: reflectedStep(view),
+    approvedText: approvedText(view),
     resubmitHref:
       status.kind === "returned"
-        ? `${path}?resubmit=${encodeURIComponent(view.id)}`
+        ? applyHref(view.content, "resubmit", view.id)
         : null,
-    reapplyHref: ended
-      ? `${path}?reapply=${encodeURIComponent(view.id)}`
-      : null,
+    reapplyHref: ended ? applyHref(view.content, "reapply", view.id) : null,
     nextSteps: nextSteps(view),
   };
 }

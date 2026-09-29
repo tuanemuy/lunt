@@ -30,6 +30,7 @@ import { requireActor } from "./actor";
 import { subjectName, subjectTitle } from "./applicationSubjects";
 import {
   APPLICATION_KIND_TITLE,
+  LAPSE_REASON_SHORT,
   monthDayText,
   STATUS_LABEL,
   STATUS_TONE,
@@ -230,6 +231,9 @@ function applicationItem(summary: ApplicationSummary): RegionApplicationItem {
       `申請者 ${applicantLine(summary.applicant)}`,
       monthDayText(summary.submittedAt.toISOString()),
       ...(overdue ? ["サービス運営者が期間超過の代行で判断"] : []),
+      ...(status.kind === "lapsed"
+        ? status.brokenPremises.map((key) => LAPSE_REASON_SHORT[key])
+        : []),
     ].join(" · "),
     status: status.kind,
     statusLabel: STATUS_LABEL[status.kind],

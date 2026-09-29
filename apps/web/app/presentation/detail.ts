@@ -205,10 +205,11 @@ export const loadOccasionDetailFn = createServerFn({ method: "GET" })
       import("@repo/core/domain/common/ids"),
       import("./actor"),
     ]);
+    const actor = await resolveActor(container);
     const output = await viewOccasion({
       container,
-      actor: await resolveActor(container),
+      actor,
       input: { occasionId: OccasionId.create(data.occasionId) },
     });
-    return toOccasionDetailData(output, today);
+    return toOccasionDetailData(output, today, actor !== null);
   });

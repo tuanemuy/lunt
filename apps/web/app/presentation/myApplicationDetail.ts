@@ -39,7 +39,9 @@ export type MyApplicationData = Readonly<{
   pair: PairedApplication | null;
   /** Where the approval landed (DT-01 / DT-02, SM-01 for a claim). */
   reflected: NextStep | null;
-  /** RQ-02〜RQ-04 in 再提出 (returned) or 入力 from this one (ended). */
+  /** What the approval did (承認), `null` otherwise. */
+  approvedText: string | null;
+  /** RQ-02〜RQ-06 in 再提出 (returned) or 入力 from this one (ended). */
   resubmitHref: string | null;
   reapplyHref: string | null;
   /** 失効: where the applicant can go next (APP-05), besides reapplying. */

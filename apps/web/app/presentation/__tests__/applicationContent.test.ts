@@ -11,6 +11,7 @@ import {
 } from "@repo/core/domain/application/texts";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { PhotoId } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import {
   ListingDescription,
   ListingName,
@@ -18,13 +19,16 @@ import {
 import { notificationIds } from "@repo/core/domain/notification/testing/samples";
 import { describe, expect, it } from "vitest";
 import {
-  applyPath,
+  applyHref,
+  attachedLine,
   contentData,
   statusData,
   subjectItems,
 } from "../applicationContentData";
 import {
   applicantText,
+  applicationTitle,
+  listApplicantText,
   reviewerApplicantText,
   subjectTitle,
 } from "../applicationSubjects";
@@ -222,7 +226,9 @@ describe("application content", () => {
         },
       ],
     });
-    expect(applyPath(view)).toBe(`/apply/listings/${listingId}/revision`);
+    expect(applyHref(view, "reapply", "app-1")).toBe(
+      `/apply/listings/${listingId}/revision?reapply=app-1`,
+    );
   });
 
   it("shows only the proposed values of a revision whose listing is gone", () => {
@@ -245,5 +251,136 @@ describe("application content", () => {
     expect(data.rows).toEqual([
       { label: "説明", value: { kind: "text", text: "しっとり" } },
     ]);
+  });
+});
+
+describe("region and event applications", () => {
+  const place = ids.place();
+  const region = ids.region();
+  const occasion = ids.occasion();
+  const subjects: readonly SubjectView[] = [
+    { ref: { kind: "place", id: place }, name: "喫茶 日々", notYet: false },
+    {
+      ref: { kind: "region", id: region },
+      name: "こもれび商店街",
+      notYet: false,
+    },
+  ];
+
+  it("titles a steward's affiliation by its region, an individual's with the store", () => {
+    expect(
+      applicationTitle({
+        kind: "affiliation",
+        applicant: { kind: "place", placeId: place, name: "喫茶 日々" },
+        subjects,
+      }),
+    ).toBe("こもれび商店街");
+    expect(
+      applicationTitle({
+        kind: "leave",
+        applicant: {
+          kind: "individual",
+          accountId: ids.account(),
+          email: null,
+        },
+        subjects,
+      }),
+    ).toBe("こもれび商店街（喫茶 日々）");
+    expect(
+      listApplicantText({ kind: "place", placeId: place, name: "喫茶 日々" }),
+    ).toBe("喫茶 日々（店舗）");
+  });
+
+  it("continues an affiliation, a leave and a participation on RQ-05 / RQ-06", () => {
+    expect(
+      applyHref(
+        { kind: "leave", placeId: place, regionId: region },
+        "resubmit",
+        "a1",
+      ),
+    ).toBe(
+      `/apply/affiliation?placeId=${place}&regionId=${region}&mode=leave&resubmit=a1`,
+    );
+    expect(
+      applyHref(
+        {
+          kind: "participation",
+          placeId: place,
+          occasionId: occasion,
+          listings: [],
+          dates: [],
+        },
+        "reapply",
+        "a2",
+      ),
+    ).toBe(
+      `/apply/participation?placeId=${place}&occasionId=${occasion}&reapply=a2`,
+    );
+  });
+
+  it("shows a participation's attached listings with why viewers do not see them", () => {
+    const shown = ids.listing();
+    const gone = ids.listing();
+    const data = contentData({
+      kind: "participation",
+      placeId: place,
+      occasionId: occasion,
+      listings: [
+        {
+          id: shown,
+          deleted: false,
+          name: ListingName.create("いちじくのパフェ"),
+          publication: { status: "published", firstPublishedAt: new Date(0) },
+          suspended: false,
+          offeringStatus: { phase: "available" },
+          viewable: true,
+        },
+        { id: gone, deleted: true },
+      ],
+      dates: [LocalDate.parse("2026-10-10"), LocalDate.parse("2026-10-11")],
+    });
+    expect(data.rows).toEqual([
+      {
+        label: "添えた掲載",
+        value: {
+          kind: "listings",
+          listings: [
+            {
+              id: shown,
+              name: "いちじくのパフェ",
+              state: "提供中",
+              hidden: false,
+              href: `/listings/${shown}`,
+            },
+            {
+              id: gone,
+              name: "削除された掲載",
+              state: "削除された掲載",
+              hidden: true,
+              href: null,
+            },
+          ],
+        },
+      },
+      {
+        label: "参加日",
+        value: { kind: "text", text: "10月10日（土）、10月11日（日）" },
+      },
+    ]);
+    expect(
+      attachedLine({
+        id: shown,
+        deleted: false,
+        name: null,
+        publication: {
+          status: "unpublished",
+          firstPublishedAt: new Date(0),
+          reason: "byManager",
+        },
+        suspended: false,
+        offeringStatus: { phase: "available" },
+        viewable: false,
+      }),
+    ).toMatchObject({ state: "一時非公開", hidden: true, href: null });
   });
 });

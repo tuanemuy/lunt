@@ -15,10 +15,10 @@ import {
   CLAIMANT_STANDINGS,
   type ClaimantStandingValue,
   detailPath,
-  type ReportTargetRow,
   STANDING_LABEL,
   submitTakedownClaimFn,
   type TakedownPhoto,
+  type TakedownTargetRow,
 } from "@/presentation/moderation";
 import { newId } from "@/presentation/newId";
 import { useReconcile } from "@/presentation/reconcile";
@@ -110,15 +110,25 @@ const FIELD_ANCHORS = [
 ] as const;
 
 /**
- * The standings a claimant may choose: a region, an occasion or an
- * article takes photo rights holders only (RQ-07, from DT-03–DT-05).
+ * Whether a claimant may stand as the proprietor: a region or an event
+ * takes photo rights holders only (RQ-07, from DT-03・DT-04), so the
+ * proprietor is shown but cannot be chosen and the rights holder starts
+ * chosen.
  */
-const standingsFor = (
-  kind: ReportTargetRow["kind"],
-): readonly ClaimantStandingValue[] =>
-  kind === "place" || kind === "listing"
-    ? CLAIMANT_STANDINGS
-    : ["photoRightsHolder"];
+const proprietorAllowed = (kind: TakedownTargetRow["kind"]): boolean =>
+  kind === "place" || kind === "listing";
+
+function standingHelp(kind: TakedownTargetRow["kind"]): string {
+  switch (kind) {
+    case "place":
+      return "店舗本人は、この店舗の取り下げを求めます。Lunt への掲載をやめたい店舗管理者も、店舗本人としてここから申し立てます。写真の権利者は、削除を求める写真を選びます。";
+    case "listing":
+      return "店舗本人は、この掲載の取り下げを求めます。写真の権利者は、削除を求める写真を選びます。";
+    case "region":
+    case "occasion":
+      return "地域・イベントは、写真の権利者として申し立てます。店舗本人は選べません。";
+  }
+}
 
 /**
  * RQ-07 取り下げの申立て (MOD-01): no login. The claimant's standing,
@@ -131,13 +141,13 @@ export function TakedownClaimForm({
   target,
   photos,
 }: {
-  target: ReportTargetRow;
+  target: TakedownTargetRow;
   photos: readonly TakedownPhoto[];
 }) {
   const reconcile = useReconcile();
-  const standings = standingsFor(target.kind);
+  const canBeProprietor = proprietorAllowed(target.kind);
   const [values, setValues] = useState<Values>({
-    standing: standings.length === 1 ? (standings[0] ?? null) : null,
+    standing: canBeProprietor ? null : "photoRightsHolder",
     photoIds: [],
     reason: "",
     email: "",
@@ -334,9 +344,12 @@ export function TakedownClaimForm({
               legend="申し立てる人の立場"
               name="standing"
               requirement="required"
-              choices={standings.map((value) => ({
+              choices={CLAIMANT_STANDINGS.map((value) => ({
                 value,
                 label: STANDING_LABEL[value],
+                ...(value === "proprietor" && !canBeProprietor
+                  ? { disabled: true }
+                  : {}),
               }))}
               value={values.standing}
               onChange={(standing) =>
@@ -345,13 +358,7 @@ export function TakedownClaimForm({
               {...(fields.standing === undefined
                 ? {}
                 : { error: fields.standing })}
-              help={
-                target.kind === "place"
-                  ? "店舗本人は、この店舗の取り下げを求めます。Lunt への掲載をやめたい店舗管理者も、店舗本人としてここから申し立てます。写真の権利者は、削除を求める写真を選びます。"
-                  : target.kind === "listing"
-                    ? "店舗本人は、この掲載の取り下げを求めます。写真の権利者は、削除を求める写真を選びます。"
-                    : "写真の権利者として、削除を求める写真を選びます。"
-              }
+              help={standingHelp(target.kind)}
             />
           </div>
 

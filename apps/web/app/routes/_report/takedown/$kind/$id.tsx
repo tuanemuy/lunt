@@ -10,7 +10,7 @@ import { loadTakedownPageFn } from "@/presentation/moderation";
 const HEADING = "取り下げを申し立てる";
 
 /**
- * RQ-07 取り下げの申立て (`/takedown/{place|listing}/$id`): no login.
+ * RQ-07 取り下げの申立て (`/takedown/{place|listing|region|occasion}/$id`): no login.
  * Interactive from the start, so a plain loader reads the target; a
  * target viewers cannot see opens as CS-06.
  */

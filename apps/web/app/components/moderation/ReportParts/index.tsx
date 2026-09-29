@@ -11,7 +11,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Row } from "@/components/ui/Rows";
 import { Skeleton } from "@/components/ui/Skeleton";
-import type { ReportTargetRow } from "@/presentation/moderation";
+import type { TakedownTargetRow } from "@/presentation/moderation";
 
 /** The title band of RQ-07 / RQ-08. */
 export function ReportTitle({ heading }: { heading: string }) {
@@ -23,7 +23,7 @@ export function ReportTitle({ heading }: { heading: string }) {
 }
 
 /** A target as a photo row (申立ての対象 / 連絡の対象). */
-export function ReportTargetRowView({ row }: { row: ReportTargetRow }) {
+export function ReportTargetRowView({ row }: { row: TakedownTargetRow }) {
   return (
     <Row
       photo={row.photoUrl === null ? null : { src: row.photoUrl, alt: "" }}

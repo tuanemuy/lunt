@@ -30,7 +30,9 @@ import { Route as AccountLoginLinkRouteImport } from './routes/_account/login/li
 import { Route as AccountMeIndexRouteImport } from './routes/_account/me/index'
 import { Route as AccountMeNotificationsRouteImport } from './routes/_account/me/notifications'
 import { Route as AccountMeWithdrawRouteImport } from './routes/_account/me/withdraw'
+import { Route as ApplyApplyAffiliationRouteImport } from './routes/_apply/apply/affiliation'
 import { Route as ApplyApplyFindPlaceRouteImport } from './routes/_apply/apply/find-place'
+import { Route as ApplyApplyParticipationRouteImport } from './routes/_apply/apply/participation'
 import { Route as ManageOpsIndexRouteImport } from './routes/_manage/ops/index'
 import { Route as ManageOpsCategoriesRouteImport } from './routes/_manage/ops/categories'
 import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
@@ -191,9 +193,19 @@ const AccountMeWithdrawRoute = AccountMeWithdrawRouteImport.update({
   path: '/me/withdraw',
   getParentRoute: () => AccountRoute,
 } as any)
+const ApplyApplyAffiliationRoute = ApplyApplyAffiliationRouteImport.update({
+  id: '/apply/affiliation',
+  path: '/apply/affiliation',
+  getParentRoute: () => ApplyRoute,
+} as any)
 const ApplyApplyFindPlaceRoute = ApplyApplyFindPlaceRouteImport.update({
   id: '/apply/find-place',
   path: '/apply/find-place',
+  getParentRoute: () => ApplyRoute,
+} as any)
+const ApplyApplyParticipationRoute = ApplyApplyParticipationRouteImport.update({
+  id: '/apply/participation',
+  path: '/apply/participation',
   getParentRoute: () => ApplyRoute,
 } as any)
 const ManageOpsIndexRoute = ManageOpsIndexRouteImport.update({
@@ -510,7 +522,9 @@ export interface FileRoutesByFullPath {
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
   '/me/withdraw': typeof AccountMeWithdrawRoute
+  '/apply/affiliation': typeof ApplyApplyAffiliationRoute
   '/apply/find-place': typeof ApplyApplyFindPlaceRoute
+  '/apply/participation': typeof ApplyApplyParticipationRoute
   '/ops/categories': typeof ManageOpsCategoriesRoute
   '/ops/roles': typeof ManageOpsRolesRoute
   '/ops/search': typeof ManageOpsSearchRoute
@@ -580,7 +594,9 @@ export interface FileRoutesByTo {
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
   '/me/withdraw': typeof AccountMeWithdrawRoute
+  '/apply/affiliation': typeof ApplyApplyAffiliationRoute
   '/apply/find-place': typeof ApplyApplyFindPlaceRoute
+  '/apply/participation': typeof ApplyApplyParticipationRoute
   '/ops/categories': typeof ManageOpsCategoriesRoute
   '/ops/roles': typeof ManageOpsRolesRoute
   '/ops/search': typeof ManageOpsSearchRoute
@@ -654,7 +670,9 @@ export interface FileRoutesById {
   '/_account/login/link': typeof AccountLoginLinkRoute
   '/_account/me/notifications': typeof AccountMeNotificationsRoute
   '/_account/me/withdraw': typeof AccountMeWithdrawRoute
+  '/_apply/apply/affiliation': typeof ApplyApplyAffiliationRoute
   '/_apply/apply/find-place': typeof ApplyApplyFindPlaceRoute
+  '/_apply/apply/participation': typeof ApplyApplyParticipationRoute
   '/_manage/ops/categories': typeof ManageOpsCategoriesRoute
   '/_manage/ops/roles': typeof ManageOpsRolesRoute
   '/_manage/ops/search': typeof ManageOpsSearchRoute
@@ -727,7 +745,9 @@ export interface FileRouteTypes {
     | '/login/link'
     | '/me/notifications'
     | '/me/withdraw'
+    | '/apply/affiliation'
     | '/apply/find-place'
+    | '/apply/participation'
     | '/ops/categories'
     | '/ops/roles'
     | '/ops/search'
@@ -797,7 +817,9 @@ export interface FileRouteTypes {
     | '/login/link'
     | '/me/notifications'
     | '/me/withdraw'
+    | '/apply/affiliation'
     | '/apply/find-place'
+    | '/apply/participation'
     | '/ops/categories'
     | '/ops/roles'
     | '/ops/search'
@@ -870,7 +892,9 @@ export interface FileRouteTypes {
     | '/_account/login/link'
     | '/_account/me/notifications'
     | '/_account/me/withdraw'
+    | '/_apply/apply/affiliation'
     | '/_apply/apply/find-place'
+    | '/_apply/apply/participation'
     | '/_manage/ops/categories'
     | '/_manage/ops/roles'
     | '/_manage/ops/search'
@@ -1093,11 +1117,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountMeWithdrawRouteImport
       parentRoute: typeof AccountRoute
     }
+    '/_apply/apply/affiliation': {
+      id: '/_apply/apply/affiliation'
+      path: '/apply/affiliation'
+      fullPath: '/apply/affiliation'
+      preLoaderRoute: typeof ApplyApplyAffiliationRouteImport
+      parentRoute: typeof ApplyRoute
+    }
     '/_apply/apply/find-place': {
       id: '/_apply/apply/find-place'
       path: '/apply/find-place'
       fullPath: '/apply/find-place'
       preLoaderRoute: typeof ApplyApplyFindPlaceRouteImport
+      parentRoute: typeof ApplyRoute
+    }
+    '/_apply/apply/participation': {
+      id: '/_apply/apply/participation'
+      path: '/apply/participation'
+      fullPath: '/apply/participation'
+      preLoaderRoute: typeof ApplyApplyParticipationRouteImport
       parentRoute: typeof ApplyRoute
     }
     '/_manage/ops/': {
@@ -1503,7 +1541,9 @@ const AccountRouteWithChildren =
   AccountRoute._addFileChildren(AccountRouteChildren)
 
 interface ApplyRouteChildren {
+  ApplyApplyAffiliationRoute: typeof ApplyApplyAffiliationRoute
   ApplyApplyFindPlaceRoute: typeof ApplyApplyFindPlaceRoute
+  ApplyApplyParticipationRoute: typeof ApplyApplyParticipationRoute
   ApplyApplyPlacesNewRoute: typeof ApplyApplyPlacesNewRoute
   ApplyApplyListingsListingIdRevisionRoute: typeof ApplyApplyListingsListingIdRevisionRoute
   ApplyApplyPlacesPlaceIdRevisionRoute: typeof ApplyApplyPlacesPlaceIdRevisionRoute
@@ -1512,7 +1552,9 @@ interface ApplyRouteChildren {
 }
 
 const ApplyRouteChildren: ApplyRouteChildren = {
+  ApplyApplyAffiliationRoute: ApplyApplyAffiliationRoute,
   ApplyApplyFindPlaceRoute: ApplyApplyFindPlaceRoute,
+  ApplyApplyParticipationRoute: ApplyApplyParticipationRoute,
   ApplyApplyPlacesNewRoute: ApplyApplyPlacesNewRoute,
   ApplyApplyListingsListingIdRevisionRoute:
     ApplyApplyListingsListingIdRevisionRoute,

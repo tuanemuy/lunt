@@ -1,17 +1,30 @@
 // Server-only: import from server components or server-function handlers
 // (dynamically), never from client components.
+import { listApplicationsForSubject } from "@repo/core/application/application/listApplicationsForSubject";
 import { getContainer } from "@repo/core/application/di/containerStore";
+import type { RequestContainer } from "@repo/core/application/di/types";
 import type { AttachedListingView } from "@repo/core/application/occasion/attachedListings";
 import { getPlaceParticipations } from "@repo/core/application/occasion/getPlaceParticipations";
 import { getPlaceAffiliationStatus } from "@repo/core/application/region/getPlaceAffiliationStatus";
+import type { ApplicationKind } from "@repo/core/domain/application/application";
+import type { Actor } from "@repo/core/domain/common/actor";
 import type { DateRange } from "@repo/core/domain/common/dateRange";
+import type { PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { requireActor } from "./actor";
+import { applicationTitle } from "./applicationSubjects";
+import {
+  APPLICATION_KIND_TITLE,
+  monthDayText,
+  STATUS_LABEL,
+  STATUS_TONE,
+} from "./applicationWords";
 import { jpDateWithWeekday, listingStateText } from "./listingView";
 import { PAGINATION_MAX_LIMIT } from "./pagination";
 import type {
   AffiliationStatusData,
   AttachedListingLine,
+  PendingApplicationItem,
   ShopEventsData,
 } from "./shopRelations";
 import { placeIdOf } from "./targetIds";
@@ -28,17 +41,50 @@ function monthText(instant: Date, today: LocalDate): string {
   return year === thisYear ? `${month}月` : `${year}年${month}月`;
 }
 
+/** The most applications of a store SM-05 and SM-06 read (a store has few in progress). */
+const PENDING_LIMIT = 100;
+
+/**
+ * The store's applications of `kinds` under review or returned
+ * (`listApplicationsForSubject`: those made as its steward), each leading
+ * to its MY-05.
+ */
+async function pendingApplications(
+  container: RequestContainer,
+  actor: Actor,
+  placeId: PlaceId,
+  kinds: readonly ApplicationKind[],
+): Promise<readonly PendingApplicationItem[]> {
+  const page = await listApplicationsForSubject({
+    container,
+    actor,
+    input: {
+      subject: { kind: "place", id: placeId },
+      pagination: { page: 1, limit: PENDING_LIMIT },
+    },
+  });
+  return page.items
+    .filter((item) => kinds.includes(item.kind))
+    .map((item) => ({
+      applicationId: item.id,
+      title: `${APPLICATION_KIND_TITLE[item.kind]} · ${applicationTitle(item)}`,
+      meta: `申請者 ${item.applicant.kind === "place" ? (item.applicant.name ?? "この店舗") : "あなた"} · ${monthDayText(item.submittedAt.toISOString())}`,
+      status: STATUS_LABEL[item.status.kind],
+      tone: STATUS_TONE[item.status.kind],
+    }));
+}
+
 /** SM-05. */
 export async function loadAffiliationStatus(
   rawPlaceId: string,
 ): Promise<AffiliationStatusData> {
   const { container, actor } = await actorAndContainer();
   const today = LocalDate.fromInstant(container.clock.now());
-  const status = await getPlaceAffiliationStatus({
-    container,
-    actor,
-    input: { placeId: placeIdOf(rawPlaceId) },
-  });
+  const placeId = placeIdOf(rawPlaceId);
+  const [status, pending] = await Promise.all([
+    getPlaceAffiliationStatus({ container, actor, input: { placeId } }),
+    pendingApplications(container, actor, placeId, ["affiliation", "leave"]),
+  ]);
   return {
     regions: status.regions.map((region) => ({
       regionId: region.regionId,
@@ -56,6 +102,7 @@ export async function loadAffiliationStatus(
             chosen: status.representative.chosen,
           },
     displayedRegionId: status.displayedRegionId,
+    pending,
   };
 }
 
@@ -119,5 +166,10 @@ export async function loadShopEvents(
     }
     if (read.items.length === 0 || items.length >= read.count) break;
   }
-  return { items };
+  return {
+    items,
+    pending: await pendingApplications(container, actor, placeId, [
+      "participation",
+    ]),
+  };
 }

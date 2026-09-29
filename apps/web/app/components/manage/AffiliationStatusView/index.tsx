@@ -7,12 +7,12 @@ import { ManageBody, ManageSection } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { ChipButton } from "@/components/ui/ChipButton";
+import { ChipButton, ChipLink } from "@/components/ui/ChipButton";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Row, RowLink } from "@/components/ui/Rows";
-import { TextLink } from "@/components/ui/TextButton";
+import { membershipApplyHref } from "@/presentation/applyRelationsView";
 import { classifyError } from "@/presentation/errorState";
 import { useReconcile } from "@/presentation/reconcile";
 import {
@@ -22,6 +22,7 @@ import {
   chooseRepresentativeRegionFn,
   hiddenReason,
 } from "@/presentation/shopRelations";
+import { PendingApplications } from "../PendingApplications";
 import { placePagePath, ShopPage } from "../ShopShell";
 import { usePlaceFrame } from "../ShopShell/usePlaceFrame";
 
@@ -131,6 +132,7 @@ function RegionBadges({
 }
 
 function RegionItem({
+  placeId,
   region,
   representative,
   displayedRegionId,
@@ -138,6 +140,7 @@ function RegionItem({
   choosing,
   onChoose,
 }: {
+  placeId: string;
   region: AffiliatedRegionItem;
   representative: Representative;
   displayedRegionId: string | null;
@@ -180,9 +183,9 @@ function RegionItem({
           {`${hidden ?? "閲覧者に表示されていないため"}、閲覧者には所属地域として表示されていません。`}
         </p>
       )}
-      {choosable ? (
-        <div className="p-item__ops">
-          {isRepresentative ? (
+      <div className="p-item__ops">
+        {choosable ? (
+          isRepresentative ? (
             <ChipButton disabled>代表地域です</ChipButton>
           ) : (
             <ChipButton
@@ -192,9 +195,19 @@ function RegionItem({
             >
               代表地域にする
             </ChipButton>
-          )}
-        </div>
-      ) : null}
+          )
+        ) : null}
+        <ChipLink
+          to={membershipApplyHref({
+            placeId,
+            regionId: region.regionId,
+            mode: "leave",
+          })}
+          aria-label={`${nameOf(region)}からの離脱を申請`}
+        >
+          離脱を申請
+        </ChipLink>
+      </div>
     </li>
   );
 }
@@ -261,9 +274,9 @@ function OutcomeAlert({ outcome }: { outcome: Outcome }) {
  * (`chooseRepresentativeRegion`, no approval): the choice shows at once
  * (`useOptimistic`), then the screen confirms it (CS-13); a region whose
  * affiliation ended or that already is the representative answers CS-08
- * with the latest state. The pending applications and the entries to
- * RQ-05 (所属・離脱の申請) arrive with stage 3b; MY-04 lists the store's
- * applications meanwhile.
+ * with the latest state. The entries to RQ-05 — 所属の申請, and 離脱の申請
+ * per region — and the store's affiliation and leave applications in
+ * progress, each leading to its MY-05.
  */
 export function AffiliationStatusView({
   data,
@@ -365,12 +378,31 @@ export function AffiliationStatusView({
     );
   }
 
+  const joinHref = membershipApplyHref({
+    placeId: frame.placeId,
+    mode: "join",
+  });
   return (
-    <ShopPage frame={frame} heading={HEADING}>
+    <ShopPage
+      frame={frame}
+      heading={HEADING}
+      {...(regions.length === 0
+        ? {}
+        : {
+            actions: <ButtonLink to={joinHref}>地域への所属を申請</ButtonLink>,
+          })}
+    >
       <ManageBody>
         {outcome === null ? null : <OutcomeAlert outcome={outcome} />}
         {regions.length === 0 ? (
-          <EmptyPanel title="所属している地域はありません">
+          <EmptyPanel
+            title="所属している地域はありません"
+            actions={
+              <ButtonLink variant="secondary" to={joinHref}>
+                地域への所属を申請
+              </ButtonLink>
+            }
+          >
             地域に所属すると、店舗と掲載が地域の一覧に表示されます。所属は、地域の運営者の承認で決まります。
           </EmptyPanel>
         ) : (
@@ -387,6 +419,7 @@ export function AffiliationStatusView({
                 {regions.map((region) => (
                   <RegionItem
                     key={region.regionId}
+                    placeId={frame.placeId}
                     region={region}
                     representative={representative}
                     displayedRegionId={data.displayedRegionId}
@@ -404,9 +437,13 @@ export function AffiliationStatusView({
             </ManageSection>
           </>
         )}
-        <TextLink to="/me/applications" search={{ place: frame.placeId }}>
-          この店舗の申請をすべて見る
-        </TextLink>
+        <PendingApplications
+          id="sm05-apply"
+          title="申請中の地域"
+          empty="申請中の地域はありません。"
+          items={data.pending}
+          placeId={frame.placeId}
+        />
       </ManageBody>
     </ShopPage>
   );

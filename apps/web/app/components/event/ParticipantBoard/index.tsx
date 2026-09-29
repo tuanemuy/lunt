@@ -347,7 +347,18 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
                       to="/manage/applications/$applicationId"
                       params={{ applicationId: application.applicationId }}
                       title={application.title}
-                      meta={application.meta}
+                      meta={
+                        application.detail === null ? (
+                          application.meta
+                        ) : (
+                          <>
+                            {application.meta}
+                            <span className="em-apply__detail">
+                              {application.detail}
+                            </span>
+                          </>
+                        )
+                      }
                       end={
                         <Badge tone={application.tone}>
                           {application.status}

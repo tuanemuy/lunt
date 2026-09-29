@@ -3,6 +3,7 @@ import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
 import { TextLink } from "@/components/ui/TextButton";
+import { membershipApplyHref } from "@/presentation/applyRelationsView";
 import { infoReportPath, takedownPath } from "@/presentation/applyView";
 import type { PlaceDetailPage } from "@/presentation/detail";
 import type { PlaceDetailData } from "@/presentation/detailView";
@@ -76,9 +77,9 @@ function PlaceMap({ data }: { data: PlaceDetailData }) {
  * 「詳細の手続きの入口」 of DT-02 (`spec/pages/index.md`): the management
  * (SM-01) for its steward, otherwise 「このお店を管理する」 (RQ-03); the
  * applications of a place without a steward (RQ-02, RQ-04) or the report
- * for one with a steward (RQ-08); the takedown claim (RQ-07) always. The
- * affiliation application (RQ-05, stage 3b) and the save toggle (CF-04,
- * stage 4) join with their stages.
+ * for one with a steward (RQ-08) — the affiliation and leave application
+ * (RQ-05) among the former; the takedown claim (RQ-07) always. The save
+ * toggle (CF-04, stage 4) joins with its stage.
  */
 function PlaceProcedures({ data }: { data: PlaceDetailData }) {
   const { placeId } = data;
@@ -114,6 +115,9 @@ function PlaceProcedures({ data }: { data: PlaceDetailData }) {
               params={{ placeId }}
             >
               掲載を申請する
+            </TextLink>
+            <TextLink quiet to={membershipApplyHref({ placeId })}>
+              街への所属・離脱を申請する
             </TextLink>
           </>
         ) : (

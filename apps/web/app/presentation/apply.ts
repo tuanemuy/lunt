@@ -346,6 +346,14 @@ const resubmissionSchema = z.discriminatedUnion("kind", [
     kind: z.literal("listingRevision"),
     content: listingContentSchema,
   }),
+  z.object({ kind: z.enum(["affiliation", "leave"]) }),
+  z.object({
+    kind: z.literal("participation"),
+    listingIds: z.array(idField).max(100, "掲載は100件までです"),
+    dates: z
+      .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日付を選んでください"))
+      .max(400, "参加日が多すぎます"),
+  }),
 ]);
 
 export type ResubmissionValues = z.infer<typeof resubmissionSchema>;
@@ -365,7 +373,7 @@ export type ResubmitOutcome =
   | Readonly<{ outcome: "resubmitted" }>
   | Readonly<{ outcome: "lapsed"; brokenPremises: readonly string[] }>;
 
-/** RQ-02〜RQ-04 再提出. */
+/** RQ-02〜RQ-06 再提出. */
 export const resubmitApplicationFn = createServerFn({ method: "POST" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(resubmitSchema))
@@ -377,6 +385,8 @@ export const resubmitApplicationFn = createServerFn({ method: "POST" })
       { profileFieldsOf },
       { applicationIdOf },
       { Version },
+      { listingIdOf },
+      { LocalDate },
     ] = await Promise.all([
       import("@repo/core/application/di/containerStore"),
       import("./actor"),
@@ -384,6 +394,8 @@ export const resubmitApplicationFn = createServerFn({ method: "POST" })
       import("./shopData"),
       import("./applyData"),
       import("@repo/core/domain/common/version"),
+      import("./targetIds"),
+      import("@repo/core/domain/common/localDate"),
     ]);
     const container = await getContainer();
     const actor = await requireActor(container);
@@ -406,7 +418,13 @@ export const resubmitApplicationFn = createServerFn({ method: "POST" })
                   profile: profileFieldsOf(amended.profile),
                   operatingStatus: amended.operatingStatus,
                 }
-              : amended,
+              : amended.kind === "participation"
+                ? {
+                    kind: "participation",
+                    listingIds: amended.listingIds.map(listingIdOf),
+                    dates: amended.dates.map((date) => LocalDate.parse(date)),
+                  }
+                : amended,
         reply: data.reply,
       },
     });

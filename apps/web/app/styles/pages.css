@@ -352,3 +352,152 @@
     color: var(--ink);
   }
 }
+
+/*
+  RQ-05 所属・離脱の申請 and RQ-06 参加の申請, after their blocks in
+  spec/design/pages: the candidate rows of CF-02 (a candidate that cannot
+  be chosen shows why), the applicant, fixed values, and the chosen event.
+*/
+@layer components {
+  .rq05-search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .rq05-cands {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--border-1) solid var(--line);
+  }
+  .rq05-cand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-4) var(--space-8);
+    border-bottom: var(--border-1) solid var(--line);
+    transition: background-color var(--transition-default);
+  }
+  .rq05-cand:has(input:checked) {
+    background: var(--light);
+  }
+  .rq05-cand__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+    min-height: var(--size-touch);
+    padding: var(--space-8) 0;
+    cursor: pointer;
+  }
+  .rq05-cand__main input {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+  .rq05-cand__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+  .rq05-cand__name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .rq05-cand__meta,
+  .rq05-cand__reason {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .rq05-cand__link {
+    flex: none;
+    white-space: nowrap;
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+  }
+  .rq05-cand[data-disabled] .rq05-cand__main,
+  .rq05-cand[data-disabled] .rq05-cand__main input {
+    cursor: not-allowed;
+  }
+  .rq05-cand[data-disabled] .rq05-cand__name {
+    color: var(--muted);
+  }
+  .rq05-cands:has(input[aria-invalid="true"]) {
+    outline: var(--border-1) solid var(--focus);
+  }
+  .rq05-caption {
+    padding-top: var(--space-8);
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+  @media (hover: hover) {
+    .rq05-cand:not([data-disabled]):not(:has(input:checked)):hover {
+      background: var(--paper);
+    }
+  }
+  .rq05-applicant {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+  }
+  .rq05-fixed {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+  }
+  .rq05-picked {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .rq06-event__name {
+    font-size: var(--text-lead);
+    line-height: var(--leading-lead);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .rq06-event__meta {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--ink);
+  }
+  .rq06-event__links {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-16);
+  }
+  .rq06-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+  }
+  .rq06-row > .m-row {
+    flex: 1;
+    min-width: 0;
+  }
+  .rq06-row > :not(.m-row) {
+    flex: none;
+  }
+  .rq06-row__state[data-tone="alert"] {
+    color: var(--focus);
+  }
+}

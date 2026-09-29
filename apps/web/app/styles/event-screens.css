@@ -13,6 +13,11 @@
     align-items: center;
     gap: var(--space-8);
   }
+  /* A participation application's attached listings and days (EM-01) */
+  .em-apply__detail {
+    display: block;
+    margin-top: var(--space-4);
+  }
 
   /* EM-01: 行の下の添えた掲載と参加日 */
   .em-sub {

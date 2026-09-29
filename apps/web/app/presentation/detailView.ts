@@ -598,12 +598,18 @@ export type OccasionDetailData = Readonly<{
   hasNoViewableListing: boolean;
   /** Linked viewable regions, in link order. */
   regions: readonly RegionRowItem[];
+  /**
+   * 参加の申請 (RQ-06) is offered: the occasion is upcoming or ongoing and
+   * the viewer is signed out or stewards a place (「詳細の手続きの入口」).
+   */
+  participationEntry: boolean;
 }>;
 
-/** DT-04's data from `viewOccasion`. */
+/** DT-04's data from `viewOccasion`; `signedIn` whether it was read for a signed-in viewer. */
 export function toOccasionDetailData(
   output: ViewOccasionOutput,
   today: string,
+  signedIn: boolean,
 ): OccasionDetailData {
   const { occasion, photos } = output;
   return {
@@ -632,5 +638,9 @@ export function toOccasionDetailData(
     })),
     hasNoViewableListing: output.hasNoViewableListing,
     regions: output.regions.map((region) => regionRow(region, photos)),
+    participationEntry:
+      (occasion.standing.holding === "upcoming" ||
+        occasion.standing.holding === "ongoing") &&
+      (!signedIn || output.viewerManagesPlace),
   };
 }

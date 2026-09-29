@@ -2,10 +2,11 @@
 
 import { ManageBody, ManageSection } from "@/components/layout/ManageShell";
 import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
 import { ChipLink } from "@/components/ui/ChipButton";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Row, RowLink } from "@/components/ui/Rows";
-import { TextLink } from "@/components/ui/TextButton";
+import { participationApplyHref } from "@/presentation/applyRelationsView";
 import {
   type AttachedListingLine,
   CONTENT_PUBLICATION_LABEL,
@@ -14,6 +15,7 @@ import {
   type ShopEventItem,
   type ShopEventsData,
 } from "@/presentation/shopRelations";
+import { PendingApplications } from "../PendingApplications";
 import { ShopPage } from "../ShopShell";
 import { usePlaceFrame } from "../ShopShell/usePlaceFrame";
 
@@ -119,34 +121,59 @@ function EventItem({ item }: { item: ShopEventItem }) {
  * included, hidden ones said to be hidden), its attached listings with
  * their states (deleted ones as deleted) and its days (those the period
  * now leaves out marked). Each leads to CM-04 to change or withdraw the
- * participation. The pending participation applications and the entry to
- * RQ-06 arrive with stage 3b; MY-04 lists the store's applications
- * meanwhile.
+ * participation. The entry to RQ-06 (参加の申請), and the store's
+ * participation applications in progress, each leading to its MY-05.
  */
 export function ShopEventsView({ data }: { data: ShopEventsData }) {
   const frame = usePlaceFrame();
+  const applyHref = participationApplyHref({ placeId: frame.placeId });
+  const empty = data.items.length === 0 && data.pending.length === 0;
   return (
-    <ShopPage frame={frame} heading={HEADING}>
+    <ShopPage
+      frame={frame}
+      heading={HEADING}
+      {...(empty
+        ? {}
+        : {
+            actions: (
+              <ButtonLink to={applyHref}>イベントへの参加を申請</ButtonLink>
+            ),
+          })}
+    >
       <ManageBody>
-        {data.items.length === 0 ? (
-          <EmptyPanel title="参加中・申請中のイベントはありません">
-            イベントに参加すると、イベントのページに店舗と添えた掲載が並びます。
+        {empty ? (
+          <EmptyPanel
+            title="参加中・申請中のイベントはありません"
+            actions={
+              <ButtonLink variant="secondary" to={applyHref}>
+                イベントへの参加を申請
+              </ButtonLink>
+            }
+          >
+            イベントに参加すると、イベントのページに店舗と添えた掲載が並びます。参加するイベントは、参加の申請で選べます。
           </EmptyPanel>
         ) : (
           <>
-            <ManageSection id="sm06-joined" title="参加中のイベント">
-              <ul className="p-items">
-                {data.items.map((item) => (
-                  <EventItem key={item.occasionId} item={item} />
-                ))}
-              </ul>
-            </ManageSection>
+            {data.items.length === 0 ? null : (
+              <ManageSection id="sm06-joined" title="参加中のイベント">
+                <ul className="p-items">
+                  {data.items.map((item) => (
+                    <EventItem key={item.occasionId} item={item} />
+                  ))}
+                </ul>
+              </ManageSection>
+            )}
+            <PendingApplications
+              id="sm06-apply"
+              title="申請中のイベント"
+              empty="申請中のイベントはありません。"
+              help="申請中の参加をやめるときは、申請の詳細で取り下げます。"
+              items={data.pending}
+              placeId={frame.placeId}
+            />
             <p className="p-end">すべてのイベントを表示しました</p>
           </>
         )}
-        <TextLink to="/me/applications" search={{ place: frame.placeId }}>
-          この店舗の申請をすべて見る
-        </TextLink>
       </ManageBody>
     </ShopPage>
   );

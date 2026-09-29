@@ -81,7 +81,9 @@ export type RefusedWhat =
   | "stewardship"
   | "listing"
   | "listingRevision"
-  | "registration";
+  | "registration"
+  | "membership"
+  | "participation";
 
 const WHAT_TEXT = {
   revision: "修正の申請",
@@ -89,6 +91,8 @@ const WHAT_TEXT = {
   listing: "掲載の申請",
   listingRevision: "掲載の修正の申請",
   registration: "登録の申請",
+  membership: "所属・離脱の申請",
+  participation: "参加の申請",
 } as const satisfies Readonly<Record<RefusedWhat, string>>;
 
 /**
@@ -390,18 +394,21 @@ export function ReplyField({
   onChange,
   disabled,
   error,
+  help = "追加の確認に答える内容を書きます。申請の内容は、上の項目で直します。",
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
   error?: string;
+  /** For an application whose content cannot be changed (RQ-05). */
+  help?: string;
 }) {
   return (
     <Field
       id="apply-reply"
       label="追加の確認への回答"
       requirement="optional"
-      help="追加の確認に答える内容を書きます。申請の内容は、上の項目で直します。"
+      help={help}
       {...(error === undefined ? {} : { error })}
     >
       {(control) => (

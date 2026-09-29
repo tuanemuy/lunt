@@ -16,11 +16,13 @@ import type {
   SubjectView,
 } from "@repo/core/application/application/views";
 import { NotFoundError } from "@repo/core/application/errors";
+import type { AttachedListingView } from "@repo/core/application/occasion/attachedListings";
 import { Address } from "@repo/core/domain/common/address";
 import type { GeoPoint } from "@repo/core/domain/common/geo";
 import { ApplicationId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import type {
+  AttachedLine,
   ComparedRow,
   ContentData,
   ContentPhoto,
@@ -31,7 +33,7 @@ import type {
 } from "./applicationContent";
 import { subjectName } from "./applicationSubjects";
 import { BROKEN_PREMISE_TEXT } from "./applicationWords";
-import { offeringSummary } from "./listingView";
+import { jpDateWithWeekday, offeringSummary } from "./listingView";
 import { OPERATING_STATUS_LABEL } from "./placeView";
 
 const NONE = "（なし）";
@@ -195,6 +197,54 @@ function currentValue(change: ListingChangeView): ContentValue {
   }
 }
 
+// --- Participations -----------------------------------------------------------
+
+const OFFERING_PHASE_LABEL = {
+  upcoming: "提供開始前",
+  available: "提供中",
+  ended: "提供終了",
+} as const;
+
+/**
+ * An attached listing as the application screens show it
+ * (「管理する対象の状態」): one viewers cannot see names why, and opens
+ * nowhere; a deleted one is shown as deleted.
+ */
+export function attachedLine(listing: AttachedListingView): AttachedLine {
+  if (listing.deleted) {
+    return {
+      id: listing.id,
+      name: "削除された掲載",
+      state: "削除された掲載",
+      hidden: true,
+      href: null,
+    };
+  }
+  const name = listing.name ?? "名称未設定の掲載";
+  const hidden = (state: string): AttachedLine => ({
+    id: listing.id,
+    name,
+    state,
+    hidden: true,
+    href: null,
+  });
+  if (listing.suspended) return hidden("運営による非公開");
+  if (listing.publication.status === "unpublished") return hidden("一時非公開");
+  if (listing.publication.status === "draft") return hidden("下書き");
+  if (!listing.viewable) return hidden("店舗が非公開");
+  return {
+    id: listing.id,
+    name,
+    state: OFFERING_PHASE_LABEL[listing.offeringStatus.phase],
+    hidden: false,
+    href: `/listings/${encodeURIComponent(listing.id)}`,
+  };
+}
+
+/** 参加日: `10月10日（土）、10月11日（日）`. */
+export const participationDatesText = (dates: readonly string[]): string =>
+  dates.length === 0 ? NONE : dates.map(jpDateWithWeekday).join("、");
+
 // --- Content ----------------------------------------------------------------
 
 const plain = (rows: readonly ContentRow[]): ContentData => ({
@@ -218,6 +268,25 @@ export function contentData(view: ApplicationContentView): ContentData {
       ]);
     case "listing":
       return plain(listingRows(view.content));
+    case "affiliation":
+    case "leave":
+      return plain([
+        {
+          label: "申請の種類",
+          value: text(view.kind === "affiliation" ? "所属" : "離脱"),
+        },
+      ]);
+    case "participation":
+      return plain([
+        {
+          label: "添えた掲載",
+          value: {
+            kind: "listings",
+            listings: view.listings.map(attachedLine),
+          },
+        },
+        { label: "参加日", value: text(participationDatesText(view.dates)) },
+      ]);
     case "revision":
       return {
         ...plain([]),
@@ -368,22 +437,39 @@ export function applicationIdOf(raw: string): ApplicationId {
 }
 
 /**
- * The screen an application of this kind is submitted on (RQ-02〜RQ-04),
- * where 再提出 (`resubmit`) and 再申請 (`reapply`) continue it. A claim
- * filed with a registration continues on RQ-03 of the reserved store.
+ * The screen an application of this kind is submitted on (RQ-02〜RQ-06)
+ * with its own parameters, where 再提出 (`resubmit`) and 再申請 (`reapply`)
+ * continue it with the application's id. A claim filed with a
+ * registration continues on RQ-03 of the reserved store. RQ-05 and RQ-06
+ * take the place and the region / event in the query
+ * (`/apply/affiliation?placeId=…&regionId=…&mode=join|leave`,
+ * `/apply/participation?placeId=…&occasionId=…`).
  */
-export function applyPath(content: ApplicationContentView): string {
+export function applyHref(
+  content: ApplicationContentView,
+  mode: "resubmit" | "reapply",
+  applicationId: string,
+): string {
+  const continued = `${mode}=${encodeURIComponent(applicationId)}`;
+  const place = encodeURIComponent(
+    content.kind === "registration" ? "" : content.placeId,
+  );
   switch (content.kind) {
     case "registration":
-      return "/apply/places/new";
+      return `/apply/places/new?${continued}`;
     case "revision":
-      return `/apply/places/${encodeURIComponent(content.placeId)}/revision`;
+      return `/apply/places/${place}/revision?${continued}`;
     case "stewardship":
-      return `/apply/places/${encodeURIComponent(content.placeId)}/stewardship`;
+      return `/apply/places/${place}/stewardship?${continued}`;
     case "listing":
-      return `/apply/places/${encodeURIComponent(content.placeId)}/listings/new`;
+      return `/apply/places/${place}/listings/new?${continued}`;
     case "listingRevision":
-      return `/apply/listings/${encodeURIComponent(content.listingId)}/revision`;
+      return `/apply/listings/${encodeURIComponent(content.listingId)}/revision?${continued}`;
+    case "affiliation":
+    case "leave":
+      return `/apply/affiliation?placeId=${place}&regionId=${encodeURIComponent(content.regionId)}&mode=${content.kind === "affiliation" ? "join" : "leave"}&${continued}`;
+    case "participation":
+      return `/apply/participation?placeId=${place}&occasionId=${encodeURIComponent(content.occasionId)}&${continued}`;
   }
 }
 

@@ -1,8 +1,11 @@
 // Server-only: import from server components or server-function handlers
 // (dynamically), never from client components.
 import type { ApprovalOutcome } from "@repo/core/application/application/approval";
+import { approveAffiliation } from "@repo/core/application/application/approveAffiliation";
+import { approveLeave } from "@repo/core/application/application/approveLeave";
 import { approveListingRevision } from "@repo/core/application/application/approveListingRevision";
 import { approveNewListing } from "@repo/core/application/application/approveNewListing";
+import { approveParticipation } from "@repo/core/application/application/approveParticipation";
 import { approvePlaceRegistration } from "@repo/core/application/application/approvePlaceRegistration";
 import { approvePlaceRevision } from "@repo/core/application/application/approvePlaceRevision";
 import { approveStewardshipClaim } from "@repo/core/application/application/approveStewardshipClaim";
@@ -16,8 +19,13 @@ import { rejectApplication } from "@repo/core/application/application/rejectAppl
 import { sendBackApplication } from "@repo/core/application/application/sendBackApplication";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
-import { ForbiddenError } from "@repo/core/application/errors";
+import {
+  ForbiddenError,
+  isForbiddenError,
+  isNotFoundError,
+} from "@repo/core/application/errors";
 import type { ApplicationKind } from "@repo/core/domain/application/application";
+import { ReviewPolicy } from "@repo/core/domain/application/reviewPolicy";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
 import type { ContentRef } from "@repo/core/domain/common/refs";
@@ -35,11 +43,16 @@ import type {
   ApplicationReviewData,
   ApprovalResult,
   ReviewFactsData,
+  ReviewFrame,
+  ReviewSeat,
   ReviewStance,
 } from "./applicationReview";
 import { reviewerApplicantText, subjectName } from "./applicationSubjects";
 import { REVIEW_BROKEN_PREMISE_TEXT } from "./applicationWords";
 import type { NextStep } from "./myApplicationDetail";
+import { loadOccasionFrame } from "./occasionData";
+import { periodText } from "./occasionView";
+import { loadRegionFrame } from "./regionData";
 
 function stanceOf(view: ApplicationForReview): ReviewStance {
   const { permission } = view;
@@ -169,30 +182,170 @@ function approveEffects(
         "ほかの項目は、いまの内容のまま残ります",
         notice,
       ];
+    case "affiliation": {
+      const region = nameOf(view, "region", "地域");
+      return [
+        `${place}が、${region}の所属店舗になります`,
+        `${region}のページと地図に、${place}とその掲載が表示されます`,
+        "店舗の他の地域への所属と、公開状態・提供状態は変わりません",
+        notice,
+      ];
+    }
+    case "leave": {
+      const region = nameOf(view, "region", "地域");
+      return [
+        `${place}の${region}への所属が解除されます`,
+        `${region}のページと地図に、${place}とその掲載は表示されなくなります`,
+        "店舗の他の地域への所属と、公開状態・提供状態は変わりません",
+        notice,
+      ];
+    }
+    case "participation": {
+      const occasion = nameOf(view, "occasion", "イベント");
+      const listings =
+        view.content.kind === "participation"
+          ? view.content.listings.length
+          : 0;
+      return [
+        `${place}が、${occasion}の参加店舗になります`,
+        listings === 0
+          ? "申請の参加日が、イベントのページに表示されます"
+          : `添えた掲載（${listings}件）と参加日が、イベントのページに表示されます。閲覧者に表示されていない掲載は、表示されないままです`,
+        notice,
+      ];
+    }
   }
 }
 
-function reflectedStep(
-  kind: ApplicationKind,
-  reflected: ContentRef,
-): NextStep | null {
+/** What an approval did, for CS-13. */
+function approvedText(view: ApplicationForReview): string {
+  const place = nameOf(view, "place", "店舗");
+  switch (view.content.kind) {
+    case "registration":
+      return "店舗を登録して公開しました。";
+    case "revision":
+      return "申請の項目を、店舗の内容に反映しました。";
+    case "stewardship":
+      return "申請者が店舗管理者になりました。";
+    case "listing":
+      return "掲載を公開中の掲載として作りました。";
+    case "listingRevision":
+      return "申請の項目を、掲載の内容に反映しました。";
+    case "affiliation":
+      return `${place}が、${nameOf(view, "region", "地域")}の所属店舗になりました。`;
+    case "leave":
+      return `${place}が、${nameOf(view, "region", "地域")}の所属店舗から外れました。`;
+    case "participation":
+      return `${place}が、${nameOf(view, "occasion", "イベント")}の参加店舗になりました。`;
+  }
+}
+
+const REFLECTED_TITLE: Readonly<Record<ContentRef["kind"], string>> = {
+  place: "店舗ページを見る",
+  listing: "掲載ページを見る",
+  region: "地域ページを見る",
+  occasion: "イベントページを見る",
+  article: "読みもののページを見る",
+};
+
+function reflectedStep(reflected: ContentRef): NextStep | null {
   const href = viewerPath(reflected);
   if (href === null) return null;
   return {
     href,
-    title:
-      kind === "listing" || kind === "listingRevision"
-        ? "掲載ページを見る"
-        : "店舗ページを見る",
+    title: REFLECTED_TITLE[reflected.kind],
     meta: "閲覧者に見えるページです",
   };
 }
 
-function toData(view: ApplicationForReview): ApplicationReviewData {
-  const content = contentData(view.content);
+/** The region or event whose stewards decide `view`, when they do. */
+function seatOf(view: ApplicationForReview): ReviewSeat | null {
+  const { content } = view;
+  switch (content.kind) {
+    case "affiliation":
+    case "leave":
+      return {
+        kind: "region",
+        id: content.regionId,
+        name: nameOf(view, "region", "名称のない地域"),
+      };
+    case "participation":
+      return {
+        kind: "occasion",
+        id: content.occasionId,
+        name: nameOf(view, "occasion", "名称のないイベント"),
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * CM-01's frame: the seat's management nav for one of its stewards, the
+ * operators' nav otherwise (an operator standing in for absent stewards
+ * too — `basis: "proxy"`). The frame read refuses an operator facing a
+ * region or event with stewards, and a missing seat: both are framed as
+ * the operators' screen.
+ */
+async function frameOf(
+  container: RequestContainer,
+  actor: Actor,
+  seat: ReviewSeat | null,
+): Promise<ReviewFrame> {
+  if (seat === null) return { kind: "ops" };
+  try {
+    if (seat.kind === "region") {
+      const frame = await loadRegionFrame(seat.id);
+      return frame.basis === "steward"
+        ? { kind: "region", frame }
+        : { kind: "ops" };
+    }
+    const frame = await loadOccasionFrame(container, actor, seat.id);
+    return frame.basis === "steward"
+      ? { kind: "occasion", frame }
+      : { kind: "ops" };
+  } catch (error) {
+    if (isForbiddenError(error) || isNotFoundError(error)) {
+      return { kind: "ops" };
+    }
+    throw error;
+  }
+}
+
+function toData(
+  view: ApplicationForReview,
+  frame: ReviewFrame,
+  seat: ReviewSeat | null,
+  proxyableAt: Date | null,
+): ApplicationReviewData {
+  const read = contentData(view.content);
+  // An event's steward reads its period from the frame: the days are
+  // checked against it (CM-01 参加日).
+  const period = frame.kind === "occasion" ? frame.frame.period : null;
+  const content =
+    period === null
+      ? read
+      : {
+          ...read,
+          rows: read.rows.map((row) =>
+            row.label === "参加日" && row.value.kind === "text"
+              ? {
+                  ...row,
+                  value: {
+                    ...row.value,
+                    sub: `開催期間 ${periodText(period)}`,
+                  },
+                }
+              : row,
+          ),
+        };
   return {
     id: view.id,
     kind: view.kind,
+    frame,
+    seat,
+    proxyableAt: proxyableAt?.toISOString() ?? null,
+    approvedText: approvedText(view),
     version: view.version,
     status: statusData(view.status),
     submittedAt: view.submittedAt.toISOString(),
@@ -211,8 +364,7 @@ function toData(view: ApplicationForReview): ApplicationReviewData {
         : view.registrationId !== null
           ? { id: view.registrationId, kind: "registration", status: null }
           : null,
-    reflected:
-      view.reflected === null ? null : reflectedStep(view.kind, view.reflected),
+    reflected: view.reflected === null ? null : reflectedStep(view.reflected),
     approveEffects: approveEffects(view, content),
   };
 }
@@ -234,7 +386,15 @@ export async function loadApplicationReview(
     actor,
     input: { applicationId: applicationIdOf(rawId) },
   });
-  return toData(view);
+  const seat = seatOf(view);
+  const { status, permission } = view;
+  const proxyableAt =
+    status.kind === "underReview" &&
+    !permission.allowed &&
+    permission.reason === "awaitingStewards"
+      ? ReviewPolicy.proxyableAt({ status }, container.reviewPolicy)
+      : null;
+  return toData(view, await frameOf(container, actor, seat), seat, proxyableAt);
 }
 
 type Decision = Readonly<{ applicationId: string; version: number }>;
@@ -245,9 +405,8 @@ const decisionInput = (data: Decision) => ({
 });
 
 function approvalResult(
-  kind: ApplicationKind,
   outcome: ApprovalOutcome,
-  companionId: string | null,
+  companionId: string | null = null,
 ): ApprovalResult {
   if (outcome.outcome === "lapsed") {
     return {
@@ -260,7 +419,7 @@ function approvalResult(
   const { status } = outcome.application;
   return {
     outcome: "approved",
-    reflected: reflectedStep(kind, outcome.reflected),
+    reflected: reflectedStep(outcome.reflected),
     overdueProxy:
       status.kind === "approved" &&
       "reviewAs" in status &&
@@ -278,24 +437,22 @@ export async function approveReviewedApplication(
   switch (data.kind) {
     case "registration": {
       const result = await approvePlaceRegistration(args);
-      return approvalResult(data.kind, result, result.companion?.id ?? null);
+      return approvalResult(result, result.companion?.id ?? null);
     }
     case "revision":
-      return approvalResult(data.kind, await approvePlaceRevision(args), null);
+      return approvalResult(await approvePlaceRevision(args));
     case "stewardship":
-      return approvalResult(
-        data.kind,
-        await approveStewardshipClaim(args),
-        null,
-      );
+      return approvalResult(await approveStewardshipClaim(args));
+    case "affiliation":
+      return approvalResult(await approveAffiliation(args));
+    case "leave":
+      return approvalResult(await approveLeave(args));
+    case "participation":
+      return approvalResult(await approveParticipation(args));
     case "listing":
-      return approvalResult(data.kind, await approveNewListing(args), null);
+      return approvalResult(await approveNewListing(args));
     case "listingRevision":
-      return approvalResult(
-        data.kind,
-        await approveListingRevision(args),
-        null,
-      );
+      return approvalResult(await approveListingRevision(args));
   }
 }
 

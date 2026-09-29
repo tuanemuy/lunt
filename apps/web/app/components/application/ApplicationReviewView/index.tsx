@@ -1,6 +1,5 @@
 "use client";
 
-import type { ApplicationKind } from "@repo/core/domain/application/application";
 import type { ApplicationStatusKind } from "@repo/core/domain/application/status";
 import {
   type ReactNode,
@@ -11,6 +10,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { EventNav, EventTarget } from "@/components/event/EventShell";
 import {
   ManageBody,
   ManageHeading,
@@ -20,6 +20,7 @@ import {
   ManageTitle,
 } from "@/components/layout/ManageShell";
 import { OPS_HOME, OpsNav } from "@/components/ops/OpsShell";
+import { RegionNav, RegionTarget } from "@/components/region/RegionShell";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -34,6 +35,9 @@ import {
   type ApprovalResult,
   approveApplicationFn,
   REVIEW_TEXT_MAX,
+  type ReviewFrame,
+  type ReviewSeat,
+  type ReviewStance,
   rejectApplicationFn,
   sendBackApplicationFn,
 } from "@/presentation/applicationReview";
@@ -52,6 +56,8 @@ import {
 import { PlaceCandidates, PlaceMatchSearch } from "./PlaceMatchSearch";
 
 const PHOTOS_UNAVAILABLE = "LISTING_PATCH_PHOTOS_UNAVAILABLE";
+const AWAITING_STEWARDS = "APPLICATION_AWAITING_STEWARDS";
+const OVERDUE_PROXY_CANNOT_RETURN = "APPLICATION_OVERDUE_PROXY_CANNOT_RETURN";
 
 type Decision = "approve" | "reject" | "sendBack";
 
@@ -70,20 +76,57 @@ type Outcome =
   | Readonly<{ kind: "lapsed"; premises: readonly string[] }>
   | Readonly<{ kind: "rejected"; overdueProxy: boolean }>
   | Readonly<{ kind: "returned" }>
-  | Readonly<{ kind: "error"; decision: Decision; error: ErrorState }>;
-
-/** What an approval did, per kind (CS-13). */
-const APPROVED_TEXT: Readonly<Record<ApplicationKind, string>> = {
-  registration: "店舗を登録して公開しました。",
-  revision: "申請の項目を、店舗の内容に反映しました。",
-  stewardship: "申請者が店舗管理者になりました。",
-  listing: "掲載を公開中の掲載として作りました。",
-  listingRevision: "申請の項目を、掲載の内容に反映しました。",
-};
+  | Readonly<{
+      kind: "error";
+      decision: Decision;
+      error: ErrorState;
+      /** The stance the refused decision was taken in. */
+      stance: ReviewStance;
+    }>;
 
 /** CM-01's review path: another application's CM-01. */
 const reviewPath = (id: string): string =>
   `/manage/applications/${encodeURIComponent(id)}`;
+
+/** The list CM-01 returns to (RM-01, EM-01 or OM-01), by its frame. */
+function backOf(frame: ReviewFrame): Readonly<{ to: string; label: string }> {
+  switch (frame.kind) {
+    case "region":
+      return {
+        to: `/manage/regions/${encodeURIComponent(frame.frame.regionId)}`,
+        label: "所属店舗と申請へ戻る",
+      };
+    case "occasion":
+      return {
+        to: `/manage/events/${encodeURIComponent(frame.frame.occasionId)}`,
+        label: "参加店舗と申請へ戻る",
+      };
+    case "ops":
+      return { to: OPS_HOME, label: "対応が必要なものへ戻る" };
+  }
+}
+
+/** 地域運営者 / イベント運営者, and the seat's OM-03. */
+function seatWords(seat: ReviewSeat): Readonly<{
+  stewards: string;
+  role: string;
+  opsPath: string;
+  opsLabel: string;
+}> {
+  return seat.kind === "region"
+    ? {
+        stewards: "地域運営者",
+        role: "地域の運営者",
+        opsPath: `/ops/subjects/region/${encodeURIComponent(seat.id)}`,
+        opsLabel: "地域の運営へ",
+      }
+    : {
+        stewards: "イベント運営者",
+        role: "イベントの運営者",
+        opsPath: `/ops/subjects/occasion/${encodeURIComponent(seat.id)}`,
+        opsLabel: "イベントの運営へ",
+      };
+}
 
 /** The badge of the 状態 row: 確認中 (再提出), or the ended status. */
 function statusBadge(status: StatusData): ReactNode {
@@ -130,7 +173,7 @@ function ClosedNotice({ status }: { status: StatusData }) {
           title="この申請は承認されています"
         >
           {status.overdueProxy
-            ? "期間超過の代行として承認されました。判断は変えられません。"
+            ? "一定の期間を過ぎたため、サービス運営者が期間超過の代行として承認しました。判断は変えられません。"
             : "判断は変えられません。"}
         </Notice>
       );
@@ -141,7 +184,7 @@ function ClosedNotice({ status }: { status: StatusData }) {
           tone="paper"
           title="この申請は否認されています"
         >
-          {`${status.overdueProxy ? "期間超過の代行として否認されました。" : ""}否認の理由: ${status.reason}`}
+          {`${status.overdueProxy ? "一定の期間を過ぎたため、サービス運営者が期間超過の代行として否認しました。" : ""}否認の理由: ${status.reason}`}
         </Notice>
       );
     case "withdrawn":
@@ -165,13 +208,24 @@ function ClosedNotice({ status }: { status: StatusData }) {
 
 function StanceNotice({ data }: { data: ApplicationReviewData }) {
   if (data.status.kind !== "underReview") return null;
+  const { seat } = data;
+  const words = seat === null ? null : seatWords(seat);
   switch (data.stance) {
     case "approver":
-      return null;
+      // An operator deciding a region / event application is standing in
+      // for its absent stewards (不在の代行): CM-01 says so.
+      return seat !== null && words !== null && data.frame.kind === "ops" ? (
+        <Notice
+          variant="manage"
+          title={`運営者が不在の${seat.kind === "region" ? "地域" : "イベント"}への申請です`}
+        >
+          {`${seat.name}には${words.stewards}がいないため、サービス運営者が${words.role}として判断します。`}
+        </Notice>
+      ) : null;
     case "overdueProxy":
       return (
         <Notice variant="manage" title="期間超過の代行">
-          運営者が、一定の期間この申請を確認していません。サービス運営者が代わりに承認か否認を判断できます。判断は、期間超過の代行として記録されます。
+          {`${seat === null || words === null ? "運営者" : `${seat.name}の${words.stewards}`}が、一定の期間この申請を確認していません。サービス運営者が代わりに承認か否認を判断できます。判断は、期間超過の代行として記録されます。`}
         </Notice>
       );
     case "awaitingStewards":
@@ -181,7 +235,7 @@ function StanceNotice({ data }: { data: ApplicationReviewData }) {
           tone="paper"
           title="運営者の判断を待つ申請です"
         >
-          運営者がいるため、一定の期間を過ぎるまでは運営者が判断します。期間を過ぎると、期間超過の代行ができます。
+          {`${seat === null || words === null ? "運営者がいるため、" : `${seat.name}には${words.stewards}がいます。`}一定の期間を過ぎるまでは、${words?.stewards ?? "運営者"}が判断します。期間を過ぎると、期間超過の代行ができます${data.proxyableAt === null ? "" : `（${monthDayText(data.proxyableAt)}から）`}。`}
         </Notice>
       );
     case "registrationPending":
@@ -290,12 +344,79 @@ function ApplicationSection({
   );
 }
 
+/**
+ * A decision refused because the standing it was taken in changed
+ * before it was stored — CS-15 and the moves between the absence proxy,
+ * the overdue proxy and 期間超過の前 (`spec/pages/shared.md` CM-01). The
+ * screen has been read again, so `data.stance` is the standing now.
+ */
+function StandingAlert({
+  data,
+  outcome,
+}: {
+  data: ApplicationReviewData;
+  outcome: Extract<Outcome, { kind: "error" }>;
+}) {
+  const word = DECISION_WORD[outcome.decision];
+  const { seat } = data;
+  const words = seat === null ? null : seatWords(seat);
+  const joined =
+    seat === null || words === null
+      ? "運営者が就きました。"
+      : `${seat.name}に${words.stewards}が就きました。`;
+  const toSeat =
+    words === null ? undefined : (
+      <TextLink to={words.opsPath}>{words.opsLabel}</TextLink>
+    );
+  if (outcome.error.code === AWAITING_STEWARDS) {
+    return (
+      <Alert
+        title="運営者の判断を待つ申請になりました"
+        {...(toSeat === undefined ? {} : { actions: toSeat })}
+      >
+        {`${joined}一定の期間を過ぎていない申請は、${words?.stewards ?? "運営者"}が判断します。${word}は反映していません。`}
+      </Alert>
+    );
+  }
+  if (outcome.error.code === OVERDUE_PROXY_CANNOT_RETURN) {
+    return (
+      <Alert title="期間超過の代行になりました">
+        {`${joined}一定の期間を過ぎた申請は、期間超過の代行として承認か否認だけを行えます。差し戻しは反映していません。`}
+      </Alert>
+    );
+  }
+  if (outcome.stance === "overdueProxy" && data.stance === "approver") {
+    return (
+      <Alert title="運営者が不在の申請になりました">
+        {`${seat === null || words === null ? "運営者がいなくなりました。" : `${seat.name}の${words.stewards}がいなくなりました。`}サービス運営者が${words?.role ?? "運営者"}として判断します。${word}は反映していません。もう一度判断してください。`}
+      </Alert>
+    );
+  }
+  if (outcome.stance === "approver" && data.stance === "overdueProxy") {
+    return (
+      <Alert title="期間超過の代行になりました">
+        {`${joined}判断は、期間超過の代行として行います。${word}は反映していません。もう一度判断してください。`}
+      </Alert>
+    );
+  }
+  return (
+    <Alert
+      title={`${word}できませんでした`}
+      {...(toSeat === undefined ? {} : { actions: toSeat })}
+    >
+      {`この申請を判断する立場が変わったため、${word}は反映していません。申請の現在の状態を示しています。`}
+    </Alert>
+  );
+}
+
 function OutcomeAlert({
+  data,
   outcome,
   onRetry,
   reload,
   kindTitle,
 }: {
+  data: ApplicationReviewData;
   outcome: Outcome | null;
   onRetry: (decision: Decision) => void;
   reload: () => Promise<void>;
@@ -303,6 +424,7 @@ function OutcomeAlert({
 }) {
   const [reloading, startReload] = useTransition();
   if (outcome === null) return null;
+  const back = backOf(data.frame);
   switch (outcome.kind) {
     case "lapsed":
       return (
@@ -313,6 +435,13 @@ function OutcomeAlert({
     case "error": {
       const { error, decision } = outcome;
       const word = DECISION_WORD[decision];
+      if (
+        error.code === AWAITING_STEWARDS ||
+        error.code === OVERDUE_PROXY_CANNOT_RETURN ||
+        (error.kind === "forbidden" && data.frame.kind === "ops")
+      ) {
+        return <StandingAlert data={data} outcome={outcome} />;
+      }
       switch (error.kind) {
         case "conflict":
           return (
@@ -339,9 +468,7 @@ function OutcomeAlert({
           ) : (
             <Alert
               title="この申請は判断できません"
-              actions={
-                <TextLink to={OPS_HOME}>対応が必要なものへ戻る</TextLink>
-              }
+              actions={<TextLink to={back.to}>{back.label}</TextLink>}
             >
               {`${error.message}。${word}は反映していません。申請の現在の状態を示しています。`}
             </Alert>
@@ -383,14 +510,20 @@ function Done({
   outcome: Extract<Outcome, { kind: "approved" | "rejected" | "returned" }>;
 }) {
   const kindTitle = REVIEW_KIND_TITLE[data.kind];
+  const { to, label } = backOf(data.frame);
   const back = (
     <ButtonLink
       variant={outcome.kind === "approved" ? "secondary" : "primary"}
-      to={OPS_HOME}
+      to={to}
     >
-      対応が必要なものへ戻る
+      {label}
     </ButtonLink>
   );
+  const seat = data.seat === null ? null : seatWords(data.seat);
+  const proxyRecord =
+    data.seat === null || seat === null
+      ? "運営者に代わって判断したことが、申請に記録されます。"
+      : `${data.seat.name}の${seat.stewards}に代わって判断したことが、申請に記録されます。`;
   switch (outcome.kind) {
     case "approved": {
       const { result } = outcome;
@@ -422,9 +555,11 @@ function Done({
             </>
           }
         >
-          {result.companionId === null
-            ? `${APPROVED_TEXT[data.kind]}申請者に通知が届きます。判断は変えられません。`
-            : "店舗を登録して公開しました。併せて出された管理権限の申請を、続けて判断できます。"}
+          {result.companionId !== null
+            ? "店舗を登録して公開しました。併せて出された管理権限の申請を、続けて判断できます。"
+            : result.overdueProxy
+              ? `${data.approvedText}${proxyRecord}判断は変えられません。`
+              : `${data.approvedText}申請者に通知が届きます。判断は変えられません。`}
         </DonePanel>
       );
     }
@@ -438,7 +573,7 @@ function Done({
           }
           actions={back}
         >
-          申請者に、理由とともに通知が届きます。判断は変えられません。
+          {`申請者に、理由とともに通知が届きます。${outcome.overdueProxy ? proxyRecord : ""}判断は変えられません。`}
         </DonePanel>
       );
     case "returned":
@@ -451,11 +586,115 @@ function Done({
 }
 
 /**
- * CM-01 申請の判断, as an operator decides the stage-2 kinds: the
- * application, what approval reflects, and approve / reject with a reason
- * / send back with a request, each confirmed (CS-12), with the results
- * per state — CS-13, CS-07, CS-08 (including a lapse found on approval),
- * CS-10, CS-05, CS-02.
+ * The frame by who judges (`ReviewFrame`): the region's or event's
+ * management nav for its steward, the operators' otherwise. `solo` drops
+ * the nav once the viewer's standing is gone (CS-05).
+ */
+function ReviewShell({
+  frame,
+  solo,
+  actions,
+  actionsNote,
+  overlay,
+  children,
+}: {
+  frame: ReviewFrame;
+  solo: boolean;
+  actions: ReactNode | undefined;
+  actionsNote: ReactNode | undefined;
+  /** The confirmations (CS-12), inside the frame. */
+  overlay: ReactNode;
+  children: ReactNode;
+}) {
+  const back = backOf(frame);
+  const dock = {
+    ...(actions === undefined ? {} : { actions }),
+    ...(actionsNote === undefined ? {} : { actionsNote }),
+  };
+  const title = (target: ReactNode) => (
+    <ManageTitle>
+      {solo ? null : (
+        <TextLink to={back.to} className="cm01-back">
+          {back.label}
+        </TextLink>
+      )}
+      {target}
+      <ManageHeading>申請の判断</ManageHeading>
+    </ManageTitle>
+  );
+  switch (frame.kind) {
+    case "region":
+      return (
+        <ManageShell
+          context="地域の運営"
+          homeTo={solo ? "/me" : back.to}
+          solo={solo}
+        >
+          <ManagePage
+            title={title(solo ? null : <RegionTarget frame={frame.frame} />)}
+            {...(solo ? {} : { nav: <RegionNav frame={frame.frame} /> })}
+            {...dock}
+          >
+            {children}
+          </ManagePage>
+          {overlay}
+        </ManageShell>
+      );
+    case "occasion":
+      return (
+        <ManageShell
+          context="イベントの運営"
+          homeTo={solo ? "/me" : back.to}
+          solo={solo}
+        >
+          <ManagePage
+            title={title(solo ? null : <EventTarget frame={frame.frame} />)}
+            {...(solo
+              ? {}
+              : {
+                  nav: (
+                    <EventNav
+                      occasionId={frame.frame.occasionId}
+                      proxy={false}
+                      current="participants"
+                    />
+                  ),
+                })}
+            {...dock}
+          >
+            {children}
+          </ManagePage>
+          {overlay}
+        </ManageShell>
+      );
+    case "ops":
+      return (
+        <ManageShell
+          context="サービス運営"
+          homeTo={solo ? "/me" : OPS_HOME}
+          solo={solo}
+        >
+          <ManagePage
+            title={title(null)}
+            {...(solo ? {} : { nav: <OpsNav current="inbox" /> })}
+            {...dock}
+          >
+            {children}
+          </ManagePage>
+          {overlay}
+        </ManageShell>
+      );
+  }
+}
+
+/**
+ * CM-01 申請の判断: the application, what approval reflects, and approve /
+ * reject with a reason / send back with a request, each confirmed (CS-12),
+ * with the results per state — CS-13, CS-07, CS-08 (including a lapse
+ * found on approval), CS-10, CS-05, CS-15, CS-02. The frame follows who
+ * judges: a region's or event's steward in its management nav, the
+ * operators (as the approver, the absence proxy or the overdue proxy) in
+ * theirs.
  */
 export function ApplicationReviewView({
   data,
@@ -500,10 +739,13 @@ export function ApplicationReviewView({
   }, [outcome]);
   const kindTitle = REVIEW_KIND_TITLE[data.kind];
   const underReview = data.status.kind === "underReview";
-  // A decision refused for a lost standing (CS-05 / CS-15) leaves nothing
-  // to decide on this screen.
+  // A steward whose decision was refused for a lost standing (CS-05) has
+  // nothing left to decide here. An operator's refusal is read again
+  // instead: the standing may only have moved (absence ⇄ overdue proxy).
   const standingLost =
-    outcome?.kind === "error" && outcome.error.kind === "forbidden";
+    outcome?.kind === "error" &&
+    outcome.error.kind === "forbidden" &&
+    data.frame.kind !== "ops";
   const canDecide =
     underReview &&
     !standingLost &&
@@ -513,6 +755,7 @@ export function ApplicationReviewView({
     (outcome?.kind === "error" && outcome.error.code === PHOTOS_UNAVAILABLE);
 
   const run = (decision: Decision) => {
+    const stance = data.stance;
     startDecision(async () => {
       applyDecision(
         decision === "approve"
@@ -565,14 +808,13 @@ export function ApplicationReviewView({
         }
         settle(() => {
           setDialog(null);
-          setOutcome({ kind: "error", decision, error: state });
+          setOutcome({ kind: "error", decision, error: state, stance });
         });
-        if (
-          state.kind === "premiseChanged" &&
-          state.code !== PHOTOS_UNAVAILABLE
-        ) {
-          await reconcile();
-        }
+        const reread =
+          (state.kind === "premiseChanged" &&
+            state.code !== PHOTOS_UNAVAILABLE) ||
+          (state.kind === "forbidden" && data.frame.kind === "ops");
+        if (reread) await reconcile();
       }
     });
   };
@@ -621,83 +863,8 @@ export function ApplicationReviewView({
       </>
     );
 
-  return (
-    <ManageShell
-      context="サービス運営"
-      homeTo={standingLost ? "/me" : OPS_HOME}
-      solo={standingLost}
-    >
-      <ManagePage
-        title={
-          <ManageTitle>
-            {standingLost ? null : (
-              <TextLink to={OPS_HOME} className="cm01-back">
-                対応が必要なものへ戻る
-              </TextLink>
-            )}
-            <ManageHeading>申請の判断</ManageHeading>
-          </ManageTitle>
-        }
-        {...(standingLost ? {} : { nav: <OpsNav /> })}
-        {...(actions === undefined
-          ? {}
-          : {
-              actions,
-              ...(data.stance === "overdueProxy"
-                ? {
-                    actionsNote:
-                      "期間超過の代行では、承認と否認だけを行えます。",
-                  }
-                : {}),
-            })}
-      >
-        {done !== null ? (
-          <Done data={data} outcome={done} />
-        ) : (
-          <ManageBody>
-            <div ref={alertRef} tabIndex={-1}>
-              <OutcomeAlert
-                outcome={outcome}
-                onRetry={run}
-                reload={async () => {
-                  await reconcile();
-                  setOutcome(null);
-                }}
-                kindTitle={kindTitle}
-              />
-            </div>
-            {canDecide && data.content.noPhotoLeft ? (
-              <Alert title="この申請は承認できません">
-                申請の写真が、提出の後にすべて掲載から外されるか削除されました。反映できる写真がないため、承認できません。申請は確認中のままです。否認するか、差し戻して写真を求めてください。
-              </Alert>
-            ) : null}
-            <StanceNotice data={data} />
-            <ClosedNotice status={data.status} />
-            <ApplicationSection data={data} status={status} />
-            <ContentSections
-              content={data.content}
-              variant="cm"
-              idPrefix="cm01"
-              approved={data.status.kind === "approved"}
-            />
-            {data.facts.kind === "registration" ? (
-              <ManageSection
-                id="cm01-match"
-                title="名称・所在地が近い既存の店舗"
-              >
-                {data.facts.similarPlaces.length === 0 ? (
-                  <p className="m-field__help">
-                    名称・所在地が近い既存の店舗は見つかりませんでした。
-                  </p>
-                ) : (
-                  <PlaceCandidates places={data.facts.similarPlaces} />
-                )}
-                <PlaceMatchSearch />
-              </ManageSection>
-            ) : null}
-          </ManageBody>
-        )}
-      </ManagePage>
+  const overlay = (
+    <>
       <ConfirmDialog
         open={dialog === "approve"}
         title={`${kindTitle}を承認しますか`}
@@ -706,7 +873,11 @@ export function ApplicationReviewView({
         onConfirm={() => run("approve")}
         onCancel={() => setDialog(null)}
       >
-        <p>承認すると、次の内容を反映します。判断は変えられません。</p>
+        <p>
+          {data.stance === "overdueProxy"
+            ? "承認すると、期間超過の代行として次の内容を反映します。判断は変えられません。"
+            : "承認すると、次の内容を反映します。判断は変えられません。"}
+        </p>
         <ul>
           {data.approveEffects.map((effect) => (
             <li key={effect}>{effect}</li>
@@ -736,7 +907,9 @@ export function ApplicationReviewView({
         onCancel={() => setDialog(null)}
       >
         <p>
-          否認すると、申請者に理由とともに通知が届きます。判断は変えられません。
+          {data.stance === "overdueProxy"
+            ? "否認すると、期間超過の代行として記録され、申請者に理由とともに通知が届きます。判断は変えられません。"
+            : "否認すると、申請者に理由とともに通知が届きます。判断は変えられません。"}
         </p>
         <Field
           id={`${textId}-reason`}
@@ -787,6 +960,65 @@ export function ApplicationReviewView({
           )}
         </Field>
       </ConfirmDialog>
-    </ManageShell>
+    </>
+  );
+
+  return (
+    <ReviewShell
+      frame={data.frame}
+      solo={standingLost}
+      actions={actions}
+      actionsNote={
+        actions !== undefined && data.stance === "overdueProxy"
+          ? "期間超過の代行では、承認と否認だけを行えます。"
+          : undefined
+      }
+      overlay={overlay}
+    >
+      {done !== null ? (
+        <Done data={data} outcome={done} />
+      ) : (
+        <ManageBody>
+          <div ref={alertRef} tabIndex={-1}>
+            <OutcomeAlert
+              data={data}
+              outcome={outcome}
+              onRetry={run}
+              reload={async () => {
+                await reconcile();
+                setOutcome(null);
+              }}
+              kindTitle={kindTitle}
+            />
+          </div>
+          {canDecide && data.content.noPhotoLeft ? (
+            <Alert title="この申請は承認できません">
+              申請の写真が、提出の後にすべて掲載から外されるか削除されました。反映できる写真がないため、承認できません。申請は確認中のままです。否認するか、差し戻して写真を求めてください。
+            </Alert>
+          ) : null}
+          <StanceNotice data={data} />
+          <ClosedNotice status={data.status} />
+          <ApplicationSection data={data} status={status} />
+          <ContentSections
+            content={data.content}
+            variant="cm"
+            idPrefix="cm01"
+            approved={data.status.kind === "approved"}
+          />
+          {data.facts.kind === "registration" ? (
+            <ManageSection id="cm01-match" title="名称・所在地が近い既存の店舗">
+              {data.facts.similarPlaces.length === 0 ? (
+                <p className="m-field__help">
+                  名称・所在地が近い既存の店舗は見つかりませんでした。
+                </p>
+              ) : (
+                <PlaceCandidates places={data.facts.similarPlaces} />
+              )}
+              <PlaceMatchSearch />
+            </ManageSection>
+          ) : null}
+        </ManageBody>
+      )}
+    </ReviewShell>
   );
 }

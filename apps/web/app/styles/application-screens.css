@@ -270,6 +270,17 @@
     flex-direction: column;
     gap: var(--space-8);
   }
+  /* A participation's attached listings (MY-05, CM-01) */
+  .cm01-attached {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .cm01-attached > li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0);
+  }
 
   /* CM-01 承認の確認 (CS-12): the target with a revision's items laid on */
   .cm01-preview {

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
 import { Photo } from "@/components/ui/Photo";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Tab, Tabs } from "@/components/ui/Tabs";
+import { TextLink } from "@/components/ui/TextButton";
+import { membershipApplyHref } from "@/presentation/applyRelationsView";
 import type { RegionDetailData } from "@/presentation/detailView";
 import { ListingCards } from "../ListingCard";
 import { OccasionRows, PlaceRow } from "../RelatedRows";
@@ -66,8 +68,9 @@ function RegionFeature({ data }: { data: RegionDetailData }) {
  * and ongoing occasions in 開催日の順). A tab with nothing to show is
  * left out; without listings 見つかる says so (CS-09) and leads to the
  * places. Each section shows its first six: the full lists (VW-06), the
- * map (VW-04), the other regions (VW-05), the articles and the procedure
- * entries (RQ-05, RQ-07 of a region) arrive with their stages.
+ * map (VW-04), the other regions (VW-05) and the articles arrive with
+ * their stages. The procedures close it: 所属の申請 (RQ-05, this region
+ * chosen) and the takedown claim (RQ-07).
  */
 export function RegionDetail({ data }: { data: RegionDetailData }) {
   const [tab, setTab] = useState<RegionTab>("discover");
@@ -165,6 +168,25 @@ export function RegionDetail({ data }: { data: RegionDetailData }) {
             <OccasionRows items={data.occasions} grid />
           </section>
         ) : null}
+
+        <div className="procedures">
+          <hr className="divider" />
+          <ButtonLink
+            variant="secondary"
+            to={membershipApplyHref({ regionId: data.regionId, mode: "join" })}
+          >
+            この街への所属を申請する
+          </ButtonLink>
+          <div className="procedures__links">
+            <TextLink
+              quiet
+              to="/takedown/$kind/$id"
+              params={{ kind: "region", id: data.regionId }}
+            >
+              この街の取り下げを申し立てる
+            </TextLink>
+          </div>
+        </div>
       </div>
     </div>
   );

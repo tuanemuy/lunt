@@ -12,23 +12,54 @@ import { validateInput } from "./validator";
 const idField = z.string().trim().min(1).max(128);
 const TEXT_MAX = 4000;
 
-/** The targets a claim or a report can name in this stage (DT-01, DT-02). */
+/** The targets an info report can name (DT-01, DT-02; RQ-08). */
 export const REPORT_TARGET_KINDS = ["place", "listing"] as const;
 export type ReportTargetKind = (typeof REPORT_TARGET_KINDS)[number];
 
 export const isReportTargetKind = (kind: string): kind is ReportTargetKind =>
   (REPORT_TARGET_KINDS as readonly string[]).includes(kind);
 
-const targetField = z.object({
+/**
+ * The targets a takedown claim can name in this stage (DT-01〜DT-04;
+ * RQ-07). Articles (DT-05) join with their stage.
+ */
+export const TAKEDOWN_TARGET_KINDS = [
+  "place",
+  "listing",
+  "region",
+  "occasion",
+] as const;
+export type TakedownTargetKind = (typeof TAKEDOWN_TARGET_KINDS)[number];
+
+export const isTakedownTargetKind = (
+  kind: string,
+): kind is TakedownTargetKind =>
+  (TAKEDOWN_TARGET_KINDS as readonly string[]).includes(kind);
+
+const reportTargetField = z.object({
   kind: z.enum(REPORT_TARGET_KINDS),
   id: idField,
 });
 
-/** DT-01 / DT-02 of a target, a plain path (another area). */
-export const detailPath = (kind: ReportTargetKind, id: string): string =>
-  kind === "place"
-    ? `/places/${encodeURIComponent(id)}`
-    : `/listings/${encodeURIComponent(id)}`;
+const takedownTargetField = z.object({
+  kind: z.enum(TAKEDOWN_TARGET_KINDS),
+  id: idField,
+});
+
+/** DT-01〜DT-04 of a target, a plain path (another area). */
+export function detailPath(kind: TakedownTargetKind, id: string): string {
+  const segment = encodeURIComponent(id);
+  switch (kind) {
+    case "place":
+      return `/places/${segment}`;
+    case "listing":
+      return `/listings/${segment}`;
+    case "region":
+      return `/regions/${segment}`;
+    case "occasion":
+      return `/events/${segment}`;
+  }
+}
 
 /** RQ-02 情報の修正 / RQ-04 掲載の修正, a plain path (another area). */
 export const revisionPath = (kind: ReportTargetKind, id: string): string =>
@@ -43,16 +74,20 @@ export function dayText(iso: string): string {
 }
 
 /** A target as a photo row shows it (RQ-07, RQ-08). */
-export type ReportTargetRow = Readonly<{
-  kind: ReportTargetKind;
-  id: string;
-  name: string;
-  /** 掲載 · 食べる, 店舗 */
-  meta: string;
-  /** The listing's store, the store's address. */
-  sub: string | null;
-  photoUrl: string | null;
-}>;
+export type ReportTargetRow<K extends TakedownTargetKind = ReportTargetKind> =
+  Readonly<{
+    kind: K;
+    id: string;
+    name: string;
+    /** 掲載 · 食べる, 店舗, 地域, イベント · 10月10日〜10月12日 */
+    meta: string;
+    /** The listing's store, the store's or region's address, the event's region. */
+    sub: string | null;
+    photoUrl: string | null;
+  }>;
+
+/** RQ-07's target row: any kind a claim can name. */
+export type TakedownTargetRow = ReportTargetRow<TakedownTargetKind>;
 
 // ---------------------------------------------------------------- RQ-07
 
@@ -70,7 +105,7 @@ export type TakedownPhoto = Readonly<{ photoId: string; url: string | null }>;
 export type TakedownPage =
   | Readonly<{
       kind: "form";
-      target: ReportTargetRow;
+      target: TakedownTargetRow;
       photos: readonly TakedownPhoto[];
     }>
   | Readonly<{ kind: "unavailable" }>;
@@ -92,7 +127,7 @@ export const loadTakedownPageFn = createServerFn({ method: "GET" })
 export const submitTakedownClaimSchema = z.object({
   claimId: z.string().min(1).max(64),
   standing: z.enum(CLAIMANT_STANDINGS),
-  target: targetField,
+  target: takedownTargetField,
   photoIds: z.array(idField).max(100),
   reason: z.string().max(TEXT_MAX),
   email: z.string().max(320),
@@ -194,7 +229,7 @@ export const loadInfoReportPageFn = createServerFn({ method: "GET" })
 
 export const submitInfoReportSchema = z.object({
   reportId: z.string().min(1).max(64),
-  target: targetField,
+  target: reportTargetField,
   category: z.enum(INFO_REPORT_CATEGORIES),
   content: z.string().max(TEXT_MAX),
 });
@@ -335,7 +370,7 @@ export type TakedownClaimData = Readonly<{
 
 export const takeDownPhotosSchema = z.object({
   claimId: idField,
-  target: targetField,
+  target: takedownTargetField,
   photoIds: z.array(idField).min(1).max(100),
 });
 

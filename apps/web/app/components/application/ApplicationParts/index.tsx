@@ -6,6 +6,7 @@ import { FramedPhoto } from "@/components/photo/FramedPhoto";
 import { Badge } from "@/components/ui/Badge";
 import { TextLink } from "@/components/ui/TextButton";
 import type {
+  AttachedLine,
   ComparedRow,
   ContentData,
   ContentPhoto,
@@ -74,8 +75,45 @@ export function ValueView({
         <span className="cm01-quote">{value.text}</span>
       );
     case "text":
-      return value.text;
+      return value.sub === undefined ? (
+        value.text
+      ) : (
+        <>
+          {value.text}
+          <span className="m-field__help">{value.sub}</span>
+        </>
+      );
+    case "listings":
+      return <AttachedLines lines={value.listings} />;
   }
+}
+
+/**
+ * A participation's attached listings: those viewers see open DT-01;
+ * the others say why viewers do not see them.
+ */
+function AttachedLines({ lines }: { lines: readonly AttachedLine[] }) {
+  if (lines.length === 0) return <>（なし）</>;
+  return (
+    <ul className="cm01-attached">
+      {lines.map((line) => (
+        <li key={line.id}>
+          {line.href === null ? (
+            <span>{line.name}</span>
+          ) : (
+            <TextLink to={line.href}>{line.name}</TextLink>
+          )}
+          <span className="m-row__sub">
+            {line.hidden
+              ? line.name === line.state
+                ? "閲覧者に表示されていません"
+                : `${line.state}（閲覧者に表示されていません）`
+              : line.state}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /** Items and values: `my-dl` (MY-05) or `cm01-dl` (CM-01). */

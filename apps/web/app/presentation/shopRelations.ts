@@ -8,9 +8,8 @@ import { validateInput } from "./validator";
 /**
  * SM-05 所属地域の状況 and SM-06 イベントの状況 (`spec/pages/shop.md`): the
  * store's relations to regions and occasions as plain serializable data,
- * and the representative-region choice. The pending affiliation, leave
- * and participation applications (and the entries to RQ-05 / RQ-06) join
- * with stage 3b.
+ * the store's pending affiliation, leave and participation applications,
+ * and the representative-region choice.
  */
 
 /** A region's or an occasion's publication, as the management lists word it. */
@@ -63,6 +62,17 @@ export type AffiliatedRegionItem = Readonly<{
   viewable: boolean;
 }>;
 
+/** An application of the store in progress (SM-05, SM-06), leading to its MY-05. */
+export type PendingApplicationItem = Readonly<{
+  applicationId: string;
+  /** 所属の申請 · 白波横丁. */
+  title: string;
+  /** 申請者 喫茶 日々 · 9月18日. */
+  meta: string;
+  status: string;
+  tone: "neutral" | "accent" | "muted" | "alert";
+}>;
+
 export type AffiliationStatusData = Readonly<{
   /** First-affiliated order. */
   regions: readonly AffiliatedRegionItem[];
@@ -70,6 +80,8 @@ export type AffiliationStatusData = Readonly<{
   representative: Readonly<{ regionId: string; chosen: boolean }> | null;
   /** The region viewers are shown in lists; `null` when none is viewable. */
   displayedRegionId: string | null;
+  /** The store's affiliation and leave applications under review or returned. */
+  pending: readonly PendingApplicationItem[];
 }>;
 
 /** A listing attached to a participation, as SM-06 lists it. */
@@ -103,6 +115,8 @@ export type ShopEventItem = Readonly<{
 export type ShopEventsData = Readonly<{
   /** Newest participation first. */
   items: readonly ShopEventItem[];
+  /** The store's participation applications under review or returned. */
+  pending: readonly PendingApplicationItem[];
 }>;
 
 const idField = z.string().min(1).max(64);

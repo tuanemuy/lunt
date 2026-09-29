@@ -116,3 +116,45 @@ export const renderListingRevisionApply = createServerFn({ method: "GET" })
       ),
     };
   });
+
+const optionalId = idField.nullable();
+
+/** RQ-05 所属・離脱の申請. */
+export const renderMembershipApply = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(
+    validateInput(
+      entrySchema.extend({
+        placeId: optionalId,
+        regionId: optionalId,
+        mode: z.enum(["join", "leave"]).nullable(),
+      }),
+    ),
+  )
+  .handler(async ({ data }) => {
+    const { MembershipContent } = await import(
+      "@/components/apply/RelationContent"
+    );
+    return {
+      Content: renderServerComponent(<MembershipContent entry={data} />),
+    };
+  });
+
+/** RQ-06 参加の申請. */
+export const renderParticipationApply = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(
+    validateInput(
+      entrySchema.extend({ placeId: optionalId, occasionId: optionalId }),
+    ),
+  )
+  .handler(async ({ data }) => {
+    const { ParticipationApplyContent } = await import(
+      "@/components/apply/RelationContent"
+    );
+    return {
+      Content: renderServerComponent(
+        <ParticipationApplyContent entry={data} />,
+      ),
+    };
+  });

@@ -17,10 +17,24 @@ export type ContentPhoto = Readonly<{
   note: string | null;
 }>;
 
+/**
+ * A listing a participation application attaches, with its state now:
+ * `href` (DT-01) only while viewers can see it; `state` says why not
+ * (一時非公開, 運営による非公開, 削除された掲載…) or its offering phase.
+ */
+export type AttachedLine = Readonly<{
+  id: string;
+  name: string;
+  state: string;
+  hidden: boolean;
+  href: string | null;
+}>;
+
 export type ContentValue =
   | Readonly<{ kind: "text"; text: string; sub?: string }>
   | Readonly<{ kind: "quote"; text: string }>
-  | Readonly<{ kind: "photos"; photos: readonly ContentPhoto[] }>;
+  | Readonly<{ kind: "photos"; photos: readonly ContentPhoto[] }>
+  | Readonly<{ kind: "listings"; listings: readonly AttachedLine[] }>;
 
 /** One item of the content (名称, 所在地, 写真…). */
 export type ContentRow = Readonly<{ label: string; value: ContentValue }>;

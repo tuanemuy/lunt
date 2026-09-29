@@ -31,13 +31,6 @@ import {
   type PlaceId as PlaceIdType,
 } from "@repo/core/domain/common/ids";
 import { requireActor } from "./actor";
-import { reviewerApplicantText, subjectTitle } from "./applicationSubjects";
-import {
-  APPLICATION_KIND_TITLE,
-  monthDayText,
-  STATUS_LABEL,
-  STATUS_TONE,
-} from "./applicationWords";
 import { loadAreaLists, townOfAddress } from "./areaData";
 import { missingChildFirst } from "./childTargets";
 import { publicationView } from "./listingData";
@@ -59,6 +52,7 @@ import {
   type RegionLinksData,
 } from "./occasionView";
 import type { AreaLists } from "./placeView";
+import { participationApplicationItem } from "./subjectApplications";
 
 const OCCASION_NOT_FOUND = "OCCASION_NOT_FOUND";
 
@@ -289,14 +283,7 @@ export async function loadParticipantBoard(
   return {
     participants: items,
     count: participants.count,
-    applications: applications.items.map((item) => ({
-      applicationId: item.id,
-      title: `${APPLICATION_KIND_TITLE[item.kind]} · ${subjectTitle(item.subjects)}`,
-      meta: `申請者 ${reviewerApplicantText(item.applicant)} · ${monthDayText(item.submittedAt.toISOString())}`,
-      status: STATUS_LABEL[item.status.kind],
-      tone: STATUS_TONE[item.status.kind],
-      underReview: item.status.kind === "underReview",
-    })),
+    applications: applications.items.map(participationApplicationItem),
     underReviewCount: applications.underReviewCount ?? 0,
     focus,
   };

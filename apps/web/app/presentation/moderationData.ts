@@ -3,12 +3,13 @@
 
 import { listApplicationsAwaitingReview } from "@repo/core/application/application/listApplicationsAwaitingReview";
 import { listApplicationsForSubject } from "@repo/core/application/application/listApplicationsForSubject";
-import type { ApplicationSummary } from "@repo/core/application/application/views";
 import { viewMembers } from "@repo/core/application/authority/viewMembers";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import { viewListing } from "@repo/core/application/discovery/viewListing";
+import { viewOccasion } from "@repo/core/application/discovery/viewOccasion";
 import { viewPlace } from "@repo/core/application/discovery/viewPlace";
+import { viewRegion } from "@repo/core/application/discovery/viewRegion";
 import { getManagedListing } from "@repo/core/application/listing/getManagedListing";
 import { getConfirmationRequest } from "@repo/core/application/moderation/getConfirmationRequest";
 import { getInfoReport } from "@repo/core/application/moderation/getInfoReport";
@@ -17,14 +18,18 @@ import { listConfirmationRequestsForPlace } from "@repo/core/application/moderat
 import { listOpenTakedownClaims } from "@repo/core/application/moderation/listOpenTakedownClaims";
 import { listUnresolvedInfoReports } from "@repo/core/application/moderation/listUnresolvedInfoReports";
 import type { InfoReportTargetView } from "@repo/core/application/moderation/views";
+import { getManagedOccasion } from "@repo/core/application/occasion/getManagedOccasion";
 import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
+import { getManagedRegion } from "@repo/core/application/region/getManagedRegion";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
 import type { PlaceId } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
-import { reviewerApplicantText, subjectTitle } from "./applicationSubjects";
+import { subjectTitle } from "./applicationSubjects";
 import { APPLICATION_KIND_TITLE } from "./applicationWords";
+import { periodText } from "./detailView";
 import { classifyError } from "./errorState";
 import { publicationView } from "./listingData";
 import { listingStateText } from "./listingView";
@@ -34,12 +39,12 @@ import {
   type ConfirmationRequestData,
   dayText,
   INBOX_PAGE_SIZE,
-  type InboxApplicationRow,
   type InboxClaimRow,
   type InboxReportRow,
   type InfoReportData,
   type InfoReportPage,
   isReportTargetKind,
+  isTakedownTargetKind,
   type OpsInboxData,
   REPORT_STATUS_LABEL,
   type ReportTargetRow,
@@ -48,11 +53,16 @@ import {
   STANDING_LABEL,
   type TakedownClaimData,
   type TakedownPage,
+  type TakedownPhoto,
+  type TakedownTargetRow,
 } from "./moderation";
 import { claimIdOf, reportIdOf } from "./moderationIds";
+import { occasionStateText } from "./occasionView";
 import { requireOperator } from "./operatorAccess";
 import { OPERATING_STATUS_LABEL, placeStateText } from "./placeView";
-import { listingIdOf, placeIdOf } from "./targetIds";
+import { regionStateText } from "./regionView";
+import { inboxApplicationRow } from "./subjectApplications";
+import { listingIdOf, occasionIdOf, placeIdOf, regionIdOf } from "./targetIds";
 
 async function actorAndContainer() {
   const container = await getContainer();
@@ -79,7 +89,7 @@ type ViewedTarget = Readonly<{
   placeIsVacant: boolean;
 }>;
 
-/** RQ-07 / RQ-08's target as viewers see it, or `null` when it is not viewable. */
+/** RQ-07 / RQ-08's store or listing as viewers see it, or `null` when it is not viewable. */
 async function viewTarget(
   container: RequestContainer,
   kind: string,
@@ -152,13 +162,86 @@ async function viewTarget(
   };
 }
 
-/** RQ-07 (no login). */
+type ViewedClaimTarget = Readonly<{
+  target: TakedownTargetRow;
+  photos: readonly TakedownPhoto[];
+}>;
+
+/** RQ-07's region (DT-03) as viewers see it, or `null` when it is not viewable. */
+async function viewRegionTarget(
+  container: RequestContainer,
+  id: string,
+): Promise<ViewedClaimTarget | null> {
+  const output = await orNull(
+    viewRegion({ container, input: { regionId: regionIdOf(id) } }),
+  );
+  if (output === null) return null;
+  const { region, photos } = output;
+  const [cover] = region.photos;
+  return {
+    target: {
+      kind: "region",
+      id: region.regionId,
+      name: region.name,
+      meta: "地域",
+      sub: Address.text(region.address),
+      photoUrl:
+        cover === undefined ? null : (photos[cover.photoId]?.url ?? null),
+    },
+    photos: region.photos.map(({ photoId }) => ({
+      photoId,
+      url: photos[photoId]?.url ?? null,
+    })),
+  };
+}
+
+/** RQ-07's event (DT-04) as viewers see it, or `null` when it is not viewable. */
+async function viewOccasionTarget(
+  container: RequestContainer,
+  id: string,
+): Promise<ViewedClaimTarget | null> {
+  const output = await orNull(
+    viewOccasion({
+      container,
+      actor: null,
+      input: { occasionId: occasionIdOf(id) },
+    }),
+  );
+  if (output === null) return null;
+  const { occasion, photos } = output;
+  const [cover] = occasion.photos;
+  const [region] = output.regions;
+  const today = LocalDate.fromInstant(container.clock.now());
+  return {
+    target: {
+      kind: "occasion",
+      id: occasion.occasionId,
+      name: occasion.name,
+      meta: `イベント · ${periodText(occasion.period, today)}`,
+      sub: region?.name ?? Address.text(occasion.venue.address),
+      photoUrl:
+        cover === undefined ? null : (photos[cover.photoId]?.url ?? null),
+    },
+    photos: occasion.photos.map(({ photoId }) => ({
+      photoId,
+      url: photos[photoId]?.url ?? null,
+    })),
+  };
+}
+
+/** RQ-07 (no login): a store, listing, region or event viewers can see. */
 export async function loadTakedownPage(
   kind: string,
   id: string,
 ): Promise<TakedownPage> {
+  if (!isTakedownTargetKind(kind)) return { kind: "unavailable" };
   const container = await getContainer();
-  const viewed = await viewTarget(container, kind, id);
+  const viewed =
+    kind === "region"
+      ? await viewRegionTarget(container, id)
+      : kind === "occasion"
+        ? await viewOccasionTarget(container, id)
+        : await viewTarget(container, kind, id);
   if (viewed === null) return { kind: "unavailable" };
   return { kind: "form", target: viewed.target, photos: viewed.photos };
 }
@@ -179,40 +262,6 @@ export async function loadInfoReportPage(
 }
 
 // ---------------------------------------------------------------- OM-01
-
-function applicationRow(
-  summary: ApplicationSummary,
-  section: "asApprover" | "asOverdueProxy",
-): InboxApplicationRow {
-  const notYet = summary.subjects
-    .filter((subject) => subject.notYet)
-    .map((subject) =>
-      subject.ref.kind === "listing"
-        ? "掲載はまだありません"
-        : "店舗はまだありません",
-    );
-  const notes = [
-    APPLICATION_KIND_TITLE[summary.kind],
-    ...(summary.registrationId !== null && summary.kind === "stewardship"
-      ? ["登録の申請に併せた申請"]
-      : notYet),
-    ...(section === "asOverdueProxy" ? ["運営者が未確認"] : []),
-  ];
-  const { status } = summary;
-  const statusText =
-    status.kind === "underReview"
-      ? status.answering === null
-        ? `確認中 · ${dayText(status.since.toISOString())}に提出`
-        : `確認中（再提出）· ${dayText(status.since.toISOString())}`
-      : "確認中";
-  return {
-    applicationId: summary.id,
-    title: subjectTitle(summary.subjects),
-    sub: notes.join(" · "),
-    applicant: reviewerApplicantText(summary.applicant),
-    status: statusText,
-  };
-}
 
 const TARGET_KIND_LABEL = {
   place: "店舗",
@@ -264,12 +313,14 @@ export async function loadOpsInbox(): Promise<OpsInboxData> {
   return {
     asApprover: {
       count: asApprover.count,
-      items: asApprover.items.map((item) => applicationRow(item, "asApprover")),
+      items: asApprover.items.map((item) =>
+        inboxApplicationRow(item, "asApprover"),
+      ),
     },
     asOverdueProxy: {
       count: asOverdueProxy.count,
       items: asOverdueProxy.items.map((item) =>
-        applicationRow(item, "asOverdueProxy"),
+        inboxApplicationRow(item, "asOverdueProxy"),
       ),
     },
     claims: {
@@ -352,18 +403,49 @@ async function claimTargetState(
         placeName: null,
       };
     }
-    default:
+    case "region": {
+      const view = await orNull(
+        getManagedRegion({ container, actor, input: { regionId: target.id } }),
+      );
+      if (view === null) return { state: { kind: "gone" }, placeName: null };
       return {
-        state: viewable
-          ? {
-              kind: "present",
-              viewable,
-              stateText: "閲覧できる",
-              suspended: false,
-            }
-          : { kind: "gone" },
+        state: {
+          kind: "present",
+          viewable,
+          stateText: regionStateText({
+            publication: publicationView(view.region.publication),
+            suspended: view.suspended,
+          }),
+          suspended: view.suspended,
+        },
         placeName: null,
       };
+    }
+    case "occasion": {
+      const view = await orNull(
+        getManagedOccasion({
+          container,
+          actor,
+          input: { occasionId: target.id },
+        }),
+      );
+      if (view === null) return { state: { kind: "gone" }, placeName: null };
+      return {
+        state: {
+          kind: "present",
+          viewable,
+          stateText: occasionStateText({
+            publication: publicationView(view.publication),
+            suspended: view.suspended,
+            holding: view.holdingStatus,
+          }),
+          suspended: view.suspended,
+        },
+        placeName: null,
+      };
+    }
+    case "article":
+      return { state: { kind: "gone" }, placeName: null };
   }
 }
 

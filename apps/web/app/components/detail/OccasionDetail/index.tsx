@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
+import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StatusTag, StatusTags } from "@/components/ui/StatusTag";
+import { TextLink } from "@/components/ui/TextButton";
+import { participationApplyHref } from "@/presentation/applyRelationsView";
 import {
   HOLDING_STATUS_TEXT,
   type OccasionDetailData,
@@ -73,9 +76,10 @@ function Participant({ item }: { item: ParticipantItem }) {
  * 開催中・終了・中止), every participant with its attached listings and
  * days (APX 4 「参加店舗一覧」; days outside the period are not shown), and
  * the linked regions. Without a viewable attached listing the participants
- * section says so (CS-09). The participants' map (VW-08), the occasion
- * list (VW-07), the articles and the procedure entries (RQ-06, RQ-07 of an
- * occasion) arrive with their stages.
+ * section says so (CS-09). The procedures close it: 参加の申請 (RQ-06,
+ * while upcoming or ongoing, for a signed-out viewer or a steward of a
+ * place) and the takedown claim (RQ-07). The participants' map (VW-08),
+ * the occasion list (VW-07) and the articles arrive with their stages.
  */
 export function OccasionDetail({ data }: { data: OccasionDetailData }) {
   const running = data.holding === "upcoming" || data.holding === "ongoing";
@@ -130,6 +134,27 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
               <RegionRows items={data.regions} />
             </section>
           )}
+
+          <div className="procedures">
+            <hr className="divider" />
+            {data.participationEntry ? (
+              <ButtonLink
+                variant="secondary"
+                to={participationApplyHref({ occasionId: data.occasionId })}
+              >
+                このイベントへの参加を申請する
+              </ButtonLink>
+            ) : null}
+            <div className="procedures__links">
+              <TextLink
+                quiet
+                to="/takedown/$kind/$id"
+                params={{ kind: "occasion", id: data.occasionId }}
+              >
+                このイベントの取り下げを申し立てる
+              </TextLink>
+            </div>
+          </div>
         </div>
       </div>
     </div>

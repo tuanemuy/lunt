@@ -5,7 +5,7 @@ const bar = "h-25 w-full";
 const field = "h-48 w-full rounded-8";
 
 /**
- * CS-01 of the application screens (RQ-02〜RQ-04), shaped like the form:
+ * CS-01 of the application screens (RQ-02〜RQ-06), shaped like the form:
  * the target row or photo, then labelled fields.
  */
 export function ApplySkeleton({
@@ -13,7 +13,7 @@ export function ApplySkeleton({
   label,
 }: {
   /** `place`: a photo and the profile's fields; `claim`: the target row and two texts. */
-  variant: "place" | "claim" | "listing" | "preview";
+  variant: "place" | "claim" | "listing" | "preview" | "event";
   label: string;
 }) {
   const blocks = (() => {
@@ -35,6 +35,8 @@ export function ApplySkeleton({
         ];
       case "preview":
         return [bar, "aspect-[348/290] w-full", "h-27 w-2/5", bar, bar];
+      case "event":
+        return ["h-150 w-full", bar, bar, "h-88 w-full"];
     }
   })();
   return (

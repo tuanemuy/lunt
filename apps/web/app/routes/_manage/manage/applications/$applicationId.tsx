@@ -26,9 +26,9 @@ import { classifyError } from "@/presentation/errorState";
  * CM-01 申請の判断. The management layout requires a login (CS-04); the
  * loader returns plain data so that a viewer who is not the approver
  * (CS-05) and a missing application (CS-17) reach the error view
- * classified. In stage 2 every kind is the operators' to decide, so the
- * frame is the service-operation one; the region and event navs join
- * with their kinds (S3B).
+ * classified. The loaded screen draws its frame by who judges
+ * (`ReviewFrame`); before the application is read — loading, and the
+ * error states — the frame is the service-operation one.
  */
 export const Route = createFileRoute(
   "/_manage/manage/applications/$applicationId",
@@ -45,7 +45,11 @@ export const Route = createFileRoute(
 
 function Frame({ nav, children }: { nav: boolean; children: ReactNode }) {
   return (
-    <ManageShell context="サービス運営" homeTo={OPS_HOME} solo={!nav}>
+    <ManageShell
+      context="サービス運営"
+      homeTo={nav ? OPS_HOME : "/me"}
+      solo={!nav}
+    >
       <ManagePage
         title={
           <ManageTitle>
@@ -65,9 +69,13 @@ function Frame({ nav, children }: { nav: boolean; children: ReactNode }) {
   );
 }
 
+/**
+ * Who opened it is not known until the application is read (a region's or
+ * event's steward is framed in its own nav): no nav meanwhile.
+ */
 function ReviewPending() {
   return (
-    <Frame nav>
+    <Frame nav={false}>
       <ApplicationDetailSkeleton />
     </Frame>
   );
@@ -111,21 +119,23 @@ function ReviewError({ error }: ErrorComponentProps) {
         </Frame>
       );
     case "notFound":
+      // The list it came from (OM-01, RM-01, EM-01) is not known without
+      // the application: MY-01 leads to each of them.
       return (
-        <Frame nav>
+        <Frame nav={false}>
           <ManageBody>
             <EmptyPanel
               title="申請が見つかりません"
               actions={
                 <>
-                  <ButtonLink to={OPS_HOME}>対応が必要なものへ戻る</ButtonLink>
+                  <ButtonLink to="/me">マイページへ戻る</ButtonLink>
                   <ButtonLink variant="secondary" to="/me/notifications">
                     通知へ戻る
                   </ButtonLink>
                 </>
               }
             >
-              開いた申請はありません。申請の一覧から、もう一度選んでください。
+              開いた申請はありません。マイページから申請の一覧（対応が必要なもの、所属店舗と申請、参加店舗と申請）を開き、もう一度選んでください。
             </EmptyPanel>
           </ManageBody>
         </Frame>

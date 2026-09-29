@@ -7,8 +7,6 @@ import type { ApplicationStatusKind } from "@repo/core/domain/application/status
  * by MY-04, MY-05 and CM-01. Client-safe: types only from the core.
  */
 
-// Every kind of the spec, so a kind registered by a later stage (S3B)
-// already has its words; the annotations below pick the registered ones.
 const KIND_TITLES = {
   registration: "店舗の登録申請",
   revision: "情報修正の申請",
@@ -95,6 +93,19 @@ export const REVIEW_BROKEN_PREMISE_TEXT: Readonly<Record<PremiseKey, string>> =
     registrationStanding:
       "併せた店舗の登録申請が、否認されたか取り下げになっています。",
   };
+
+/** Why an application lapsed, in a list row's meta (RM-01, EM-01): 店舗管理者がいなくなったため… */
+export const LAPSE_REASON_SHORT: Readonly<Record<PremiseKey, string>> = {
+  placeHasNoSteward: "店舗管理者が就いたため",
+  placeHasSteward: "店舗管理者がいなくなったため",
+  listingExists: "掲載が削除されたため",
+  notAffiliated: "所属がすでに成立したため",
+  affiliated: "所属がすでに解除されたため",
+  occasionOpen: "イベントが終了または中止したため",
+  notParticipating: "参加がすでに成立したため",
+  applicantNotSteward: "申請者が店舗管理者になったため",
+  registrationStanding: "併せた登録申請が認められなかったため",
+};
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
