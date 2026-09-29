@@ -6,6 +6,7 @@ import type { ConsumerReceipts } from "@repo/core/application/ports/consumerRece
 import {
   consumeEventMessage,
   type EventMessage,
+  rebuildQueuedEvent,
 } from "@repo/core/application/workers/eventDelivery";
 
 export const EVENTS_QUEUE = "lunt-events";
@@ -15,6 +16,11 @@ export type QueueDeps = Readonly<{
   container: RequestContainer;
   receipts: ConsumerReceipts;
   registry: ConsumerRegistry;
+  /**
+   * Turns a message's JSON-carried event back into the typed event
+   * (`rebuildQueuedEvent` unless a test supplies its own).
+   */
+  rebuild?: (event: EventMessage["event"]) => EventMessage["event"];
   /** Keeps a message that exhausted its retries for an operator to re-drive. */
   recordDeadLetter(input: DeadLetterInput): Promise<void>;
   /** Runs `fn` with `container` installed as the request-scoped container. */
@@ -28,7 +34,10 @@ async function consumeOne(
   const { consumer, event } = message.body;
   try {
     const outcome = await deps.inScope(() =>
-      consumeEventMessage(deps, message.body),
+      consumeEventMessage(deps, {
+        consumer,
+        event: (deps.rebuild ?? rebuildQueuedEvent)(event),
+      }),
     );
     deps.container.logger.info(
       `[queue] ${outcome} ${event.type} ${event.id} → ${consumer}`,

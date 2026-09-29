@@ -7,7 +7,10 @@ import type {
   EventConsumer,
 } from "@repo/core/application/events/consumers";
 import type { ConsumerReceipts } from "@repo/core/application/ports/consumerReceipts";
-import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
+import {
+  type EventMessage,
+  rebuildQueuedEvent,
+} from "@repo/core/application/workers/eventDelivery";
 import { EventId } from "@repo/core/domain/common/event";
 import { describe, expect, it } from "vitest";
 import { DEAD_LETTER_QUEUE, EVENTS_QUEUE, handleQueueBatch } from "../queue";
@@ -69,6 +72,7 @@ function deps(
     registry,
     recordDeadLetter,
     inScope: <T>(fn: () => Promise<T>) => fn(),
+    rebuild: (event: EventMessage["event"]) => event,
   };
 }
 
@@ -80,6 +84,42 @@ const failing = {
   },
 };
 const registry = { ok, failing } as unknown as Record<string, EventConsumer>;
+
+describe("rebuildQueuedEvent", () => {
+  it("restores the dates a JSON queue body turned into strings", () => {
+    const sent = {
+      id: EventId.create("01900000-0000-7000-8000-000000000001"),
+      type: "application.review_period_elapsed",
+      aggregateId: "01900000-0000-7000-8000-000000000002",
+      occurredAt: new Date("2026-10-06T00:00:00.000Z"),
+      payload: {
+        applicationId: "01900000-0000-7000-8000-000000000002",
+        pendingSince: new Date("2026-09-29T00:00:00.000Z"),
+      },
+    };
+    const received = JSON.parse(JSON.stringify(sent)) as typeof sent;
+
+    const event = rebuildQueuedEvent(received);
+
+    expect(event.occurredAt).toEqual(new Date("2026-10-06T00:00:00.000Z"));
+    expect(event.payload).toEqual({
+      applicationId: "01900000-0000-7000-8000-000000000002",
+      pendingSince: new Date("2026-09-29T00:00:00.000Z"),
+    });
+  });
+
+  it("refuses an event no decoder knows, so the queue retries it", () => {
+    expect(() =>
+      rebuildQueuedEvent({
+        id: EventId.create("e1"),
+        type: "probe.pinged",
+        aggregateId: "e1",
+        occurredAt: new Date(),
+        payload: {},
+      }),
+    ).toThrow();
+  });
+});
 
 describe("handleQueueBatch", () => {
   it("acks each message whose consumer succeeded and retries only the failed one", async () => {

@@ -1,8 +1,13 @@
 import type { DomainEvent } from "@repo/core/domain/common/event";
 import type { RequestContainer } from "../di/types";
 import { type ConsumerRegistry, subscribersOf } from "../events/consumers";
+import { type EventDecoderRegistry, eventDecoders } from "../events/registry";
 import type { ConsumerReceipts } from "../ports/consumerReceipts";
-import type { EventDispatcher, EventDispatchOutcome } from "./eventRelayWorker";
+import {
+  decodeStoredEvent,
+  type EventDispatcher,
+  type EventDispatchOutcome,
+} from "./eventRelayWorker";
 
 /** One queue message: one event addressed to one consumer. */
 export type EventMessage = Readonly<{
@@ -68,6 +73,36 @@ export function createFanOutDispatcher(
         : { kind: "failure", id: event.id, error };
     });
   };
+}
+
+/**
+ * Rebuilds the typed event a queue message carried. The queue serializes
+ * its body as JSON, so dates in the payload and `occurredAt` arrive as
+ * strings: the message is decoded again through the stored-event decoders,
+ * exactly as the relay decoded the outbox row. Throws on an event no
+ * decoder accepts, which the queue retries and finally dead-letters.
+ */
+export function rebuildQueuedEvent(
+  event: DomainEvent,
+  decoders: EventDecoderRegistry = eventDecoders,
+): DomainEvent {
+  const wire = JSON.parse(JSON.stringify(event)) as Readonly<{
+    id: string;
+    type: string;
+    aggregateId: string;
+    occurredAt: string;
+    payload: unknown;
+  }>;
+  return decodeStoredEvent(
+    {
+      id: wire.id,
+      type: wire.type,
+      aggregateId: wire.aggregateId,
+      occurredAt: new Date(wire.occurredAt),
+      payload: wire.payload,
+    },
+    decoders,
+  );
 }
 
 export type ConsumeOutcome = "consumed" | "skipped";
