@@ -38,10 +38,14 @@ function of(
   return "ended";
 }
 
+// An occasion ending on the last representable day never turns `ended`.
+const LAST_DAY = LocalDate.parse("9999-12-31");
+
 /**
  * The next day `of` would answer differently while the period and the
  * cancellation stay as they are: the start for `upcoming`, the day after
- * the end for `ongoing`, `null` otherwise (dates alone never change it).
+ * the end for `ongoing` (`null` when the end is 9999-12-31), `null`
+ * otherwise (dates alone never change it).
  */
 function nextChangeOn(
   period: DateRange | null,
@@ -54,7 +58,7 @@ function nextChangeOn(
     case "upcoming":
       return period.start;
     case "ongoing":
-      return LocalDate.addDays(period.end, 1);
+      return period.end === LAST_DAY ? null : LocalDate.addDays(period.end, 1);
     default:
       return null;
   }

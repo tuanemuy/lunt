@@ -242,6 +242,7 @@ export function describeHoldingStatusLedgerContract(
         expect(await idsToObserve(h, TODAY, page(2, 10))).toEqual(
           all.slice(10),
         );
+        expect((await toObserve(h, TODAY, page(1, 10))).count).toBe(11);
         expect((await toObserve(h, TODAY, page(2, 10))).count).toBe(11);
       });
 

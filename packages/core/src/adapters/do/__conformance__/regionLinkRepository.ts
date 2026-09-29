@@ -407,14 +407,17 @@ export function describeRegionLinkRepositoryContract(
         const h = await makeHarness();
         const f = occasionFactory();
         const r = f.region();
-        const mr = f.regionLink(f.occasionId(), r);
+        const mr = f.detached(f.regionLink(f.occasionId(), r));
         const nr = f.detached(f.regionLink(f.occasionId(), r));
         await insertRegionLinks(h, mr, nr);
         const read = await getRegionLink(h, nr.key);
         const restored = RegionLink.restore(read.entity, f.tick()).entity;
         await save(h, restored, read.expectedVersion);
+        const readM = await getRegionLink(h, mr.key);
+        const restoredM = RegionLink.restore(readM.entity, f.tick()).entity;
+        await save(h, restoredM, readM.expectedVersion);
         const result = await byRegion(h, r);
-        expect(result.items).toEqual([restored, mr]);
+        expect(result.items).toEqual([restored, restoredM]);
         expect(result.items[0]?.status).toBe("linked");
       });
 

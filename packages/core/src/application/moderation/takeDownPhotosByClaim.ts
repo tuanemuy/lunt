@@ -26,7 +26,7 @@ export type TakeDownPhotosByClaimOutput = Readonly<{
   unpublished: boolean;
 }>;
 
-/** The target does not exist (deleted, never existed, or its kind has no storage yet). */
+/** The target does not exist (deleted, never existed, or its kind is not wired yet). */
 export const CONTENT_NOT_FOUND = "CONTENT_NOT_FOUND";
 
 const notFound = (target: ContentRef) =>
@@ -43,9 +43,9 @@ type Removal = Readonly<{
 /**
  * Calls the target kind's repository and `takeDownPhotos`, and saves
  * against the version read
- * (`spec/usecases/moderation.md` 「takeDownPhotosByClaim」's table). Regions
- * and occasions (S3) and articles (S5) have no storage yet, so none of
- * them exists.
+ * (`spec/usecases/moderation.md` 「takeDownPhotosByClaim」's table). Region
+ * and occasion targets are wired in S3B-MOD and articles in S5; until
+ * then such a target reads as missing.
  */
 async function takeDown(
   ctx: UnitOfWorkContext,

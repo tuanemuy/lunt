@@ -26,6 +26,13 @@ describe("HoldingStatus", () => {
     ).toBe(next);
   });
 
+  it("never changes again for an ongoing occasion ending on the last representable day", () => {
+    const endless = DateRange.create(day("2026-10-01"), day("9999-12-31"));
+    expect(
+      HoldingStatus.nextChangeOn(endless, Cancellation.none, day("2026-10-02")),
+    ).toBeNull();
+  });
+
   it("is cancelled whatever the date, and undetermined without a period", () => {
     expect(
       HoldingStatus.of(period, Cancellation.cancelled, day("2026-10-02")),

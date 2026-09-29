@@ -288,11 +288,16 @@ describe("updateOccasionContent", () => {
     const k = await occasionKit();
     const o = await k.operator();
     const occasion = await k.published(o);
-    const e = await k.photo(o);
-    const other = await k.register(o, { photoIds: [e] });
+    const other = await k.register(o);
+    const s = await k.steward(occasion.id);
+    await k.appoint(k.ref(other.id), s);
+    const e = await k.photo(s);
+    await k.update(s, other.id, {
+      photoIds: [...other.photos.map((p) => p.photoId), e],
+    });
     const before = (await k.stored(occasion.id)).entity;
     await expect(
-      k.update(o, occasion.id, {
+      k.update(s, occasion.id, {
         photoIds: [...before.content.photos.items.map((p) => p.photoId), e],
       }),
     ).rejects.toMatchObject({ code: "MEDIA_PHOTO_ALREADY_OWNED" });

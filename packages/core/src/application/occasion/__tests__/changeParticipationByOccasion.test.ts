@@ -105,15 +105,23 @@ describe("changeParticipationByOccasion", () => {
   });
 
   it("changeParticipationByOccasion#6 操作する人はイベント O の運営者。編集を始めた後に、店舗 P に店舗管理者が就き、その店舗管理者が参加内容を保存して版が進んでいる / 編集を始めたときの版を添えて保存する", async () => {
-    const { k, organizer, p, l1, pair } = await setup();
+    const { k, o, organizer, p, l1, l3, pair } = await setup();
     const started = (await k.storedParticipation(pair)).entity.version;
     const m = await k.manager(p);
     await k.byPlace(m, pair, { listingIds: [l1], dates: [oct(3)] });
+    await k.postpone(o, oct(5), oct(7));
+    const saved = (await k.storedParticipation(pair)).entity;
     await expectCode(
-      k.byOccasion(organizer, pair, { dates: [oct(2)] }, { version: started }),
+      k.byOccasion(
+        organizer,
+        pair,
+        { listingIds: [l3], dates: [oct(2)] },
+        { version: started },
+      ),
       BusinessRuleError,
       "OCCASION_PLACE_HAS_STEWARD",
     );
+    expect((await k.storedParticipation(pair)).entity).toEqual(saved);
   });
 
   it("changeParticipationByOccasion#7 操作する人はイベント O の運営者で、店舗管理者のいる店舗 Q が参加中 / 店舗 Q の参加内容を変更して保存する", async () => {

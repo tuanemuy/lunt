@@ -15,21 +15,26 @@ async function setup() {
   const r = await k.region();
   const rs = await k.regionSteward(r, "region-steward");
   const pair = { occasionId: o, regionId: r };
+  const linkedAt = k.tick();
   await k.link(organizer, pair);
+  k.tick();
   await k.detach(rs, pair);
-  return { k, o, organizer, r, rs, pair };
+  k.tick();
+  return { k, o, organizer, r, rs, pair, linkedAt };
 }
 
 describe("restoreRegionLink", () => {
   it("restoreRegionLink#1 操作する人は地域 R の運営者。イベント O からの関連づけを解除している（detached） / 解除を取り消す", async () => {
-    const { k, o, r, rs, pair } = await setup();
-    const detached = await k.findLink(pair);
+    const { k, o, r, rs, pair, linkedAt } = await setup();
     const marked = await k.mark();
+    const restoredAt = k.clock.now();
     const view = await k.restore(rs, pair);
-    expect(view.status).toBe("linked");
+    expect(restoredAt).not.toEqual(linkedAt);
+    expect(view).toMatchObject({ status: "linked", linkedAt });
     expect(await k.findLink(pair)).toMatchObject({
       status: "linked",
-      linkedAt: detached?.linkedAt,
+      linkedAt,
+      updatedAt: restoredAt,
     });
     expect(await k.since(marked)).toEqual([]);
     const [ofOccasion, ofRegion] = await k.run(({ regionLinkRepository }) =>

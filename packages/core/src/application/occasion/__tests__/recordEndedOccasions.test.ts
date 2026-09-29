@@ -283,6 +283,21 @@ describe("recordEndedOccasions", () => {
     expect(await ended(k)).toHaveLength(2);
   });
 
+  it("records an ongoing occasion ending 9999-12-31 with no next change day", async () => {
+    const k = await occasionKit();
+    const o = await k.operator();
+    const { id } = await k.published(o, {
+      period: { start: "2026-10-01", end: "9999-12-31" },
+    });
+    const report = await k.runJob("2026-10-02");
+    expect(report).toMatchObject({ processed: 1, failed: 0 });
+    expect(await k.record(id)).toMatchObject({
+      lastObserved: "ongoing",
+      nextChangeOn: null,
+    });
+    expect((await k.runJob("2026-10-03")).processed).toBe(0);
+  });
+
   it("recordEndedOccasions#15 開催の状態が記録と違うイベントがない / ジョブを実行する", async () => {
     const { k, id } = await setUp();
     await k.runJob("2026-09-30");

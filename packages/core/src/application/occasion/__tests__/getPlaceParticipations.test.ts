@@ -44,6 +44,7 @@ describe("getPlaceParticipations", () => {
     const [first, second] = view.items;
     expect(first?.occasion).toMatchObject({
       name: "B",
+      period: { start: day("2026-07-09"), end: day("2026-07-12") },
       publication: { status: "published" },
       holdingStatus: "ongoing",
     });

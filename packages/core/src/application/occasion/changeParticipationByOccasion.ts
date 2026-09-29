@@ -33,9 +33,10 @@ export type ChangeParticipationByOccasionInput = ParticipationDetailsFields &
  *
  * - `ForbiddenError` (`manage_target` on the occasion).
  * - `NotFoundError` `PARTICIPATION_NOT_FOUND` once dissolved.
- * - `BusinessRuleError` `OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD`,
- *   `OCCASION_LISTING_NOT_ATTACHABLE`, then `OCCASION_PLACE_HAS_STEWARD`
- *   (a steward took over; decided before the version).
+ * - `BusinessRuleError` `OCCASION_PLACE_HAS_STEWARD` (a steward took
+ *   over; decided before the details and the version), then
+ *   `OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD`,
+ *   `OCCASION_LISTING_NOT_ATTACHABLE`.
  * - `ConflictError` when the edit started from an older version or loses
  *   the optimistic lock.
  */
@@ -57,6 +58,15 @@ export async function changeParticipationByOccasion({
       requireOccasion(ctx, input.occasionId),
       placeHasSteward(ctx, input.placeId),
     ]);
+    const facts = { placeHasSteward: hasSteward };
+    // A steward taking over answers before the details and the version
+    // (spec/domains/index.md 「編集の競合」); unchanged details only check it.
+    Participation.changeByOccasion(
+      read.entity,
+      read.entity.details,
+      facts,
+      now,
+    );
     const period = occasion.entity.content.period;
     const details = await participationDetails(
       ctx,
@@ -67,7 +77,7 @@ export async function changeParticipationByOccasion({
     const { entity, eventDrafts } = Participation.changeByOccasion(
       read.entity,
       details,
-      { placeHasSteward: hasSteward },
+      facts,
       now,
     );
     assertEditedVersion(read.entity, input.version);

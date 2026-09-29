@@ -210,4 +210,24 @@ describe("addParticipationDirectly", () => {
     expect(await k.findParticipation(pair)).not.toBeNull();
     expect(await k.events(ESTABLISHED)).toHaveLength(1);
   });
+  it("店舗 P の追加が成立した後に、開催期間が 10/5〜10/7 に更新された / 参加日 10/1 を添えた同じ追加をもう一度送る", async () => {
+    const { k, o, organizer, pair } = await setup();
+    await k.add(organizer, pair, { dates: [oct(1)] });
+    await k.postpone(o, oct(5), oct(7));
+    await expectCode(
+      k.add(organizer, pair, { dates: [oct(1)] }),
+      BusinessRuleError,
+      "OCCASION_ALREADY_PARTICIPATING",
+    );
+  });
+
+  it("店舗 P はすでに参加中 / 一時非公開の掲載 L2 を添えて、店舗 P を追加する", async () => {
+    const { k, organizer, pair, l2 } = await setup();
+    await k.add(organizer, pair);
+    await expectCode(
+      k.add(organizer, pair, { listingIds: [l2] }),
+      BusinessRuleError,
+      "OCCASION_ALREADY_PARTICIPATING",
+    );
+  });
 });
