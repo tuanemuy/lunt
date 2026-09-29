@@ -51,7 +51,7 @@ export const MEMBER_WORDS: Readonly<Record<StewardedKind, MemberWords>> = {
     verb: "運営",
     area: "地域の運営",
     vacancy: [
-      "地域の公開は続きます",
+      "地域の公開状態は変わりません",
       "サービス運営者が、地域の運営者として運営します",
     ],
   },
@@ -61,7 +61,7 @@ export const MEMBER_WORDS: Readonly<Record<StewardedKind, MemberWords>> = {
     verb: "運営",
     area: "イベントの運営",
     vacancy: [
-      "イベントの公開は続きます",
+      "イベントの公開状態は変わりません",
       "サービス運営者が、イベントの運営者として運営します",
     ],
   },

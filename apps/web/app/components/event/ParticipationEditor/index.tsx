@@ -287,8 +287,8 @@ export function PlacePicker() {
  * CM-04 参加内容の編集 (EVT-02, EVT-03, EVT-10): one place's
  * participation in one event — the attached listings (the place's
  * published ones, whatever their offering) and the dates (within the
- * holding period; dates the period has left outside are marked and can be
- * removed) — saved without approval, whatever the holding status. The
+ * holding period: a date outside it is marked in the list and the save
+ * refuses it, CS-10) — saved without approval, whatever the holding status. The
  * place's steward may also withdraw (CS-12); the event's operator adds or
  * changes a participant without a steward, and cannot once one takes
  * over.
@@ -333,6 +333,10 @@ function ParticipationEditor({
   const [confirming, setConfirming] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [dateError, setDateError] = useState<string | null>(null);
+  /** The names of the listings attached here, kept for when one stops being attachable before the save. */
+  const [picked, setPicked] = useState<ReadonlyMap<string, string | null>>(
+    () => new Map(),
+  );
   const [busy, startBusy] = useTransition();
   const alertRef = useRef<HTMLDivElement>(null);
 
@@ -364,10 +368,13 @@ function ParticipationEditor({
       state.code === "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD" &&
       state.kind === "invalidInput"
     ) {
+      const outside = draftRef.current.values.dates.filter(
+        (date) => !inPeriod(date, period),
+      );
       setDateError(
         period === null
-          ? "開催期間が決まっていないため、参加日は添えられません"
-          : `参加日は、開催期間（${periodText(period)}）の日付に限ります`,
+          ? "開催期間が決まっていないため、参加日は添えられません。参加日を外してください"
+          : `${outside.length === 0 ? "参加日" : outside.map(jpDate).join("、")}は開催期間の外です。参加日は、開催期間（${periodText(period)}）の日付に限ります`,
       );
     }
     setFailure({ state, attempt });
@@ -433,18 +440,12 @@ function ParticipationEditor({
       values: { ...current.values, ...next },
     }));
 
+  // An out-of-period date is added and marked; the save refuses it (CS-10),
+  // so the form keeps it for the steward to see and remove.
   const addDate = () => {
     const date = newDate.trim();
     if (date === "") {
       setDateError("追加する参加日を選んでください");
-      return;
-    }
-    if (!inPeriod(date, period)) {
-      setDateError(
-        period === null
-          ? "開催期間が決まっていないため、参加日は添えられません"
-          : `${jpDate(date)}は開催期間の外です。${periodText(period)}の日付を選んでください`,
-      );
       return;
     }
     setDateError(null);
@@ -454,12 +455,14 @@ function ParticipationEditor({
     setNewDate("");
   };
 
-  const eventLink =
-    occasion.publication.status === "published" && !occasion.suspended ? (
-      <ButtonLink variant="secondary" to={occasionPagePath(occasion.id)}>
-        イベントページを見る
-      </ButtonLink>
-    ) : null;
+  const occasionViewable =
+    occasion.publication.status === "published" && !occasion.suspended;
+  const eventLink = (
+    <ButtonLink variant="secondary" to={occasionPagePath(occasion.id)}>
+      イベントページを見る
+    </ButtonLink>
+  );
+  const shownLater = `${eventName}は閲覧者に表示されていないため、イベントページにはまだ表示されません。イベントが閲覧者に表示されるようになると、表示されます。`;
   const backToList =
     side === "place" ? (
       <ButtonLink to={placeEventsPath(data.place.id)}>
@@ -503,14 +506,17 @@ function ParticipationEditor({
     const done = {
       saved: {
         title: "参加内容を保存しました",
-        body:
-          side === "place"
+        body: !occasionViewable
+          ? `添えた掲載と参加日を保存しました。${shownLater}`
+          : side === "place"
             ? `${eventName}のイベントページに、添えた掲載と参加日を反映しました。`
             : `${shopName}の添えた掲載と参加日を、イベントページに反映しました。`,
       },
       added: {
         title: "参加店舗に追加しました",
-        body: `${shopName}を、${eventName}の参加店舗としてイベントページに反映しました。`,
+        body: occasionViewable
+          ? `${shopName}を、${eventName}の参加店舗としてイベントページに反映しました。`
+          : `${shopName}を、${eventName}の参加店舗に追加しました。${shownLater}`,
       },
       withdrawn: {
         title: "参加を取りやめました",
@@ -546,9 +552,10 @@ function ParticipationEditor({
   const candidates = data.attachable.filter(
     (item) => !values.listingIds.includes(item.id),
   );
-  const occasionViewable =
-    occasion.publication.status === "published" && !occasion.suspended;
-  const outside = values.dates.filter((date) => !inPeriod(date, period));
+  const savedDates = new Set(data.participation?.dates ?? []);
+  const leftOutside = values.dates.filter(
+    (date) => savedDates.has(date) && !inPeriod(date, period),
+  );
   const cannotSave = stewardArrived || alreadyParticipating;
   const submitLabel = mode === "add" ? "参加店舗として追加" : "参加内容を保存";
 
@@ -629,7 +636,7 @@ function ParticipationEditor({
             </Notice>
           </div>
         ) : null}
-        {outside.length > 0 ? (
+        {leftOutside.length > 0 ? (
           <div role="status">
             <Notice
               variant="manage"
@@ -647,22 +654,13 @@ function ParticipationEditor({
           </SectionTitle>
           <div className="em-sub">
             <p className="m-field__label">イベント</p>
-            {occasionViewable ? (
-              <RowLink
-                to={occasionPagePath(occasion.id)}
-                photo={null}
-                name={eventName}
-                meta={period === null ? "開催期間は未設定" : periodText(period)}
-                sub={<OccasionBadges occasion={occasion} />}
-              />
-            ) : (
-              <Row
-                photo={null}
-                name={eventName}
-                meta={period === null ? "開催期間は未設定" : periodText(period)}
-                sub={<OccasionBadges occasion={occasion} />}
-              />
-            )}
+            <RowLink
+              to={occasionPagePath(occasion.id)}
+              photo={null}
+              name={eventName}
+              meta={period === null ? "開催期間は未設定" : periodText(period)}
+              sub={<OccasionBadges occasion={occasion} />}
+            />
           </div>
           <div className="em-sub">
             <p className="m-field__label">店舗</p>
@@ -723,6 +721,7 @@ function ParticipationEditor({
                   id={id}
                   stored={known.get(id) ?? null}
                   candidate={attachable.get(id) ?? null}
+                  pickedName={picked.get(id) ?? null}
                   disabled={busy || cannotSave}
                   onRemove={() =>
                     change({
@@ -757,11 +756,14 @@ function ParticipationEditor({
                       <ChipButton
                         disabled={busy || cannotSave}
                         aria-label={`${name}を添える`}
-                        onClick={() =>
+                        onClick={() => {
+                          setPicked((current) =>
+                            new Map(current).set(item.id, item.name),
+                          );
                           change({
                             listingIds: [...values.listingIds, item.id],
-                          })
-                        }
+                          });
+                        }}
                       >
                         添える
                       </ChipButton>
@@ -790,6 +792,7 @@ function ParticipationEditor({
             <LinkList>
               {values.dates.map((date) => {
                 const out = !inPeriod(date, period);
+                const saved = savedDates.has(date);
                 return (
                   <li key={date} className="m-list__item cm04-date">
                     <span className="m-list__text">
@@ -800,7 +803,9 @@ function ParticipationEditor({
                         <>
                           <Badge tone="alert">開催期間の外</Badge>
                           <span className="m-list__meta">
-                            閲覧者に表示されていません
+                            {saved
+                              ? "閲覧者に表示されていません。外してから保存してください"
+                              : "このままでは保存できません。外してください"}
                           </span>
                         </>
                       ) : null}
@@ -808,11 +813,13 @@ function ParticipationEditor({
                     <ChipButton
                       disabled={busy || cannotSave}
                       aria-label={`${jpDate(date)}を外す`}
-                      onClick={() =>
-                        change({
-                          dates: values.dates.filter((d) => d !== date),
-                        })
-                      }
+                      onClick={() => {
+                        const rest = values.dates.filter((d) => d !== date);
+                        change({ dates: rest });
+                        if (rest.every((d) => inPeriod(d, period))) {
+                          setDateError(null);
+                        }
+                      }}
                     >
                       外す
                     </ChipButton>
@@ -838,9 +845,6 @@ function ParticipationEditor({
                   {...control}
                   type="date"
                   value={newDate}
-                  {...(period === null
-                    ? {}
-                    : { min: period.start, max: period.end })}
                   disabled={busy || cannotSave}
                   onChange={(event) => setNewDate(event.currentTarget.value)}
                   onKeyDown={(event) => {
@@ -958,6 +962,7 @@ function AttachedRow({
   id,
   stored,
   candidate,
+  pickedName,
   disabled,
   onRemove,
 }: {
@@ -969,6 +974,8 @@ function AttachedRow({
     name: string | null;
     offeringStatus: OfferingStatus;
   }> | null;
+  /** The name it had when attached in this form, before the save. */
+  pickedName: string | null;
   disabled: boolean;
   onRemove: () => void;
 }) {
@@ -983,11 +990,12 @@ function AttachedRow({
   );
   if (stored === null) {
     if (candidate === null) {
+      const name = pickedName ?? "名称未設定";
       return (
         <li className="cm04-item">
           <Row
             photo={null}
-            name="選んだ掲載"
+            name={name}
             sub={
               <span className="p-badges">
                 <Badge tone="alert">添えられません</Badge>
@@ -995,7 +1003,7 @@ function AttachedRow({
             }
             meta="外してから保存してください"
           />
-          {remove("選んだ掲載")}
+          {remove(name)}
         </li>
       );
     }
@@ -1035,7 +1043,8 @@ function AttachedRow({
   return (
     <li className="cm04-item">
       {state.hidden ? (
-        <Row
+        <RowLink
+          to={listingPagePath(id)}
           photo={null}
           name={name}
           meta="閲覧者に表示されていません"
@@ -1189,9 +1198,11 @@ function FailureAlert({
     return (
       <Alert
         title={
-          state.code === "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD"
-            ? "参加日を保存できませんでした"
-            : "保存できませんでした"
+          attempt === "add"
+            ? "参加店舗として追加できませんでした"
+            : state.code === "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD"
+              ? "参加日を保存できませんでした"
+              : "保存できませんでした"
         }
         {...(state.code === "OCCASION_PARTICIPATION_DATE_OUT_OF_PERIOD"
           ? {

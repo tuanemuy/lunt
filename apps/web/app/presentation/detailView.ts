@@ -521,8 +521,8 @@ export type RegionDetailData = Readonly<{
   name: string;
   tagline: string | null;
   description: string | null;
-  /** 市区町村・町域 of its address. */
-  area: string;
+  /** 所在地: the full address, the part after the town included. */
+  address: string;
   /** Registration order; the first is the cover. */
   photos: readonly DetailPhoto[];
   /** Linked upcoming and ongoing occasions (開催日の順). */
@@ -548,7 +548,7 @@ export function toRegionDetailData(
     name: region.name,
     tagline: region.tagline,
     description: region.description,
-    area: localityText(region.address),
+    address: Address.text(region.address),
     photos: region.photos.map((photo, index) => ({
       photo: photoSource(photos, photo.photoId, null),
       alt: index === 0 ? region.name : `${region.name}（${index + 1}枚目）`,

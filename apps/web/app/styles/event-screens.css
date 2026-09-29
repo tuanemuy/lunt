@@ -123,6 +123,9 @@
   .cm04-date {
     padding-block: var(--space-4);
   }
+  .cm04-date > .chip-button {
+    flex: none;
+  }
   .cm04-date .m-list__text {
     flex-direction: row;
     flex-wrap: wrap;

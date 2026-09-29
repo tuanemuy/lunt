@@ -14,14 +14,14 @@ type RegionTab = "discover" | "places" | "events";
 
 const FEATURE_RATIO = 348 / 193;
 
-/** EditorialFeature of the region: area, tagline, cover, name, introduction. */
+/** EditorialFeature of the region: address, tagline, cover, name, introduction. */
 function RegionFeature({ data }: { data: RegionDetailData }) {
   const [cover, ...rest] = data.photos;
   return (
     <>
       <div className="feature">
         <div className="feature__head">
-          <p className="feature__location">{data.area}</p>
+          <p className="feature__location">{data.address}</p>
           {data.tagline === null ? null : (
             <p className="feature__catch">{data.tagline}</p>
           )}

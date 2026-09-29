@@ -350,7 +350,7 @@ export function OccasionEditor({
         case "uncancelled":
           return {
             title: "中止を取り消しました",
-            body: `開催の状態は、開催期間と今日の日付から${holdingNow ?? "決まる状態"}に戻りました。${published && !data.suspended ? "イベントは、フィードとイベントの一覧に再び表示されます。" : ""}失効した参加の申請は戻りません。`,
+            body: `開催の状態は、開催期間と今日の日付から${holdingNow ?? "決まる状態"}に戻りました。${published && !data.suspended && (data.holding === "upcoming" || data.holding === "ongoing") ? "イベントは、フィードとイベントの一覧に再び表示されます。" : ""}失効した参加の申請は戻りません。`,
             actions: (
               <>
                 {pageLink}
