@@ -91,6 +91,8 @@ export default {
           registry: probeConsumers,
           recordDeadLetter: (input) => client.recordDeadLetter(input),
           inScope: (fn) => fn(),
+          // Probe events have no stored-event decoder; they carry no dates.
+          rebuild: (event) => event,
         },
       );
     }
