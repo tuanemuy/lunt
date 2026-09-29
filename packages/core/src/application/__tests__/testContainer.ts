@@ -11,7 +11,9 @@ import { createTestListingServices } from "../listing/__tests__/testServices";
 import { createTestMediaServices } from "../media/__tests__/testServices";
 import { createTestModerationServices } from "../moderation/__tests__/testServices";
 import { createTestNotificationServices } from "../notification/__tests__/testServices";
+import { createTestOccasionServices } from "../occasion/__tests__/testServices";
 import { createTestPlaceServices } from "../place/__tests__/testServices";
+import { createTestRegionServices } from "../region/__tests__/testServices";
 import { FakeClock } from "./fakes/fakeClock";
 import { FakeIdGenerator } from "./fakes/fakeIdGenerator";
 import { FakeLogger } from "./fakes/fakeLogger";
@@ -104,6 +106,8 @@ export function createTestContainer(
     ...createTestPlaceServices(deps),
     ...createTestListingServices(deps),
     ...createTestDiscoveryServices(deps),
+    ...createTestOccasionServices(deps),
+    ...createTestRegionServices(deps),
     ...(options.overrides?.(deps) ?? {}),
   };
   return {

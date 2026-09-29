@@ -14,7 +14,9 @@ import { listingQueryHandlers } from "./listing";
 import { mediaQueryHandlers } from "./media";
 import { moderationQueryHandlers } from "./moderation";
 import { notificationQueryHandlers } from "./notification";
+import { occasionQueryHandlers } from "./occasion";
 import { placeQueryHandlers } from "./place";
+import { regionQueryHandlers } from "./region";
 
 /** Handler table of one catalog fragment: one synchronous reader per name. */
 export type QueryHandlersOf<Q> = {
@@ -36,6 +38,8 @@ export const queryHandlers = {
   ...placeQueryHandlers,
   ...listingQueryHandlers,
   ...discoveryQueryHandlers,
+  ...regionQueryHandlers,
+  ...occasionQueryHandlers,
 } satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(

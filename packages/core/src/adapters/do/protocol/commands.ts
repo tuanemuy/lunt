@@ -7,7 +7,9 @@ import type { ListingCommand } from "./listing";
 import type { MediaCommand } from "./media";
 import type { ModerationCommand } from "./moderation";
 import type { NotificationCommand } from "./notification";
+import type { OccasionCommand } from "./occasion";
 import type { PlaceCommand } from "./place";
+import type { RegionCommand } from "./region";
 
 /**
  * Buffered writes of one unit of work. Each domain contributes a union
@@ -29,7 +31,9 @@ export type WriteCommand =
   | PlaceCommand
   | ListingCommand
   | DiscoveryCommand
-  | ModerationCommand;
+  | ModerationCommand
+  | RegionCommand
+  | OccasionCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

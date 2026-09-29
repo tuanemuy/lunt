@@ -7,7 +7,9 @@ import type { ListingQueries } from "./listing";
 import type { MediaQueries } from "./media";
 import type { ModerationQueries } from "./moderation";
 import type { NotificationQueries } from "./notification";
+import type { OccasionQueries } from "./occasion";
 import type { PlaceQueries } from "./place";
+import type { RegionQueries } from "./region";
 
 /**
  * Named reads the request side can run against the Lunt state Durable
@@ -35,7 +37,9 @@ export type QueryCatalog = AccountQueries &
   MediaQueries &
   PlaceQueries &
   ListingQueries &
-  DiscoveryQueries;
+  DiscoveryQueries &
+  RegionQueries &
+  OccasionQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 

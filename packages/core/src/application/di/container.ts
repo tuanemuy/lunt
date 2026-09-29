@@ -22,8 +22,10 @@ import {
   createNotificationServices,
   type NotificationEnv,
 } from "./notification";
+import { createOccasionServices, type OccasionEnv } from "./occasion";
 import { createPlaceServices, type PlaceEnv } from "./place";
 import type { PresentationPorts } from "./presentationPorts";
+import { createRegionServices, type RegionEnv } from "./region";
 import type { ServiceDeps } from "./serviceDeps";
 import type { RequestContainer, RuntimeSettings, SharedDeps } from "./types";
 
@@ -46,7 +48,9 @@ export type LuntEnv = Readonly<{
   MediaEnv &
   PlaceEnv &
   ListingEnv &
-  DiscoveryEnv;
+  DiscoveryEnv &
+  RegionEnv &
+  OccasionEnv;
 
 /**
  * The session secret the local `wrangler.jsonc` ships with. It is public,
@@ -142,5 +146,7 @@ export function createRequestContainer(
     ...createPlaceServices(env, deps),
     ...createListingServices(env, deps),
     ...createDiscoveryServices(env, deps),
+    ...createOccasionServices(env, deps),
+    ...createRegionServices(env, deps),
   };
 }

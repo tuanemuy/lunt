@@ -11,7 +11,9 @@ import type { ListingErrorCode } from "@repo/core/domain/listing/errorCode";
 import type { MediaErrorCode } from "@repo/core/domain/media/errorCode";
 import type { ModerationErrorCode } from "@repo/core/domain/moderation/errorCode";
 import type { NotificationErrorCode } from "@repo/core/domain/notification/errorCode";
+import type { OccasionErrorCode } from "@repo/core/domain/occasion/errorCode";
 import type { PlaceErrorCode } from "@repo/core/domain/place/errorCode";
+import type { RegionErrorCode } from "@repo/core/domain/region/errorCode";
 
 /**
  * Every `BusinessRuleError` code a Lunt usecase can raise. Each domain
@@ -33,4 +35,6 @@ export type BusinessErrorCode =
   | PlaceErrorCode
   | ListingErrorCode
   | DiscoveryErrorCode
-  | ModerationErrorCode;
+  | ModerationErrorCode
+  | RegionErrorCode
+  | OccasionErrorCode;

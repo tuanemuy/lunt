@@ -9,7 +9,9 @@ import { listingCommandHandlers } from "./listing";
 import { mediaCommandHandlers } from "./media";
 import { moderationCommandHandlers } from "./moderation";
 import { notificationCommandHandlers } from "./notification";
+import { occasionCommandHandlers } from "./occasion";
 import { placeCommandHandlers } from "./place";
+import { regionCommandHandlers } from "./region";
 
 /** Handler table of one command union: one synchronous writer per kind. */
 export type CommandHandlersOf<C extends { kind: string }> = {
@@ -32,6 +34,8 @@ export const commandHandlers = {
   ...listingCommandHandlers,
   ...discoveryCommandHandlers,
   ...moderationCommandHandlers,
+  ...regionCommandHandlers,
+  ...occasionCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

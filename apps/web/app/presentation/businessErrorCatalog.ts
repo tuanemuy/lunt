@@ -13,12 +13,14 @@ import { listingErrorCatalog } from "./errorCatalog/listing";
 import { mediaErrorCatalog } from "./errorCatalog/media";
 import { moderationErrorCatalog } from "./errorCatalog/moderation";
 import { notificationErrorCatalog } from "./errorCatalog/notification";
+import { occasionErrorCatalog } from "./errorCatalog/occasion";
 import { placeErrorCatalog } from "./errorCatalog/place";
 import {
   type BusinessErrorPresentation,
   changed,
   invalid,
 } from "./errorCatalog/presentation";
+import { regionErrorCatalog } from "./errorCatalog/region";
 
 export type { BusinessErrorPresentation } from "./errorCatalog/presentation";
 
@@ -119,6 +121,8 @@ export const businessErrorCatalog = {
   ...listingErrorCatalog,
   ...discoveryErrorCatalog,
   ...moderationErrorCatalog,
+  ...regionErrorCatalog,
+  ...occasionErrorCatalog,
 } satisfies Record<BusinessErrorCode, BusinessErrorPresentation>;
 
 type StaleCode = Exclude<keyof typeof businessErrorCatalog, BusinessErrorCode>;

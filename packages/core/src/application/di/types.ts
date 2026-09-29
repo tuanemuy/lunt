@@ -9,11 +9,13 @@ import type { ListingServices } from "../listing/services";
 import type { MediaServices } from "../media/services";
 import type { ModerationServices } from "../moderation/services";
 import type { NotificationServices } from "../notification/services";
+import type { OccasionServices } from "../occasion/services";
 import type { PlaceServices } from "../place/services";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/idGenerator";
 import type { Logger } from "../ports/logger";
 import type { OutboxRepository } from "../ports/outboxRepository";
+import type { RegionServices } from "../region/services";
 
 /** Public site metadata. Safe to send to the browser. */
 export type AppConfig = Readonly<{
@@ -74,7 +76,9 @@ export type RequestContainer = SharedDeps &
   MediaServices &
   PlaceServices &
   ListingServices &
-  DiscoveryServices;
+  DiscoveryServices &
+  RegionServices &
+  OccasionServices;
 
 /**
  * Container of the outbox relay, which runs inside the state Durable

@@ -9,7 +9,9 @@ import { createListingRepositories } from "./listing";
 import { createMediaRepositories } from "./media";
 import { createModerationRepositories } from "./moderation";
 import { createNotificationRepositories } from "./notification";
+import { createOccasionRepositories } from "./occasion";
 import { createPlaceRepositories } from "./place";
+import { createRegionRepositories } from "./region";
 
 export type { RepositoryDeps } from "./deps";
 
@@ -28,5 +30,7 @@ export function createRepositories(
     ...createListingRepositories(deps),
     ...createDiscoveryRepositories(deps),
     ...createModerationRepositories(deps),
+    ...createRegionRepositories(deps),
+    ...createOccasionRepositories(deps),
   };
 }

@@ -8,7 +8,9 @@ import type { ListingRepositories } from "@repo/core/domain/listing/ports/unitOf
 import type { MediaRepositories } from "@repo/core/domain/media/ports/unitOfWork";
 import type { ModerationRepositories } from "@repo/core/domain/moderation/ports/unitOfWork";
 import type { NotificationRepositories } from "@repo/core/domain/notification/ports/unitOfWork";
+import type { OccasionRepositories } from "@repo/core/domain/occasion/ports/unitOfWork";
 import type { PlaceRepositories } from "@repo/core/domain/place/ports/unitOfWork";
+import type { RegionRepositories } from "@repo/core/domain/region/ports/unitOfWork";
 
 /**
  * Aggregate repositories reachable inside a unit of work. Each domain
@@ -24,7 +26,9 @@ export type UnitOfWorkRepositories = AccountRepositories &
   PlaceRepositories &
   ListingRepositories &
   DiscoveryRepositories &
-  ModerationRepositories;
+  ModerationRepositories &
+  RegionRepositories &
+  OccasionRepositories;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{
