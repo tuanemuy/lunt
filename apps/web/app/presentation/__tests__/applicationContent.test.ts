@@ -387,4 +387,50 @@ describe("region and event applications", () => {
       }),
     ).toMatchObject({ state: "一時非公開", hidden: true, href: null });
   });
+
+  it("keeps the photo of an attached listing viewers cannot see; only a deleted one has none", () => {
+    const cover = {
+      photoId: PhotoId.create("01900000-0000-7000-8000-0000000000aa"),
+      framing: null,
+      display: { url: "/photos/01900000-0000-7000-8000-0000000000aa" },
+    };
+    const hiddenListing = {
+      id: ids.listing(),
+      deleted: false as const,
+      name: ListingName.create("かき氷"),
+      cover,
+      suspended: false,
+      offeringStatus: { phase: "available" as const },
+      viewable: false,
+    };
+    expect(
+      attachedLine({
+        ...hiddenListing,
+        publication: {
+          status: "unpublished",
+          firstPublishedAt: new Date(0),
+          reason: "byManager",
+        },
+      }),
+    ).toMatchObject({
+      state: "一時非公開",
+      hidden: true,
+      href: null,
+      photoUrl: "/photos/01900000-0000-7000-8000-0000000000aa",
+    });
+    expect(
+      attachedLine({
+        ...hiddenListing,
+        publication: { status: "published", firstPublishedAt: new Date(0) },
+        suspended: true,
+      }),
+    ).toMatchObject({
+      state: "運営による非公開",
+      photoUrl: "/photos/01900000-0000-7000-8000-0000000000aa",
+    });
+    expect(attachedLine({ id: ids.listing(), deleted: true })).toMatchObject({
+      state: "削除された掲載",
+      photoUrl: null,
+    });
+  });
 });

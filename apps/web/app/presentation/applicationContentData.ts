@@ -207,8 +207,9 @@ const OFFERING_PHASE_LABEL = {
 
 /**
  * An attached listing as the application screens show it
- * (「管理する対象の状態」): one viewers cannot see names why, and opens
- * nowhere; a deleted one is shown as deleted.
+ * (「管理する対象の状態」): one viewers cannot see names why and opens
+ * nowhere but keeps its photo; a deleted one is shown as deleted, without
+ * a photo.
  */
 export function attachedLine(listing: AttachedListingView): AttachedLine {
   if (listing.deleted) {
@@ -228,7 +229,8 @@ export function attachedLine(listing: AttachedListingView): AttachedLine {
     state,
     hidden: true,
     href: null,
-    photoUrl: null,
+    // Only a deleted listing has no photo; a hidden one keeps its cover.
+    photoUrl: listing.cover?.display?.url ?? null,
   });
   if (listing.suspended) return hidden("運営による非公開");
   if (listing.publication.status === "unpublished") return hidden("一時非公開");
