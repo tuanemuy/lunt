@@ -443,6 +443,8 @@ interface TransactionalRepository<TEntity, TId> {
 - Authority の `StewardedTargetDirectory`（管理権限の対象があることと、その名称）は、店舗・地域・イベントにまたがる読み取りで、同じくドメインの語彙で定め、アダプターが実現する。管理権限の対象を種類をまたいで（`StewardedRef` で）扱う Account・Authority のユースケースは、対象の有無と名称をこの読み取りで読み、対象のドメインのリポジトリを読まない。1つの種類の対象を読むユースケース（例: Place の `listStewardedPlaces`）は、そのドメインのリポジトリを読む
 - Moderation の `ContentDirectory`（対象の有無、名称、現在の写真）は、掲載・店舗・地域・イベント・読みものにまたがる読み取りで、同じくドメインの語彙で定め、アダプターが実現する。申立て・連絡の対象を読むユースケースと、Notification・Application が対象（`ContentRef`）の読んだ時点の名称を解決するユースケースが使う
 
+- 管理側の画面が行として示す対象には、対象自身の代表写真（写真の並びの1枚目。閲覧側の代わりの写真は使わない）を `cover` として併せて返す（店舗・地域・イベントは `PhotoView`、掲載は `ListingPhotoView`。写真がなければ `null`）。該当する読み取り: Region の `getPlaceAffiliationStatus`（地域）・`listAffiliatedPlaces`（店舗）、Occasion の `getPlaceParticipations`（イベント）・`listRegionOccasionLinks`（イベント）・`getParticipationDetails`（イベントと店舗）・`listOccasionParticipants`（店舗）・`listOccasionRegionLinks`（地域）・`listAttachableListings`（掲載）、参加に添えた掲載を示す読み取り（`getParticipationDetails`、Application の `getApplicationForReview`・`getMyApplication`・`prepareReapplication`・`listApplicationsForSubject` の参加の申請。削除された掲載は写真を持たない）、Application の `getApplicationForReview` の申請の対象の行（`ContentDirectory.describe` の現在の写真の1枚目）
+
 ### 申立てに基づく写真の削除
 
 申立てに基づく写真の削除は、Moderation の1つのユースケース `takeDownPhotosByClaim` が行い、写真を持つ各ドメイン（Place、Listing、Region、Occasion、Article）は同じ形の集約の振る舞いだけを持つ。申立人への結果のメールは、Notification の `sendTakedownOutcome` が `takedown_claim.resolved` を消費して送る。写真の削除と、申立てを対応済みにする操作は、別の UnitOfWork で確定する。
