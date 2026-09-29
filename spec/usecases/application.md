@@ -423,7 +423,7 @@
 
 ### トランザクション境界
 
-読み取りだけの `run` を1つ使い、前提の事実・申請者の立場・重ねた申請を読んで、書き込まずに返す。`ReferenceQueries.isViewable` は `run` の外で呼ぶ。
+読み取りだけの `run` を1つ使い、前提の事実・申請者の立場・重ねた申請を読んで、書き込まずに返す。`ReferenceQueries.isViewable` は `run` の外で呼ぶ。登録申請に併せた管理権限の申請は、提出と同じく、閲覧できるかを読む対象（予約した店舗）を知るために、登録申請を読むだけの `run` を先に1つ使う
 
 ### エラーケース
 
@@ -566,6 +566,7 @@
 | その申請を扱えない（他の利用者の申請、管理権限を失った店舗について店舗管理者として行った申請） | `ForbiddenError` |
 | 申請が否認・取り下げ・失効でない（進行中、承認） | `BusinessRuleError`（現在の状態のコード。`APPLICATION_UNDER_REVIEW`、`APPLICATION_RETURNED`、`APPLICATION_ALREADY_APPROVED`） |
 | 掲載の修正の申請の対象の掲載が削除されている | `BusinessRuleError`（`APPLICATION_LISTING_NOT_FOUND`） |
+| 前の申請の写真を複製できない（元の写真の記録がない、または `stored` でない） | `BusinessRuleError`（`MEDIA_DUPLICATE_SOURCE_UNAVAILABLE`） |
 
 ## listMyApplications
 
