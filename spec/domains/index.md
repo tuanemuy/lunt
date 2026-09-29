@@ -403,7 +403,7 @@ interface TransactionalRepository<TEntity, TId> {
 - application 層のエラーは、テンプレートの `NotFoundError`・`ConflictError`・`UnauthorizedError`（ログインが必要）・`ForbiddenError`（操作の可否で拒まれた）・`SystemError`
 - 閲覧者として対象を開く・操作する要求（閲覧側の読み取り、申請の提出の前の見え方の確認など。ログインしていない要求を含む。次の項目の要求を除く）では、閲覧できない対象を、存在しない対象と同じ `NotFoundError` で表す
 - 閲覧できない対象を、別の対象に添える・関連づける・申請や申立て・連絡の対象にする要求（参加に加える店舗、開催地域、申請の対象など）は、それぞれのドメインの `BusinessRuleError`（例: `OCCASION_PLACE_NOT_VIEWABLE`、`OCCASION_REGION_NOT_VIEWABLE`、`APPLICATION_TARGET_NOT_VIEWABLE`）。閲覧できることを書き込みの条件にしない操作（「閲覧できる対象」。読みものの紹介先など）は除く
-- 管理する人・サービス運営者が管理の読み取り・操作で扱う対象そのもの（下書き・公開の取り下げ・運営による非公開のものを含む）は、閲覧できるかどうかで拒まない。対象がなければ `NotFoundError`
+- 管理する人・サービス運営者が管理の読み取り・操作で扱う対象そのもの（下書き・公開の取り下げ・運営による非公開のものを含む）は、閲覧できるかどうかで拒まない。対象がなければ `NotFoundError`。対象がないことと操作の可否の拒否の両方に当たるときは、ユースケースが判定の順を定める場合を除き、操作の可否を先に判定して `ForbiddenError` にする（権限のない利用者に対象の有無を知らせない。サービス運営者・管理者には `NotFoundError`）
 - 入力の形の誤りのうち転送境界で確かめないもの（ID やキーの件数の超過、マスターにない町域の指定など）は、`BusinessRuleError` のコード `COMMON_INVALID_INPUT`、またはそのドメインが定めるコードで返す
 
 ### ユースケースの名前
