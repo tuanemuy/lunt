@@ -25,8 +25,11 @@ import type { SqlExec, SqlRow } from "../sql";
  * listing's row goes with it), from the domain's `searchableText` function
  * of the record it stores — so the text is always the committed content's.
  * Migration 21 backfills it from the stored rows with the same functions.
- * A target whose text cannot be built from its stored values has no row
- * and is found by no keyword.
+ * A target whose text cannot be built from its stored values (`searchTextOf`
+ * returns `null`) has no row, so it is in no keyword result and the search
+ * does not fail on it (`spec/domains/index.md` 「キーワードの一致」). Place
+ * and occasion texts are built by restoring the aggregate; listing, region
+ * and article texts are pure over their stored text fields.
  *
  * A search narrows candidates in SQL with `SEARCH_TEXT_MATCHES` — every
  * needle (`KeywordRelevance.needles`) is inside the primary or secondary
@@ -132,14 +135,11 @@ export const SEARCH_TEXT_MATCHES = `NOT EXISTS (
 export type SearchCandidates = Readonly<{ from: string; where: string }>;
 
 /**
- * The candidates' statement: the needles bind first
- * (`SEARCH_TEXT_MATCHES`), then whatever `where` binds.
- */
-/**
  * The candidates' statement. It returns the (short) primary text and, as
  * `secondary_needles`, the JSON array of the needles the secondary text
- * holds — never the (long) secondary text itself. The needles bind twice
- * (`needlesParam`), then whatever `where` binds.
+ * holds — never the (long) secondary text itself. `needlesParam` binds
+ * twice — for `secondary_needles`, then for `SEARCH_TEXT_MATCHES` — and
+ * whatever `where` binds follows (`from` binds nothing).
  */
 export const candidatesSql = (select: SearchCandidates): string =>
   `SELECT t.primary_text,

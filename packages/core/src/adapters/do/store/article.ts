@@ -48,9 +48,11 @@ import { insertUnique, updateVersioned } from "./versioned";
  * target need not exist and its own visibility is not recorded here.
  *
  * Photos live only in `photo_ids`; ownership is Media's (`photo_assets`,
- * owner `{ kind: "article", id }`). Keyword search reads `title` / `body`
- * through `Article.searchableText` (primary = title or "", secondary =
- * body) with `KeywordRelevance`, inside the object.
+ * owner `{ kind: "article", id }`). Every insert / save also writes the
+ * article's `search_texts` row (`target_kind = 'article'`) from
+ * `Article.searchableTextOf` of the stored `title` / `body` (primary =
+ * title or "", secondary = body); keyword search matches and scores that
+ * normalised row (`store/searchText.ts`, D-25), not the columns here.
  *
  * Article emits no domain event of its own: `photos.released`
  * (`{ photoIds }`, aggregateId = article id) from a save that drops

@@ -35,10 +35,11 @@ const scoredOccasion = scoredFrom(publishedOccasionFrom);
 const scoredArticle = scoredFrom(publishedArticleFrom);
 
 /**
- * `KeywordSearchQueries` over the Lunt state object: the object scores
- * every viewable candidate with the domains' `searchableText` and
- * `KeywordRelevance` (`store/discovery.ts`); this side rehydrates the
- * page. Read-only; never joins a unit of work.
+ * `KeywordSearchQueries` over the Lunt state object: the object matches
+ * and scores the viewable targets on the normalised `SearchableText` each
+ * store wrote with the target (`store/searchText.ts`, D-25) — a target
+ * without one is in no result, not an error — and this side rehydrates
+ * the page. Read-only; never joins a unit of work.
  */
 export class DoKeywordSearchQueries implements KeywordSearchQueries {
   constructor(

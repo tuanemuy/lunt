@@ -33,6 +33,11 @@ export type OccasionSearch = Readonly<{
  * page and `count` are decided inside it. Kinds page independently and
  * take no browse criteria. Read-only; never joins a unit of work.
  * Articles match on `Article.searchableText` (title, then body).
+ *
+ * An adapter may match on the `SearchableText` it stored, normalised by
+ * `KeywordRelevance`, when it wrote the target (`spec/domains/index.md`
+ * 「キーワードの一致」). A target whose stored values cannot be restored
+ * into its `SearchableText` is then in no result — not an error.
  */
 export interface KeywordSearchQueries {
   searchPlaces(
