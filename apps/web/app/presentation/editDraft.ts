@@ -148,6 +148,29 @@ export function syncEditDraft<V>(
 }
 
 /**
+ * A new loader copy at the draft's own version: an unedited form with no
+ * resync waiting takes its content. The target's stored content is the same,
+ * but what the form shows of other targets (a showcase's viewability and
+ * state) can change without a new version — a navigation back to the form
+ * shows the cached copy first and swaps in the fresh one.
+ */
+export function refreshDraft<V>(
+  draft: EditDraft<V>,
+  content: V,
+  version: number,
+): EditDraft<V> {
+  if (
+    draft.resync !== null ||
+    version !== draft.version ||
+    isDirty(draft) ||
+    same(content, draft.base)
+  ) {
+    return draft;
+  }
+  return { values: content, base: content, version, resync: null };
+}
+
+/**
  * `EditDraft` as component state, synced with the loader's `data` during
  * render (React's "adjusting state when a prop changes").
  */
@@ -161,7 +184,12 @@ export function useEditDraft<D extends Readonly<{ version: number }>, V>(
   const [draft, setDraft] = useState(() =>
     startEditDraft(valuesOf(data), data.version),
   );
-  const synced = syncEditDraft(draft, () => valuesOf(data), data.version);
+  const [seen, setSeen] = useState(data);
+  let synced = syncEditDraft(draft, () => valuesOf(data), data.version);
+  if (data !== seen) {
+    setSeen(data);
+    synced = refreshDraft(synced, valuesOf(data), data.version);
+  }
   if (synced !== draft) setDraft(synced);
   return [synced, setDraft];
 }

@@ -88,4 +88,25 @@ describe("useEditDraft", () => {
     expect(result.current[0].version).toBe(4);
     expect(result.current[0].resync).toBeNull();
   });
+
+  it("unedited, takes a fresh copy at the same version whose shown content changed", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "shown" });
+    // Back from CM-03: the cached copy, then the fresh one (a showcase hidden meanwhile).
+    rerender({ data: { version: 3, name: "hidden" } });
+    expect(result.current[0].version).toBe(3);
+    expect(result.current[0].values).toEqual({ name: "hidden" });
+    expect(result.current[0].base).toEqual({ name: "hidden" });
+  });
+
+  it("with edits, keeps them over a fresh copy at the same version", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "shown" });
+    act(() => {
+      const [, setDraft] = result.current;
+      setDraft((draft) => ({ ...draft, values: { name: "mine" } }));
+    });
+    rerender({ data: { version: 3, name: "hidden" } });
+    expect(result.current[0].version).toBe(3);
+    expect(result.current[0].values).toEqual({ name: "mine" });
+    expect(result.current[0].base).toEqual({ name: "shown" });
+  });
 });
