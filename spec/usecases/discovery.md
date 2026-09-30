@@ -55,7 +55,7 @@
 
 条件と現在地に合うフィード対象の掲載を、`FeedComposer` の並びで、大きな枠（地域・読みもの・イベント）とともに返す。フィードと絞り込みの結果は同じ読み取りで、発見の場面に当たる。現在地があれば近い順、なければ新しい順が掲載の優先順になる。
 
-次のページは、最初のページと同じ条件と同じ現在地で求める。ページは掲載の件数で数える。どのページも、候補を優先順の先頭から `limit: 100` のページに分けて読み、`FeedComposer.requirement` の件数に達してから `FeedComposer.page` が並びを返すまで読み足して構成する（候補が尽きたら、読んだ候補で構成する）。候補が読み込みの間に変わらなければ、ページをつないだ並びは全体を1回で構成した並びと一致する。
+次のページは、最初のページと同じ条件と同じ現在地で求める。ページは掲載の件数で数える。どのページも、候補（掲載・店舗・一覧に示す地域の ID）を優先順の先頭から `FeedComposer.requirement` の件数だけ1回で読み、`FeedComposer.page` が並びを返さなければ、件数を2倍にして先頭から読み直して構成する（候補が尽きたら、読んだ候補で構成する）。大きな枠の候補は、そのページに枠位置があるときだけ `FeedComposer.framesNeeded` の件数を読む。掲載の要約は、そのページに入る掲載だけについて読む。候補が読み込みの間に変わらなければ、ページをつないだ並びは全体を1回で構成した並びと一致する。
 
 条件に合う掲載が0件なら、大きな枠も持たない空のフィードを返す。
 
@@ -68,15 +68,16 @@
 ### 使用するドメインの振る舞い・ポート
 
 - `AreaCatalog.expand`、`CategoryCatalogRepository.find`、`BrowseCriteria.resolve`
-- `FeedComposer.requirement`、`FeedListingCandidate.of`、`FeedComposer.page`
-- `FeedCandidateQueries.findListings`・`findRegionFrames`・`findOccasionFrames`
+- `FeedComposer.requirement`、`FeedComposer.framesNeeded`、`FeedComposer.page`
+- `FeedCandidateQueries.findListingCandidates`・`findRegionFrames`・`findOccasionFrames`
+- `ReferenceQueries.resolve`（そのページに入る掲載の Entry。最大 `limit` 件）
 - `ExplorationQueries.findArticles`（読みものの枠の候補。条件で絞り込まない）
 - `ViewProjection.listingSummary`・`regionSummary`・`occasionSummary`・`articleSummary`
 - `PhotoStorage.displayRefs`、`Clock`
 
 ### トランザクション境界
 
-書き込まない `run` を1つ使い、`CategoryCatalogRepository.find` を読む。ほかの読み取りは `run` の外で行う。読み取りの間に候補が変わった場合は、その時点の候補から構成した並びを返す。
+書き込まない `run` を1つ使い、`CategoryCatalogRepository.find` を読む。ほかの読み取りは `run` の外で行う。読み取りの間に候補が変わった場合は、その時点の候補から構成した並びを返す。候補を読んだ後に閲覧できなくなった掲載は、そのページから落とす（エラーにしない）。候補を読んだ後に発見の対象でなくなった掲載（提供終了、閉店）は、状態つきの要約で示す。
 
 ### エラーケース
 

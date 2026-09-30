@@ -115,3 +115,30 @@
 | 参加を持たない開催前の公開中のイベント E | 参加を `ParticipationRepository.insert` してコミットし、直後に `findOccasionFrames` を呼ぶ。続けて、参加を `delete` してコミットし、もう一度呼ぶ | 1回目は E が現れ、2回目は現れない | |
 | `draft` の掲載 L | UnitOfWork の中で、`publish` した L を `save` した後に、`fn` が例外を投げる | `findListings` に L は現れない | |
 | フィード対象の掲載 L | UnitOfWork の中で、L を `delete` した後に、`fn` が例外を投げる | `findListings` に L が現れる | |
+
+## findListingCandidates
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| フィード対象の掲載が1件もない | `findListingCandidates` を `upTo: 10` で呼ぶ | `candidates` は空、`count` は 0 | |
+| 別々の店舗のフィード対象の掲載 L1・L2・L3 の `firstPublishedAt` が T1 < T2 < T3 | `origin: null`・`upTo: 10` で呼ぶ | L3、L2、L1 の順に、`listingId` とその店舗の `placeId` を持つ候補が返る。`count` は 3 | |
+| フィード対象の掲載が5件 | `upTo: 3` で呼ぶ。別に `upTo: 5` で呼ぶ | `upTo: 3` では3件、`upTo: 5` では5件。`upTo: 3` の候補は、`upTo: 5` の候補の先頭3件と一致する。どちらも `count` は 5 | |
+| フィード対象の掲載が3件 | `upTo: 10` で呼ぶ | 3件が返る。`count` は 3 | |
+| 営業中の店舗と休業中の店舗の提供中の掲載、参加に添えた掲載、提供開始前・提供終了・`manualEnd.ended: true`・一時非公開・運営による非公開の掲載、非公開の店舗と閉店した店舗の提供中の掲載がある | `upTo: 100` で呼ぶ。別に、同じ `query` で `findListings` を `limit: 100` で呼ぶ | 候補の `listingId` の並びと `count` は、`findListings` の掲載の並びと `count` と一致する | |
+| `firstPublishedAt` が同じフィード対象の掲載が2件 | `origin: null` で呼ぶ | `ListingId` の昇順 | |
+| 店舗 P が、公開中の地域 X・Y にこの順に所属し、代表地域に Y を選んでいる。P にフィード対象の掲載がある | `findListingCandidates` を呼ぶ | P の掲載の候補の `regionId` は Y | |
+| 店舗 P が X・Y・Z にこの順に所属し、代表地域は X。X は `unpublished`、Z は運営による非公開。P にフィード対象の掲載がある | `findListingCandidates` を呼ぶ | P の掲載の候補の `regionId` は Y | |
+| 店舗 P の `PlaceAffiliations` が保存されていない。店舗 Q の所属は空。店舗 R の所属地域は `draft` の地域だけ。どの店舗にもフィード対象の掲載がある | `findListingCandidates` を呼ぶ | P・Q・R の掲載の候補の `regionId` は、どれも `null` | |
+| 所属地域と代表地域の違う店舗のフィード対象の掲載が、複数ある | `upTo: 100` で呼ぶ。別に `findListings` を呼ぶ | 各候補は、同じ掲載の Entry に `FeedListingCandidate.of` を当てた結果（`regionId` は `place.regions` の先頭。なければ `null`）と一致する | |
+| 所在地の `areaCode` が A の店舗のフィード対象の掲載 La と、B の店舗の掲載 Lb | `areaCodes: {A}` で呼ぶ。別に `areaCodes` を空の集合にして呼ぶ | `{A}` では La だけで `count` は 1。空の集合では `candidates` は空で `count` は 0 | |
+| `categoryId` が K1 のフィード対象の掲載 L1 と、K2 の掲載 L2 | `categoryIds: {K1}` で呼ぶ | L1 だけ。`count` は 1 | |
+| カテゴリー K が廃止され、移行先は M。`content.categoryId` に K が保存されたままのフィード対象の掲載 L | `categoryIds: {M, K}` で呼ぶ。別に `categoryIds: {M}` で呼ぶ | `{M, K}` では L が返り、`{M}` では返らない | |
+| 店舗 P1・P2・P3 の位置が、`origin` から 100 m・500 m・2 km。それぞれにフィード対象の掲載が1件。P3 の掲載が最も新しい | その `origin` で、`upTo: 10` で呼ぶ | P1、P2、P3 の掲載の順 | |
+| 上と同じ | その `origin` で、`upTo: 2` で呼ぶ | P1、P2 の掲載だけ。`count` は 3 | |
+| 同じ店舗に、フィード対象の掲載 a1（先に公開）と a2（後に公開） | `origin` つきで呼ぶ | a2、a1 の順 | |
+| `Geo.distanceMeters` が同じになる2つの店舗に、`firstPublishedAt` が同じ掲載が1件ずつ | `origin` つきで呼ぶ | `ListingId` の昇順 | |
+| `origin` から 100 m の店舗 A にフィード対象の掲載 a1〜a5（a5 が最も新しい）、300 m の店舗 B に掲載 b1 | その `origin` で、`upTo: 3` で呼ぶ | a5、a4、a3 の順。`count` は 6 | |
+| フィード対象の掲載 L と L2 | `unpublish` した L を `save` してコミットし、直後に呼ぶ | L は現れない。`count` は 1 | |
+| 店舗 P が公開中の地域 X に所属し、P にフィード対象の掲載がある | X を `unpublish` して `save` してコミットし、直後に呼ぶ | P の掲載の候補の `regionId` は `null` | |
+| フィード対象の掲載がある | `upTo` を 0、-1、1.5 にして、それぞれ呼ぶ | どれも `BusinessRuleError`（`COMMON_INVALID_INPUT`） | |
+| `draft` の掲載 L（公開条件を満たす） | UnitOfWork の中で、`publish` した L を `save` した後に、`fn` が例外を投げる | `findListingCandidates` に L は現れない。`count` は 0 | |

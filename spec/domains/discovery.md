@@ -248,7 +248,7 @@ type FeedPage = Readonly<{
 }>;
 ```
 
-`FeedListingCandidate.of(entry: ListingEntry)` は、`regionId` を `entry.place.regions` の先頭から作る。
+`FeedListingCandidate.of(entry: ListingEntry)` は、`regionId` を `entry.place.regions` の先頭から作る。`FeedCandidateQueries.findListingCandidates` が返す候補は、同じ掲載の `ListingEntry` にこの関数を当てた結果と一致する。
 
 ### RegionContext / CoverPhoto
 
@@ -387,6 +387,7 @@ const FRAME_ROTATION = ["region", "article", "occasion"] as const;
 | `slotCount(listingCount: number): number` | `listingCount` が 0 なら 0。それ以外は `floor(listingCount / LISTINGS_PER_FRAME) + 1` |
 | `assignFrames(candidates: FeedFrameCandidates, slots: number): readonly (FeedFrame \| null)[]` | 枠位置ごとの大きな枠を決める（下の「大きな枠の巡回」） |
 | `requirement(pagination: Pagination): { listings: number; framesPerKind: number }` | そのページまでを構成するのに最初に読む候補の件数。`listings = page × limit`、`framesPerKind = slotCount(page × limit)` |
+| `framesNeeded(pagination: Pagination, listingCount: number): number` | そのページの構成に要る、大きな枠の各種類の候補の件数。そのページに枠位置が1つもなければ（範囲の外のページと、枠位置の間のページ）0。それ以外は `slotCount(min(page × limit, listingCount))`（枠は0番から割り当てるので、そのページまでのすべての枠位置の分） |
 | `page(input: { listings: readonly FeedListingCandidate[]; exhausted: boolean; listingCount: number; frames: FeedFrameCandidates }, pagination: Pagination): FeedPage \| null` | 先頭から構成して、そのページの範囲を切り出す（下の「ページ」）。`listings` は優先順の先頭から読んだ候補、`exhausted` は候補を最後まで読んだかどうか。読んだ候補でそのページまでの掲載の並びが決まらなければ `null` |
 
 掲載の混ぜ方（V-45）。
@@ -411,7 +412,9 @@ const FRAME_ROTATION = ["region", "article", "occasion"] as const;
 - フィードのページは、掲載の件数で数える。`pagination`（`page` は1始まり、`limit` は 1〜100）のページは、`arrange` の結果の `(page - 1) × limit` 番目から `limit` 件の掲載（0始まり）を含む
 - 0番の枠位置は最初のページに入る。k 番（k ≥ 1）の枠位置は、6k 件目の掲載を含むページに、その掲載の直後に入る
 - k 番の枠位置の大きな枠は、0番から k 番までを先頭から順に割り当てて決まる。各種類の候補は、先頭から `framesPerKind` 件あれば足りる
-- 掲載の候補は、`requirement` の件数を読んだ後も、`page` が `null` を返す間は読み足す。ユースケースは、候補を `limit: 100` のページに分けて先頭から順に読み、`page` が並びを返すまでつなぐ。候補が尽きたら `exhausted` を `true` にする
+- 掲載の候補は、`FeedCandidateQueries.findListingCandidates` で、優先順の先頭から `requirement.listings` 件を1回で読む。`page` が `null` を返す間は、件数を2倍にして先頭から読み直す。読んだ候補が求めた件数に満たないか、全件数に達したら、`exhausted` を `true` にする
+- 大きな枠の候補は、`framesNeeded` の件数を各種類の先頭から読む。0 なら読まない
+- 掲載の要約は、`page` の結果のうち、そのページに入る掲載だけについて読む
 - `hasMore` は `page × limit < listingCount`。範囲の外のページは、`items` が空になる
 - 次のページは、最初のページと同じ条件と同じ現在地で求める。候補が読み込みの間に変わらなければ、ページをつないだ並びは、全体を1回で構成した並びと一致し、連続しない規則・巡回・繰り返さない規則がページをまたいで保たれる。読み込みの間に候補が変わった場合の並びは、その時点の候補から構成した並びになる
 
@@ -463,8 +466,14 @@ type FeedQuery = Readonly<{
   today: LocalDate;
 }>;
 
+type FeedListingCandidates = Readonly<{
+  candidates: readonly FeedListingCandidate[]; // 優先順の先頭から、最大 upTo 件
+  count: number;                                // 条件に合うフィード対象の掲載の全件数
+}>;
+
 interface FeedCandidateQueries {
   findListings(query: FeedQuery, pagination: Pagination): Promise<PaginationResult<ListingEntry>>;
+  findListingCandidates(query: FeedQuery, upTo: number): Promise<FeedListingCandidates>;
   findRegionFrames(query: FeedQuery, pagination: Pagination): Promise<PaginationResult<PublishedRegion>>;
   findOccasionFrames(query: FeedQuery, pagination: Pagination): Promise<PaginationResult<PublishedOccasion>>;
 }
@@ -475,8 +484,11 @@ interface FeedCandidateQueries {
 | メソッド | 対象 | 並び順 |
 | --- | --- | --- |
 | `findListings` | フィード対象の掲載のうち、`BrowseCriteria.matchesListing` が成り立つもの。休業中の店舗の掲載と、イベントの参加に添えた掲載を、他の掲載と同じ条件で含む（V-29、V-44、B-07）。絞り込みの結果も、この読み取り（V-48） | `origin` による |
+| `findListingCandidates` | `findListings` と同じ対象を、同じ並び順で、先頭から最大 `upTo` 件、1回の呼び出しで返す。候補は掲載の ID、店舗の ID、一覧に示す地域の ID（`PlaceAffiliations.displayedRegion` を閲覧できる所属地域に当てた結果。なければ `null`）だけを持つ。`count` は `findListings` の `count` と同じ全件数。`upTo` は1以上の整数で、違えば `BusinessRuleError`（`COMMON_INVALID_INPUT`）。上限は持たず、返す件数は全件数で限られる | `origin` による |
 | `findRegionFrames` | 閲覧できる地域のうち、所属する店舗の掲載に、`findListings` の対象になる掲載（同じ `criteria`）を1件以上持つもの（V-46、V-47）。所属は代表地域に限らず、すべての所属を見る | `origin` による |
 | `findOccasionFrames` | 閲覧できて発見の対象であるイベントのうち、閲覧できる参加店舗を1つ以上持ち、`BrowseCriteria.matchesOccasion` が成り立つもの。添えた掲載の有無と提供状態は問わない（AC-32） | `origin` があれば近い順、なければ開催日の順 |
+
+- フィードは `findListingCandidates` で候補を読み、ページに入る掲載の Entry だけを読む（`readFeed`）。`findListings` は同じ対象の Entry をページで返す読み取りで、`findListingCandidates` の対象・並び順・全件数・`regionId` の基準になる
 
 ### ExplorationQueries
 
@@ -619,7 +631,7 @@ interface ReferenceQueries {
 | `resolve` | `refs`（0〜100件。`BookmarkRef` は `ShowcaseRef` に含まれる）から重複を除いた参照のすべてについて、参照ごとに1つの `ReferenceResolution` を、初出の順で返す。閲覧できる対象は `viewable: true` と `target`、閲覧できない対象と存在しない対象は `viewable: false`。閲覧できない参照も結果から落ちない。0件は空を返し、100件を超える `refs` は `BusinessRuleError`（`COMMON_INVALID_INPUT`。呼び出し側が分けて呼ぶ）。場面は `reference` に固定で、提供開始前・提供終了・休業・閉店・終了・中止の対象も返す。状態は、ユースケースが `Standing` で示す |
 | `isViewable` | 対象1件が閲覧できるかどうか。存在しない対象は `false`。掲載は、紐づく店舗の非公開を含めて判定する。日付と場面に依存しない |
 
-`isViewable` を使うか、読んだ集約に `VisibilityPolicy` の `is…Viewable` を当てるかは、index.md「閲覧できる対象」が定める。`ReferenceQueries` を使うユースケースのうち、保存一覧の解決（`resolveReferences`）と他のドメインのユースケースは次のとおり。Discovery の閲覧の読み取り（`readArticle`・`listArticlesShowcasing`）の使い方は、それぞれのユースケースが定める。読んだ集約に `VisibilityPolicy` を当てるだけのユースケースは、この表に挙げない。
+`isViewable` を使うか、読んだ集約に `VisibilityPolicy` の `is…Viewable` を当てるかは、index.md「閲覧できる対象」が定める。`ReferenceQueries` を使うユースケースのうち、保存一覧の解決（`resolveReferences`）と他のドメインのユースケースは次のとおり。Discovery の閲覧の読み取り（`readArticle`・`listArticlesShowcasing`・`readFeed`）の使い方は、それぞれのユースケースが定める。読んだ集約に `VisibilityPolicy` を当てるだけのユースケースは、この表に挙げない。
 
 | 使う側 | 使い方 | シナリオ |
 | --- | --- | --- |
@@ -643,7 +655,7 @@ interface ReferenceQueries {
 
 | 名前 | 説明 | シナリオ |
 | --- | --- | --- |
-| `readFeed` | 条件・現在地・ページを受け、`FeedComposer.requirement` の件数から候補を読み（`FeedComposer.page` が並びを返すまで100件ずつ読み足す）、`FeedComposer.page` で構成して、掲載の要約と大きな枠を返す。現在地がなければ新しい順。条件に合う掲載が0件なら、空のフィードを返す | DIS-01、DIS-02、DIS-03、DIS-04、DIS-06 |
+| `readFeed` | 条件・現在地・ページを受け、`FeedComposer.requirement` の件数の候補を `findListingCandidates` で1回で読み（`FeedComposer.page` が並びを返すまで、件数を2倍にして読み直す）、`FeedComposer.page` で構成して、ページに入る掲載の要約と大きな枠を返す。現在地がなければ新しい順。条件に合う掲載が0件なら、空のフィードを返す | DIS-01、DIS-02、DIS-03、DIS-04、DIS-06 |
 | `searchByKeyword` | キーワードを共有カーネルの `SearchKeyword.create` で `SearchKeyword` にし、店舗・地域・掲載・イベント・読みものの種類ごとの結果を、状態つきの要約で返す。種類ごとに独立にページングする | DIS-05 |
 | `readMapCells` | 範囲・格子・条件・選んでいる地域を受け、店舗の区画（1件の店舗、位置の違う店舗のまとまり、同じ位置の店舗の一覧）と、範囲の中の地域を返す。選んでいる地域そのものは `DetailQueries.findRegion` で読む | EXP-01 |
 | `findMapExtent` | `ExplorationFocus.of` の焦点で、選択エリアの店舗が収まる範囲、現在地の周辺を囲む範囲（`Geo.boundsOf`）、すべての店舗が収まる範囲のどれか、または地域とその所属する店舗が収まる範囲を返す。収める店舗が0件なら `Geo.JAPAN` を返す | EXP-01、EXP-04 |
