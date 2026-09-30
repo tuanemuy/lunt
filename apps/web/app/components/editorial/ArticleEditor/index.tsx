@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ManagePage } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
@@ -30,6 +30,7 @@ import {
   type ArticleEditorData,
   type ArticleFieldErrors,
   type ArticleFormValues,
+  articleEditPath,
   articleFieldErrors,
   articleFormValuesOf,
   articlePagePath,
@@ -227,11 +228,22 @@ function FailureAlert({
  */
 export function ArticleEditor({ data }: { data: ArticleEditorData }) {
   const router = useRouter();
+  const navigate = useNavigate();
   const reconcile = useReconcile();
   const created = useSearch({
     strict: false,
     select: (search) => search.created === true,
   });
+  // The notice has been taken into state; a reload must not show it again.
+  useEffect(() => {
+    if (!created) return;
+    void navigate({
+      to: articleEditPath(data.articleId),
+      search: {},
+      replace: true,
+      resetScroll: false,
+    });
+  }, [created, navigate, data.articleId]);
   const [draft, setDraft] = useEditDraft(
     data,
     articleFormValuesOf,
