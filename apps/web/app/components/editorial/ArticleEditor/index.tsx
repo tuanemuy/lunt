@@ -6,7 +6,6 @@ import { ManagePage } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
@@ -210,7 +209,9 @@ function FailureAlert({
  * AM-02 読みものの編集 (EDT-02〜EDT-06, MOD-03): the whole content saved
  * at once — photos (CF-01), title, body and 紹介先 (CF-02) — and the
  * publication changed (CF-08: publish, saving unsaved changes first;
- * 公開の取り下げ after CS-12). Any editor edits any article.
+ * 公開の取り下げ after CS-12). Any editor edits any article. A save,
+ * publish or unpublish shows its CS-13 as a notice above the form, which
+ * stays with the new state's actions.
  */
 export function ArticleEditor({ data }: { data: ArticleEditorData }) {
   const router = useRouter();
@@ -276,13 +277,16 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
     setDraft((current) => savedDraft(current, submitted, saved.version));
   };
 
+  // Each CS-13 notice is set after the reconcile and takes the focus on mount:
+  // set earlier, the router's scroll restoration at the end of the reload and
+  // the closing confirm dialog's focus return would both undo that focus.
   const save = () =>
     startBusy(async () => {
       begin();
       try {
         await saveValues();
-        setOutcome({ kind: "saved" });
         await reconcile();
+        setOutcome({ kind: "saved" });
       } catch (error) {
         await fail(error, "save");
       }
@@ -300,11 +304,11 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
         await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "publish" },
         });
-        setOutcome({
-          kind: "published",
-          title: articleTitleText(draftRef.current.values.title.trim() || null),
-        });
+        const publishedTitle = articleTitleText(
+          draftRef.current.values.title.trim() || null,
+        );
         await reconcile();
+        setOutcome({ kind: "published", title: publishedTitle });
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -312,15 +316,16 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
 
   const unpublish = () =>
     startBusy(async () => {
-      setConfirming(false);
       begin();
       try {
         await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "unpublish" },
         });
-        setOutcome({ kind: "unpublished", title });
         await reconcile();
+        setConfirming(false);
+        setOutcome({ kind: "unpublished", title });
       } catch (error) {
+        setConfirming(false);
         await fail(error, "unpublish");
       }
     });
@@ -338,48 +343,6 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
   if (outcome?.kind === "lostAccess") {
     return <NotEditorPanel heading={HEADING} lost />;
   }
-  if (outcome?.kind === "published" || outcome?.kind === "unpublished") {
-    return (
-      <ManagePage title={<EditorialTitle heading={HEADING} />}>
-        <FocusOnMount>
-          {outcome.kind === "published" ? (
-            <DonePanel
-              title="読みものを公開しました"
-              actions={
-                <>
-                  <ButtonLink to={articlePagePath(data.articleId)}>
-                    公開中の記事を見る
-                  </ButtonLink>
-                  <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
-                    読みものの一覧へ戻る
-                  </ButtonLink>
-                </>
-              }
-            >
-              {`「${outcome.title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
-            </DonePanel>
-          ) : (
-            <DonePanel
-              title="公開を取り下げました"
-              actions={
-                <>
-                  <ButtonLink to={EDITORIAL_HOME}>
-                    読みものの一覧へ戻る
-                  </ButtonLink>
-                  <Button variant="secondary" onClick={() => setOutcome(null)}>
-                    続けて編集する
-                  </Button>
-                </>
-              }
-            >
-              {`「${outcome.title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
-            </DonePanel>
-          )}
-        </FocusOnMount>
-      </ManagePage>
-    );
-  }
-
   const saveButton = (
     <Button type="submit" form="article-form" disabled={busy}>
       {busy ? "保存しています…" : "保存"}
@@ -455,8 +418,46 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
             onRetry={() => retry(failure.attempt)}
           />
         )}
+        {outcome?.kind === "published" ? (
+          <FocusOnMount key={`published:${data.version}`} role="status">
+            <Notice
+              variant="manage"
+              title="読みものを公開しました"
+              actions={
+                <>
+                  <ButtonLink
+                    variant="secondary"
+                    to={articlePagePath(data.articleId)}
+                  >
+                    公開中の記事を見る
+                  </ButtonLink>
+                  <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
+                    読みものの一覧へ戻る
+                  </ButtonLink>
+                </>
+              }
+            >
+              {`「${outcome.title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
+            </Notice>
+          </FocusOnMount>
+        ) : null}
+        {outcome?.kind === "unpublished" ? (
+          <FocusOnMount key={`unpublished:${data.version}`} role="status">
+            <Notice
+              variant="manage"
+              title="公開を取り下げました"
+              actions={
+                <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
+                  読みものの一覧へ戻る
+                </ButtonLink>
+              }
+            >
+              {`「${outcome.title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
+            </Notice>
+          </FocusOnMount>
+        ) : null}
         {outcome?.kind === "saved" ? (
-          <div role="status">
+          <FocusOnMount key={`saved:${data.version}`} role="status">
             <Notice
               variant="manage"
               title={
@@ -483,7 +484,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
                 ? "閲覧者への表示に、その時点で反映しました。"
                 : "閲覧者には表示されていません。続けて、公開前の見え方を確かめるか、公開できます。"}
             </Notice>
-          </div>
+          </FocusOnMount>
         ) : null}
         {data.photosTakenDown ? (
           <div role="status">
