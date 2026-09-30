@@ -103,8 +103,11 @@ type MapBoardProps = {
   extent: MapExtent;
   /** The region DT-03 opened the map with, selected from the start. */
   regionId: string | null;
-  /** The region DT-03 named is no longer viewable (the areas' map instead). */
-  regionGone: boolean;
+  /**
+   * The URL's region when it cannot be viewed: the map opens with no
+   * region selected, as if none were named, and the URL drops it.
+   */
+  goneRegion: string | null;
 };
 
 /**
@@ -120,7 +123,7 @@ export function MapBoard({
   conditions,
   extent,
   regionId,
-  regionGone,
+  goneRegion,
 }: MapBoardProps) {
   const entry = useHistoryEntryKey();
   const navigate = useNavigate();
@@ -184,11 +187,12 @@ export function MapBoard({
 
   // The URL names the region DT-03 opened the map with only while it is
   // selected, so that reloading after 選択をやめる does not select it
-  // again. Masked, not navigated: the region stays in the route's
+  // again; a region that cannot be viewed is never selected, so it leaves
+  // the URL at once. Masked, not navigated: the region stays in the route's
   // location, so the loader does not re-read and the map stays where it is.
   // The history state mark makes the router commit the masked entry (it
   // skips a location equal to the current one).
-  const urlRegion = useRef(regionId);
+  const urlRegion = useRef(regionId ?? goneRegion);
   useEffect(() => {
     const opened = urlRegion.current;
     if (opened === null) return;
@@ -420,12 +424,6 @@ export function MapBoard({
         onClear={clearConditions}
         pending={navigating}
       />
-
-      {regionGone ? (
-        <Notice title="この街は、いまは地図で見られません">
-          選んだ条件の地図を表示しています。
-        </Notice>
-      ) : null}
 
       {showLocationFeedback ? (
         <LocationFeedback

@@ -65,7 +65,7 @@ function MapPage() {
         conditions={data.conditions}
         extent={data.extent}
         regionId={data.regionId}
-        regionGone={data.regionGone}
+        goneRegion={data.regionGone ? (search.region ?? null) : null}
       />
     </MapFrame>
   );
