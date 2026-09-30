@@ -68,8 +68,12 @@ export function pinSelected(pin: MapPin): boolean | undefined {
   return pin.kind === "cluster" ? undefined : pin.selected;
 }
 
-/** Selected pins are drawn above the rest, regions above places. */
+/**
+ * Selected pins are drawn above the rest, and places above regions: a
+ * region's point may sit on a place or a cluster, whose count must stay
+ * readable and tappable, while the region's name still shows beside it.
+ */
 export function pinLayer(pin: MapPin): number {
   if (pinSelected(pin) === true) return 3;
-  return pin.kind === "region" ? 2 : 1;
+  return pin.kind === "region" ? 1 : 2;
 }

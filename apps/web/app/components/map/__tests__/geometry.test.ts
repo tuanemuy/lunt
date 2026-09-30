@@ -87,8 +87,8 @@ describe("pins", () => {
     expect(pinSelected(region)).toBe(false);
   });
 
-  it("draw the selected pin above regions, and regions above places", () => {
-    expect(pinLayer(place)).toBeGreaterThan(pinLayer(region));
-    expect(pinLayer(region)).toBeGreaterThan(pinLayer(cluster));
+  it("draw the selected pin above the rest, and places above regions", () => {
+    expect(pinLayer(place)).toBeGreaterThan(pinLayer(cluster));
+    expect(pinLayer(cluster)).toBeGreaterThan(pinLayer(region));
   });
 });
