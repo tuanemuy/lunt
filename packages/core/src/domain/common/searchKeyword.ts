@@ -88,34 +88,83 @@ export const SearchKeyword = {
     a.terms.every((term, i) => term === b.terms[i]),
 };
 
-const termScore = (text: SearchableText, term: string): TermScore => {
-  const needle = TextNormalization.normalize(term);
+/**
+ * A `SearchableText` normalised once, as stored for keyword search:
+ * `primary` normalised, and every `secondary` value normalised and joined
+ * by `SECONDARY_SEPARATOR`. Normalisation removes every whitespace
+ * character, so neither a normalised value nor a needle holds the
+ * separator: a needle is inside `secondary` exactly when it is inside one
+ * of the values.
+ */
+export type NormalizedSearchableText = Readonly<{
+  primary: string;
+  secondary: string;
+}>;
+
+const SECONDARY_SEPARATOR = "\n";
+
+const normalizeText = (text: SearchableText): NormalizedSearchableText => ({
+  primary: TextNormalization.normalize(text.primary),
+  secondary: text.secondary
+    .map((value) => TextNormalization.normalize(value))
+    .join(SECONDARY_SEPARATOR),
+});
+
+/** What each term is looked for as, in order: the term normalised. */
+const needles = (keyword: SearchKeyword): readonly string[] =>
+  keyword.terms.map((term) => TextNormalization.normalize(term));
+
+/**
+ * A normalised text as scoring sees it: the normalised `primary`, and
+ * whether a needle is inside the normalised secondary values.
+ */
+export type ScoredText = Readonly<{
+  primary: string;
+  secondaryHas: (needle: string) => boolean;
+}>;
+
+const needleScore = (text: ScoredText, needle: string): TermScore => {
   // An empty needle is a prefix / substring of everything; it matches nothing
   // rather than everything. `SearchKeyword` never yields one.
   if (needle.length === 0) return 0;
-  const primary = TextNormalization.normalize(text.primary);
-  if (primary === needle) return 4;
-  if (primary.startsWith(needle)) return 3;
-  if (primary.includes(needle)) return 2;
-  if (
-    text.secondary.some((value) =>
-      TextNormalization.normalize(value).includes(needle),
-    )
-  ) {
-    return 1;
-  }
+  if (text.primary === needle) return 4;
+  if (text.primary.startsWith(needle)) return 3;
+  if (text.primary.includes(needle)) return 2;
+  if (text.secondaryHas(needle)) return 1;
   return 0;
 };
 
-const relevance = (text: SearchableText, keyword: SearchKeyword): number => {
+const scoredTextOf = (text: NormalizedSearchableText): ScoredText => ({
+  primary: text.primary,
+  secondaryHas: (needle) => text.secondary.includes(needle),
+});
+
+const termScore = (text: SearchableText, term: string): TermScore =>
+  needleScore(
+    scoredTextOf(normalizeText(text)),
+    TextNormalization.normalize(term),
+  );
+
+const relevanceOfScored = (
+  text: ScoredText,
+  keyword: SearchKeyword,
+): number => {
   let total = 0;
-  for (const term of keyword.terms) {
-    const score = termScore(text, term);
+  for (const needle of needles(keyword)) {
+    const score = needleScore(text, needle);
     if (score === 0) return 0;
     total += score;
   }
   return total;
 };
+
+const relevanceOfNormalized = (
+  text: NormalizedSearchableText,
+  keyword: SearchKeyword,
+): number => relevanceOfScored(scoredTextOf(text), keyword);
+
+const relevance = (text: SearchableText, keyword: SearchKeyword): number =>
+  relevanceOfNormalized(normalizeText(text), keyword);
 
 /** Keyword matching and ranking; matches sort by `relevance` descending. */
 export const KeywordRelevance = {
@@ -129,4 +178,23 @@ export const KeywordRelevance = {
   relevance,
   matches: (text: SearchableText, keyword: SearchKeyword): boolean =>
     relevance(text, keyword) >= 1,
+  /**
+   * The text as stored for search. `relevanceOfNormalized(normalizeText(t), k)`
+   * is `relevance(t, k)` by definition — `relevance` is computed that way.
+   */
+  normalizeText,
+  /**
+   * The keyword's needles. A term scores ≥ 1 exactly when its needle is a
+   * substring of the normalised `primary` or `secondary`, which lets a store
+   * narrow candidates before scoring them.
+   */
+  needles,
+  /** `relevance` over text already normalised with `normalizeText`. */
+  relevanceOfNormalized,
+  /**
+   * `relevanceOfNormalized` when only the primary text is at hand and the
+   * secondary one is known by which needles it holds: `secondaryHas` is
+   * asked about the keyword's needles only.
+   */
+  relevanceOfScored,
 };

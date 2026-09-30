@@ -21,6 +21,11 @@ export type Migration = Readonly<{
   version: number;
   name: string;
   statements: readonly string[];
+  /**
+   * A synchronous step after the statements, in the same transaction, for
+   * data only code can derive (e.g. a backfill through domain functions).
+   */
+  run?: (sql: SqlExec) => void;
 }>;
 
 const CORE_MIGRATION: Migration = {
@@ -73,7 +78,8 @@ const CORE_MIGRATION: Migration = {
  * 5 authority, 6 application, 7 notification, 8 development mailbox,
  * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery,
  * 14 moderation, 15 application (stage 2), 16 notification (stage 2),
- * 17 region, 18 occasion, 19 bookmark, 20 article.
+ * 17 region, 18 occasion, 19 bookmark, 20 article, 21 discovery (search
+ * texts).
  */
 export const MIGRATIONS: readonly Migration[] = [
   CORE_MIGRATION,
@@ -128,6 +134,7 @@ export function applyMigrations(
       for (const statement of migration.statements) {
         sql.exec(statement);
       }
+      migration.run?.(sql);
       sql.exec(
         "INSERT INTO _schema_migrations (version, name, applied_at) VALUES (?, ?, ?)",
         migration.version,

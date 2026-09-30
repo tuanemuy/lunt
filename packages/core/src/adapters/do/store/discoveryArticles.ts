@@ -1,12 +1,8 @@
-import { Article } from "@repo/core/domain/article/article";
-import {
-  KeywordRelevance,
-  SearchKeyword,
-} from "@repo/core/domain/common/searchKeyword";
+import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import type { ArticleRecord } from "../protocol/article";
 import type { ScoredRecord } from "../protocol/discovery";
 import type { DiscoveryArticleQueries } from "../protocol/discoveryArticles";
-import type { SqlExec, SqlRow } from "../sql";
+import type { SqlExec } from "../sql";
 import {
   type ArticleRow,
   articleColumnsOf,
@@ -17,10 +13,11 @@ import {
   idsParam,
   isViewable,
   offsetOf,
-  rank,
+  rankedCandidates,
   scoredPage,
 } from "./discovery";
 import type { QueryHandlersOf } from "./queries";
+import type { SearchCandidates } from "./searchText";
 
 /*
  * Discovery's article reads over Article's tables (`store/article.ts`
@@ -119,14 +116,6 @@ function findArticlesShowcasing(
   };
 }
 
-type SearchRow = Readonly<{
-  id: string;
-  title: string | null;
-  body: string | null;
-  first_published_at: number;
-}> &
-  SqlRow;
-
 /** The published articles among `ids`, keyed by id. */
 function publishedArticles(
   sql: SqlExec,
@@ -146,34 +135,23 @@ function publishedArticles(
   );
 }
 
-// Matching is `Article.searchableTextOf` with `KeywordRelevance`, in the
-// object: texts are compared after NFKC / case / whitespace normalisation,
-// which a LIKE cannot express. Only the scored columns of every published
-// article are read; whole rows only for the page, which the request side
-// rehydrates (a malformed one is a data-integrity failure there, as for
-// the other kinds).
+/** Article's keyword-search candidates (`store/searchText.ts`). */
+export const ARTICLE_SEARCH: SearchCandidates = {
+  from: `a.id, a.first_published_at AS newest FROM search_texts t
+    JOIN articles a ON t.target_kind = 'article' AND a.id = t.target_id`,
+  where: ARTICLE_VIEWABLE,
+};
+
+// Matching reads the stored normalised texts (`store/searchText.ts`); only
+// the page's whole rows are read, which the request side rehydrates (a
+// malformed one is a data-integrity failure there, as for the other kinds).
 function searchArticles(
   sql: SqlExec,
   args: DiscoveryArticleQueries["discovery.searchArticles"]["args"],
 ): Page<ScoredRecord<ArticleRecord>> {
   const keyword = SearchKeyword.fromTerms(args.terms);
   if (keyword === null) return { items: [], count: 0 };
-  const rows = sql
-    .exec<SearchRow>(
-      `SELECT a.id, a.title, a.body, a.first_published_at
-         FROM articles a WHERE ${ARTICLE_VIEWABLE}`,
-    )
-    .toArray();
-  const ranked = rank(
-    rows.map((row) => ({
-      id: row.id,
-      relevance: KeywordRelevance.relevance(
-        Article.searchableTextOf({ title: row.title, body: row.body }),
-        keyword,
-      ),
-      newest: Number(row.first_published_at),
-    })),
-  );
+  const ranked = rankedCandidates(sql, keyword, ARTICLE_SEARCH);
   return scoredPage(ranked, args.page, args.limit, (ids) =>
     publishedArticles(sql, ids),
   );

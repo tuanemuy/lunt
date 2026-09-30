@@ -17,6 +17,7 @@ import type { CommandHandlersOf } from "./commands";
 import type { ContentLookup } from "./contentLookups";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
+import { afterApplied, putSearchText, searchTextOf } from "./searchText";
 import type { StewardedTargetLookup } from "./stewardedTargetLookups";
 import {
   APPLIED,
@@ -586,22 +587,35 @@ export const occasionQueryHandlers: QueryHandlersOf<OccasionQueries> = {
   },
 };
 
+/** `Occasion.searchableText` of the stored occasion (`store/searchText.ts`). */
+export const occasionSearchText = (record: OccasionRecord) =>
+  searchTextOf(() => Occasion.searchableText(Occasion.reconstruct(record)));
+
+const indexOccasion = (sql: SqlExec, record: OccasionRecord) => () =>
+  putSearchText(sql, "occasion", record.id, occasionSearchText(record));
+
 export const occasionCommandHandlers: CommandHandlersOf<OccasionCommand> = {
   "occasion.insert": (sql, { record }) =>
-    insertUnique(
-      sql,
-      "occasions",
-      { id: record.id, ...occasionValues(record) },
-      describeOccasion(record.id),
+    afterApplied(
+      insertUnique(
+        sql,
+        "occasions",
+        { id: record.id, ...occasionValues(record) },
+        describeOccasion(record.id),
+      ),
+      indexOccasion(sql, record),
     ),
   "occasion.save": (sql, { record, expectedVersion }) =>
-    updateVersioned(
-      sql,
-      "occasions",
-      { id: record.id },
-      occasionValues(record),
-      expectedVersion,
-      describeOccasion(record.id),
+    afterApplied(
+      updateVersioned(
+        sql,
+        "occasions",
+        { id: record.id },
+        occasionValues(record),
+        expectedVersion,
+        describeOccasion(record.id),
+      ),
+      indexOccasion(sql, record),
     ),
   "occasion.insertParticipation": (sql, { record }) =>
     insertUnique(

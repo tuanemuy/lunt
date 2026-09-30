@@ -16,6 +16,7 @@ import type { CommandHandlersOf } from "./commands";
 import type { ContentLookup } from "./contentLookups";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
+import { putSearchText, searchTextOf } from "./searchText";
 import type { StewardedTargetLookup } from "./stewardedTargetLookups";
 import { insertUnique, updateVersioned } from "./versioned";
 
@@ -438,22 +439,54 @@ function afterApplied<T extends { kind: string }>(
   return outcome;
 }
 
+/** `Region.searchableTextOf` of the stored region (`store/searchText.ts`). */
+export const regionSearchText = (record: RegionRecord) =>
+  searchTextOf(() => {
+    const { name, tagline, description, address } = record.content;
+    return Region.searchableTextOf({
+      name,
+      tagline,
+      description,
+      address:
+        address === null
+          ? null
+          : Address.of(
+              {
+                areaCode: AreaCode.create(address.areaCode),
+                prefecture: address.prefecture,
+                municipality: address.municipality,
+                town: address.town,
+              },
+              address.rest,
+            ),
+    });
+  });
+
+const indexRegion = (sql: SqlExec, record: RegionRecord) => () =>
+  putSearchText(sql, "region", record.id, regionSearchText(record));
+
 export const regionCommandHandlers: CommandHandlersOf<RegionCommand> = {
   "region.insert": (sql, { record }) =>
-    insertUnique(
-      sql,
-      "regions",
-      { id: record.id, ...regionValues(record) },
-      describeRegion(record.id),
+    afterApplied(
+      insertUnique(
+        sql,
+        "regions",
+        { id: record.id, ...regionValues(record) },
+        describeRegion(record.id),
+      ),
+      indexRegion(sql, record),
     ),
   "region.save": (sql, { record, expectedVersion }) =>
-    updateVersioned(
-      sql,
-      "regions",
-      { id: record.id },
-      regionValues(record),
-      expectedVersion,
-      describeRegion(record.id),
+    afterApplied(
+      updateVersioned(
+        sql,
+        "regions",
+        { id: record.id },
+        regionValues(record),
+        expectedVersion,
+        describeRegion(record.id),
+      ),
+      indexRegion(sql, record),
     ),
   "region.insertPlaceAffiliations": (sql, { record }) =>
     afterApplied(

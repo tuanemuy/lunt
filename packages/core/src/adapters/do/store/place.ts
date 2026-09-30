@@ -5,6 +5,7 @@ import {
   PlaceMatchCriteria,
   PlaceMatching,
 } from "@repo/core/domain/place/matching";
+import { Place } from "@repo/core/domain/place/place";
 import type {
   PlaceCommand,
   PlaceQueries,
@@ -15,6 +16,7 @@ import type { CommandHandlersOf } from "./commands";
 import type { ContentLookup } from "./contentLookups";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
+import { afterApplied, putSearchText, searchTextOf } from "./searchText";
 import type { StewardedTargetLookup } from "./stewardedTargetLookups";
 import { insertUnique, updateVersioned } from "./versioned";
 
@@ -264,22 +266,43 @@ export const placeQueryHandlers: QueryHandlersOf<PlaceQueries> = {
   },
 };
 
+/** `PlaceMatching.searchableText` of the stored place (`store/searchText.ts`). */
+export const placeSearchText = (record: PlaceRecord) =>
+  searchTextOf(() =>
+    PlaceMatching.searchableText(
+      Place.reconstruct({
+        ...record,
+        registeredAt: new Date(record.registeredAt),
+        updatedAt: new Date(record.updatedAt),
+      }),
+    ),
+  );
+
+const indexPlace = (sql: SqlExec, record: PlaceRecord) => () =>
+  putSearchText(sql, "place", record.id, placeSearchText(record));
+
 export const placeCommandHandlers: CommandHandlersOf<PlaceCommand> = {
   "place.insert": (sql, { record }) =>
-    insertUnique(
-      sql,
-      "places",
-      { id: record.id, ...values(record) },
-      `Place ${record.id}`,
+    afterApplied(
+      insertUnique(
+        sql,
+        "places",
+        { id: record.id, ...values(record) },
+        `Place ${record.id}`,
+      ),
+      indexPlace(sql, record),
     ),
   "place.save": (sql, { record, expectedVersion }) =>
-    updateVersioned(
-      sql,
-      "places",
-      { id: record.id },
-      values(record),
-      expectedVersion,
-      `Place ${record.id}`,
+    afterApplied(
+      updateVersioned(
+        sql,
+        "places",
+        { id: record.id },
+        values(record),
+        expectedVersion,
+        `Place ${record.id}`,
+      ),
+      indexPlace(sql, record),
     ),
 };
 

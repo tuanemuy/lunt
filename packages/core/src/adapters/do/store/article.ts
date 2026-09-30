@@ -1,3 +1,4 @@
+import { Article } from "@repo/core/domain/article/article";
 import type {
   ArticleCommand,
   ArticleQueries,
@@ -8,6 +9,7 @@ import type { CommandHandlersOf } from "./commands";
 import type { ContentLookup } from "./contentLookups";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
+import { putSearchText } from "./searchText";
 import { insertUnique, updateVersioned } from "./versioned";
 
 /**
@@ -318,6 +320,17 @@ function afterApplied<T extends { kind: string }>(
   return outcome;
 }
 
+/** `Article.searchableTextOf` of the stored article (`store/searchText.ts`). */
+export const articleSearchText = (
+  content: Readonly<{ title: string | null; body: string | null }>,
+) => Article.searchableTextOf({ title: content.title, body: content.body });
+
+/** The reverse index and the search text of the stored article. */
+const indexArticle = (sql: SqlExec, record: ArticleRecord) => {
+  indexShowcases(sql, record);
+  putSearchText(sql, "article", record.id, articleSearchText(record.content));
+};
+
 export const articleCommandHandlers: CommandHandlersOf<ArticleCommand> = {
   "article.insert": (sql, { record }) =>
     afterApplied(
@@ -327,7 +340,7 @@ export const articleCommandHandlers: CommandHandlersOf<ArticleCommand> = {
         { id: record.id, ...articleValues(record) },
         describeArticle(record.id),
       ),
-      () => indexShowcases(sql, record),
+      () => indexArticle(sql, record),
     ),
   "article.save": (sql, { record, expectedVersion }) =>
     afterApplied(
@@ -339,7 +352,7 @@ export const articleCommandHandlers: CommandHandlersOf<ArticleCommand> = {
         expectedVersion,
         describeArticle(record.id),
       ),
-      () => indexShowcases(sql, record),
+      () => indexArticle(sql, record),
     ),
 };
 

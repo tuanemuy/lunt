@@ -20,6 +20,7 @@ import type { CommandHandlersOf } from "./commands";
 import type { ContentLookup } from "./contentLookups";
 import type { QueryHandlersOf } from "./queries";
 import type { Migration } from "./schema";
+import { afterApplied, putSearchText, removeSearchText } from "./searchText";
 import {
   APPLIED,
   deleteVersioned,
@@ -475,6 +476,20 @@ const catalogValues = (record: CategoryCatalogRecord) => ({
   version: record.version,
 });
 
+/** `ListingMatching.textOf` of the stored listing (`store/searchText.ts`). */
+export const listingSearchText = (
+  name: string | null,
+  description: string | null,
+) => ListingMatching.textOf(name, description);
+
+const indexListing = (sql: SqlExec, record: ListingRecord) => () =>
+  putSearchText(
+    sql,
+    "listing",
+    record.id,
+    listingSearchText(record.content.name, record.content.description),
+  );
+
 export const listingCommandHandlers: CommandHandlersOf<ListingCommand> = {
   "listing.insert": (sql, { record, schedule }) => {
     const deleted =
@@ -488,25 +503,31 @@ export const listingCommandHandlers: CommandHandlersOf<ListingCommand> = {
         message: `${describeListing(record.id)} was deleted`,
       };
     }
-    return insertUnique(
-      sql,
-      "listings",
-      {
-        id: record.id,
-        place_id: record.placeId,
-        ...mutableValues(record, schedule),
-      },
-      describeListing(record.id),
+    return afterApplied(
+      insertUnique(
+        sql,
+        "listings",
+        {
+          id: record.id,
+          place_id: record.placeId,
+          ...mutableValues(record, schedule),
+        },
+        describeListing(record.id),
+      ),
+      indexListing(sql, record),
     );
   },
   "listing.save": (sql, { record, schedule, expectedVersion }) =>
-    updateVersioned(
-      sql,
-      "listings",
-      { id: record.id },
-      mutableValues(record, schedule),
-      expectedVersion,
-      describeListing(record.id),
+    afterApplied(
+      updateVersioned(
+        sql,
+        "listings",
+        { id: record.id },
+        mutableValues(record, schedule),
+        expectedVersion,
+        describeListing(record.id),
+      ),
+      indexListing(sql, record),
     ),
   "listing.delete": (sql, { id, expectedVersion }) => {
     const outcome = deleteVersioned(
@@ -518,6 +539,7 @@ export const listingCommandHandlers: CommandHandlersOf<ListingCommand> = {
     );
     if (outcome.kind === "applied") {
       sql.exec("INSERT OR IGNORE INTO deleted_listings (id) VALUES (?)", id);
+      removeSearchText(sql, "listing", id);
     }
     return outcome;
   },

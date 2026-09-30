@@ -1,14 +1,4 @@
-import { Address } from "@repo/core/domain/common/address";
-import { AreaCode } from "@repo/core/domain/common/areaCode";
-import {
-  KeywordRelevance,
-  SearchKeyword,
-} from "@repo/core/domain/common/searchKeyword";
-import { ListingMatching } from "@repo/core/domain/listing/listingMatching";
-import { Occasion } from "@repo/core/domain/occasion/occasion";
-import { PlaceMatching } from "@repo/core/domain/place/matching";
-import { Place } from "@repo/core/domain/place/place";
-import { Region } from "@repo/core/domain/region/region";
+import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import type {
   DiscoveryCommand,
   DiscoveryQueries,
@@ -22,21 +12,42 @@ import type {
 } from "../protocol/discovery";
 import type { ListingRecord, OfferingRecord } from "../protocol/listing";
 import type { OccasionRecord } from "../protocol/occasion";
-import type { PlaceRecord } from "../protocol/place";
 import type { PlaceAffiliationsRecord, RegionRecord } from "../protocol/region";
 import type { SqlExec, SqlRow } from "../sql";
+import { articleSearchText } from "./article";
 import type { CommandHandlersOf } from "./commands";
-import { LISTING_PHASE_SQL } from "./listing";
+import { LISTING_PHASE_SQL, listingSearchText } from "./listing";
 import {
   OCCASION_COLUMNS,
   type OccasionRow,
   occasionRowToRecord,
+  occasionSearchText,
   participationRowToRecord,
 } from "./occasion";
-import { PLACE_COLUMNS, type PlaceRow, placeRowToRecord } from "./place";
+import {
+  PLACE_COLUMNS,
+  type PlaceRow,
+  placeRowToRecord,
+  placeSearchText,
+} from "./place";
 import type { QueryHandlersOf } from "./queries";
-import { REGION_COLUMNS, type RegionRow, regionRowToRecord } from "./region";
+import {
+  REGION_COLUMNS,
+  type RegionRow,
+  regionRowToRecord,
+  regionSearchText,
+} from "./region";
 import type { Migration } from "./schema";
+import {
+  candidatesSql,
+  needlesParam,
+  putSearchText,
+  relevanceOfRow,
+  SEARCH_TEXT_STATEMENTS,
+  type SearchCandidates,
+  type SearchTargetKind,
+  type SearchTextRow,
+} from "./searchText";
 
 /**
  * Discovery keeps no state of its own: every read is computed from Place's,
@@ -46,6 +57,90 @@ import type { Migration } from "./schema";
  * listing pages walk the viewable listings in order instead of sorting
  * every one.
  */
+const BACKFILL_PAGE = 200;
+
+/**
+ * Visits the rows `select` (which binds the last id seen) returns, in id
+ * order and `BACKFILL_PAGE` at a time, so a backfill never holds every
+ * (long) row at once.
+ */
+function eachRow<R extends SqlRow & Readonly<{ id: string }>>(
+  sql: SqlExec,
+  select: string,
+  visit: (row: R) => void,
+): void {
+  let after = "";
+  for (;;) {
+    const rows = sql
+      .exec<R>(`${select} ORDER BY id LIMIT ?`, after, BACKFILL_PAGE)
+      .toArray();
+    for (const row of rows) visit(row);
+    const last = rows[rows.length - 1];
+    if (last === undefined || rows.length < BACKFILL_PAGE) return;
+    after = last.id;
+  }
+}
+
+type TextRow = Readonly<{
+  id: string;
+  name: string | null;
+  description: string | null;
+}> &
+  SqlRow;
+
+type ArticleTextRow = Readonly<{
+  id: string;
+  title: string | null;
+  body: string | null;
+}> &
+  SqlRow;
+
+/**
+ * Migration 21's backfill: every stored target's search text, through the
+ * same record → text functions the stores' writes use.
+ */
+function backfillSearchTexts(sql: SqlExec): void {
+  const put = (kind: SearchTargetKind) => (id: string, text: TextOf) =>
+    putSearchText(sql, kind, id, text);
+  eachRow<PlaceRow>(
+    sql,
+    `SELECT ${PLACE_COLUMNS} FROM places WHERE id > ?`,
+    (row) => put("place")(row.id, placeSearchText(placeRowToRecord(row))),
+  );
+  eachRow<TextRow>(
+    sql,
+    "SELECT id, name, description FROM listings WHERE id > ?",
+    (row) =>
+      put("listing")(row.id, listingSearchText(row.name, row.description)),
+  );
+  eachRow<RegionRow>(
+    sql,
+    `SELECT ${REGION_COLUMNS} FROM regions WHERE id > ?`,
+    (row) => put("region")(row.id, regionSearchText(regionRowToRecord(row))),
+  );
+  eachRow<OccasionRow>(
+    sql,
+    `SELECT ${OCCASION_COLUMNS} FROM occasions o WHERE o.id > ?`,
+    (row) =>
+      put("occasion")(row.id, occasionSearchText(occasionRowToRecord(row))),
+  );
+  eachRow<ArticleTextRow>(
+    sql,
+    "SELECT id, title, body FROM articles WHERE id > ?",
+    (row) => put("article")(row.id, articleSearchText(row)),
+  );
+}
+
+type TextOf = Parameters<typeof putSearchText>[3];
+
+/** Migration 21: the normalised keyword-search texts (`store/searchText.ts`). */
+export const SEARCH_TEXT_MIGRATION: Migration = {
+  version: 21,
+  name: "normalised keyword-search texts",
+  statements: SEARCH_TEXT_STATEMENTS,
+  run: backfillSearchTexts,
+};
+
 export const DISCOVERY_MIGRATIONS: readonly Migration[] = [
   {
     version: 13,
@@ -56,6 +151,7 @@ export const DISCOVERY_MIGRATIONS: readonly Migration[] = [
          WHERE publication_status = 'published' AND suspended = 0`,
     ],
   },
+  SEARCH_TEXT_MIGRATION,
 ];
 
 /*
@@ -116,11 +212,6 @@ const PLACE_VACANT = `NOT EXISTS (SELECT 1 FROM stewardships s
 /** `REGION_COLUMNS` qualified by the alias `r`. */
 const R_COLUMNS = REGION_COLUMNS.split(",")
   .map((column) => `r.${column.trim()}`)
-  .join(", ");
-
-/** `PLACE_COLUMNS` qualified by the alias `p`. */
-const P_COLUMNS = PLACE_COLUMNS.split(",")
-  .map((column) => `p.${column.trim()}`)
   .join(", ");
 
 type ListingRow = Readonly<{
@@ -715,17 +806,69 @@ function scoredPage<T>(
 
 const keywordOf = (terms: readonly string[]) => SearchKeyword.fromTerms(terms);
 
-/** The place a stored row holds (`Place.reconstruct` of its record). */
-const placeOf = (record: PlaceRecord): Place =>
-  Place.reconstruct({
-    ...record,
-    registeredAt: new Date(record.registeredAt),
-    updatedAt: new Date(record.updatedAt),
-  });
+/*
+ * Keyword search reads the stored, normalised texts (`store/searchText.ts`,
+ * D-25): `SEARCH_TEXT_MATCHES` narrows the viewable targets in SQL to those
+ * holding every needle, and only they are scored — by
+ * `KeywordRelevance.relevanceOfNormalized`, which is `relevance` of each
+ * domain's `searchableText` (`SearchRelevance`) — without reading or
+ * normalising the targets' texts again.
+ */
 
-// Matching is each domain's function, not SQL: texts are compared after
-// NFKC / case / whitespace normalisation, which a LIKE cannot express.
-// Every viewable candidate is scored in the object.
+type CandidateRow = SearchTextRow & Readonly<{ id: string; newest: number }>;
+
+/**
+ * `select`'s candidates (`candidatesSql`; `bindings` after the needles),
+ * ranked by 「関連度の高い順」.
+ */
+function rankedCandidates(
+  sql: SqlExec,
+  keyword: SearchKeyword,
+  select: SearchCandidates,
+  ...bindings: unknown[]
+): readonly Ranked[] {
+  return rank(
+    sql
+      .exec<CandidateRow>(
+        candidatesSql(select),
+        needlesParam(keyword),
+        needlesParam(keyword),
+        ...bindings,
+      )
+      .toArray()
+      .map((row) => ({
+        id: row.id,
+        relevance: relevanceOfRow(row, keyword),
+        newest: Number(row.newest),
+      })),
+  );
+}
+
+/** Each kind's candidates; `place` and `occasion` take the selection scope. */
+const KEYWORD_SEARCH = {
+  place: (vacantOnly: boolean): SearchCandidates => ({
+    from: `p.id, p.registered_at AS newest FROM search_texts t
+      JOIN places p ON t.target_kind = 'place' AND p.id = t.target_id`,
+    where: `${PLACE_VIEWABLE} ${vacantOnly ? `AND ${PLACE_VACANT}` : ""}`,
+  }),
+  listing: {
+    from: `l.id, l.first_published_at AS newest FROM search_texts t
+      JOIN listings l ON t.target_kind = 'listing' AND l.id = t.target_id
+      JOIN places p ON p.id = l.place_id`,
+    where: LISTING_VIEWABLE,
+  },
+  region: {
+    from: `r.id, r.first_published_at AS newest FROM search_texts t
+      JOIN regions r ON t.target_kind = 'region' AND r.id = t.target_id`,
+    where: REGION_VIEWABLE,
+  },
+  /** Binds `today` when `openOnly`. */
+  occasion: (openOnly: boolean): SearchCandidates => ({
+    from: `o.id, o.first_published_at AS newest FROM search_texts t
+      JOIN occasions o ON t.target_kind = 'occasion' AND o.id = t.target_id`,
+    where: `${OCCASION_VIEWABLE} ${openOnly ? `AND ${OCCASION_OPEN}` : ""}`,
+  }),
+} as const;
 
 function searchPlaces(
   sql: SqlExec,
@@ -733,24 +876,10 @@ function searchPlaces(
 ): Page<ScoredRecord<PlaceEntryRecord>> {
   const keyword = keywordOf(args.terms);
   if (keyword === null) return { items: [], count: 0 };
-  const rows = sql
-    .exec<PlaceRow>(
-      `SELECT ${P_COLUMNS} FROM places p WHERE ${PLACE_VIEWABLE}
-         ${args.vacantOnly ? `AND ${PLACE_VACANT}` : ""}`,
-    )
-    .toArray();
-  const ranked = rank(
-    rows.map((row) => {
-      const record = placeRowToRecord(row);
-      return {
-        id: row.id,
-        relevance: KeywordRelevance.relevance(
-          PlaceMatching.searchableText(placeOf(record)),
-          keyword,
-        ),
-        newest: record.registeredAt,
-      };
-    }),
+  const ranked = rankedCandidates(
+    sql,
+    keyword,
+    KEYWORD_SEARCH.place(args.vacantOnly),
   );
   return scoredPage(ranked, args.page, args.limit, (ids) =>
     placeEntries(sql, ids),
@@ -763,52 +892,11 @@ function searchListings(
 ): Page<ScoredRecord<ListingEntryRecord>> {
   const keyword = keywordOf(args.terms);
   if (keyword === null) return { items: [], count: 0 };
-  const rows = sql
-    .exec<
-      Readonly<{
-        id: string;
-        name: string | null;
-        description: string | null;
-        first_published_at: number;
-      }> &
-        SqlRow
-    >(
-      `SELECT l.id, l.name, l.description, l.first_published_at
-         FROM listings l JOIN places p ON p.id = l.place_id
-         WHERE ${LISTING_VIEWABLE}`,
-    )
-    .toArray();
-  const ranked = rank(
-    rows.map((row) => ({
-      id: row.id,
-      relevance: KeywordRelevance.relevance(
-        ListingMatching.textOf(row.name, row.description),
-        keyword,
-      ),
-      newest: Number(row.first_published_at),
-    })),
-  );
+  const ranked = rankedCandidates(sql, keyword, KEYWORD_SEARCH.listing);
   return scoredPage(ranked, args.page, args.limit, (ids) =>
     viewableListings(sql, ids),
   );
 }
-
-const regionAddressOf = (row: RegionRow): Address | null =>
-  row.area_code === null ||
-  row.prefecture === null ||
-  row.municipality === null ||
-  row.town === null ||
-  row.address_rest === null
-    ? null
-    : Address.of(
-        {
-          areaCode: AreaCode.create(row.area_code),
-          prefecture: row.prefecture,
-          municipality: row.municipality,
-          town: row.town,
-        },
-        row.address_rest,
-      );
 
 function searchRegions(
   sql: SqlExec,
@@ -816,28 +904,10 @@ function searchRegions(
 ): Page<ScoredRecord<RegionRecord>> {
   const keyword = keywordOf(args.terms);
   if (keyword === null) return { items: [], count: 0 };
-  const rows = sql
-    .exec<RegionRow>(
-      `SELECT ${R_COLUMNS} FROM regions r WHERE ${REGION_VIEWABLE}`,
-    )
-    .toArray();
-  const records = new Map(rows.map((row) => [row.id, regionRowToRecord(row)]));
-  const ranked = rank(
-    rows.map((row) => ({
-      id: row.id,
-      relevance: KeywordRelevance.relevance(
-        Region.searchableTextOf({
-          name: row.name,
-          tagline: row.tagline,
-          description: row.description,
-          address: regionAddressOf(row),
-        }),
-        keyword,
-      ),
-      newest: Number(row.first_published_at),
-    })),
+  const ranked = rankedCandidates(sql, keyword, KEYWORD_SEARCH.region);
+  return scoredPage(ranked, args.page, args.limit, (ids) =>
+    viewableRegionRecords(sql, ids),
   );
-  return scoredPage(ranked, args.page, args.limit, () => records);
 }
 
 function searchOccasions(
@@ -846,26 +916,15 @@ function searchOccasions(
 ): Page<ScoredRecord<OccasionRecord>> {
   const keyword = keywordOf(args.terms);
   if (keyword === null) return { items: [], count: 0 };
-  const records = sql
-    .exec<OccasionRow>(
-      `SELECT ${OCCASION_COLUMNS} FROM occasions o WHERE ${OCCASION_VIEWABLE}
-         ${args.openOnly ? `AND ${OCCASION_OPEN}` : ""}`,
-      ...(args.openOnly ? [args.today] : []),
-    )
-    .toArray()
-    .map(occasionRowToRecord);
-  const byId = new Map(records.map((record) => [record.id, record]));
-  const ranked = rank(
-    records.map((record) => ({
-      id: record.id,
-      relevance: KeywordRelevance.relevance(
-        Occasion.searchableText(Occasion.reconstruct(record)),
-        keyword,
-      ),
-      newest: record.publication.firstPublishedAt?.getTime() ?? 0,
-    })),
+  const ranked = rankedCandidates(
+    sql,
+    keyword,
+    KEYWORD_SEARCH.occasion(args.openOnly),
+    ...(args.openOnly ? [args.today] : []),
   );
-  return scoredPage(ranked, args.page, args.limit, () => byId);
+  return scoredPage(ranked, args.page, args.limit, (ids) =>
+    viewableOccasionRecords(sql, ids),
+  );
 }
 
 export const discoveryQueryHandlers: QueryHandlersOf<DiscoveryQueries> = {
@@ -943,6 +1002,7 @@ export {
   inOrder,
   isRegionViewable,
   isViewable,
+  KEYWORD_SEARCH,
   LISTING_COLUMNS,
   LISTING_DISCOVERABLE,
   LISTING_VIEWABLE,
@@ -958,6 +1018,7 @@ export {
   R_COLUMNS,
   REGION_VIEWABLE,
   rank,
+  rankedCandidates,
   scoredPage,
   viewableListings,
 };
