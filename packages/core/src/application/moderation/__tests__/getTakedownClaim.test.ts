@@ -1,3 +1,4 @@
+import { Article } from "@repo/core/domain/article/article";
 import { TakedownClaimId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { expectCode } from "../../authority/__tests__/kit";
@@ -56,6 +57,7 @@ describe("getTakedownClaim", () => {
         claimed: photoId === p2,
       })),
       removedClaimedPhotoIds: [],
+      targetPublication: null,
     });
   });
 
@@ -198,5 +200,58 @@ describe("getTakedownClaim", () => {
       [B, false],
       [C, true],
     ]);
+  });
+
+  it("reads an article claim's publication state: published, then unpublished by the takedown of its last photo, or by an editor", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const article = await k.articleWithPhotos(2);
+    const [A, B] = article.photos;
+    if (A === undefined || B === undefined) throw new Error("two photos");
+    const target = { kind: "article", id: article.id } as const;
+    const claimId = await k.claim({ target, photoIds: [A, B] });
+    expect(await k.readClaim(op, claimId)).toMatchObject({
+      targetExists: true,
+      targetViewable: true,
+      targetPublication: { status: "published", reason: null },
+    });
+
+    await k.takeDown(op, claimId, target, [A]);
+    expect((await k.readClaim(op, claimId)).targetPublication).toEqual({
+      status: "published",
+      reason: null,
+    });
+
+    await k.takeDown(op, claimId, target, [B]);
+    expect(await k.readClaim(op, claimId)).toMatchObject({
+      targetExists: true,
+      targetViewable: false,
+      photos: [],
+      targetPublication: { status: "unpublished", reason: "photoTakedown" },
+    });
+
+    const withdrawn = await k.articleWithPhotos(1);
+    const withdrawnTarget = { kind: "article", id: withdrawn.id } as const;
+    const withdrawnClaim = await k.claim({
+      target: withdrawnTarget,
+      photoIds: withdrawn.photos,
+    });
+    await k.changeArticle(withdrawn.id, Article.unpublish);
+    expect(await k.readClaim(op, withdrawnClaim)).toMatchObject({
+      targetViewable: false,
+      targetPublication: { status: "unpublished", reason: "byManager" },
+    });
+  });
+
+  it("gives no publication state for a target other than an article", async () => {
+    const k = await moderationKit();
+    const region = await k.regionWithPhotos(1);
+    const claimId = await k.claim({
+      target: { kind: "region", id: region.id },
+      photoIds: region.photos,
+    });
+    expect(
+      (await k.readClaim(await k.operator(), claimId)).targetPublication,
+    ).toBeNull();
   });
 });

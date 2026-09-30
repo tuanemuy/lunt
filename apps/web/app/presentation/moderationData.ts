@@ -33,7 +33,7 @@ import { APPLICATION_KIND_TITLE } from "./applicationWords";
 import { periodText } from "./detailView";
 import { classifyError } from "./errorState";
 import { publicationView } from "./listingData";
-import { listingStateText } from "./listingView";
+import { listingStateText, type PublicationView } from "./listingView";
 import {
   CATEGORY_LABEL,
   type ClaimTargetState,
@@ -61,7 +61,7 @@ import { claimIdOf, reportIdOf } from "./moderationIds";
 import { occasionStateText } from "./occasionView";
 import { requireOperator } from "./operatorAccess";
 import { OPERATING_STATUS_LABEL, placeStateText } from "./placeView";
-import { regionStateText } from "./regionView";
+import { regionPublicationLabel, regionStateText } from "./regionView";
 import { inboxApplicationRow } from "./subjectApplications";
 import {
   listingIdOf,
@@ -402,6 +402,7 @@ async function claimTargetState(
   actor: Actor,
   target: ContentRef,
   viewable: boolean,
+  publication: PublicationView | null,
 ): Promise<{ state: ClaimTargetState; placeName: string | null }> {
   switch (target.kind) {
     case "listing": {
@@ -487,19 +488,27 @@ async function claimTargetState(
       };
     }
     case "article":
-      // An article has no suspension, and the operators have no read of
-      // its publication: OM-04 tells it apart only as viewable (公開中) or
-      // not (下書き・公開の取り下げ), which is what the screen states.
+      if (publication === null) {
+        return { state: { kind: "gone" }, placeName: null };
+      }
       return {
         state: {
           kind: "present",
           viewable,
-          stateText: viewable ? "公開中" : "未公開（下書き・公開の取り下げ）",
+          stateText: articleStateText(publication),
           suspended: false,
         },
         placeName: null,
       };
   }
+}
+
+/** 下書き / 公開中 / 公開の取り下げ (as OM-04 words regions and events), with AM-01's takedown reason. */
+function articleStateText(publication: PublicationView): string {
+  const label = regionPublicationLabel(publication);
+  return publication.reason === "photoTakedown"
+    ? `${label} · 申立てによる写真の削除で取り下げ`
+    : label;
 }
 
 /** OM-04: one claim with its target's current state and photos. */
@@ -519,6 +528,7 @@ export async function loadTakedownClaim(
         actor,
         detail.target,
         detail.targetViewable,
+        detail.targetPublication,
       )
     : { state: { kind: "gone" } as const, placeName: null };
   return {
