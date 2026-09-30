@@ -191,6 +191,8 @@ The browser fetches the style, tiles, glyphs and sprites from the style's host (
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.
 
+A change that narrows a value rule (e.g. the line-break set of `domain/common/lineBreak.ts`) leaves stored rows the new rule rejects unrestorable, so ship it with a migration that rewrites that data and rebuilds `search_texts` (texts stored under the old rule would still match such rows).
+
 ## Tests
 
 - `pnpm test:unit` runs the object's store code on `node:sqlite` (`adapters/do/testing/`), which reproduces the platform's statement restrictions.
