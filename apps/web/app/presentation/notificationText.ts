@@ -53,18 +53,60 @@ const APPLICATION_KIND_WORD: Readonly<Record<ApplicationKind, string>> =
 
 const ROLE_WORD = { editor: "編集担当者", operator: "サービス運営者" } as const;
 
-const SHOWCASE_CHANGE_WORD: Readonly<Record<ShowcaseChange["change"], string>> =
-  {
-    suspended: "運営により非公開になりました",
-    unpublished: "公開が取り下げられました",
-    deleted: "削除されました",
-    offering_ended: "提供が終了しました",
-    place_suspended: "紐づく店舗が非公開になりました",
-    place_closed: "紐づく店舗が閉店しました",
-    closed: "閉店しました",
-    ended: "終了しました",
-    cancelled: "中止になりました",
-  };
+/**
+ * What happened to a showcase, per kind in the kind's own state words (a
+ * listing's unpublishing is 一時非公開; a region's or event's is 公開の取り下げ),
+ * read after 「読みものの紹介先の」.
+ */
+const SHOWCASE_CHANGE_TEXT: {
+  readonly [C in ShowcaseChange as C["showcase"]["kind"]]: Readonly<
+    Record<C["change"], string>
+  >;
+} = {
+  listing: {
+    suspended: "掲載が運営による非公開になりました",
+    unpublished: "掲載が一時非公開になりました",
+    deleted: "掲載が削除されました",
+    offering_ended: "掲載が提供終了になりました",
+    place_suspended: "掲載の店舗が運営による非公開になりました",
+    place_closed: "掲載の店舗が閉店しました",
+  },
+  place: {
+    suspended: "店舗が運営による非公開になりました",
+    closed: "店舗が閉店しました",
+  },
+  region: {
+    suspended: "地域が運営による非公開になりました",
+    unpublished: "地域が公開の取り下げになりました",
+  },
+  occasion: {
+    suspended: "イベントが運営による非公開になりました",
+    unpublished: "イベントが公開の取り下げになりました",
+    ended: "イベントが終了しました",
+    cancelled: "イベントが中止になりました",
+  },
+};
+
+type ShowcaseKindOf = ShowcaseChange["showcase"]["kind"];
+
+const isShowcaseKind = <K extends ShowcaseKindOf>(
+  change: ShowcaseChange,
+  kind: K,
+): change is Extract<ShowcaseChange, { showcase: { kind: K } }> =>
+  change.showcase.kind === kind;
+
+function showcaseChangeText(change: ShowcaseChange): string {
+  if (isShowcaseKind(change, "listing")) {
+    return SHOWCASE_CHANGE_TEXT.listing[change.change];
+  }
+  if (isShowcaseKind(change, "place")) {
+    return SHOWCASE_CHANGE_TEXT.place[change.change];
+  }
+  if (isShowcaseKind(change, "region")) {
+    return SHOWCASE_CHANGE_TEXT.region[change.change];
+  }
+  return SHOWCASE_CHANGE_TEXT.occasion[change.change];
+}
 
 function applicationText(label: ApplicationLabel | null): string {
   if (label === null) return "申請";
@@ -159,7 +201,7 @@ export function headline(o: Occurrence): string {
     case "contentManagers":
       return contentHeadline(o);
     case "editors":
-      return `読みものの紹介先の${CONTENT_WORD[o.matter.change.showcase.kind]}が${SHOWCASE_CHANGE_WORD[o.matter.change.change]}`;
+      return `読みものの紹介先の${showcaseChangeText(o.matter.change)}`;
     case "operators":
       switch (o.matter.kind) {
         case "application_review_period_elapsed":
