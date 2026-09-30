@@ -231,7 +231,7 @@ export function PlaceDetail({
           </a>
 
           <PlaceListings
-            key={data.placeId}
+            key={`listings:${data.placeId}`}
             placeId={data.placeId}
             first={listings}
           />
@@ -281,7 +281,7 @@ export function PlaceDetail({
           )}
 
           <ShowcasingArticles
-            key={data.placeId}
+            key={`articles:${data.placeId}`}
             target={{ kind: "place", id: data.placeId }}
             first={articles}
             headingId="dt02-reading"
