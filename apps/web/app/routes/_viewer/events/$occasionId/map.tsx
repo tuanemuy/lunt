@@ -1,5 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useTransition } from "react";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { ParticipantsBoard } from "@/components/mapScreen/ParticipantsBoard";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
@@ -16,6 +17,7 @@ import { loadMapStyleFn } from "@/presentation/mapStyle";
  * under the fixed 参加店舗マップ, one without viewable participants CS-09.
  */
 export const Route = createFileRoute("/_viewer/events/$occasionId/map")({
+  ...keepOnReturn,
   staticData: {
     viewerHeader: { type: "detail", title: "参加店舗マップ" },
     viewerTab: "map",

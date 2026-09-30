@@ -8,6 +8,10 @@ import {
   useState,
   useTransition,
 } from "react";
+import {
+  entryMemory,
+  useHistoryEntryKey,
+} from "@/components/explore/entryMemory";
 import { resolveDeviceSavedFn } from "@/presentation/bookmark";
 import { deviceSaves, useDeviceSaves } from "@/presentation/deviceSaveStore";
 import {
@@ -23,6 +27,10 @@ type Loaded =
   | Readonly<{ kind: "loading" }>
   | Readonly<{ kind: "ready"; order: readonly SaveTarget[]; first: SavedPage }>
   | Readonly<{ kind: "failed"; order: readonly SaveTarget[] }>;
+
+type Ready = Extract<Loaded, { kind: "ready" }>;
+
+const readMemory = entryMemory<Ready>();
 
 function ReadyBoard({
   order,
@@ -44,31 +52,39 @@ function ReadyBoard({
  * content and whether they are viewable. The order is taken once per
  * opening (later changes are this screen's own toggles, whose rows keep
  * their place until the screen is opened again). A failed read is CS-02
- * with a retry; the saves stay on the device.
+ * with a retry; the saves stay on the device. Returning from a detail is
+ * not an opening: the read is kept for the history entry.
  */
 export function DeviceSaved() {
   const hydrated = useDeviceSaves() !== null;
-  const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
+  const entry = useHistoryEntryKey();
+  const [loaded, setLoaded] = useState<Loaded>(
+    () => readMemory.recall(entry, "device") ?? { kind: "loading" },
+  );
   const [retrying, startRetry] = useTransition();
 
-  const resolve = useCallback(async (order: readonly SaveTarget[]) => {
-    if (order.length === 0) {
-      setLoaded({ kind: "ready", order, first: { items: [], count: 0 } });
-      return;
-    }
-    try {
-      const items = await resolveDeviceSavedFn({
-        data: { targets: order.slice(0, SAVED_PAGE_SIZE) },
-      });
-      setLoaded({
-        kind: "ready",
-        order,
-        first: { items, count: order.length },
-      });
-    } catch {
-      setLoaded({ kind: "failed", order });
-    }
-  }, []);
+  const resolve = useCallback(
+    async (order: readonly SaveTarget[]) => {
+      const ready = (first: SavedPage) => {
+        const next: Ready = { kind: "ready", order, first };
+        readMemory.remember(entry, "device", next);
+        setLoaded(next);
+      };
+      if (order.length === 0) {
+        ready({ items: [], count: 0 });
+        return;
+      }
+      try {
+        const items = await resolveDeviceSavedFn({
+          data: { targets: order.slice(0, SAVED_PAGE_SIZE) },
+        });
+        ready({ items, count: order.length });
+      } catch {
+        setLoaded({ kind: "failed", order });
+      }
+    },
+    [entry],
+  );
 
   useEffect(() => {
     if (!hydrated || loaded.kind !== "loading") return;

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { ExploreLoadError } from "@/components/explore/ExploreLoadError";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { MapBoard } from "@/components/mapScreen/MapBoard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { buildHead } from "@/presentation/head";
@@ -15,6 +16,7 @@ import { loadMapStyleFn } from "@/presentation/mapStyle";
  * for each settled range.
  */
 export const Route = createFileRoute("/_viewer/map")({
+  ...keepOnReturn,
   validateSearch: mapScreenSchema,
   loaderDeps: ({ search }) => ({
     area: search.area,

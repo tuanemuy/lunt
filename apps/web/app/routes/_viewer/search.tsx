@@ -8,6 +8,7 @@ import { z } from "zod";
 import { ExploreLinks } from "@/components/discover/ExploreLinks";
 import { SearchForm } from "@/components/discover/SearchForm";
 import { SearchSkeleton } from "@/components/discover/SearchSkeleton";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { Button } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import { Feedback } from "@/components/ui/Feedback";
@@ -34,6 +35,7 @@ const BLANK_KEYWORD = "キーワードを入力してください。";
  * under the skeleton. Leaving without searching is the header's 戻る.
  */
 export const Route = createFileRoute("/_viewer/search")({
+  ...keepOnReturn,
   staticData: { viewerHeader: { type: "detail", title: "検索" } },
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({ q: search.q }),

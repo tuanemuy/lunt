@@ -164,6 +164,13 @@ export function RegionsBoard({ search, first, conditions }: RegionsBoardProps) {
   const [shown, setShown] = useState<Shown>(
     () => shownMemory.recall(entry, searchKey) ?? { origin: null, page: first },
   );
+  const [basis, setBasis] = useState(first);
+  if (basis !== first) {
+    setBasis(first);
+    // The router's re-read after a stale entry was shown; a list read for
+    // the position is the island's own.
+    if (shown.origin === null) setShown({ origin: null, page: first });
+  }
   const shownOrigin = useRef(shown.origin);
   const [switchFailed, setSwitchFailed] = useState(false);
   const [switching, startSwitch] = useTransition();

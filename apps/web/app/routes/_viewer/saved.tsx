@@ -3,6 +3,7 @@ import { type ReactNode, useTransition } from "react";
 import { DeviceSaved } from "@/components/bookmark/DeviceSaved";
 import { SavedLoadFailure } from "@/components/bookmark/SavedFeedback";
 import { SavedSkeleton } from "@/components/bookmark/SavedSkeleton";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { Deferred } from "@/components/ui/Deferred";
 import { buildHead } from "@/presentation/head";
 import { renderSaved } from "./-renderSaved";
@@ -10,13 +11,14 @@ import { renderSaved } from "./-renderSaved";
 /**
  * VW-10 保存. Needs no login: signed out it lists this browser's saves,
  * signed in the account's (merging the browser's into it first, KEP-04).
- * Nothing is cached, so each opening reads the list afresh — the rows a
- * viewer removed here stay only until then.
+ * Each opening reads the list afresh, before showing it (a stale copy would
+ * bring back the rows removed last time); the rows a viewer removed here
+ * stay only until then. Returning from a detail is not an opening.
  */
 export const Route = createFileRoute("/_viewer/saved")({
+  ...keepOnReturn,
   staticData: { viewerTab: "saved" },
-  gcTime: 0,
-  loader: () => renderSaved(),
+  loader: { handler: () => renderSaved(), staleReloadMode: "blocking" },
   head: ({ match }) => {
     const config = match.context?.config;
     if (!config) return { meta: [{ title: "保存 — Lunt" }] };

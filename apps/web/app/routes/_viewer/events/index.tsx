@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExploreLoadError } from "@/components/explore/ExploreLoadError";
 import { EventsSkeleton } from "@/components/explore/ExploreSkeletons";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { Deferred } from "@/components/ui/Deferred";
 import { buildHead } from "@/presentation/head";
 import { renderEvents } from "../-renderExplore";
 
 /** VW-07 イベントの一覧. Needs no login; no browse condition applies. */
 export const Route = createFileRoute("/_viewer/events/")({
+  ...keepOnReturn,
   staticData: {
     viewerHeader: { type: "detail", title: "街のイベント" },
     viewerTab: "regions",

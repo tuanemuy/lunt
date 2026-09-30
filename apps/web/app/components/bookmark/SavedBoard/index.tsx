@@ -10,6 +10,10 @@ import {
   useTransition,
 } from "react";
 import { ListingCardBody } from "@/components/detail/ListingCard";
+import {
+  entryMemory,
+  useHistoryEntryKey,
+} from "@/components/explore/entryMemory";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/components/ui/cx";
 import { Icon } from "@/components/ui/Icon";
@@ -54,6 +58,16 @@ import {
 export type SavedSource =
   | Readonly<{ mode: "account" }>
   | Readonly<{ mode: "device"; order: readonly SaveTarget[] }>;
+
+/** What the list had, kept per history entry for the way back from a detail. */
+type BoardMemory = Readonly<{
+  first: SavedPage;
+  later: readonly SavedItem[];
+  pages: number;
+  removed: ReadonlySet<string>;
+}>;
+
+const boardMemory = entryMemory<BoardMemory>();
 
 async function fetchPage(
   source: SavedSource,
@@ -291,7 +305,8 @@ function RowFailureNotice({ failure }: { failure: RowFailure }) {
  * screen is opened again (the route keeps no cache, so reopening reads the
  * list afresh). So a toggle here does not reload the list: signed in it
  * flips at once (`useOptimistic`) and puts the row back if the account
- * call fails; signed out it changes the device at once.
+ * call fails; signed out it changes the device at once. Returning from a
+ * detail to the same first page finds the loaded rows and marks as they were.
  */
 export function SavedBoard({
   source,
@@ -300,10 +315,17 @@ export function SavedBoard({
   source: SavedSource;
   first: SavedPage;
 }) {
+  const entry = useHistoryEntryKey();
+  const [kept] = useState(() => {
+    const memory = boardMemory.recall(entry, source.mode);
+    return memory?.first === first ? memory : undefined;
+  });
   const [shownFirst, setShownFirst] = useState(first);
-  const [later, setLater] = useState<readonly SavedItem[]>([]);
-  const [pages, setPages] = useState(1);
-  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
+  const [later, setLater] = useState<readonly SavedItem[]>(kept?.later ?? []);
+  const [pages, setPages] = useState(kept?.pages ?? 1);
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(
+    kept?.removed ?? new Set(),
+  );
   const [pageFailure, setPageFailure] = useState(false);
   const [rowFailure, setRowFailure] = useState<RowFailure | null>(null);
   const [loading, startLoading] = useTransition();
@@ -323,6 +345,10 @@ export function SavedBoard({
     setPageFailure(false);
     setRowFailure(null);
   }
+
+  useEffect(() => {
+    boardMemory.remember(entry, source.mode, { first, later, pages, removed });
+  }, [entry, source.mode, first, later, pages, removed]);
 
   const seen = new Set<string>();
   const items = [...first.items, ...later].filter((item) => {

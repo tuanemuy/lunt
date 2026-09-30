@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 
@@ -10,7 +10,8 @@ export const SEARCH_INPUT_ID = "search-keyword";
  * Lunt/Input as VW-03's keyword field. Searching puts the keyword in the
  * URL (`/search?q=`), where the route decides: blank is 「キーワード未入力」
  * without a search, anything else is searched. The field starts from the
- * URL's keyword, so a result keeps its keyword (「検索語は保つ」).
+ * URL's keyword, so a result keeps its keyword (「検索語は保つ」). Searching
+ * the URL's keyword again searches afresh: the same URL is no new entry.
  */
 export function SearchForm({
   keyword,
@@ -21,6 +22,7 @@ export function SearchForm({
   error: string | null;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [value, setValue] = useState(keyword);
   const errorId = `${SEARCH_INPUT_ID}-error`;
   return (
@@ -29,6 +31,12 @@ export function SearchForm({
         className="search-form"
         onSubmit={(event) => {
           event.preventDefault();
+          if (value === keyword && keyword !== "") {
+            void router.invalidate({
+              filter: (match) => match.routeId === "/_viewer/search",
+            });
+            return;
+          }
           void navigate({ to: "/search", search: { q: value } });
         }}
       >

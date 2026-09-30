@@ -57,7 +57,9 @@ function appendNew<T>(
  * CF-05 for a list read by offset: the first page from the server render,
  * the next as the end comes into view (or on 「続きを読み込む」), repeats
  * dropped by id. What was loaded is remembered for the history entry, so
- * returning from a detail shows it again.
+ * returning from a detail shows it again. Otherwise a new first page from
+ * the server (the router's re-read after a stale entry was shown) replaces
+ * the list while nothing beyond the first page is loaded.
  */
 export function usePagedList<T>({
   name,
@@ -69,14 +71,22 @@ export function usePagedList<T>({
   onFailure,
 }: Options<T>): PagedList<T> {
   const entry = useHistoryEntryKey();
+  const [restored] = useState(() => memory.recall(entry, name));
   const [state, setState] = useState<PagedState<T>>(
     () =>
-      memory.recall(entry, name) ?? {
+      restored ?? {
         items: first.items,
         count: first.count,
         pages: 1,
       },
   );
+  const [basis, setBasis] = useState(first);
+  if (basis !== first) {
+    setBasis(first);
+    if (restored === undefined && state.pages === 1) {
+      setState({ items: first.items, count: first.count, pages: 1 });
+    }
+  }
   const [failed, setFailed] = useState(false);
   const [loading, startLoading] = useTransition();
   const sentinel = useRef<HTMLDivElement>(null);

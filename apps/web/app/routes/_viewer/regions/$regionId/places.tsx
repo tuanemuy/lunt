@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { ExploreLoadError } from "@/components/explore/ExploreLoadError";
 import { RegionListSkeleton } from "@/components/explore/ExploreSkeletons";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { Deferred } from "@/components/ui/Deferred";
 import { renderRegionList } from "../../-renderExplore";
 
@@ -14,6 +15,7 @@ const searchSchema = z.object({
  * the side chosen on DT-03. Needs no login; no browse condition applies.
  */
 export const Route = createFileRoute("/_viewer/regions/$regionId/places")({
+  ...keepOnReturn,
   validateSearch: searchSchema,
   staticData: {
     viewerHeader: { type: "detail", title: "地域内の一覧", backTo: "/regions" },

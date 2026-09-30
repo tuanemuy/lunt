@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, useMatches } from "@tanstack/react-router";
+import { useRecordLeftEntries } from "@/components/explore/entryMemory";
 import {
   type ViewerHeaderConfig,
   ViewerShell,
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/_viewer")({
 });
 
 function ViewerLayout() {
+  useRecordLeftEntries();
   const { header, tab } = useMatches({
     select: (matches) => {
       const leaf = matches.at(-1);

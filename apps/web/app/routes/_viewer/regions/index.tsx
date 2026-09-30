@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExploreLoadError } from "@/components/explore/ExploreLoadError";
 import { RegionsSkeleton } from "@/components/explore/ExploreSkeletons";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { ButtonLink } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import {
@@ -16,6 +17,7 @@ import { renderRegions } from "../-renderExplore";
  * the categories (`presentation/browseSearch.ts`); only the areas apply.
  */
 export const Route = createFileRoute("/_viewer/regions/")({
+  ...keepOnReturn,
   validateSearch: browseSearchSchema,
   loaderDeps: ({ search }) => ({ area: search.area, cat: search.cat }),
   loader: async ({ deps }) => {

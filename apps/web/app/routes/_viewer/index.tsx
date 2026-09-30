@@ -5,6 +5,7 @@ import { ExploreLinks } from "@/components/discover/ExploreLinks";
 import { FeedSkeleton } from "@/components/discover/FeedSkeleton";
 import { feedOrigin, originKey } from "@/components/discover/feedOrigin";
 import { feedSaves, readFeedSaves } from "@/components/discover/feedSaves";
+import { keepOnReturn } from "@/components/explore/entryMemory";
 import { Button } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import { Feedback } from "@/components/ui/Feedback";
@@ -26,6 +27,7 @@ import { renderFeed } from "./-renderDiscover";
  * that reconciles the route updates every page's cards (CF-04).
  */
 export const Route = createFileRoute("/_viewer/")({
+  ...keepOnReturn,
   validateSearch: browseSearchSchema,
   loaderDeps: ({ search }) => ({ area: search.area, cat: search.cat }),
   loader: async ({ deps, location }) => {
