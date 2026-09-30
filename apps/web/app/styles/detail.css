@@ -233,44 +233,20 @@
     color: var(--muted);
   }
 
-  /* DT-02: the map in the screen (MapCanvas 32:2 + MapPin 22:22 Selected=true) */
+  /*
+    DT-02: the map in the screen (MapCanvas 32:2 + MapPin 22:22
+    Selected=true). The box keeps the design's ratio; `.dt02-map .map`
+    outranks map.css's fixed height.
+  */
   .dt02-map {
-    position: relative;
     width: 100%;
     aspect-ratio: 348 / 232;
     border-radius: var(--radius-2);
     overflow: hidden;
-    background-color: var(--paper);
-    background-image:
-      linear-gradient(var(--line) var(--border-1), transparent var(--border-1)),
-      linear-gradient(
-        90deg,
-        var(--line) var(--border-1),
-        transparent var(--border-1)
-      );
-    background-size: 48px 48px;
-    background-position: center;
     scroll-margin-top: calc(60px + var(--space-24));
   }
-  .dt02-map .map-pin {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--size-touch);
-    min-height: var(--size-touch);
-    padding: var(--space-8);
-    border: var(--border-1) solid var(--line);
-    border-radius: var(--radius-999);
-    background: var(--green);
-    font-size: var(--text-ui);
-    line-height: var(--leading-ui);
-    font-weight: var(--weight-medium);
-    color: var(--white);
-    text-align: center;
+  .dt02-map .map {
+    height: 100%;
   }
   .dt02-facts > div {
     display: flex;

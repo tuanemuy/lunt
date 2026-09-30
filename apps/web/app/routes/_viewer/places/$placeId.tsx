@@ -8,6 +8,7 @@ import { PlaceDetail } from "@/components/detail/PlaceDetail";
 import { loadSaveStateFn } from "@/presentation/bookmark";
 import { loadPlaceDetailFn, orNotFound } from "@/presentation/detail";
 import { buildHead } from "@/presentation/head";
+import { loadMapStyleFn } from "@/presentation/mapStyle";
 
 /**
  * DT-02 店舗詳細. Needs no login; a signed-in steward of the place is
@@ -20,15 +21,16 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
     viewerTab: "discover",
   },
   loader: async ({ params }) => {
-    const [page, saveState] = await orNotFound(
+    const [page, saveState, { styleUrl }] = await orNotFound(
       Promise.all([
         loadPlaceDetailFn({ data: { placeId: params.placeId } }),
         loadSaveStateFn({
           data: { targets: [{ kind: "place", id: params.placeId }] },
         }),
+        loadMapStyleFn(),
       ]),
     );
-    return { ...page, saveState };
+    return { ...page, saveState, styleUrl };
   },
   head: ({ match, loaderData, params }) => {
     const config = match.context?.config;
@@ -52,6 +54,6 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
 });
 
 function PlacePage() {
-  const { saveState, ...page } = Route.useLoaderData();
-  return <PlaceDetail page={page} saveState={saveState} />;
+  const { saveState, styleUrl, ...page } = Route.useLoaderData();
+  return <PlaceDetail page={page} saveState={saveState} styleUrl={styleUrl} />;
 }

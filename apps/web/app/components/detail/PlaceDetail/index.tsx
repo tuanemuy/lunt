@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   SaveButton,
   SaveFailureNotice,
   useSaveToggle,
 } from "@/components/bookmark/SaveToggle";
+import { MapCanvas } from "@/components/map/MapCanvas";
+import type { LngLat, MapPin, MapViewport } from "@/components/map/types";
 import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -60,23 +63,40 @@ function OperatingNotice({ data }: { data: PlaceDetailData }) {
   }
 }
 
+const NO_PINS: readonly MapPin[] = [];
+
+/** Close enough to read the streets around the place. */
+const PLACE_ZOOM = 15;
+
 /**
- * The place's position in the screen (MapCanvas 32:2 + MapPin, reference
- * scene). The interactive map (MapLibre, D-13) arrives with the map
- * screens of stage 4; until then a still canvas with the pin stands in.
+ * The place's position in the screen (MapCanvas 32:2 + MapPin
+ * Selected=true, reference scene): a still map as in the design, so the
+ * page scrolls over it; the map is moved on VW-04. A closed place keeps it.
+ * When the map cannot be drawn, the address just above still tells where.
  */
-function PlaceMap({ data }: { data: PlaceDetailData }) {
-  const { latitude, longitude } = data.location;
+function PlaceMap({
+  name,
+  location,
+  styleUrl,
+}: {
+  name: string;
+  location: LngLat;
+  styleUrl: string;
+}) {
+  const viewport = useMemo<MapViewport>(
+    () => ({ kind: "center", center: location, zoom: PLACE_ZOOM }),
+    [location],
+  );
   return (
-    <div
-      className="map dt02-map"
-      id="map"
-      role="img"
-      aria-label={`${data.name}の位置の地図（北緯${latitude.toFixed(5)}、東経${longitude.toFixed(5)}）`}
-    >
-      <span className="map-pin" aria-hidden="true">
-        店
-      </span>
+    <div className="dt02-map" id="map">
+      <MapCanvas
+        styleUrl={styleUrl}
+        label={`${name}の位置の地図`}
+        viewport={viewport}
+        pins={NO_PINS}
+        picked={{ position: location, label: name, mark: "店" }}
+        interactive={false}
+      />
     </div>
   );
 }
@@ -153,9 +173,12 @@ function PlaceProcedures({ data }: { data: PlaceDetailData }) {
 export function PlaceDetail({
   page,
   saveState,
+  styleUrl,
 }: {
   page: PlaceDetailPage;
   saveState: SaveState;
+  /** The map style (`loadMapStyleFn`). */
+  styleUrl: string;
 }) {
   const { place: data, listings } = page;
   const [displayed] = data.regions;
@@ -232,7 +255,11 @@ export function PlaceDetail({
                 <dd>{OPERATING_STATUS_TEXT[data.operating]}</dd>
               </div>
             </dl>
-            <PlaceMap data={data} />
+            <PlaceMap
+              name={data.name}
+              location={data.location}
+              styleUrl={styleUrl}
+            />
           </section>
 
           {data.regions.length === 0 ? null : (
