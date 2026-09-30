@@ -1,23 +1,15 @@
-import type { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
-import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { ArticleId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
-import type { ReferenceResolution } from "@repo/core/domain/discovery/entry";
-import {
-  type ShowcasePreview,
-  ViewProjection,
-} from "@repo/core/domain/discovery/viewProjection";
 import { authorizeRole } from "../authority/access";
-import {
-  type PhotoRefs,
-  photoRefsOf,
-  showcaseSummaryPhotoIds,
-  todayOf,
-} from "../discovery/views";
+import { type PhotoRefs, photoRefsOf, todayOf } from "../discovery/views";
 import type { ActorServiceArgs } from "../types";
 import {
   type ArticleWithRequirements,
   requireArticle,
   resolveShowcases,
+  type ShowcaseState,
+  showcasePhotoIds,
+  showcaseStates,
   withRequirements,
 } from "./articles";
 
@@ -29,37 +21,14 @@ export type ArticleForEditing = ArticleWithRequirements &
     photosTakenDown: boolean;
     /**
      * Every showcase in the article's order: a viewable one with its
-     * summary and standing (reference scene), one viewers cannot see only
-     * as such — the link stays until an editor removes it.
+     * summary and standing (reference scene); one viewers cannot see with
+     * what is still stored of it (its name, or that it no longer exists) —
+     * the link stays until an editor removes it.
      */
-    showcases: readonly ShowcasePreview[];
-    /** Display refs of the article's photos and the showcases' covers. */
+    showcases: readonly ShowcaseState[];
+    /** Display refs of the article's photos and the viewable showcases' covers. */
     photos: PhotoRefs;
   }>;
-
-/** Each resolution as an editing / preview showcase, in order. */
-export function showcaseStates(
-  resolutions: readonly ReferenceResolution[],
-  today: LocalDate,
-): readonly ShowcasePreview[] {
-  return resolutions.map(
-    (resolution): ShowcasePreview =>
-      resolution.viewable
-        ? {
-            ref: resolution.ref,
-            viewable: true,
-            showcase: ViewProjection.showcaseSummary(resolution.target, today),
-          }
-        : { ref: resolution.ref, viewable: false },
-  );
-}
-
-export const showcasePhotoIds = (
-  showcases: readonly ShowcasePreview[],
-): readonly PhotoId[] =>
-  showcases.flatMap((showcase) =>
-    showcase.viewable ? showcaseSummaryPhotoIds(showcase.showcase) : [],
-  );
 
 /**
  * AM-02: one article for editing, whoever created it (EDT-02, EDT-04,
@@ -67,8 +36,9 @@ export const showcasePhotoIds = (
  * (the input of `reviseArticle`), whether a takedown removed photos, and
  * each showcase's current state.
  *
+ * - `NotFoundError` `ARTICLE_NOT_FOUND`, judged before the role
+ *   (`spec/domains/index.md` 「エラーの種類」).
  * - `ForbiddenError` without `edit_articles`.
- * - `NotFoundError` `ARTICLE_NOT_FOUND`.
  */
 export async function getArticleForEditing({
   container,
@@ -76,10 +46,12 @@ export async function getArticleForEditing({
   input,
 }: ActorServiceArgs<GetArticleForEditingInput>): Promise<ArticleForEditing> {
   const article = await container.unitOfWorkProvider.run(async (ctx) => {
+    const read = await requireArticle(ctx, input.articleId);
     await authorizeRole(ctx, actor, "edit_articles");
-    return (await requireArticle(ctx, input.articleId)).entity;
+    return read.entity;
   });
-  const showcases = showcaseStates(
+  const showcases = await showcaseStates(
+    container,
     await resolveShowcases(container, article.content.showcases),
     todayOf(container),
   );

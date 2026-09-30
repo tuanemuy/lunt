@@ -6,11 +6,21 @@ import {
 import type { ArticleRepositories } from "@repo/core/domain/article/ports/unitOfWork";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
-import { type ShowcaseKind, ShowcaseRef } from "@repo/core/domain/common/refs";
+import type { LocalDate } from "@repo/core/domain/common/localDate";
+import {
+  ContentRef,
+  type ShowcaseKind,
+  ShowcaseRef,
+} from "@repo/core/domain/common/refs";
 import type { Versioned } from "@repo/core/domain/common/transactionalRepository";
 import type { Version } from "@repo/core/domain/common/version";
 import type { ReferenceResolution } from "@repo/core/domain/discovery/entry";
+import {
+  type ShowcasePreview,
+  ViewProjection,
+} from "@repo/core/domain/discovery/viewProjection";
 import type { RequestContainer } from "../di/types";
+import { showcaseSummaryPhotoIds } from "../discovery/views";
 import { ConflictError, NotFoundError } from "../errors";
 import type { GeneratedId } from "../ports/idGenerator";
 
@@ -105,3 +115,71 @@ export async function resolveShowcases(
   }
   return resolved;
 }
+
+/**
+ * What is still stored of a showcase viewers cannot see
+ * (`ContentDirectory.describe`, any state): its name (an unnamed draft's
+ * is `null`), or that it no longer exists (deleted, or never stored).
+ */
+export type StoredShowcase =
+  | Readonly<{ exists: true; name: string | null }>
+  | Readonly<{ exists: false }>;
+
+/** A showcase viewers cannot see: left out of the article, the link kept. */
+export type UnviewableShowcase = Readonly<{
+  ref: ShowcaseRef;
+  viewable: false;
+  stored: StoredShowcase;
+}>;
+
+/**
+ * One showcase as the editor sees it: a viewable one with its summary and
+ * standing (reference scene), or an unviewable one with what is stored.
+ */
+export type ShowcaseState =
+  | Extract<ShowcasePreview, { viewable: true }>
+  | UnviewableShowcase;
+
+/**
+ * Each resolution, in order, as a `ShowcaseState`; the unviewable ones are
+ * described through `ContentDirectory` (100 per call). Called outside the
+ * unit of work, after the authorized read.
+ */
+export async function showcaseStates(
+  container: Pick<RequestContainer, "contentDirectory">,
+  resolutions: readonly ReferenceResolution[],
+  today: LocalDate,
+): Promise<readonly ShowcaseState[]> {
+  const unviewable = resolutions.flatMap((resolution) =>
+    resolution.viewable ? [] : [resolution.ref],
+  );
+  const names = new Map<string, string | null>();
+  for (const refs of IdBatch.chunks(unviewable)) {
+    for (const summary of await container.contentDirectory.describe(refs)) {
+      names.set(ContentRef.key(summary.target), summary.name);
+    }
+  }
+  return resolutions.map((resolution): ShowcaseState => {
+    if (resolution.viewable) {
+      return {
+        ref: resolution.ref,
+        viewable: true,
+        showcase: ViewProjection.showcaseSummary(resolution.target, today),
+      };
+    }
+    const name = names.get(ContentRef.key(resolution.ref));
+    return {
+      ref: resolution.ref,
+      viewable: false,
+      stored: name === undefined ? { exists: false } : { exists: true, name },
+    };
+  });
+}
+
+/** Photo ids of the viewable showcases' summaries. */
+export const showcasePhotoIds = (
+  showcases: readonly ShowcaseState[],
+): readonly PhotoId[] =>
+  showcases.flatMap((showcase) =>
+    showcase.viewable ? showcaseSummaryPhotoIds(showcase.showcase) : [],
+  );

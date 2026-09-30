@@ -445,4 +445,20 @@ describe("reviseArticle", () => {
     );
     expect(await k.ownerOf(X)).toEqual({ kind: "article", id: other.id });
   });
+
+  it("judges the content's own errors before the version (「編集の競合」)", async () => {
+    const k = articleKit();
+    const E = await k.editor();
+    const article = await k.article({}, "draft", E);
+    await k.revise(E, article, content({ body: "先に保存" }));
+    await expectCode(
+      k.revise(E, article, content({ title: "一行目\n二行目" })),
+      BusinessRuleError,
+      "ARTICLE_INVALID_TITLE",
+    );
+    await expectCode(
+      k.revise(E, article, content({ body: "古い版" })),
+      ConflictError,
+    );
+  });
 });

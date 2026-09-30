@@ -29,10 +29,12 @@ export type ReviseArticleInput = Readonly<{
  * checked. Newly added photos become the article's; dropped ones are
  * released (`photos.released`). Unchanged content writes nothing.
  *
+ * - `NotFoundError` `ARTICLE_NOT_FOUND`, judged before the role
+ *   (`spec/domains/index.md` 「エラーの種類」).
  * - `ForbiddenError` without `edit_articles`, also when revoked before the
  *   commit (AC-75).
- * - `NotFoundError` `ARTICLE_NOT_FOUND`.
- * - `ConflictError` when `version` is not the stored one, or on an
+ * - `ConflictError` when `version` is not the stored one (judged after the
+ *   content's own errors, 「編集の競合」), or on an
  *   optimistic-lock conflict of the article or a photo.
  * - `BusinessRuleError` `ARTICLE_PUBLISH_CONDITION_UNMET` (with the missing
  *   requirements), `ARTICLE_INVALID_*`, `ARTICLE_DUPLICATE_PHOTO`,
@@ -45,14 +47,14 @@ export async function reviseArticle({
 }: ActorServiceArgs<ReviseArticleInput>): Promise<ArticleWithRequirements> {
   const now = container.clock.now();
   const article = await container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "edit_articles");
     const read = await requireArticle(ctx, input.articleId);
-    assertEditedVersion(read.entity, input.version);
+    await authorizeRole(ctx, actor, "edit_articles");
     const { entity, eventDrafts, addedPhotoIds } = Article.revise(
       read.entity,
       contentInputOf(input.content),
       now,
     );
+    assertEditedVersion(read.entity, input.version);
     if (entity === read.entity) return entity;
     await claimNewPhotos(ctx, addedPhotoIds, Article.ref(entity), actor);
     await ctx.articleRepository.save(entity, read.expectedVersion);

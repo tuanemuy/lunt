@@ -97,6 +97,13 @@ describe("previewArticle", () => {
     const output = await k.preview(E, draft.id);
     expect(shownRefs(output)).toEqual([refs.region]);
     expect(output.hiddenShowcases).toEqual([refs.listing]);
+    expect(output.unviewableShowcases).toEqual([
+      {
+        ref: refs.listing,
+        viewable: false,
+        stored: { exists: true, name: listing.content.name },
+      },
+    ]);
   });
 
   it("previewArticle#4 紹介先をすべて、運営による非公開の掲載と公開を取り下げた地域にした下書き / 見え方を確かめる", async () => {
@@ -119,6 +126,10 @@ describe("previewArticle", () => {
     const output = await k.preview(E, draft.id);
     expect(shownRefs(output)).toEqual([]);
     expect(output.hiddenShowcases).toEqual([refs.listing, refs.region]);
+    expect(output.unviewableShowcases.map((s) => s.stored)).toEqual([
+      { exists: true, name: listing.content.name },
+      { exists: true, name: region.content.name },
+    ]);
   });
 
   it("previewArticle#5 紹介先のない下書き / 見え方を確かめる", async () => {
@@ -128,6 +139,7 @@ describe("previewArticle", () => {
     const output = await k.preview(E, draft.id);
     expect(output.preview.detail.showcases).toEqual([]);
     expect(output.hiddenShowcases).toEqual([]);
+    expect(output.unviewableShowcases).toEqual([]);
   });
 
   it("previewArticle#6 紹介先に、提供終了の掲載と終了したイベントを持つ下書き / 見え方を確かめる", async () => {

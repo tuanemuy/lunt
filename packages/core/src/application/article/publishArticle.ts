@@ -15,9 +15,10 @@ export type PublishArticleInput = Readonly<{ articleId: ArticleId }>;
  * request carries no version. No approval, no event; the showcases are no
  * condition. `firstPublishedAt` survives re-publishing.
  *
+ * - `NotFoundError` `ARTICLE_NOT_FOUND`, judged before the role
+ *   (`spec/domains/index.md` 「エラーの種類」).
  * - `ForbiddenError` without `edit_articles`, also when revoked before the
  *   commit (AC-75).
- * - `NotFoundError` `ARTICLE_NOT_FOUND`.
  * - `BusinessRuleError` `COMMON_PUBLICATION_INVALID_TRANSITION` when already
  *   published (checked first), `ARTICLE_PUBLISH_CONDITION_UNMET` with the
  *   missing requirements.
@@ -30,8 +31,8 @@ export async function publishArticle({
 }: ActorServiceArgs<PublishArticleInput>): Promise<PublishedArticle> {
   const now = container.clock.now();
   return container.unitOfWorkProvider.run(async (ctx) => {
-    await authorizeRole(ctx, actor, "edit_articles");
     const read = await requireArticle(ctx, input.articleId);
+    await authorizeRole(ctx, actor, "edit_articles");
     const published = Article.publish(read.entity, now);
     await ctx.articleRepository.save(published, read.expectedVersion);
     return published;
