@@ -174,6 +174,7 @@ describe("getTakedownClaim", () => {
       targetViewable: false,
       photos: [],
       removedClaimedPhotoIds: [A],
+      targetPublication: null,
     });
 
     const occasion = await k.occasionWithPhotos(2);
@@ -202,7 +203,20 @@ describe("getTakedownClaim", () => {
     ]);
   });
 
-  it("reads an article claim's publication state: published, then unpublished by the takedown of its last photo, or by an editor", async () => {
+  it("getTakedownClaim#10 公開中の読みものへの未対応の申立てがある / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const article = await k.articleWithPhotos(2);
+    const target = { kind: "article", id: article.id } as const;
+    const claimId = await k.claim({ target, photoIds: article.photos });
+    expect(await k.readClaim(await k.operator(), claimId)).toMatchObject({
+      status: "open",
+      targetExists: true,
+      targetViewable: true,
+      targetPublication: { status: "published", reason: null },
+    });
+  });
+
+  it("getTakedownClaim#11 申立てによる最後の写真の削除で公開の取り下げになった読みものへの申立てがある / サービス運営者が申立てを読む", async () => {
     const k = await moderationKit();
     const op = await k.operator();
     const article = await k.articleWithPhotos(2);
@@ -210,18 +224,11 @@ describe("getTakedownClaim", () => {
     if (A === undefined || B === undefined) throw new Error("two photos");
     const target = { kind: "article", id: article.id } as const;
     const claimId = await k.claim({ target, photoIds: [A, B] });
-    expect(await k.readClaim(op, claimId)).toMatchObject({
-      targetExists: true,
-      targetViewable: true,
-      targetPublication: { status: "published", reason: null },
-    });
-
     await k.takeDown(op, claimId, target, [A]);
     expect((await k.readClaim(op, claimId)).targetPublication).toEqual({
       status: "published",
       reason: null,
     });
-
     await k.takeDown(op, claimId, target, [B]);
     expect(await k.readClaim(op, claimId)).toMatchObject({
       targetExists: true,
@@ -229,29 +236,26 @@ describe("getTakedownClaim", () => {
       photos: [],
       targetPublication: { status: "unpublished", reason: "photoTakedown" },
     });
+  });
 
-    const withdrawn = await k.articleWithPhotos(1);
-    const withdrawnTarget = { kind: "article", id: withdrawn.id } as const;
-    const withdrawnClaim = await k.claim({
-      target: withdrawnTarget,
-      photoIds: withdrawn.photos,
-    });
-    await k.changeArticle(withdrawn.id, Article.unpublish);
-    expect(await k.readClaim(op, withdrawnClaim)).toMatchObject({
+  it("getTakedownClaim#12 掲載への申立てがある / サービス運営者が申立てを読む", async () => {
+    const k = await moderationKit();
+    const { claimId } = await claimedListing(k, 1);
+    const detail = await k.readClaim(await k.operator(), claimId);
+    expect(detail.targetExists).toBe(true);
+    expect(detail.targetPublication).toBeNull();
+  });
+
+  it("reads an article its editor unpublished as unpublished by the manager", async () => {
+    const k = await moderationKit();
+    const op = await k.operator();
+    const article = await k.articleWithPhotos(1);
+    const target = { kind: "article", id: article.id } as const;
+    const claimId = await k.claim({ target, photoIds: article.photos });
+    await k.changeArticle(article.id, Article.unpublish);
+    expect(await k.readClaim(op, claimId)).toMatchObject({
       targetViewable: false,
       targetPublication: { status: "unpublished", reason: "byManager" },
     });
-  });
-
-  it("gives no publication state for a target other than an article", async () => {
-    const k = await moderationKit();
-    const region = await k.regionWithPhotos(1);
-    const claimId = await k.claim({
-      target: { kind: "region", id: region.id },
-      photoIds: region.photos,
-    });
-    expect(
-      (await k.readClaim(await k.operator(), claimId)).targetPublication,
-    ).toBeNull();
   });
 });
