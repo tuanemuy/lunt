@@ -20,6 +20,10 @@ import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/s
 import { Route as Char91__devChar93StewardsRouteImport } from './routes/[__dev]/stewards'
 import { Route as ManageOpsRouteImport } from './routes/_manage/ops'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
+import { Route as ViewerFilterRouteImport } from './routes/_viewer/filter'
+import { Route as ViewerMapRouteImport } from './routes/_viewer/map'
+import { Route as ViewerSavedRouteImport } from './routes/_viewer/saved'
+import { Route as ViewerSearchRouteImport } from './routes/_viewer/search'
 import { Route as Char91__devChar93ErrorsKindRouteImport } from './routes/[__dev]/errors.$kind'
 import { Route as Char91__devChar93IdpAuthorizeRouteImport } from './routes/[__dev]/idp/authorize'
 import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
@@ -38,8 +42,10 @@ import { Route as ManageOpsIndexRouteImport } from './routes/_manage/ops/index'
 import { Route as ManageOpsCategoriesRouteImport } from './routes/_manage/ops/categories'
 import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
 import { Route as ManageOpsSearchRouteImport } from './routes/_manage/ops/search'
+import { Route as ViewerEventsIndexRouteImport } from './routes/_viewer/events/index'
 import { Route as ViewerListingsListingIdRouteImport } from './routes/_viewer/listings/$listingId'
 import { Route as ViewerPlacesPlaceIdRouteImport } from './routes/_viewer/places/$placeId'
+import { Route as ViewerRegionsIndexRouteImport } from './routes/_viewer/regions/index'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
 import { Route as AccountMeApplicationsIndexRouteImport } from './routes/_account/me/applications/index'
 import { Route as AccountMeApplicationsApplicationIdRouteImport } from './routes/_account/me/applications/$applicationId'
@@ -57,7 +63,9 @@ import { Route as ManageOpsTakedownsClaimIdRouteImport } from './routes/_manage/
 import { Route as ReportInfoReportKindIdRouteImport } from './routes/_report/info-report/$kind/$id'
 import { Route as ReportTakedownKindIdRouteImport } from './routes/_report/takedown/$kind/$id'
 import { Route as ViewerEventsOccasionIdIndexRouteImport } from './routes/_viewer/events/$occasionId/index'
+import { Route as ViewerEventsOccasionIdMapRouteImport } from './routes/_viewer/events/$occasionId/map'
 import { Route as ViewerRegionsRegionIdIndexRouteImport } from './routes/_viewer/regions/$regionId/index'
+import { Route as ViewerRegionsRegionIdPlacesRouteImport } from './routes/_viewer/regions/$regionId/places'
 import { Route as AccountLoginExternalProviderIndexRouteImport } from './routes/_account/login/external/$provider/index'
 import { Route as AccountLoginExternalProviderCallbackRouteImport } from './routes/_account/login/external/$provider/callback'
 import { Route as ApplyApplyListingsListingIdRevisionRouteImport } from './routes/_apply/apply/listings/$listingId/revision'
@@ -137,6 +145,26 @@ const ManageOpsRoute = ManageOpsRouteImport.update({
 const ViewerIndexRoute = ViewerIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerFilterRoute = ViewerFilterRouteImport.update({
+  id: '/filter',
+  path: '/filter',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerMapRoute = ViewerMapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerSavedRoute = ViewerSavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerSearchRoute = ViewerSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => ViewerRoute,
 } as any)
 const Char91__devChar93ErrorsKindRoute =
@@ -234,6 +262,11 @@ const ManageOpsSearchRoute = ManageOpsSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => ManageOpsRoute,
 } as any)
+const ViewerEventsIndexRoute = ViewerEventsIndexRouteImport.update({
+  id: '/events/',
+  path: '/events/',
+  getParentRoute: () => ViewerRoute,
+} as any)
 const ViewerListingsListingIdRoute = ViewerListingsListingIdRouteImport.update({
   id: '/listings/$listingId',
   path: '/listings/$listingId',
@@ -242,6 +275,11 @@ const ViewerListingsListingIdRoute = ViewerListingsListingIdRouteImport.update({
 const ViewerPlacesPlaceIdRoute = ViewerPlacesPlaceIdRouteImport.update({
   id: '/places/$placeId',
   path: '/places/$placeId',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerRegionsIndexRoute = ViewerRegionsIndexRouteImport.update({
+  id: '/regions/',
+  path: '/regions/',
   getParentRoute: () => ViewerRoute,
 } as any)
 const AccountChar91__devChar93ManageErrorsKindRoute =
@@ -340,10 +378,22 @@ const ViewerEventsOccasionIdIndexRoute =
     path: '/events/$occasionId/',
     getParentRoute: () => ViewerRoute,
   } as any)
+const ViewerEventsOccasionIdMapRoute =
+  ViewerEventsOccasionIdMapRouteImport.update({
+    id: '/events/$occasionId/map',
+    path: '/events/$occasionId/map',
+    getParentRoute: () => ViewerRoute,
+  } as any)
 const ViewerRegionsRegionIdIndexRoute =
   ViewerRegionsRegionIdIndexRouteImport.update({
     id: '/regions/$regionId/',
     path: '/regions/$regionId/',
+    getParentRoute: () => ViewerRoute,
+  } as any)
+const ViewerRegionsRegionIdPlacesRoute =
+  ViewerRegionsRegionIdPlacesRouteImport.update({
+    id: '/regions/$regionId/places',
+    path: '/regions/$regionId/places',
     getParentRoute: () => ViewerRoute,
   } as any)
 const AccountLoginExternalProviderIndexRoute =
@@ -521,6 +571,10 @@ export interface FileRoutesByFullPath {
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/stewards': typeof Char91__devChar93StewardsRoute
   '/ops': typeof ManageOpsRouteWithChildren
+  '/filter': typeof ViewerFilterRoute
+  '/map': typeof ViewerMapRoute
+  '/saved': typeof ViewerSavedRoute
+  '/search': typeof ViewerSearchRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
@@ -541,6 +595,8 @@ export interface FileRoutesByFullPath {
   '/login/': typeof AccountLoginIndexRoute
   '/me/': typeof AccountMeIndexRoute
   '/ops/': typeof ManageOpsIndexRoute
+  '/events/': typeof ViewerEventsIndexRoute
+  '/regions/': typeof ViewerRegionsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
@@ -556,6 +612,8 @@ export interface FileRoutesByFullPath {
   '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/events/$occasionId/map': typeof ViewerEventsOccasionIdMapRoute
+  '/regions/$regionId/places': typeof ViewerRegionsRegionIdPlacesRoute
   '/me/applications/': typeof AccountMeApplicationsIndexRoute
   '/events/$occasionId/': typeof ViewerEventsOccasionIdIndexRoute
   '/regions/$regionId/': typeof ViewerRegionsRegionIdIndexRoute
@@ -594,6 +652,10 @@ export interface FileRoutesByTo {
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/stewards': typeof Char91__devChar93StewardsRoute
+  '/filter': typeof ViewerFilterRoute
+  '/map': typeof ViewerMapRoute
+  '/saved': typeof ViewerSavedRoute
+  '/search': typeof ViewerSearchRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
@@ -614,6 +676,8 @@ export interface FileRoutesByTo {
   '/login': typeof AccountLoginIndexRoute
   '/me': typeof AccountMeIndexRoute
   '/ops': typeof ManageOpsIndexRoute
+  '/events': typeof ViewerEventsIndexRoute
+  '/regions': typeof ViewerRegionsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
@@ -626,6 +690,8 @@ export interface FileRoutesByTo {
   '/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/events/$occasionId/map': typeof ViewerEventsOccasionIdMapRoute
+  '/regions/$regionId/places': typeof ViewerRegionsRegionIdPlacesRoute
   '/me/applications': typeof AccountMeApplicationsIndexRoute
   '/events/$occasionId': typeof ViewerEventsOccasionIdIndexRoute
   '/regions/$regionId': typeof ViewerRegionsRegionIdIndexRoute
@@ -670,6 +736,10 @@ export interface FileRoutesById {
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/stewards': typeof Char91__devChar93StewardsRoute
   '/_manage/ops': typeof ManageOpsRouteWithChildren
+  '/_viewer/filter': typeof ViewerFilterRoute
+  '/_viewer/map': typeof ViewerMapRoute
+  '/_viewer/saved': typeof ViewerSavedRoute
+  '/_viewer/search': typeof ViewerSearchRoute
   '/_viewer/': typeof ViewerIndexRoute
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
@@ -691,6 +761,8 @@ export interface FileRoutesById {
   '/_account/login/': typeof AccountLoginIndexRoute
   '/_account/me/': typeof AccountMeIndexRoute
   '/_manage/ops/': typeof ManageOpsIndexRoute
+  '/_viewer/events/': typeof ViewerEventsIndexRoute
+  '/_viewer/regions/': typeof ViewerRegionsIndexRoute
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/_account/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/_apply/apply/places/new': typeof ApplyApplyPlacesNewRoute
@@ -706,6 +778,8 @@ export interface FileRoutesById {
   '/_manage/ops/takedowns/$claimId': typeof ManageOpsTakedownsClaimIdRoute
   '/_report/info-report/$kind/$id': typeof ReportInfoReportKindIdRoute
   '/_report/takedown/$kind/$id': typeof ReportTakedownKindIdRoute
+  '/_viewer/events/$occasionId/map': typeof ViewerEventsOccasionIdMapRoute
+  '/_viewer/regions/$regionId/places': typeof ViewerRegionsRegionIdPlacesRoute
   '/_account/me/applications/': typeof AccountMeApplicationsIndexRoute
   '/_viewer/events/$occasionId/': typeof ViewerEventsOccasionIdIndexRoute
   '/_viewer/regions/$regionId/': typeof ViewerRegionsRegionIdIndexRoute
@@ -747,6 +821,10 @@ export interface FileRouteTypes {
     | '/__dev/session'
     | '/__dev/stewards'
     | '/ops'
+    | '/filter'
+    | '/map'
+    | '/saved'
+    | '/search'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
@@ -767,6 +845,8 @@ export interface FileRouteTypes {
     | '/login/'
     | '/me/'
     | '/ops/'
+    | '/events/'
+    | '/regions/'
     | '/__dev/manage-errors/$kind'
     | '/me/applications/$applicationId'
     | '/apply/places/new'
@@ -782,6 +862,8 @@ export interface FileRouteTypes {
     | '/ops/takedowns/$claimId'
     | '/info-report/$kind/$id'
     | '/takedown/$kind/$id'
+    | '/events/$occasionId/map'
+    | '/regions/$regionId/places'
     | '/me/applications/'
     | '/events/$occasionId/'
     | '/regions/$regionId/'
@@ -820,6 +902,10 @@ export interface FileRouteTypes {
     | '/__dev/inbox'
     | '/__dev/session'
     | '/__dev/stewards'
+    | '/filter'
+    | '/map'
+    | '/saved'
+    | '/search'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
@@ -840,6 +926,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/me'
     | '/ops'
+    | '/events'
+    | '/regions'
     | '/__dev/manage-errors/$kind'
     | '/me/applications/$applicationId'
     | '/apply/places/new'
@@ -852,6 +940,8 @@ export interface FileRouteTypes {
     | '/ops/takedowns/$claimId'
     | '/info-report/$kind/$id'
     | '/takedown/$kind/$id'
+    | '/events/$occasionId/map'
+    | '/regions/$regionId/places'
     | '/me/applications'
     | '/events/$occasionId'
     | '/regions/$regionId'
@@ -895,6 +985,10 @@ export interface FileRouteTypes {
     | '/__dev/session'
     | '/__dev/stewards'
     | '/_manage/ops'
+    | '/_viewer/filter'
+    | '/_viewer/map'
+    | '/_viewer/saved'
+    | '/_viewer/search'
     | '/_viewer/'
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
@@ -916,6 +1010,8 @@ export interface FileRouteTypes {
     | '/_account/login/'
     | '/_account/me/'
     | '/_manage/ops/'
+    | '/_viewer/events/'
+    | '/_viewer/regions/'
     | '/_account/__dev/manage-errors/$kind'
     | '/_account/me/applications/$applicationId'
     | '/_apply/apply/places/new'
@@ -931,6 +1027,8 @@ export interface FileRouteTypes {
     | '/_manage/ops/takedowns/$claimId'
     | '/_report/info-report/$kind/$id'
     | '/_report/takedown/$kind/$id'
+    | '/_viewer/events/$occasionId/map'
+    | '/_viewer/regions/$regionId/places'
     | '/_account/me/applications/'
     | '/_viewer/events/$occasionId/'
     | '/_viewer/regions/$regionId/'
@@ -1060,6 +1158,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewerIndexRouteImport
       parentRoute: typeof ViewerRoute
     }
+    '/_viewer/filter': {
+      id: '/_viewer/filter'
+      path: '/filter'
+      fullPath: '/filter'
+      preLoaderRoute: typeof ViewerFilterRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/map': {
+      id: '/_viewer/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof ViewerMapRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/saved': {
+      id: '/_viewer/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof ViewerSavedRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/search': {
+      id: '/_viewer/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof ViewerSearchRouteImport
+      parentRoute: typeof ViewerRoute
+    }
     '/__dev/errors/$kind': {
       id: '/__dev/errors/$kind'
       path: '/__dev/errors/$kind'
@@ -1186,6 +1312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManageOpsSearchRouteImport
       parentRoute: typeof ManageOpsRoute
     }
+    '/_viewer/events/': {
+      id: '/_viewer/events/'
+      path: '/events'
+      fullPath: '/events/'
+      preLoaderRoute: typeof ViewerEventsIndexRouteImport
+      parentRoute: typeof ViewerRoute
+    }
     '/_viewer/listings/$listingId': {
       id: '/_viewer/listings/$listingId'
       path: '/listings/$listingId'
@@ -1198,6 +1331,13 @@ declare module '@tanstack/react-router' {
       path: '/places/$placeId'
       fullPath: '/places/$placeId'
       preLoaderRoute: typeof ViewerPlacesPlaceIdRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/regions/': {
+      id: '/_viewer/regions/'
+      path: '/regions'
+      fullPath: '/regions/'
+      preLoaderRoute: typeof ViewerRegionsIndexRouteImport
       parentRoute: typeof ViewerRoute
     }
     '/_account/__dev/manage-errors/$kind': {
@@ -1319,11 +1459,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewerEventsOccasionIdIndexRouteImport
       parentRoute: typeof ViewerRoute
     }
+    '/_viewer/events/$occasionId/map': {
+      id: '/_viewer/events/$occasionId/map'
+      path: '/events/$occasionId/map'
+      fullPath: '/events/$occasionId/map'
+      preLoaderRoute: typeof ViewerEventsOccasionIdMapRouteImport
+      parentRoute: typeof ViewerRoute
+    }
     '/_viewer/regions/$regionId/': {
       id: '/_viewer/regions/$regionId/'
       path: '/regions/$regionId'
       fullPath: '/regions/$regionId/'
       preLoaderRoute: typeof ViewerRegionsRegionIdIndexRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/regions/$regionId/places': {
+      id: '/_viewer/regions/$regionId/places'
+      path: '/regions/$regionId/places'
+      fullPath: '/regions/$regionId/places'
+      preLoaderRoute: typeof ViewerRegionsRegionIdPlacesRouteImport
       parentRoute: typeof ViewerRoute
     }
     '/_account/login/external/$provider/': {
@@ -1750,17 +1904,33 @@ const ReportRouteWithChildren =
   ReportRoute._addFileChildren(ReportRouteChildren)
 
 interface ViewerRouteChildren {
+  ViewerFilterRoute: typeof ViewerFilterRoute
+  ViewerMapRoute: typeof ViewerMapRoute
+  ViewerSavedRoute: typeof ViewerSavedRoute
+  ViewerSearchRoute: typeof ViewerSearchRoute
   ViewerIndexRoute: typeof ViewerIndexRoute
   ViewerListingsListingIdRoute: typeof ViewerListingsListingIdRoute
   ViewerPlacesPlaceIdRoute: typeof ViewerPlacesPlaceIdRoute
+  ViewerEventsIndexRoute: typeof ViewerEventsIndexRoute
+  ViewerRegionsIndexRoute: typeof ViewerRegionsIndexRoute
+  ViewerEventsOccasionIdMapRoute: typeof ViewerEventsOccasionIdMapRoute
+  ViewerRegionsRegionIdPlacesRoute: typeof ViewerRegionsRegionIdPlacesRoute
   ViewerEventsOccasionIdIndexRoute: typeof ViewerEventsOccasionIdIndexRoute
   ViewerRegionsRegionIdIndexRoute: typeof ViewerRegionsRegionIdIndexRoute
 }
 
 const ViewerRouteChildren: ViewerRouteChildren = {
+  ViewerFilterRoute: ViewerFilterRoute,
+  ViewerMapRoute: ViewerMapRoute,
+  ViewerSavedRoute: ViewerSavedRoute,
+  ViewerSearchRoute: ViewerSearchRoute,
   ViewerIndexRoute: ViewerIndexRoute,
   ViewerListingsListingIdRoute: ViewerListingsListingIdRoute,
   ViewerPlacesPlaceIdRoute: ViewerPlacesPlaceIdRoute,
+  ViewerEventsIndexRoute: ViewerEventsIndexRoute,
+  ViewerRegionsIndexRoute: ViewerRegionsIndexRoute,
+  ViewerEventsOccasionIdMapRoute: ViewerEventsOccasionIdMapRoute,
+  ViewerRegionsRegionIdPlacesRoute: ViewerRegionsRegionIdPlacesRoute,
   ViewerEventsOccasionIdIndexRoute: ViewerEventsOccasionIdIndexRoute,
   ViewerRegionsRegionIdIndexRoute: ViewerRegionsRegionIdIndexRoute,
 }

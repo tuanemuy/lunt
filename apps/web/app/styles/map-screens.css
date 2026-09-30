@@ -1,0 +1,276 @@
+/*
+  VW-04 マップ and VW-08 参加店舗マップ, after the 「画面固有」 blocks of
+  spec/design/pages/VW-04_マップ.html and VW-08_参加店舗マップ.html. The
+  map itself (MapCanvas, pins, regions) is map.css.
+*/
+@layer components {
+  /* VW-04: Body 03 マップ 25:152 = vertical gap 16, padding 21 */
+  .map-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding-block: var(--space-21);
+  }
+  .map-page__controls {
+    display: contents;
+  }
+  .map-page__area-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+  }
+  .map-page__area-row .area-selector {
+    flex: 1;
+    min-width: 0;
+  }
+  .map-page__area-row .chip {
+    flex: none;
+  }
+  /* Map view switch 33:2040 and the way to VW-02 */
+  .map-page__switch {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-16);
+  }
+  .map-page__switch .tabs {
+    gap: var(--space-16);
+  }
+  .map-page__skeleton {
+    width: 100%;
+    height: 400px;
+  }
+
+  /* The map and the overview / list: stacked on phones, side by side from lg */
+  .map-layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    min-width: 0;
+  }
+  .map-layout__map {
+    min-width: 0;
+  }
+  /*
+    The list replaces the map on phones. The map stays mounted at its own
+    size (only its wrapper collapses), so MapLibre sees no resize and the
+    range the list shows is kept for the way back.
+  */
+  @media (max-width: 1023.98px) {
+    .map-layout[data-view="list"] .map-layout__map {
+      height: 0;
+      overflow: hidden;
+    }
+    /* Every part, so no pin or control stays focusable (MapLibre sets its own visibility) */
+    .map-layout[data-view="list"] .map-layout__map,
+    .map-layout[data-view="list"] .map-layout__map * {
+      visibility: hidden !important;
+    }
+  }
+  .map-layout__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    min-width: 0;
+  }
+  .map-layout[data-view="list"] .map-layout__panel {
+    gap: var(--space-24);
+  }
+  .map-panel__label {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+
+  /* The chosen place's or region's overview with 選択をやめる */
+  .map-overview {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+  }
+  .map-overview > .content-row {
+    flex: 1;
+  }
+  .map-overview .status-tag,
+  .map-spot .status-tag,
+  .map-rows .status-tag {
+    align-self: flex-start;
+  }
+
+  /* 同じ位置の店舗: the places at one spot, each chosen as a button */
+  .map-spot {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-16);
+  }
+  .map-spot__title {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .map-spot__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    width: 100%;
+  }
+  button.content-row {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+  button.content-row:focus-visible {
+    outline-offset: var(--space-4);
+  }
+  button.content-row:active .content-row__photo img {
+    filter: brightness(0.92);
+  }
+
+  /* 一覧の表示 (04 地図の一覧 25:216): a group per kind */
+  .list-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  .list-group__title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-8);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+  }
+  .list-group__count {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    font-weight: var(--weight-regular);
+    color: var(--muted);
+  }
+  .map-rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-24);
+    column-gap: var(--space-32);
+  }
+  .map-rows__skeleton {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    width: 100%;
+  }
+  .map-rows__skeleton-photo {
+    flex: none;
+    width: 88px;
+    height: 88px;
+  }
+  .map-rows__skeleton-name {
+    width: 160px;
+    height: 24px;
+  }
+  .map-page .list-end {
+    padding-block: var(--space-8);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* VW-08: Body 29:1639 = vertical gap 16, padding 21 */
+  .participants {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding-block: var(--space-21);
+  }
+  .participants__layout,
+  .participants__main,
+  .participants__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    min-width: 0;
+  }
+  .participants__hint {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+
+  @media (hover: hover) {
+    button.content-row:hover .content-row__photo img {
+      filter: brightness(0.92);
+    }
+    button.content-row:hover .content-row__name,
+    .map-page a.content-row:hover .content-row__name {
+      text-decoration: underline;
+      text-underline-offset: var(--space-4);
+      text-decoration-thickness: var(--border-1);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .map-page__area-row .area-selector {
+      flex: 0 1 auto;
+    }
+    .map-page__skeleton {
+      height: 480px;
+    }
+    .map-rows {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .map-page__controls {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-32);
+    }
+    .map-page__area-row {
+      flex: 0 1 420px;
+    }
+    .map-page__switch {
+      flex: 0 0 auto;
+      gap: var(--space-24);
+    }
+    .map-page__skeleton {
+      height: 560px;
+    }
+
+    /* The map on the left, the overview or the list on the right; the list keeps the map */
+    .map-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(320px, 5fr);
+      align-items: start;
+      column-gap: var(--space-32);
+    }
+    .map-layout__map {
+      position: sticky;
+      top: calc(60px + var(--space-16));
+    }
+    .map-layout__panel .map-rows {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .map-layout__panel .button--fit {
+      max-width: none;
+    }
+
+    .participants {
+      padding-block: var(--space-32) var(--space-0);
+    }
+    .participants__layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      column-gap: var(--space-32);
+      align-items: start;
+    }
+  }
+}

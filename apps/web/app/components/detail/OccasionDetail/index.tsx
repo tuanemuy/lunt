@@ -90,8 +90,9 @@ function Participant({ item }: { item: ParticipantItem }) {
  * section says so (CS-09). The procedures close it: 参加の申請 (RQ-06,
  * while upcoming or ongoing, for a signed-out viewer or a steward of a
  * place) and the takedown claim (RQ-07). The occasion list (VW-07) is
- * offered below the sections and from the 終了・中止 and CS-09 notices. The
- * participants' map (VW-08) and the articles arrive with their stages.
+ * offered below the sections and from the 終了・中止 and CS-09 notices, the
+ * participants' map (VW-08) above them. The articles arrive with their
+ * stage.
  */
 export function OccasionDetail({ data }: { data: OccasionDetailData }) {
   const running = data.holding === "upcoming" || data.holding === "ongoing";
@@ -118,6 +119,13 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
           </div>
 
           <HoldingNotice data={data} />
+
+          <ButtonLink
+            to="/events/$occasionId/map"
+            params={{ occasionId: data.occasionId }}
+          >
+            参加店舗を地図で見る
+          </ButtonLink>
 
           <section className="detail-section" aria-labelledby="dt04-shops">
             <SectionTitle id="dt04-shops">参加店舗と楽しめること</SectionTitle>

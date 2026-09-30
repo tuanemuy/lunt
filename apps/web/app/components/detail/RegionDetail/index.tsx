@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBrowseConditions } from "@/components/layout/ViewerShell/useBrowseConditions";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
 import { Photo } from "@/components/ui/Photo";
@@ -68,12 +69,14 @@ function RegionFeature({ data }: { data: RegionDetailData }) {
  * and ongoing occasions in 開催日の順). A tab with nothing to show is
  * left out; without listings 見つかる says so (CS-09) and leads to the
  * places. Each section shows its first six and leads to its full list
- * (VW-06, on that side); the map (VW-04) and the articles arrive with
- * their stages. The procedures close it: 所属の申請 (RQ-05, this region
+ * (VW-06, on that side); 見つかる leads to the map (VW-04) with this
+ * region selected and the conditions carried (CF-03); the articles arrive
+ * with their stage. The procedures close it: 所属の申請 (RQ-05, this region
  * chosen) and the takedown claim (RQ-07).
  */
 export function RegionDetail({ data }: { data: RegionDetailData }) {
   const [tab, setTab] = useState<RegionTab>("discover");
+  const conditions = useBrowseConditions();
   const hasPlaces = data.places.length > 0;
   const hasEvents = data.occasions.length > 0;
   const shown: RegionTab =
@@ -88,6 +91,17 @@ export function RegionDetail({ data }: { data: RegionDetailData }) {
         ) : (
           <h1 className="dt03-title">{data.name}</h1>
         )}
+
+        {shown === "discover" ? (
+          <ButtonLink
+            variant="secondary"
+            fit
+            to="/map"
+            search={{ ...conditions, region: data.regionId }}
+          >
+            この街を地図で見る
+          </ButtonLink>
+        ) : null}
 
         {hasPlaces || hasEvents ? (
           <Tabs label="この街で見る" className="dt03-tabs">
