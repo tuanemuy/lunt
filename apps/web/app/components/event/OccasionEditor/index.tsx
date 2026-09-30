@@ -30,6 +30,7 @@ import {
 } from "@/presentation/editDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
+  loadOccasionFrameFn,
   type OccasionTransition,
   transitionOccasionFn,
   updateOccasionContentFn,
@@ -49,6 +50,7 @@ import {
   occasionName,
   occasionPublicationLabel,
 } from "@/presentation/occasionView";
+import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import { OccasionFormFields } from "./OccasionFormFields";
 
@@ -204,7 +206,20 @@ export function OccasionEditor({
       let savedFirst = false;
       try {
         if (isDirty(draftRef.current)) {
-          if (!(await saveValues("publish"))) return;
+          const saved = await saveValues("publish").catch(
+            async (error: unknown) => {
+              throw await publishSaveFailure(error, "OCCASION", async () => {
+                const frame = await loadOccasionFrameFn({
+                  data: { occasionId: data.occasionId },
+                });
+                return {
+                  published: frame.publication.status === "published",
+                  suspended: frame.suspended,
+                };
+              });
+            },
+          );
+          if (!saved) return;
           savedFirst = true;
         }
         await transitionOccasionFn({

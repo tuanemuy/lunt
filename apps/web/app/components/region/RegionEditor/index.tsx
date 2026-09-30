@@ -22,9 +22,11 @@ import {
   useEditDraft,
 } from "@/presentation/editDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import {
   changeRegionPublicationFn,
+  loadRegionFrameFn,
   updateRegionContentFn,
 } from "@/presentation/region";
 import {
@@ -296,7 +298,18 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
       let savedFirst = false;
       try {
         if (isDirty(draftRef.current)) {
-          if (!(await saveValues())) return;
+          const saved = await saveValues().catch(async (error: unknown) => {
+            throw await publishSaveFailure(error, "REGION", async () => {
+              const frame = await loadRegionFrameFn({
+                data: { regionId: data.regionId },
+              });
+              return {
+                published: frame.publication.status === "published",
+                suspended: frame.suspended,
+              };
+            });
+          });
+          if (!saved) return;
           savedFirst = true;
         }
         await changeRegionPublicationFn({

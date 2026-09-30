@@ -3,6 +3,7 @@ import { z } from "zod";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { LISTING_SHELVES, type ListingRowsPage } from "./listingView";
 import { paginationSchema } from "./pagination";
+import type { PublishPremise } from "./publishPremise";
 import { validateInput } from "./validator";
 
 const idField = z.string().min(1).max(64);
@@ -253,6 +254,15 @@ export const duplicateListingFn = createServerFn({ method: "POST" })
       },
     });
     return { listingId: listing.id };
+  });
+
+/** SM-04: whether the listing can still be published (`publishSaveFailure`). */
+export const listingPublishPremiseFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ placeId: idField, listingId: idField })))
+  .handler(async ({ data }): Promise<PublishPremise> => {
+    const { loadListingPublishPremise } = await import("./listingData");
+    return loadListingPublishPremise(data.placeId, data.listingId);
   });
 
 /** Listings per SM-03 page (CF-05 loads the next as the list is read). */

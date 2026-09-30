@@ -30,6 +30,7 @@ import { classifyError } from "@/presentation/errorState";
 import {
   duplicateListingFn,
   type ListingTransition,
+  listingPublishPremiseFn,
   transitionListingFn,
   updateListingFn,
 } from "@/presentation/listing";
@@ -48,6 +49,7 @@ import {
   publicationLabel,
 } from "@/presentation/listingView";
 import { newId } from "@/presentation/newId";
+import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import {
   type ListingFailure,
@@ -221,7 +223,11 @@ export function ListingEditor({
       let savedFirst = false;
       try {
         if (isDirty(draftRef.current)) {
-          await saveValues();
+          await saveValues().catch(async (error: unknown) => {
+            throw await publishSaveFailure(error, "LISTING", () =>
+              listingPublishPremiseFn({ data: params }),
+            );
+          });
           savedFirst = true;
         }
         await transitionListingFn({

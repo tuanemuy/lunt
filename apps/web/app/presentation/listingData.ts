@@ -28,6 +28,7 @@ import type {
   ListingShelfKey,
   PublicationView,
 } from "./listingView";
+import type { PublishPremise } from "./publishPremise";
 import { requireManagement } from "./shopData";
 import { listingIdOf, placeIdOf } from "./targetIds";
 
@@ -200,6 +201,18 @@ export async function loadListingEditor(
   rawListingId: string,
 ): Promise<ListingEditorData> {
   return editorData(await managedListingOf(rawPlaceId, rawListingId));
+}
+
+/** SM-04: what publishing needs of the listing now (see `publishSaveFailure`). */
+export async function loadListingPublishPremise(
+  rawPlaceId: string,
+  rawListingId: string,
+): Promise<PublishPremise> {
+  const view = await managedListingOf(rawPlaceId, rawListingId);
+  return {
+    published: view.publication.status === "published",
+    suspended: view.suspended,
+  };
 }
 
 /** SM-04 after a duplication: the source's name, if it is still there. */

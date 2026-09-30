@@ -9,6 +9,7 @@ import {
 } from "./editorialView";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { paginationSchema } from "./pagination";
+import type { PublishPremise } from "./publishPremise";
 import type { ListPage } from "./regionView";
 import { validateInput } from "./validator";
 
@@ -118,6 +119,15 @@ export const changeArticlePublicationFn = createServerFn({ method: "POST" })
       return changeArticlePublication(data.articleId, data.change);
     },
   );
+
+/** AM-02: whether the article can still be published (`publishSaveFailure`). */
+export const articlePublishPremiseFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(articleRefSchema))
+  .handler(async ({ data }): Promise<PublishPremise> => {
+    const { loadArticlePublishPremise } = await import("./editorialData");
+    return loadArticlePublishPremise(data.articleId);
+  });
 
 /**
  * AM-02 CF-02: listings, places, regions and events viewers can see that

@@ -19,6 +19,7 @@ import {
   useEditDraft,
 } from "@/presentation/editDraft";
 import {
+  articlePublishPremiseFn,
   changeArticlePublicationFn,
   reviseArticleFn,
 } from "@/presentation/editorial";
@@ -40,6 +41,7 @@ import {
   withCurrentShowcases,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import { ArticleFormFields } from "../ArticleFormFields";
 import {
@@ -317,7 +319,11 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
       let savedFirst = false;
       try {
         if (isDirty(draftRef.current)) {
-          await saveValues();
+          await saveValues().catch(async (error: unknown) => {
+            throw await publishSaveFailure(error, "ARTICLE", () =>
+              articlePublishPremiseFn({ data: { articleId: data.articleId } }),
+            );
+          });
           savedFirst = true;
         }
         await changeArticlePublicationFn({

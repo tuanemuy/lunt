@@ -51,6 +51,7 @@ import {
 } from "./editorialView";
 import { dayText } from "./moderation";
 import { OPERATING_STATUS_LABEL } from "./placeView";
+import type { PublishPremise } from "./publishPremise";
 import type { ListPage } from "./regionView";
 import { parseTargetId } from "./targetIds";
 import { parseGeneratedId } from "./validator";
@@ -404,6 +405,22 @@ export async function reviseArticleAsEditor(
     },
   });
   return { version: article.version };
+}
+
+/** AM-02: what publishing needs of the article now (see `publishSaveFailure`). */
+export async function loadArticlePublishPremise(
+  rawArticleId: string,
+): Promise<PublishPremise> {
+  const { container, actor } = await actorAndContainer();
+  const { article } = await getArticleForEditing({
+    container,
+    actor,
+    input: { articleId: articleIdOf(rawArticleId) },
+  });
+  return {
+    published: article.publication.status === "published",
+    suspended: false,
+  };
 }
 
 /** AM-02 / CM-03 (CF-08): publish, or 公開の取り下げ. */
