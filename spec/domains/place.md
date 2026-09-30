@@ -96,6 +96,7 @@ type ContactInfo = string & { readonly [contactInfoBrand]: true };
 ```
 
 - どれも文章で記す値。`create(input: string)` は前後の空白を取り除き、結果が空なら `BusinessRuleError`（順に `PLACE_INVALID_NAME`、`PLACE_INVALID_DESCRIPTION`、`PLACE_INVALID_BUSINESS_HOURS`、`PLACE_INVALID_CONTACT_INFO`）
+- `PlaceName` は改行（[index.md](index.md)「改行」）を含まない。含めば `BusinessRuleError`（`PLACE_INVALID_NAME`）。ほかの3つは改行を含められる
 - 任意の項目（紹介、営業時間、連絡先）の未入力は `null` で表し、空の文字列を持たない
 - 等価性: 値の一致
 
