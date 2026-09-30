@@ -7,7 +7,6 @@ import type { RequestContainer } from "@repo/core/application/di/types";
 import type { BrowseCriteriaInput } from "@repo/core/application/discovery/criteria";
 import { readFeed } from "@repo/core/application/discovery/readFeed";
 import {
-  SEARCH_KINDS,
   type SearchKind,
   searchByKeyword,
 } from "@repo/core/application/discovery/searchByKeyword";
@@ -23,6 +22,7 @@ import {
   type FeedScreen,
   type FilterScreen,
   feedListingIds,
+  SEARCH_KIND_ORDER,
   SEARCH_PAGE_SIZE,
   type SearchGroup,
   type SearchGroupPage,
@@ -150,7 +150,7 @@ export async function loadSearchScreen(keyword: string): Promise<SearchScreen> {
     },
   });
   const pages = toSearchPages(output, todayOf(container));
-  const groups = SEARCH_KINDS.flatMap((kind): SearchGroup[] => {
+  const groups = SEARCH_KIND_ORDER.flatMap((kind): SearchGroup[] => {
     const first = pages[kind];
     return first === null || first.count === 0 ? [] : [{ kind, first }];
   });

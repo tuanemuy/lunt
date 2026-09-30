@@ -262,20 +262,22 @@ export type SearchGroup = Readonly<{
   first: SearchGroupPage;
 }>;
 
-/** VW-03's results: the kinds with results, in `SEARCH_KINDS` order. */
+/** VW-03's results: the kinds with results, in `SEARCH_KIND_ORDER`. */
 export type SearchScreen = Readonly<{
   keyword: string;
   groups: readonly SearchGroup[];
 }>;
 
 /**
- * `SEARCH_KINDS` for the browser (the usecase module stays on the server):
- * the kinds in the order the results show them.
+ * The kinds in the order VW-03 shows their groups (design VW-03:
+ * 見つかるもの・お店・まち・イベント・読みもの). `browse.md` fixes no order,
+ * so the screen's order lives here rather than in the usecase's
+ * `SEARCH_KINDS`.
  */
 export const SEARCH_KIND_ORDER = [
+  "listing",
   "place",
   "region",
-  "listing",
   "occasion",
   "article",
 ] as const satisfies readonly SearchKind[];

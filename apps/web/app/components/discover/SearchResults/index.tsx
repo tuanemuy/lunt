@@ -328,8 +328,8 @@ function NoResults() {
 }
 
 /**
- * VW-03's results: each kind with a result in its own section (お店・まち・
- * 見つかるもの・イベント・読みもの), by relevance, each loading its rest on its own
+ * VW-03's results: each kind with a result in its own section (見つかるもの・
+ * お店・まち・イベント・読みもの), by relevance, each loading its rest on its own
  * (CF-05). No kind with a result is CS-09.
  */
 export function SearchResults({ screen }: { screen: SearchScreen }) {
