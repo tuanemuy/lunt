@@ -1,9 +1,7 @@
-import { centerOf } from "@/components/map/geometry";
 import type { MapPin, MapPinEmphasis } from "@/components/map/types";
 import type {
   MapCellItem,
   MapPlaceItem,
-  MapRange,
   MapRegionItem,
 } from "@/presentation/mapView";
 
@@ -85,7 +83,7 @@ function cellPin(
       return {
         kind: "cluster",
         key: cell.key,
-        position: centerOf(cell.extent),
+        position: cell.anchor,
         count: cell.count,
         extent: cell.extent,
         label:
@@ -164,40 +162,4 @@ export function selectionOfPin(
         : null;
     }
   }
-}
-
-type LatLng = Readonly<{ latitude: number; longitude: number }>;
-
-/** Where a cell's pin sits. */
-function anchorOf(cell: MapCellItem): LatLng {
-  switch (cell.kind) {
-    case "single":
-      return cell.place.location;
-    case "colocated":
-      return cell.location;
-    case "cluster":
-      return centerOf(cell.extent);
-  }
-}
-
-const inside = (range: MapRange, point: LatLng): boolean =>
-  point.latitude >= range.southWest.latitude &&
-  point.latitude <= range.northEast.latitude &&
-  point.longitude >= range.southWest.longitude &&
-  point.longitude <= range.northEast.longitude;
-
-/**
- * VW-08 after a cluster's zoom: the zoomed range regrouped (`zoomed`, read
- * for `range`) with the earlier pins outside it kept, so every participant
- * stays on the map (「表示する店舗は、常にそのイベントのすべての参加店舗」).
- */
-export function mergeZoomedCells(
-  previous: readonly MapCellItem[],
-  zoomed: readonly MapCellItem[],
-  range: MapRange,
-): readonly MapCellItem[] {
-  return [
-    ...previous.filter((cell) => !inside(range, anchorOf(cell))),
-    ...zoomed,
-  ];
 }

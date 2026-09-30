@@ -83,6 +83,11 @@ export type MapCellItem =
       affiliatedCount: number;
       /** Where the cluster's places lie; selecting it zooms to this. */
       extent: MapRange;
+      /**
+       * Where its pin sits: the middle of `extent`, kept off its cell's
+       * edges so that neighbouring clusters' pins do not overlap.
+       */
+      anchor: LatLng;
     }>;
 
 /** One read of VW-04's map for a range, the criteria and a selected region. */
@@ -115,6 +120,10 @@ export type MapExtent = Readonly<{
 export type ParticipantsRead = Readonly<{
   /** The header's title. */
   occasionName: string;
+  /**
+   * The range's cells, then the cells of the participants outside it
+   * (grouped over `extent`): every participant exactly once.
+   */
   cells: readonly MapCellItem[];
   /** The range holding every viewable participant; `null` without any. */
   extent: MapRange | null;
@@ -163,7 +172,66 @@ export function mapRegion(
   return { ...regionRow(summary, refs), location: latLng(summary.location) };
 }
 
-function mapCell(cell: PlaceCellView, refs: PhotoRefs): MapCellItem {
+type Grid = Readonly<{ columns: number; rows: number }>;
+
+/** The range a read grouped and the grid it grouped on. */
+export type CellFrame = Readonly<{ bounds: MapRange; grid: Grid }>;
+
+/**
+ * The share of a cell each side of a cluster's pin keeps clear: half a pin
+ * (44 px) of a `MAP_CELL_PX` cell. Pins of neighbouring cells then stay a
+ * pin apart.
+ */
+const PIN_MARGIN = 22 / MAP_CELL_PX;
+
+/**
+ * Where a cluster's pin sits: the middle of its places' `extent`, moved
+ * into the inner part of its cell (`column`, `row` of `frame`, split like
+ * `Geo.cellOf`).
+ */
+export function clusterAnchor(
+  extent: MapRange,
+  column: number,
+  row: number,
+  frame: CellFrame,
+): LatLng {
+  const { southWest, northEast } = frame.bounds;
+  const within = (
+    value: number,
+    low: number,
+    high: number,
+    index: number,
+    count: number,
+  ) => {
+    const size = (high - low) / count;
+    const from = low + size * (index + PIN_MARGIN);
+    const to = low + size * (index + 1 - PIN_MARGIN);
+    return Math.min(to, Math.max(from, value));
+  };
+  return {
+    latitude: within(
+      (extent.southWest.latitude + extent.northEast.latitude) / 2,
+      southWest.latitude,
+      northEast.latitude,
+      row,
+      frame.grid.rows,
+    ),
+    longitude: within(
+      (extent.southWest.longitude + extent.northEast.longitude) / 2,
+      southWest.longitude,
+      northEast.longitude,
+      column,
+      frame.grid.columns,
+    ),
+  };
+}
+
+function mapCell(
+  cell: PlaceCellView,
+  refs: PhotoRefs,
+  frame: CellFrame,
+  keyPrefix = "",
+): MapCellItem {
   switch (cell.kind) {
     case "single":
       return { kind: "single", place: mapPlaceOf(cell.place, refs) };
@@ -177,18 +245,27 @@ function mapCell(cell: PlaceCellView, refs: PhotoRefs): MapCellItem {
     case "cluster":
       return {
         kind: "cluster",
-        key: `cluster:${cell.column}:${cell.row}`,
+        key: `${keyPrefix}cluster:${cell.column}:${cell.row}`,
         count: cell.count,
         affiliatedCount: cell.affiliatedCount,
         extent: rangeOf(cell.extent),
+        anchor: clusterAnchor(
+          rangeOf(cell.extent),
+          cell.column,
+          cell.row,
+          frame,
+        ),
       };
   }
 }
 
-/** VW-04's map from `readMapCells`. */
-export function toMapRead(output: ReadMapCellsOutput): MapRead {
+/** VW-04's map from `readMapCells` of `frame`. */
+export function toMapRead(
+  output: ReadMapCellsOutput,
+  frame: CellFrame,
+): MapRead {
   return {
-    cells: output.cells.map((cell) => mapCell(cell, output.photos)),
+    cells: output.cells.map((cell) => mapCell(cell, output.photos, frame)),
     regions: output.regions.map((region) => mapRegion(region, output.photos)),
     selectedRegion:
       output.selectedRegion === null
@@ -229,21 +306,38 @@ export function toMapExtent(output: FindMapExtentOutput): MapExtent {
   };
 }
 
-/** VW-08's cells from `locateParticipants`. */
+/**
+ * VW-08's cells from `locateParticipants` for `bounds` (`null`: the range
+ * holding them all) on `grid`: the range's cells, then the rest's.
+ */
 export function toParticipantsRead(
   output: LocateParticipantsOutput,
+  bounds: MapRange | null,
+  grid: Grid,
 ): ParticipantsRead {
+  const extent = output.extent === null ? null : rangeOf(output.extent);
+  const inner = bounds ?? extent;
   return {
     occasionName: output.occasionName,
-    cells: output.cells.map((cell) => mapCell(cell, output.photos)),
-    extent: output.extent === null ? null : rangeOf(output.extent),
+    cells:
+      extent === null || inner === null
+        ? []
+        : [
+            ...output.cells.map((cell) =>
+              mapCell(cell, output.photos, { bounds: inner, grid }),
+            ),
+            ...output.outside.map((cell) =>
+              mapCell(cell, output.photos, { bounds: extent, grid }, "rest:"),
+            ),
+          ],
+    extent,
   };
 }
 
 /** The clustering grid for a map of `size` CSS pixels. */
 export function gridOfSize(
   size: Readonly<{ width: number; height: number }>,
-): Readonly<{ columns: number; rows: number }> {
+): Grid {
   const cells = (pixels: number) =>
     Math.min(MAP_GRID_MAX, Math.max(1, Math.round(pixels / MAP_CELL_PX)));
   return { columns: cells(size.width), rows: cells(size.height) };

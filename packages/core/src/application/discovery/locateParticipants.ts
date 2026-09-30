@@ -35,6 +35,13 @@ export type LocateParticipantsOutput = Readonly<{
   occasionName: OccasionName;
   /** By row, then column; empty without participants. */
   cells: readonly ParticipantCellView[];
+  /**
+   * The participants outside the requested range, grouped on the same grid
+   * over `extent` (by row, then column); empty without a range. With
+   * `cells` it holds every viewable participant exactly once, so a map
+   * that zooms into a range can still show the rest.
+   */
+  outside: readonly ParticipantCellView[];
   /** The range holding every viewable participant; `null` without any. */
   extent: GeoBounds | null;
   photos: PhotoRefs;
@@ -50,6 +57,8 @@ const boundsOf = (input: NonNullable<LocateParticipantsInput["bounds"]>) =>
  * VW-08 (EXP-10): every viewable participant of an occasion on a map, in
  * the reference scene (closed places included, with their standing),
  * grouped by `MapClustering.cells` like the map with no region selected.
+ * For a requested range, the participants outside it come apart in
+ * `outside`, so a zoomed map shows each participant once.
  * No browse criteria or origin apply. Needs no login.
  *
  * @throws NotFoundError `OCCASION_NOT_FOUND` when the occasion is not
@@ -81,10 +90,25 @@ export async function locateParticipants({
       : MapClustering.cells(bounds, grid, places, null).map((cell) =>
           placeCellView(cell, null),
         );
+  const outside =
+    requested === null || extent === null
+      ? []
+      : MapClustering.cells(
+          extent,
+          grid,
+          places.filter(
+            (entry) => !Geo.contains(requested, entry.place.profile.location),
+          ),
+          null,
+        ).map((cell) => placeCellView(cell, null));
   return {
     occasionName: occasion.content.name,
     cells,
+    outside,
     extent,
-    photos: await photoRefsOf(container, cells.flatMap(placeCellPhotoIds)),
+    photos: await photoRefsOf(
+      container,
+      [...cells, ...outside].flatMap(placeCellPhotoIds),
+    ),
   };
 }

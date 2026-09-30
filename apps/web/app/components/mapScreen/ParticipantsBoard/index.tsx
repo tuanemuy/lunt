@@ -26,7 +26,6 @@ import { PlaceOverview, SpotList } from "../MapOverview";
 import {
   type MapSelection,
   mapPins,
-  mergeZoomedCells,
   NO_SELECTION,
   selectionOfPin,
 } from "../pins";
@@ -72,6 +71,9 @@ type ParticipantsBoardProps = {
  * VW-08 参加店舗マップ (EXP-10): every participant of the occasion from
  * the range holding them all, grouped like VW-04 — and regrouped only on
  * opening and for a cluster's zoom, never on the viewer's own moves.
+ * Each read regroups every participant — the range's at its grid, the
+ * rest over the range holding them all — so each is shown exactly once
+ * whatever was zoomed before.
  * A zoom reads its range first: the view and pins before it stay while
  * it reads (CS-01) or when it fails (CS-02), and the map zooms once read.
  * Coming back from a detail finds the range, the pins read so far and
@@ -122,18 +124,7 @@ export function ParticipantsBoard({
       })
         .then((result) => {
           if (current !== seq.current) return;
-          setRead((previous) =>
-            previous === null || target.cause === "open"
-              ? result
-              : {
-                  ...result,
-                  cells: mergeZoomedCells(
-                    previous.cells,
-                    result.cells,
-                    target.bounds,
-                  ),
-                },
-          );
+          setRead(result);
           setState({ kind: "idle" });
           if (target.cause === "zoom") target.zoomIn();
         })

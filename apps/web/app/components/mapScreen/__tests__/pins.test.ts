@@ -4,12 +4,7 @@ import type {
   MapPlaceItem,
   MapRegionItem,
 } from "@/presentation/mapView";
-import {
-  mapPins,
-  mergeZoomedCells,
-  NO_SELECTION,
-  selectionOfPin,
-} from "../pins";
+import { mapPins, NO_SELECTION, selectionOfPin } from "../pins";
 
 const place = (
   placeId: string,
@@ -54,12 +49,14 @@ const cells: readonly MapCellItem[] = [
       southWest: { latitude: 35.7, longitude: 139.78 },
       northEast: { latitude: 35.71, longitude: 139.79 },
     },
+    anchor: { latitude: 35.705, longitude: 139.785 },
   },
 ];
 
 describe("mapPins", () => {
   it("draws every cell and region without emphasis while no region is selected", () => {
     const pins = mapPins(cells, [region], NO_SELECTION, null);
+    expect(pins[3]?.position).toEqual({ latitude: 35.705, longitude: 139.785 });
     expect(pins.map((pin) => pin.kind)).toEqual([
       "target",
       "target",
@@ -105,22 +102,5 @@ describe("selectionOfPin", () => {
     expect(pins.map((pin) => selectionOfPin(pin, cells)?.kind ?? null)).toEqual(
       ["place", "place", "spot", null, "region"],
     );
-  });
-});
-
-describe("mergeZoomedCells", () => {
-  it("keeps the earlier pins outside the zoomed range and regroups inside it", () => {
-    const zoomed: readonly MapCellItem[] = [
-      { kind: "single", place: place("e", 35.705, 139.785) },
-    ];
-    const merged = mergeZoomedCells(cells, zoomed, {
-      southWest: { latitude: 35.699, longitude: 139.779 },
-      northEast: { latitude: 35.711, longitude: 139.791 },
-    });
-    expect(
-      merged.map((cell) =>
-        cell.kind === "single" ? cell.place.placeId : cell.kind,
-      ),
-    ).toEqual(["a", "b", "colocated", "e"]);
   });
 });

@@ -35,7 +35,8 @@ type Grid = Readonly<{ columns: number; rows: number }>;
  * VW-04's first screen: the CF-03 chips and the first range — the
  * region's (`regionId`, opened from DT-03), else the chosen areas', else
  * every discoverable place's. A region that is not viewable (or not a
- * region id) falls back to the areas' range and is reported `regionGone`.
+ * region id) is dropped: the areas' range, reported `regionGone` so the
+ * screen can take it out of the URL.
  */
 export async function loadMapScreen(
   criteria: BrowseCriteriaInput,
@@ -121,6 +122,7 @@ export async function loadMapCells(
           selectedRegionId === null ? null : RegionId.create(selectedRegionId),
       },
     }),
+    { bounds, grid },
   );
 }
 
@@ -159,6 +161,8 @@ export async function loadParticipantCells(
       container,
       input: { occasionId: OccasionId.create(occasionId), bounds, grid },
     }),
+    bounds,
+    grid,
   );
 }
 
