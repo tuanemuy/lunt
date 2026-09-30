@@ -29,6 +29,10 @@ import {
 import { ExploreLinks } from "../ExploreLinks";
 import { SEARCH_INPUT_ID } from "../SearchForm";
 
+// DT-05 arrives with the article screens; a plain path until the router knows it.
+const articlePath = (articleId: string): string =>
+  `/articles/${encodeURIComponent(articleId)}`;
+
 const searchMemory = entryMemory<PagedState<SearchItem>>();
 
 type Tag = Readonly<{ text: string; quiet: boolean }>;
@@ -181,6 +185,23 @@ function ResultRow({ item }: { item: SearchItem }) {
         />
       );
     }
+    case "article": {
+      const { article } = item;
+      return (
+        <Row
+          wrap={(children) => (
+            <Link className="content-row" to={articlePath(article.articleId)}>
+              {children}
+            </Link>
+          )}
+          photo={article.photo}
+          name={article.title}
+          meta={null}
+          area={null}
+          tags={[]}
+        />
+      );
+    }
   }
 }
 
@@ -308,7 +329,7 @@ function NoResults() {
 
 /**
  * VW-03's results: each kind with a result in its own section (お店・まち・
- * 見つかるもの・イベント), by relevance, each loading its rest on its own
+ * 見つかるもの・イベント・読みもの), by relevance, each loading its rest on its own
  * (CF-05). No kind with a result is CS-09.
  */
 export function SearchResults({ screen }: { screen: SearchScreen }) {

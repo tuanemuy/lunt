@@ -36,6 +36,7 @@ import {
 import { readFeedPageFn } from "@/presentation/discover";
 import {
   FEED_PAGE_SIZE,
+  type FeedArticleItem,
   type FeedItem,
   type FeedListingItem,
   type FeedOccasionItem,
@@ -48,6 +49,10 @@ import { useDiscover } from "../DiscoverContext";
 import { ExploreLinks } from "../ExploreLinks";
 import { type FeedOrigin, originKey } from "../feedOrigin";
 import { cardSaveState, feedSaves } from "../feedSaves";
+
+// DT-05 arrives with the article screens; a plain path until the router knows it.
+const articlePath = (articleId: string): string =>
+  `/articles/${encodeURIComponent(articleId)}`;
 
 /** The frames' photo box (EditorialFeature 348 × 193). */
 const FEATURE_RATIO = 348 / 193;
@@ -253,6 +258,26 @@ function RegionFrame({ item }: { item: FeedRegionItem }) {
   );
 }
 
+function ArticleFrame({ item }: { item: FeedArticleItem }) {
+  const { article } = item;
+  return (
+    <Link className="feature" to={articlePath(article.articleId)}>
+      <div className="feature__head">
+        <p className="feature__kicker">読みもの</p>
+      </div>
+      <Photo
+        photo={article.photo}
+        alt=""
+        ratio={FEATURE_RATIO}
+        className="feature__photo"
+      />
+      <div className="feature__foot">
+        <h2 className="feature__name">{article.title}</h2>
+      </div>
+    </Link>
+  );
+}
+
 function OccasionFrame({ item }: { item: FeedOccasionItem }) {
   const { occasion } = item;
   return (
@@ -313,6 +338,7 @@ function FeedCard({
 type Block =
   | Readonly<{ kind: "cards"; key: string; items: readonly FeedListingItem[] }>
   | FeedRegionItem
+  | FeedArticleItem
   | FeedOccasionItem;
 
 /** Runs of listings become one card grid; each frame stands between them. */
@@ -354,6 +380,8 @@ function FeedBlock({ block, signedIn }: { block: Block; signedIn: boolean }) {
       );
     case "region":
       return <RegionFrame item={block} />;
+    case "article":
+      return <ArticleFrame item={block} />;
     case "occasion":
       return <OccasionFrame item={block} />;
   }
@@ -500,7 +528,7 @@ function EmptyFiltered({ search }: { search: BrowseSearch }) {
 /**
  * VW-01 みつける: the conditions' controls (area, position, ジャンル, CF-03),
  * then the feed — listing cards in two columns (CF-04 on each) with the
- * region and occasion frames `readFeed` places between them — loading
+ * region, article and occasion frames `readFeed` places between them — loading
  * more as its end comes into view (CF-05). What was loaded is remembered
  * for the history entry, so returning from a detail finds it again.
  */

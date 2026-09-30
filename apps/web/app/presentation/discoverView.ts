@@ -9,6 +9,7 @@ import type {
 } from "@repo/core/application/discovery/searchByKeyword";
 import type { PhotoRefs } from "@repo/core/application/discovery/views";
 import type {
+  ArticleSummary,
   ListingSummary,
   OccasionSummary,
   PlaceSummary,
@@ -16,6 +17,8 @@ import type {
 } from "@repo/core/domain/discovery/viewProjection";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";
 import {
+  type ArticleRowItem,
+  articleRow,
   HOLDING_STATUS_TEXT,
   type HoldingStatus,
   type ListingCardItem,
@@ -81,15 +84,27 @@ export type FeedOccasionItem = Readonly<{
   occasion: OccasionRowItem & Readonly<{ venue: string; holdingText: string }>;
 }>;
 
-export type FeedItem = FeedListingItem | FeedRegionItem | FeedOccasionItem;
+/** The article frame: photo and title. */
+export type FeedArticleItem = Readonly<{
+  kind: "article";
+  article: ArticleRowItem;
+}>;
 
-/** One kind-prefixed key per item (`listing:{id}`, `region:{id}`, `occasion:{id}`). */
+export type FeedItem =
+  | FeedListingItem
+  | FeedRegionItem
+  | FeedArticleItem
+  | FeedOccasionItem;
+
+/** One kind-prefixed key per item (`listing:{id}`, `region:{id}`, `article:{id}`, `occasion:{id}`). */
 export function feedItemKey(item: FeedItem): string {
   switch (item.kind) {
     case "listing":
       return `listing:${item.card.listingId}`;
     case "region":
       return `region:${item.region.regionId}`;
+    case "article":
+      return `article:${item.article.articleId}`;
     case "occasion":
       return `occasion:${item.occasion.occasionId}`;
   }
@@ -162,6 +177,11 @@ export function toFeedPage(
           kind: "region",
           region: regionRow(entry.summary, output.photos),
         };
+      case "article":
+        return {
+          kind: "article",
+          article: articleRow(entry.summary, output.photos),
+        };
       case "occasion":
         return {
           kind: "occasion",
@@ -204,11 +224,17 @@ export type SearchOccasionItem = Readonly<{
   occasion: OccasionRowItem & Readonly<{ venue: string }>;
 }>;
 
+export type SearchArticleItem = Readonly<{
+  kind: "article";
+  article: ArticleRowItem;
+}>;
+
 export type SearchItem =
   | SearchPlaceItem
   | SearchRegionItem
   | SearchListingItem
-  | SearchOccasionItem;
+  | SearchOccasionItem
+  | SearchArticleItem;
 
 export function searchItemKey(item: SearchItem): string {
   switch (item.kind) {
@@ -220,6 +246,8 @@ export function searchItemKey(item: SearchItem): string {
       return item.card.listingId;
     case "occasion":
       return item.occasion.occasionId;
+    case "article":
+      return item.article.articleId;
   }
 }
 
@@ -249,6 +277,7 @@ export const SEARCH_KIND_ORDER = [
   "region",
   "listing",
   "occasion",
+  "article",
 ] as const satisfies readonly SearchKind[];
 
 /** The heading of a kind's results (design VW-03). */
@@ -257,6 +286,7 @@ export const SEARCH_KIND_LABEL = {
   region: "まち",
   listing: "見つかるもの",
   occasion: "イベント",
+  article: "読みもの",
 } as const satisfies Readonly<Record<SearchKind, string>>;
 
 const placeItem = (summary: PlaceSummary, refs: PhotoRefs): SearchItem => ({
@@ -291,6 +321,11 @@ const occasionItem = (
   },
 });
 
+const articleItem = (summary: ArticleSummary, refs: PhotoRefs): SearchItem => ({
+  kind: "article",
+  article: articleRow(summary, refs),
+});
+
 function groupPage<T>(
   page: SearchPage<T> | null,
   toItem: (summary: T) => SearchItem,
@@ -313,6 +348,7 @@ export function toSearchPages(
     occasion: groupPage(results.occasion, (s) =>
       occasionItem(s, photos, today),
     ),
+    article: groupPage(results.article, (s) => articleItem(s, photos)),
   };
 }
 

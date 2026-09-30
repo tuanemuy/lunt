@@ -11,6 +11,7 @@ import type { DateRange } from "@repo/core/domain/common/dateRange";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import type { ListingStanding } from "@repo/core/domain/discovery/standing";
 import type {
+  ArticleSummary,
   ListingPreview,
   ListingSummary,
   OccasionSummary,
@@ -70,6 +71,16 @@ export type OccasionRowItem = Readonly<{
   tagline: string | null;
   periodText: string;
   holding: HoldingStatus;
+  photo: PhotoSource | null;
+}>;
+
+/**
+ * An article as the feed frame, VW-03, VW-09 and the 読みもの sections of
+ * DT-01〜DT-04 show it: its cover and title (the body is not shown).
+ */
+export type ArticleRowItem = Readonly<{
+  articleId: string;
+  title: string;
   photo: PhotoSource | null;
 }>;
 
@@ -343,6 +354,18 @@ export function occasionRow(
     tagline: summary.tagline,
     periodText: periodText(summary.period, today),
     holding: summary.standing.holding,
+    photo: photoSource(refs, summary.cover.photoId, summary.cover.framing),
+  };
+}
+
+/** An article row of a summary. */
+export function articleRow(
+  summary: ArticleSummary,
+  refs: PhotoRefs,
+): ArticleRowItem {
+  return {
+    articleId: summary.articleId,
+    title: summary.title,
     photo: photoSource(refs, summary.cover.photoId, summary.cover.framing),
   };
 }
