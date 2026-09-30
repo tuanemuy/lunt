@@ -6,6 +6,7 @@ import {
   FEED_MAX_PAGE,
   FEED_PAGE_SIZE,
   isBlankKeyword,
+  toFeedPage,
 } from "../discoverView";
 
 describe("discoverView", () => {
@@ -30,6 +31,25 @@ describe("discoverView", () => {
     expect((FEED_MAX_PAGE + 1) * FEED_PAGE_SIZE).toBeGreaterThan(
       FEED_MAX_LISTINGS,
     );
+  });
+
+  it("ends the feed at its depth and says so only when more listings match", () => {
+    const depth = FEED_MAX_PAGE * FEED_PAGE_SIZE;
+    const page = (listingCount: number) =>
+      toFeedPage(
+        {
+          items: [],
+          listingCount,
+          hasMore: false,
+          effective: { areas: [], categoryIds: [] },
+          photos: {},
+        },
+        "2026-09-30",
+        new Set(),
+      );
+    expect(page(depth + 1)).toMatchObject({ count: depth, capped: true });
+    expect(page(depth)).toMatchObject({ count: depth, capped: false });
+    expect(page(10)).toMatchObject({ count: 10, capped: false });
   });
 });
 

@@ -97,11 +97,14 @@ export function feedItemKey(item: FeedItem): string {
 
 /**
  * A page of the feed (CF-05): items in feed order and the matching
- * listings' count, up to the `FEED_MAX_PAGE` pages the feed reads.
+ * listings' count, up to the `FEED_MAX_PAGE` pages the feed reads;
+ * `capped` when more listings match than those pages hold (the feed ends
+ * at its depth, not at its last listing).
  */
 export type FeedPage = Readonly<{
   items: readonly FeedItem[];
   count: number;
+  capped: boolean;
 }>;
 
 /**
@@ -170,9 +173,11 @@ export function toFeedPage(
         };
     }
   };
+  const depth = FEED_MAX_PAGE * FEED_PAGE_SIZE;
   return {
     items: output.items.map(item),
-    count: Math.min(output.listingCount, FEED_MAX_PAGE * FEED_PAGE_SIZE),
+    count: Math.min(output.listingCount, depth),
+    capped: output.listingCount > depth,
   };
 }
 

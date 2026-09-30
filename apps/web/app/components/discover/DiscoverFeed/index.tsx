@@ -374,8 +374,20 @@ function FeedItems({
   ));
 }
 
-/** CF-05 at the feed's end: loads as it comes into view, CS-01 / CS-02 keep what was read. */
-function FeedFooter({ list }: { list: PagedList<FeedItem> }) {
+/**
+ * CF-05 at the feed's end: loads as it comes into view, CS-01 / CS-02 keep
+ * what was read. At the feed's depth (`capped`) the end points to the other
+ * ways on: narrower conditions (VW-02), a keyword (VW-03) or the map (VW-04).
+ */
+function FeedFooter({
+  list,
+  capped,
+  search,
+}: {
+  list: PagedList<FeedItem>;
+  capped: boolean;
+  search: BrowseSearch;
+}) {
   if (list.failed) {
     return (
       <Notice
@@ -412,6 +424,23 @@ function FeedFooter({ list }: { list: PagedList<FeedItem> }) {
           続きを読み込む
         </Button>
       </div>
+    );
+  }
+  if (capped) {
+    return (
+      <Notice
+        title="フィードはここまでです"
+        actions={
+          <>
+            <TextLink to="/filter" search={{ from: "discover", ...search }}>
+              条件を絞り込む
+            </TextLink>
+            <ExploreLinks to={["search", "map"]} />
+          </>
+        }
+      >
+        フィードで見られるのは先頭から約2,000件までです。この先は、条件を絞り込むか、キーワードやマップで探してください。
+      </Notice>
     );
   }
   return <p className="list-end">フィードはここまでです</p>;
@@ -525,7 +554,11 @@ export function DiscoverFeed({
       ) : (
         <>
           <FeedItems items={list.items} signedIn={screen.signedIn} />
-          <FeedFooter list={list} />
+          <FeedFooter
+            list={list}
+            capped={screen.first.capped}
+            search={search}
+          />
           {/* browse.md VW-01 has the VW-07 entry whether filtered or not
               (the design's filtered state leaves it out). */}
           {screen.filtered ? (
