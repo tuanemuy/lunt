@@ -50,5 +50,11 @@ export const Route = createFileRoute("/_viewer/events/$occasionId/")({
 
 function OccasionPage() {
   const { detail } = Route.useLoaderData();
-  return <OccasionDetail key={detail.occasionId} data={detail} />;
+  return (
+    <OccasionDetail
+      key={detail.occasionId}
+      data={detail}
+      articles={detail.articles}
+    />
+  );
 }

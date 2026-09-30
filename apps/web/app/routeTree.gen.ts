@@ -46,6 +46,7 @@ import { Route as ManageOpsSearchRouteImport } from './routes/_manage/ops/search
 import { Route as ViewerArticlesIndexRouteImport } from './routes/_viewer/articles/index'
 import { Route as ViewerEventsIndexRouteImport } from './routes/_viewer/events/index'
 import { Route as ViewerListingsListingIdRouteImport } from './routes/_viewer/listings/$listingId'
+import { Route as ViewerArticlesArticleIdRouteImport } from './routes/_viewer/articles/$articleId'
 import { Route as ViewerPlacesPlaceIdRouteImport } from './routes/_viewer/places/$placeId'
 import { Route as ViewerRegionsIndexRouteImport } from './routes/_viewer/regions/index'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
@@ -287,6 +288,11 @@ const ViewerListingsListingIdRoute = ViewerListingsListingIdRouteImport.update({
 const ViewerPlacesPlaceIdRoute = ViewerPlacesPlaceIdRouteImport.update({
   id: '/places/$placeId',
   path: '/places/$placeId',
+  getParentRoute: () => ViewerRoute,
+} as any)
+const ViewerArticlesArticleIdRoute = ViewerArticlesArticleIdRouteImport.update({
+  id: '/articles/$articleId',
+  path: '/articles/$articleId',
   getParentRoute: () => ViewerRoute,
 } as any)
 const ViewerRegionsIndexRoute = ViewerRegionsIndexRouteImport.update({
@@ -636,6 +642,7 @@ export interface FileRoutesByFullPath {
   '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
   '/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
+  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
@@ -723,6 +730,7 @@ export interface FileRoutesByTo {
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
   '/manage/regions/$regionId/events': typeof ManageManageRegionsRegionIdEventsRoute
   '/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
+  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/manage/regions/$regionId/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
@@ -815,6 +823,7 @@ export interface FileRoutesById {
   '/_manage/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
   '/_manage/manage/regions/$regionId_/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/_manage/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
+  '/_viewer/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
   '/_manage/manage/events/$occasionId/': typeof ManageManageEventsOccasionIdIndexRoute
   '/_manage/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
@@ -906,6 +915,7 @@ export interface FileRouteTypes {
     | '/manage/places/$placeId/'
     | '/manage/regions/$regionId/'
     | '/apply/places/$placeId/listings/new'
+    | '/articles/$articleId'
     | '/manage/events/$occasionId/participants/$placeId'
     | '/manage/events/$occasionId/participants/new'
     | '/manage/places/$placeId/checks/$reportId'
@@ -993,6 +1003,7 @@ export interface FileRouteTypes {
     | '/manage/places/$placeId/listings/new'
     | '/manage/places/$placeId/events'
     | '/manage/places/$placeId/listings'
+    | '/articles/$articleId'
     | '/manage/places/$placeId/listings/$listingId/preview'
     | '/manage/places/$placeId/listings/$listingId'
   id:
@@ -1084,6 +1095,7 @@ export interface FileRouteTypes {
     | '/_manage/manage/places/$placeId/listings/'
     | '/_manage/manage/places/$placeId/listings/$listingId/preview'
     | '/_manage/manage/places/$placeId/listings/$listingId/'
+    | '/_viewer/articles/$articleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1425,6 +1437,13 @@ declare module '@tanstack/react-router' {
       path: '/manage/events/$occasionId'
       fullPath: '/manage/events/$occasionId'
       preLoaderRoute: typeof ManageManageEventsOccasionIdRouteImport
+    '/_viewer/articles/$articleId': {
+      id: '/_viewer/articles/$articleId'
+      path: '/articles/$articleId'
+      fullPath: '/articles/$articleId'
+      preLoaderRoute: typeof ViewerArticlesArticleIdRouteImport
+      parentRoute: typeof ViewerRoute
+    }
       parentRoute: typeof ManageRoute
     }
     '/_manage/manage/events/new': {
@@ -2009,3 +2028,5 @@ declare module '@tanstack/react-start' {
     config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
+  ViewerArticlesArticleIdRoute: typeof ViewerArticlesArticleIdRoute
+  ViewerArticlesArticleIdRoute: ViewerArticlesArticleIdRoute,

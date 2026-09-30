@@ -19,6 +19,7 @@ import {
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { classifyError } from "./errorState";
 import { PAGINATION_MAX_PAGE } from "./pagination";
+import type { ArticlesPage, WithArticles } from "./readingView";
 import { validateInput } from "./validator";
 
 /**
@@ -52,34 +53,43 @@ async function loadDeps() {
 }
 
 /**
- * DT-01: the listing as viewers see it. `NotFoundError`
- * (`LISTING_NOT_FOUND`) when it is not viewable — the route answers CS-06
- * with HTTP 404.
+ * DT-01: the listing as viewers see it, with the first page of its
+ * 読みもの section. `NotFoundError` (`LISTING_NOT_FOUND`) when it is not
+ * viewable — the route answers CS-06 with HTTP 404.
  */
 export const loadListingDetailFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(z.object({ listingId: idParam })))
-  .handler(async ({ data }): Promise<ListingDetailData> => {
-    const [{ container, today }, { viewListing }, { ListingId }] =
-      await Promise.all([
-        loadDeps(),
-        import("@repo/core/application/discovery/viewListing"),
-        import("@repo/core/domain/common/ids"),
-      ]);
-    const output = await viewListing({
-      container,
-      input: {
-        listingId: ListingId.create(data.listingId),
-        otherListingsLimit: OTHER_LISTINGS_LIMIT,
-      },
-    });
-    return toListingDetailData(output, today);
+  .handler(async ({ data }): Promise<WithArticles<ListingDetailData>> => {
+    const [
+      { container, today },
+      { viewListing },
+      { ListingId },
+      { loadShowcasingPage },
+    ] = await Promise.all([
+      loadDeps(),
+      import("@repo/core/application/discovery/viewListing"),
+      import("@repo/core/domain/common/ids"),
+      import("./readingData"),
+    ]);
+    const [output, articles] = await Promise.all([
+      viewListing({
+        container,
+        input: {
+          listingId: ListingId.create(data.listingId),
+          otherListingsLimit: OTHER_LISTINGS_LIMIT,
+        },
+      }),
+      loadShowcasingPage({ kind: "listing", id: data.listingId }, 1),
+    ]);
+    return { ...toListingDetailData(output, today), articles };
   });
 
-/** DT-02's first screen: the place and the first page of its listings. */
+/** DT-02's first screen: the place and the first pages of its listings and 読みもの. */
 export type PlaceDetailPage = Readonly<{
   place: PlaceDetailData;
   listings: PlaceListingsPage;
+  articles: ArticlesPage;
 }>;
 
 /**
@@ -97,16 +107,18 @@ export const loadPlaceDetailFn = createServerFn({ method: "GET" })
       { listListingsOfPlace },
       { PlaceId },
       { resolveActor },
+      { loadShowcasingPage },
     ] = await Promise.all([
       loadDeps(),
       import("@repo/core/application/discovery/viewPlace"),
       import("@repo/core/application/discovery/listListingsOfPlace"),
       import("@repo/core/domain/common/ids"),
       import("./actor"),
+      import("./readingData"),
     ]);
     const placeId = PlaceId.create(data.placeId);
     const actor = await resolveActor(container);
-    const [place, listings] = await Promise.all([
+    const [place, listings, articles] = await Promise.all([
       viewPlace({ container, actor, input: { placeId } }),
       listListingsOfPlace({
         container,
@@ -115,10 +127,12 @@ export const loadPlaceDetailFn = createServerFn({ method: "GET" })
           pagination: { page: 1, limit: PLACE_LISTINGS_PAGE_SIZE },
         },
       }),
+      loadShowcasingPage({ kind: "place", id: data.placeId }, 1),
     ]);
     return {
       place: toPlaceDetailData(place, today),
       listings: toPlaceListingsPage(listings, today),
+      articles,
     };
   });
 
@@ -153,63 +167,78 @@ export const listPlaceListingsFn = createServerFn({ method: "GET" })
 
 /**
  * DT-03: the region as viewers see it, its linked occasions, and the first
- * places and listings of its sections. `NotFoundError`
+ * places, listings and 読みもの of its sections. `NotFoundError`
  * (`REGION_NOT_FOUND`) when it is a draft, unpublished, suspended or
  * missing — the route answers CS-06 with HTTP 404.
  */
 export const loadRegionDetailFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(z.object({ regionId: idParam })))
-  .handler(async ({ data }): Promise<RegionDetailData> => {
+  .handler(async ({ data }): Promise<WithArticles<RegionDetailData>> => {
     const [
       { container, today },
       { viewRegion },
       { listPlacesOfRegion },
       { listListingsOfRegion },
       { RegionId },
+      { loadShowcasingPage },
     ] = await Promise.all([
       loadDeps(),
       import("@repo/core/application/discovery/viewRegion"),
       import("@repo/core/application/discovery/listPlacesOfRegion"),
       import("@repo/core/application/discovery/listListingsOfRegion"),
       import("@repo/core/domain/common/ids"),
+      import("./readingData"),
     ]);
     const regionId = RegionId.create(data.regionId);
     const pagination = { page: 1, limit: REGION_SECTION_LIMIT };
-    const [region, places, listings] = await Promise.all([
+    const [region, places, listings, articles] = await Promise.all([
       viewRegion({ container, input: { regionId } }),
       listPlacesOfRegion({ container, input: { regionId, pagination } }),
       listListingsOfRegion({ container, input: { regionId, pagination } }),
+      loadShowcasingPage({ kind: "region", id: data.regionId }, 1),
     ]);
-    return toRegionDetailData(region, places, listings, today);
+    return {
+      ...toRegionDetailData(region, places, listings, today),
+      articles,
+    };
   });
 
 /**
  * DT-04: the occasion as viewers see it, with its participants and their
- * attached listings and days, and its linked regions. `NotFoundError`
+ * attached listings and days, its linked regions and the first page of
+ * its 読みもの section. `NotFoundError`
  * (`OCCASION_NOT_FOUND`) when it is a draft, unpublished, suspended or
  * missing — the route answers CS-06 with HTTP 404.
  */
 export const loadOccasionDetailFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(z.object({ occasionId: idParam })))
-  .handler(async ({ data }): Promise<OccasionDetailData> => {
+  .handler(async ({ data }): Promise<WithArticles<OccasionDetailData>> => {
     const [
       { container, today },
       { viewOccasion },
       { OccasionId },
       { resolveActor },
+      { loadShowcasingPage },
     ] = await Promise.all([
       loadDeps(),
       import("@repo/core/application/discovery/viewOccasion"),
       import("@repo/core/domain/common/ids"),
       import("./actor"),
+      import("./readingData"),
     ]);
     const actor = await resolveActor(container);
-    const output = await viewOccasion({
-      container,
-      actor,
-      input: { occasionId: OccasionId.create(data.occasionId) },
-    });
-    return toOccasionDetailData(output, today, actor !== null);
+    const [output, articles] = await Promise.all([
+      viewOccasion({
+        container,
+        actor,
+        input: { occasionId: OccasionId.create(data.occasionId) },
+      }),
+      loadShowcasingPage({ kind: "occasion", id: data.occasionId }, 1),
+    ]);
+    return {
+      ...toOccasionDetailData(output, today, actor !== null),
+      articles,
+    };
   });

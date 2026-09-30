@@ -10,8 +10,10 @@ import { Tab, Tabs } from "@/components/ui/Tabs";
 import { TextLink } from "@/components/ui/TextButton";
 import { membershipApplyHref } from "@/presentation/applyRelationsView";
 import type { RegionDetailData } from "@/presentation/detailView";
+import type { ArticlesPage } from "@/presentation/readingView";
 import { ListingCards } from "../ListingCard";
 import { OccasionRows, PlaceRow } from "../RelatedRows";
+import { ShowcasingArticles } from "../ShowcasingArticles";
 
 type RegionTab = "discover" | "places" | "events";
 
@@ -70,11 +72,19 @@ function RegionFeature({ data }: { data: RegionDetailData }) {
  * left out; without listings 見つかる says so (CS-09) and leads to the
  * places. Each section shows its first six and leads to its full list
  * (VW-06, on that side); 見つかる leads to the map (VW-04) with this
- * region selected and the conditions carried (CF-03); the articles arrive
- * with their stage. The procedures close it: 所属の申請 (RQ-05, this region
+ * region selected and the conditions carried (CF-03). The articles
+ * showcasing it (DT-05) follow whichever tab is shown. The procedures
+ * close it: 所属の申請 (RQ-05, this region
  * chosen) and the takedown claim (RQ-07).
  */
-export function RegionDetail({ data }: { data: RegionDetailData }) {
+export function RegionDetail({
+  data,
+  articles,
+}: {
+  data: RegionDetailData;
+  /** The first page of the 読みもの section. */
+  articles: ArticlesPage;
+}) {
   const [tab, setTab] = useState<RegionTab>("discover");
   const conditions = useBrowseConditions();
   const hasPlaces = data.places.length > 0;
@@ -200,6 +210,14 @@ export function RegionDetail({ data }: { data: RegionDetailData }) {
             <OccasionRows items={data.occasions} grid />
           </section>
         ) : null}
+
+        <ShowcasingArticles
+          key={data.regionId}
+          target={{ kind: "region", id: data.regionId }}
+          first={articles}
+          headingId="dt03-reading"
+          grid
+        />
 
         <div className="procedures">
           <hr className="divider" />

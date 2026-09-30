@@ -19,9 +19,6 @@ import { type PagedState, usePagedList } from "../usePagedList";
 
 const pagesMemory = entryMemory<PagedState<EventItem>>();
 
-// VW-09 arrives with its own stage; the router only type-checks paths it knows.
-const ARTICLES_PATH: string = "/articles";
-
 const fetchPage = (page: number) => listEventsFn({ data: { page } });
 const idOf = (item: EventItem) => item.occasionId;
 
@@ -88,7 +85,7 @@ export function EventList({ first }: { first: EventsPage }) {
         links={
           <>
             <TextLink to="/regions">まちを探す</TextLink>
-            <TextLink to={ARTICLES_PATH}>読みものを読む</TextLink>
+            <TextLink to="/articles">読みものを読む</TextLink>
           </>
         }
       />

@@ -253,7 +253,8 @@ const toFraming = (framing: Framing | null): PhotoSource["framing"] =>
         height: framing.height,
       };
 
-function photoSource(
+/** A photo as the page draws it, `null` when the storage has no display ref. */
+export function photoSource(
   refs: PhotoRefs,
   photoId: PhotoId,
   framing: Framing | null,

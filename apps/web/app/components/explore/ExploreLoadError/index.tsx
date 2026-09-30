@@ -7,7 +7,13 @@ import { Feedback } from "@/components/ui/Feedback";
 import { TextLink } from "@/components/ui/TextButton";
 
 /** Another way to explore a CS-02 offers (CS-02: 別の探索手段). */
-export type ExploreWay = "search" | "map" | "regions" | "articles" | "saved";
+export type ExploreWay =
+  | "search"
+  | "map"
+  | "regions"
+  | "events"
+  | "articles"
+  | "saved";
 
 const WAYS: Readonly<
   Record<ExploreWay, Readonly<{ to: string; label: string }>>
@@ -15,6 +21,7 @@ const WAYS: Readonly<
   search: { to: "/search", label: "キーワードで探す" },
   map: { to: "/map", label: "マップで探す" },
   regions: { to: "/regions", label: "まちを探す" },
+  events: { to: "/events", label: "イベントを見る" },
   articles: { to: "/articles", label: "読みものを読む" },
   saved: { to: "/saved", label: "保存を見る" },
 };

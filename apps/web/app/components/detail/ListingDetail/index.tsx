@@ -14,11 +14,13 @@ import {
   type ListingDetailData,
   listingHeroOf,
 } from "@/presentation/detailView";
+import type { ArticlesPage } from "@/presentation/readingView";
 import { SAVES_UNREAD, type SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { ListingCards } from "../ListingCard";
 import { ListingHeroText } from "../ListingHero";
 import { OccasionRows, RegionRows } from "../RelatedRows";
+import { ShowcasingArticles } from "../ShowcasingArticles";
 
 function PlaceNotice({ data }: { data: ListingDetailData }) {
   const { name, operating } = data.place;
@@ -77,18 +79,20 @@ function ListingProcedures({ data }: { data: ListingDetailData }) {
  * DT-01 掲載詳細 (`spec/pages/detail.md`): the listing in the reference
  * scene with its offering and place states, the way to its place, the
  * place's viewable regions (DT-03), the upcoming and ongoing occasions the
- * listing is attached to (DT-04, discovery scene) and the other listings
- * (discovery scene). A section with nothing to show is left out
- * (「対象が1件もない区分は、区分ごと表示しない」); articles have none before
- * their stage. The save toggle (CF-04) sits on the hero photo, and its
+ * listing is attached to (DT-04, discovery scene), the other listings
+ * (discovery scene) and the articles showcasing it (DT-05). A section with
+ * nothing to show is left out (「対象が1件もない区分は、区分ごと表示しない」). The save toggle (CF-04) sits on the hero photo, and its
  * failure under the hero text; the procedures close it
  * (`ListingProcedures`).
  */
 export function ListingDetail({
   data,
+  articles,
   saveState,
 }: {
   data: ListingDetailData;
+  /** The first page of the 読みもの section. */
+  articles: ArticlesPage;
   /** `null`: the saves could not be read, and the toggle is left out. */
   saveState: SaveState | null;
 }) {
@@ -165,6 +169,13 @@ export function ListingDetail({
               <ListingCards items={data.otherListings} />
             </section>
           ) : null}
+
+          <ShowcasingArticles
+            key={data.listingId}
+            target={{ kind: "listing", id: data.listingId }}
+            first={articles}
+            headingId="dt01-reading"
+          />
 
           <ListingProcedures data={data} />
         </div>

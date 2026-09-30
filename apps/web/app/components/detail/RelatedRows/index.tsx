@@ -2,7 +2,9 @@ import { Link } from "@tanstack/react-router";
 import { cx } from "@/components/ui/cx";
 import { Photo } from "@/components/ui/Photo";
 import {
+  type ArticleRowItem,
   HOLDING_STATUS_TEXT,
+  type ListingCardItem,
   type OccasionRowItem,
   type PlaceRowItem,
   type RegionRowItem,
@@ -130,6 +132,66 @@ export function PlaceRow({
         </p>
         {item.regionName === null ? null : (
           <p className="content-row__area">{item.regionName}</p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+/** Lunt/ContentRow of an article, leading to its DT-05: its cover and title. */
+export function ArticleRow({ item }: { item: ArticleRowItem }) {
+  return (
+    <Link
+      className="content-row"
+      to="/articles/$articleId"
+      params={{ articleId: item.articleId }}
+    >
+      <Photo
+        photo={item.photo}
+        alt=""
+        ratio={1}
+        className="content-row__photo"
+      />
+      <div className="content-row__body">
+        <p className="content-row__name">{item.title}</p>
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * Lunt/ContentRow of a listing, leading to its DT-01: its place and region,
+ * and in the reference scene its offering state and its place's closure.
+ */
+export function ListingRow({
+  item,
+  closure,
+}: {
+  item: ListingCardItem;
+  /** 休業中 / 閉店 of its place, `null` while it operates. */
+  closure: string | null;
+}) {
+  const status = [item.state, closure].filter((text) => text !== null);
+  return (
+    <Link
+      className="content-row"
+      to="/listings/$listingId"
+      params={{ listingId: item.listingId }}
+    >
+      <Photo
+        photo={item.photo}
+        alt=""
+        ratio={1}
+        className="content-row__photo"
+      />
+      <div className="content-row__body">
+        <p className="content-row__name">{item.name}</p>
+        <p className="content-row__meta">{item.placeName}</p>
+        {item.regionName === null ? null : (
+          <p className="content-row__area">{item.regionName}</p>
+        )}
+        {status.length === 0 ? null : (
+          <p className="content-row__status">{status.join(" · ")}</p>
         )}
       </div>
     </Link>

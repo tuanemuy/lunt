@@ -10,8 +10,10 @@ import {
   type OccasionDetailData,
   type ParticipantItem,
 } from "@/presentation/detailView";
+import type { ArticlesPage } from "@/presentation/readingView";
 import { DetailPhotos } from "../DetailPhotos";
 import { PlaceRow, RegionRows } from "../RelatedRows";
+import { ShowcasingArticles } from "../ShowcasingArticles";
 
 /** VW-07 イベントの一覧, to look for other occasions. */
 function OtherEventsLink() {
@@ -108,10 +110,17 @@ function Participant({ item }: { item: ParticipantItem }) {
  * while upcoming or ongoing, for a signed-out viewer or a steward of a
  * place) and the takedown claim (RQ-07). The occasion list (VW-07) is
  * offered below the sections and from the 終了・中止 and CS-09 notices, the
- * participants' map (VW-08) above them. The articles arrive with their
- * stage.
+ * participants' map (VW-08) above them. The articles showcasing it
+ * (DT-05) follow the regions.
  */
-export function OccasionDetail({ data }: { data: OccasionDetailData }) {
+export function OccasionDetail({
+  data,
+  articles,
+}: {
+  data: OccasionDetailData;
+  /** The first page of the 読みもの section. */
+  articles: ArticlesPage;
+}) {
   const running = data.holding === "upcoming" || data.holding === "ongoing";
   return (
     <div className="container detail-page">
@@ -177,6 +186,13 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
               <RegionRows items={data.regions} />
             </section>
           )}
+
+          <ShowcasingArticles
+            key={data.occasionId}
+            target={{ kind: "occasion", id: data.occasionId }}
+            first={articles}
+            headingId="dt04-reading"
+          />
 
           <ButtonLink variant="secondary" to="/events">
             イベントの一覧を見る

@@ -498,6 +498,67 @@
     color: var(--muted);
   }
 
+  /* EditorialFeature's kicker (the frame's kind, VW-01) */
+  .feature__kicker {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+
+  /* The next rows of a 読みもの section while they load (CF-05) */
+  .skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    width: 100%;
+  }
+  .skeleton--thumb {
+    flex: none;
+    width: 88px;
+    height: 88px;
+  }
+  .skeleton-row__lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  /* DT-05: EditorialFeature (not a link), then the body and the showcases */
+  .article-page {
+    padding-block: var(--space-21);
+  }
+  .article,
+  .article__layout,
+  .article__body,
+  .article__aside,
+  .targets,
+  .targets__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    min-width: 0;
+  }
+  .article__heading {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+  }
+  .article__text {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--secondary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .article__report {
+    display: flex;
+    justify-content: flex-start;
+  }
+
   @media (hover: hover) {
     a.content-row:hover .content-row__photo img {
       filter: brightness(0.92);
@@ -516,11 +577,29 @@
       column-gap: var(--space-32);
       row-gap: var(--space-24);
     }
+    .article__body {
+      max-width: 640px;
+    }
   }
 
   @media (min-width: 1024px) {
     .detail--split .detail-rows--grid {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .article-page {
+      padding-block: var(--space-32) var(--space-0);
+    }
+    .article {
+      gap: var(--space-32);
+    }
+    .article__layout {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      column-gap: var(--space-48);
+      align-items: start;
+    }
+    .article__body {
+      max-width: 680px;
     }
     .feature {
       display: grid;

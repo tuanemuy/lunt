@@ -15,7 +15,8 @@ import { loadMapStyleOrDefault } from "@/presentation/mapStyle";
  * offered its management. A suspended or missing place answers CS-06 with
  * HTTP 404. The viewer's saves come along for the save toggle (CF-04) and
  * the map style for the access map; neither fails the detail (without
- * them: no toggle, the default style).
+ * them: no toggle, the default style). The header names the place
+ * (`viewerTitle`); CS-06 / CS-01 / CS-02 keep the fixed お店.
  */
 export const Route = createFileRoute("/_viewer/places/$placeId")({
   staticData: {
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
         loadMapStyleOrDefault(),
       ]),
     );
-    return { ...page, saveState, styleUrl };
+    return { ...page, saveState, styleUrl, viewerTitle: page.place.name };
   },
   head: ({ match, loaderData, params }) => {
     const config = match.context?.config;
@@ -55,6 +56,11 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
 });
 
 function PlacePage() {
-  const { saveState, styleUrl, ...page } = Route.useLoaderData();
+  const {
+    saveState,
+    styleUrl,
+    viewerTitle: _,
+    ...page
+  } = Route.useLoaderData();
   return <PlaceDetail page={page} saveState={saveState} styleUrl={styleUrl} />;
 }

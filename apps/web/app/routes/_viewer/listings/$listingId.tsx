@@ -54,8 +54,13 @@ export const Route = createFileRoute("/_viewer/listings/$listingId")({
 });
 
 function ListingPage() {
-  const { saveState, ...data } = Route.useLoaderData();
+  const { saveState, articles, ...data } = Route.useLoaderData();
   return (
-    <ListingDetail key={data.listingId} data={data} saveState={saveState} />
+    <ListingDetail
+      key={data.listingId}
+      data={data}
+      articles={articles}
+      saveState={saveState}
+    />
   );
 }

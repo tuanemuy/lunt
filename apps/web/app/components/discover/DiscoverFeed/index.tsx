@@ -50,10 +50,6 @@ import { ExploreLinks } from "../ExploreLinks";
 import { type FeedOrigin, originKey } from "../feedOrigin";
 import { cardSaveState, feedSaves } from "../feedSaves";
 
-// DT-05 arrives with the article screens; a plain path until the router knows it.
-const articlePath = (articleId: string): string =>
-  `/articles/${encodeURIComponent(articleId)}`;
-
 /** The frames' photo box (EditorialFeature 348 × 193). */
 const FEATURE_RATIO = 348 / 193;
 
@@ -261,7 +257,11 @@ function RegionFrame({ item }: { item: FeedRegionItem }) {
 function ArticleFrame({ item }: { item: FeedArticleItem }) {
   const { article } = item;
   return (
-    <Link className="feature" to={articlePath(article.articleId)}>
+    <Link
+      className="feature"
+      to="/articles/$articleId"
+      params={{ articleId: article.articleId }}
+    >
       <div className="feature__head">
         <p className="feature__kicker">読みもの</p>
       </div>

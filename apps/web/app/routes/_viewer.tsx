@@ -26,6 +26,8 @@ const HOME_HEADER: ViewerHeaderConfig = { type: "home" };
 /**
  * A detail header's title named by the screen's loader data
  * (`viewerTitle`, e.g. VW-08's event name) in place of the static one.
+ * Only a loaded screen names it: while loading, and on CS-06 / CS-02
+ * (a re-read keeps the old data), the static title stays.
  */
 function loaderTitle(data: unknown): string | undefined {
   return typeof data === "object" &&
@@ -46,7 +48,8 @@ function ViewerLayout() {
     select: (matches) => {
       const leaf = matches.at(-1);
       const header = leaf?.staticData.viewerHeader;
-      const title = loaderTitle(leaf?.loaderData);
+      const title =
+        leaf?.status === "success" ? loaderTitle(leaf.loaderData) : undefined;
       const backTo = leaf?.staticData.viewerBackTo?.(leaf.params);
       return {
         header:

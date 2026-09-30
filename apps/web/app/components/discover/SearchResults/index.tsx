@@ -29,10 +29,6 @@ import {
 import { ExploreLinks } from "../ExploreLinks";
 import { SEARCH_INPUT_ID } from "../SearchForm";
 
-// DT-05 arrives with the article screens; a plain path until the router knows it.
-const articlePath = (articleId: string): string =>
-  `/articles/${encodeURIComponent(articleId)}`;
-
 const searchMemory = entryMemory<PagedState<SearchItem>>();
 
 type Tag = Readonly<{ text: string; quiet: boolean }>;
@@ -190,7 +186,11 @@ function ResultRow({ item }: { item: SearchItem }) {
       return (
         <Row
           wrap={(children) => (
-            <Link className="content-row" to={articlePath(article.articleId)}>
+            <Link
+              className="content-row"
+              to="/articles/$articleId"
+              params={{ articleId: article.articleId }}
+            >
               {children}
             </Link>
           )}

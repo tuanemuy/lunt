@@ -21,6 +21,7 @@ import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
 import { SAVES_UNREAD, type SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { OccasionRows, RegionRows } from "../RelatedRows";
+import { ShowcasingArticles } from "../ShowcasingArticles";
 import { PlaceListings } from "./PlaceListings";
 
 /** SM-01 of the store, a plain path (the SM screens belong to another area). */
@@ -166,8 +167,8 @@ function PlaceProcedures({ data }: { data: PlaceDetailData }) {
  * with its operating status and displayed region, its listings (CF-05),
  * its position, all its viewable regions (DT-03, the displayed one first)
  * and the upcoming and ongoing occasions it takes part in (DT-04,
- * discovery scene). A section with nothing to show is left out; articles
- * have none before their stage. The procedures close it
+ * discovery scene), and the articles showcasing it (DT-05). A section
+ * with nothing to show is left out. The procedures close it
  * (`PlaceProcedures`).
  */
 export function PlaceDetail({
@@ -181,7 +182,7 @@ export function PlaceDetail({
   /** The map style (`loadMapStyleFn`). */
   styleUrl: string;
 }) {
-  const { place: data, listings } = page;
+  const { place: data, listings, articles } = page;
   const [displayed] = data.regions;
   const save = useSaveToggle({
     target: { kind: "place", id: data.placeId },
@@ -278,6 +279,13 @@ export function PlaceDetail({
               <OccasionRows items={data.occasions} />
             </section>
           )}
+
+          <ShowcasingArticles
+            key={data.placeId}
+            target={{ kind: "place", id: data.placeId }}
+            first={articles}
+            headingId="dt02-reading"
+          />
 
           <PlaceProcedures data={data} />
         </div>
