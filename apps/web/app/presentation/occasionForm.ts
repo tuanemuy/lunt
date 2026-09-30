@@ -166,7 +166,7 @@ const REQUIREMENT_MESSAGE: Readonly<Partial<Record<OccasionField, string>>> = {
   name: "公開には、名称が必要です",
   period: "公開には、開催期間が必要です",
   town: "公開には、開催場所の所在地が必要です",
-  location: "公開には、開催場所の位置が必要です",
+  location: "公開には、地図で開催場所の位置を指定する必要があります",
   photos: "公開には、写真が1枚以上必要です",
 };
 

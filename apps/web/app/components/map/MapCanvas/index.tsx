@@ -29,6 +29,7 @@ import { DEFAULT_MAP_STYLE_URL, tintStyle } from "../mapStyle";
 import type {
   LngLat,
   MapBounds,
+  MapPickedPoint,
   MapPin,
   MapViewport,
   MapViewportCause,
@@ -67,6 +68,18 @@ export type MapCanvasProps = {
   onUnavailable?: () => void;
   debounceMs?: number;
   className?: string;
+  /** The point a form places (CF-09), drawn over the pins. */
+  picked?: MapPickedPoint | undefined;
+  /**
+   * Makes `picked` placeable: a tap on the map away from the pins puts
+   * it there, and the picked pin can be dragged.
+   */
+  onPick?: ((point: LngLat) => void) | undefined;
+  /**
+   * Off: the map is only looked at (a form's preview of the point): no
+   * pan, zoom or zoom buttons. Default on.
+   */
+  interactive?: boolean;
 };
 
 type Phase = "loading" | "ready" | "unavailable";
@@ -162,7 +175,8 @@ function PinButton({
 /**
  * Lunt/MapCanvas over MapLibre GL JS and public vector tiles (design.md
  * D-13): pins, clusters and regions as focusable buttons over the tiles,
- * the viewer's position, and the range reported once a move settles.
+ * the viewer's position, a form's picked point (CF-09, `picked` /
+ * `onPick`), and the range reported once a move settles.
  * Data-agnostic: the route turns its cells and targets into `pins`.
  *
  * MapLibre loads in the browser only (the server renders the loading
@@ -183,11 +197,15 @@ export function MapCanvas({
   onUnavailable,
   debounceMs = 400,
   className,
+  picked,
+  onPick,
+  interactive = true,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef(new Map<string, MarkerEntry>());
   const meMarkerRef = useRef<Marker | null>(null);
+  const pickedMarkerRef = useRef<Marker | null>(null);
   const markerClassRef = useRef<typeof Marker | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [attempt, setAttempt] = useState(0);
@@ -202,8 +220,15 @@ export function MapCanvas({
     onSelect,
     onUnavailable,
     debounceMs,
+    onPick,
   });
-  latest.current = { onViewportChange, onSelect, onUnavailable, debounceMs };
+  latest.current = {
+    onViewportChange,
+    onSelect,
+    onUnavailable,
+    debounceMs,
+    onPick,
+  };
   const appliedViewport = useRef<string | null>(null);
   const programmaticCause = useRef<MapViewportCause | null>(null);
   const viewportRef = useRef(viewport);
@@ -251,6 +276,7 @@ export function MapCanvas({
       map = null;
       mapRef.current = null;
       meMarkerRef.current = null;
+      pickedMarkerRef.current = null;
       markers.clear();
       setHosts(new Map());
       setPhase("unavailable");
@@ -292,6 +318,7 @@ export function MapCanvas({
         touchPitch: false,
         maxPitch: 0,
         renderWorldCopies: false,
+        interactive,
         ...(initial.kind === "bounds"
           ? {
               bounds: toLngLatBounds(initial.bounds),
@@ -306,13 +333,15 @@ export function MapCanvas({
       map = created;
       mapRef.current = created;
       appliedViewport.current = viewportKey(initial);
-      created.touchZoomRotate.disableRotation();
-      created.keyboard.disableRotation();
-      created.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
-        "bottom-right",
-      );
-      created.getCanvas().setAttribute("aria-describedby", helpId);
+      if (interactive) {
+        created.touchZoomRotate.disableRotation();
+        created.keyboard.disableRotation();
+        created.addControl(
+          new maplibregl.NavigationControl({ showCompass: false }),
+          "bottom-right",
+        );
+        created.getCanvas().setAttribute("aria-describedby", helpId);
+      }
 
       // Before the first render a missing style fails the map at once;
       // tiles fail it only when none arrived at all (offline, host down).
@@ -362,6 +391,10 @@ export function MapCanvas({
           return;
         }
         latest.current.onSelect?.(null);
+        latest.current.onPick?.({
+          latitude: event.lngLat.lat,
+          longitude: event.lngLat.lng,
+        });
       });
     })().catch(fail);
 
@@ -372,9 +405,10 @@ export function MapCanvas({
       map?.remove();
       mapRef.current = null;
       meMarkerRef.current = null;
+      pickedMarkerRef.current = null;
       markers.clear();
     };
-  }, [styleUrl, attempt, helpId]);
+  }, [styleUrl, attempt, helpId, interactive]);
 
   const key = viewportKey(viewport);
   useEffect(() => {
@@ -461,6 +495,54 @@ export function MapCanvas({
     }
   }, [phase, userLatitude, userLongitude, followUserLocation, moveTo]);
 
+  const pickedLatitude = picked?.position?.latitude ?? null;
+  const pickedLongitude = picked?.position?.longitude ?? null;
+  const pickedLabel = picked?.label ?? "";
+  const pickedMark = picked?.mark ?? "";
+  const pickable = onPick !== undefined;
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClassRef.current;
+    if (phase !== "ready" || map === null || MarkerClass === null) return;
+    if (pickedLatitude === null || pickedLongitude === null) {
+      pickedMarkerRef.current?.remove();
+      pickedMarkerRef.current = null;
+      return;
+    }
+    const at = toLngLat({
+      latitude: pickedLatitude,
+      longitude: pickedLongitude,
+    });
+    let marker = pickedMarkerRef.current;
+    if (marker === null) {
+      const pin = document.createElement("div");
+      pin.className = "map-pin map-pick";
+      pin.setAttribute("role", "img");
+      const created = new MarkerClass({ element: pin, draggable: pickable });
+      created.on("dragend", () => {
+        const { lat, lng } = created.getLngLat();
+        latest.current.onPick?.({ latitude: lat, longitude: lng });
+      });
+      marker = created.setLngLat(at).addTo(map);
+      pickedMarkerRef.current = marker;
+    } else {
+      marker.setLngLat(at);
+      marker.setDraggable(pickable);
+    }
+    const pin = marker.getElement();
+    pin.textContent = pickedMark;
+    pin.setAttribute("aria-label", pickedLabel);
+    pin.dataset.pickable = pickable ? "true" : "false";
+    pin.style.zIndex = "4";
+  }, [
+    phase,
+    pickedLatitude,
+    pickedLongitude,
+    pickedLabel,
+    pickedMark,
+    pickable,
+  ]);
+
   const choose = useCallback(
     (pin: MapPin) => {
       if (pin.kind === "cluster") {
@@ -476,7 +558,7 @@ export function MapCanvas({
 
   return (
     <section
-      className={cx("map", className)}
+      className={cx("map", pickable && "map--picking", className)}
       aria-label={label}
       data-phase={phase}
       onKeyDown={(event) => {
@@ -484,10 +566,12 @@ export function MapCanvas({
       }}
     >
       <div ref={containerRef} className="map__canvas" />
-      <p id={helpId} className="sr-only">
-        矢印キーで地図を動かし、＋と−で縮尺を変えます。ピンは Tab
-        キーで選べます。
-      </p>
+      {interactive ? (
+        <p id={helpId} className="sr-only">
+          矢印キーで地図を動かし、＋と−で縮尺を変えます。ピンは Tab
+          キーで選べます。
+        </p>
+      ) : null}
       {pins.map((pin) => {
         const host = hosts.get(pin.key);
         return host === undefined

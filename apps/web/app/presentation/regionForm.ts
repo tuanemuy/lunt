@@ -141,7 +141,7 @@ const REQUIREMENT_FIELD = {
 const REQUIREMENT_MESSAGE = {
   name: "公開には、名称が必要です",
   address: "公開には、所在地（町域）が必要です",
-  location: "公開には、位置の指定が必要です",
+  location: "公開には、地図で位置を指定する必要があります",
   photos: "公開には、写真が1枚以上必要です",
 } as const satisfies Readonly<Record<RegionRequirement, string>>;
 

@@ -6,6 +6,7 @@ import { IconButtonLink } from "@/components/ui/IconButton";
 import { Logo } from "@/components/ui/Logo";
 import { BackButton } from "./BackButton";
 import { VIEWER_PATHS, VIEWER_TABS, type ViewerTabKey } from "./nav";
+import { BROWSE_PATHS, useBrowseConditions } from "./useBrowseConditions";
 
 export type { ViewerTabKey } from "./nav";
 
@@ -26,8 +27,12 @@ function currentProps(key: ViewerTabKey, current: ViewerTabKey | undefined) {
   return key === current ? { "aria-current": "page" as const } : {};
 }
 
-/** The five tabs inside the header, shown from `lg`. */
+/**
+ * The five tabs inside the header, shown from `lg`. VW-01, VW-04 and VW-05
+ * open with the conditions last shown on any of them (CF-03).
+ */
 export function TopNav({ current }: NavProps) {
+  const conditions = useBrowseConditions();
   return (
     <nav className="top-nav" aria-label="メインナビゲーション">
       <ul className="top-nav__list">
@@ -35,8 +40,9 @@ export function TopNav({ current }: NavProps) {
           <li key={tab.key}>
             <Link
               to={tab.to}
+              search={() => (BROWSE_PATHS.has(tab.to) ? conditions : {})}
               className="top-nav__item"
-              activeOptions={{ exact: tab.to === "/" }}
+              activeOptions={{ exact: tab.to === "/", includeSearch: false }}
               activeProps={{}}
               {...currentProps(tab.key, current)}
             >
@@ -52,6 +58,7 @@ export function TopNav({ current }: NavProps) {
 
 /** Lunt/BottomNavigation (19:181): the five tabs fixed to the bottom, below `lg`. */
 export function BottomNav({ current }: NavProps) {
+  const conditions = useBrowseConditions();
   return (
     <nav className="bottom-nav" aria-label="メインナビゲーション">
       <ul className="bottom-nav__list">
@@ -59,8 +66,9 @@ export function BottomNav({ current }: NavProps) {
           <li key={tab.key}>
             <Link
               to={tab.to}
+              search={() => (BROWSE_PATHS.has(tab.to) ? conditions : {})}
               className="nav-item"
-              activeOptions={{ exact: tab.to === "/" }}
+              activeOptions={{ exact: tab.to === "/", includeSearch: false }}
               activeProps={{}}
               {...currentProps(tab.key, current)}
             >

@@ -1,13 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExploreLoadError } from "@/components/explore/ExploreLoadError";
 import { RegionsSkeleton } from "@/components/explore/ExploreSkeletons";
-import { buttonClassName } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Deferred } from "@/components/ui/Deferred";
 import {
   areaSelectionsOf,
   type BrowseSearch,
   browseSearchSchema,
-  filterHref,
 } from "@/presentation/browseSearch";
 import { buildHead } from "@/presentation/head";
 import { renderRegions } from "../-renderExplore";
@@ -45,12 +44,13 @@ function RegionsHead({ search }: { search: BrowseSearch }) {
         <br />
         街の表情。
       </p>
-      <a
-        className={buttonClassName("secondary")}
-        href={filterHref("regions", search)}
+      <ButtonLink
+        to="/filter"
+        search={{ from: "regions", ...search }}
+        variant="secondary"
       >
         {hasArea ? "エリアを変更する" : "エリアを選ぶ"}
-      </a>
+      </ButtonLink>
     </div>
   );
 }

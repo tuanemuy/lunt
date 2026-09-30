@@ -2,7 +2,8 @@
 
 import { PhotoField } from "@/components/photo/PhotoField";
 import { AddressField } from "@/components/place/AddressField";
-import { Field, Fieldset, Input, Textarea } from "@/components/ui/Field";
+import { PositionField } from "@/components/place/PositionField";
+import { Field, Input, Textarea } from "@/components/ui/Field";
 import type { AreaLists } from "@/presentation/placeView";
 import type {
   RegionFieldErrors,
@@ -140,48 +141,18 @@ export function RegionFormFields({
           ? {}
           : { restError: errors.addressRest })}
       />
-      <Fieldset
-        id="location"
+      <PositionField
+        idPrefix="region"
         legend="位置"
-        requirement="publish"
-        help="地域の位置を、緯度と経度で指定します（例: 35.6812 / 139.7671）。位置は所在地から決まりません。地図で選ぶ操作は、地図の段階で加わります。"
-        {...optionalError(errors.location)}
-      >
-        <div className="sm02-location">
-          <Field id="region-latitude" label="緯度">
-            {(control) => (
-              <Input
-                {...control}
-                name="latitude"
-                inputMode="decimal"
-                placeholder="例: 35.6812"
-                value={values.latitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ latitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-          <Field id="region-longitude" label="経度">
-            {(control) => (
-              <Input
-                {...control}
-                name="longitude"
-                inputMode="decimal"
-                placeholder="例: 139.7671"
-                value={values.longitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ longitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-        </div>
-      </Fieldset>
+        requirement={"publish"}
+        subject="地域"
+        mark="地"
+        latitude={values.latitude}
+        longitude={values.longitude}
+        onChange={onChange}
+        error={errors.location}
+        disabled={disabled}
+      />
     </>
   );
 }

@@ -1,0 +1,455 @@
+/*
+  VW-01 みつける, VW-02 絞り込み and VW-03 検索, after the 「（画面固有）」
+  blocks of spec/design/pages/VW-01〜VW-03 (the cards, frames, rows,
+  chips, tabs and notices are shared components).
+*/
+@layer components {
+  /* ---------- VW-01 (Body 25:32: gap 16, top 0, bottom 21; filtered 25:84: gap 24, top 21) ---------- */
+  .discover {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+    padding-top: var(--space-0);
+    padding-bottom: var(--space-21);
+  }
+  .discover--spaced {
+    gap: var(--space-24);
+    padding-top: var(--space-21);
+  }
+  .discover__controls {
+    display: contents;
+  }
+
+  /* The area and the position */
+  .area-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-height: 44px;
+    padding: var(--space-8) var(--space-12);
+    border-radius: var(--radius-8);
+    color: var(--ink);
+    transition: background-color var(--transition-default);
+  }
+  .area-selector svg {
+    width: 24px;
+    height: 24px;
+    flex: none;
+  }
+  .area-selector__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+  }
+  .area-selector:active {
+    background: var(--light);
+  }
+  .discover__area-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .discover__area-row .area-selector {
+    flex: 1;
+    min-width: 0;
+  }
+  .discover__area-row .chip {
+    flex: none;
+  }
+
+  /* ジャンル tabs and the way to VW-02 (Genres 26:310, gap 8) */
+  .discover__genres {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-8);
+    min-width: 0;
+  }
+  .discover__genres .tabs {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  /* Filtered (Genres 39:2556): the tabs alone, 16 apart */
+  .discover__genres--filtered,
+  .discover__genres--filtered .tabs {
+    gap: var(--space-16);
+  }
+
+  /* CF-03 with the way to VW-02 at its end */
+  .discover__conditions {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-8);
+  }
+  .discover__conditions .conditions {
+    flex: 1;
+    min-width: 0;
+  }
+  .conditions__filter {
+    margin-left: auto;
+  }
+
+  /* CS-01 (36 読み込み 41:2671〜41:2675) */
+  .discover__skeleton--catch-1 {
+    width: 238px;
+    max-width: 100%;
+    height: 28px;
+  }
+  .discover__skeleton--catch-2 {
+    width: 304px;
+    max-width: 100%;
+    height: 28px;
+  }
+  .discover__skeleton--photo {
+    width: 100%;
+    aspect-ratio: 348 / 193;
+  }
+  .discover__skeleton--meta {
+    width: 150px;
+    height: 18px;
+  }
+  .discover__skeleton--name {
+    width: 230px;
+    max-width: 100%;
+    height: 24px;
+  }
+  .discover__skeleton--card {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .discover .list-end {
+    padding-block: var(--space-8);
+    border-top: var(--border-1) solid var(--line);
+  }
+
+  /* ---------- VW-02 (Body 35 / 34: gap 24, padding 21) ---------- */
+  .filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .filter__heading {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+  }
+  .filter__group {
+    display: contents;
+  }
+  .filter__divider {
+    height: var(--border-1);
+    background: var(--line);
+    border: 0;
+    margin: 0;
+  }
+  .filter__genres {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-8);
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .filter__genres .chip {
+    min-width: 76px;
+  }
+  .filter__none {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .filter__areas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+
+  /* Following the hierarchy (34 エリア選択) */
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-4);
+  }
+  .crumbs__sep {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .crumbs__current {
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    padding-inline: var(--space-4);
+  }
+  .area-list {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--border-1) solid var(--line);
+  }
+  .area-list > li {
+    border-bottom: var(--border-1) solid var(--line);
+  }
+  .area-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    width: 100%;
+    min-height: 64px;
+    padding: var(--space-8) var(--space-0);
+    border: 0;
+    background: transparent;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color var(--transition-default);
+  }
+  .area-row__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .area-row__name {
+    font-family: var(--font-display);
+    font-size: var(--text-name);
+    line-height: var(--leading-name);
+    letter-spacing: var(--tracking-display);
+  }
+  .area-row__meta {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .area-row > svg {
+    width: 24px;
+    height: 24px;
+    flex: none;
+  }
+  .area-row:active {
+    background: var(--light);
+  }
+  .area-row:focus-visible {
+    outline-offset: calc(-1 * var(--border-2));
+  }
+  .area-row__check {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    min-height: 32px;
+    padding: 0 var(--space-12);
+    border: var(--border-1) solid var(--line);
+    border-radius: var(--radius-999);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .area-row[aria-pressed="true"] {
+    background: var(--light);
+  }
+  .area-row[aria-pressed="true"] .area-row__check {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--white);
+  }
+  .area-row--toggle {
+    padding-inline: var(--space-12);
+  }
+
+  .filter__skeleton--heading {
+    width: 96px;
+    height: 29px;
+  }
+  .filter__skeleton--button {
+    width: 100%;
+    height: 46px;
+    border-radius: var(--radius-8);
+  }
+  .filter__skeleton--chip {
+    width: 76px;
+    height: 44px;
+    border-radius: var(--radius-999);
+  }
+  .filter__skeleton-row {
+    display: flex;
+    gap: var(--space-8);
+  }
+
+  /* ---------- VW-03 (Body 31〜33: gap 24, padding 21) ---------- */
+  .search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .search-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    padding: var(--space-12);
+    border: 0;
+    border-radius: var(--radius-8);
+    background: var(--light);
+    transition: border-color var(--transition-default);
+  }
+  .search-field > svg {
+    width: 24px;
+    height: 24px;
+    flex: none;
+  }
+  .search-field input {
+    flex: 1;
+    min-width: 0;
+    height: 20px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-base);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    appearance: none;
+  }
+  .search-field input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+  .search-field input::-webkit-search-cancel-button {
+    appearance: none;
+  }
+  .search-field:focus-within,
+  .search-field[data-invalid="true"] {
+    border: var(--border-2) solid var(--focus);
+  }
+  .search-form__error {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--focus);
+  }
+  .search__query {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .result-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+  .result-group .content-row__body > .status-tag {
+    align-self: flex-start;
+  }
+  .search .feedback__body span {
+    display: block;
+  }
+  .search__skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+  }
+  .search__skeleton--photo {
+    width: 88px;
+    height: 88px;
+    flex: none;
+  }
+  .search__skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    flex: 1;
+    min-width: 0;
+  }
+  .search__skeleton--name {
+    width: 160px;
+    max-width: 100%;
+    height: 24px;
+  }
+  .search__skeleton--meta {
+    width: 96px;
+    height: 18px;
+  }
+  .search__skeleton--heading {
+    width: 120px;
+    height: 29px;
+  }
+
+  @media (hover: hover) {
+    .area-selector:hover {
+      background: var(--paper);
+    }
+    .area-row:not([aria-pressed="true"]):hover {
+      background: var(--paper);
+    }
+    .area-row[aria-pressed="true"]:hover {
+      background: var(--line);
+    }
+    a.feature:hover .feature__name {
+      text-decoration: underline;
+      text-underline-offset: var(--space-4);
+      text-decoration-thickness: var(--border-1);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .discover__area-row .area-selector {
+      flex: 0 1 auto;
+    }
+    .discover__skeleton--card {
+      display: none;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    /* The conditions' controls on one line */
+    .discover__controls {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-32);
+    }
+    .discover__area-row {
+      flex: 0 1 420px;
+      min-width: 0;
+    }
+    .discover__skeleton--photo {
+      max-width: 700px;
+    }
+    .search-form {
+      max-width: 720px;
+    }
+  }
+}
+
+/*
+  VW-02 is an input screen: its body at most 720 wide from lg. Outside the
+  layer, because Tailwind's own `container` utility (utilities layer) also
+  sets max-width on `.container`.
+*/
+@media (min-width: 1024px) {
+  .container.filter {
+    max-width: calc(720px + 2 * var(--space-gutter));
+  }
+}

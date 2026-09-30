@@ -2,6 +2,7 @@
 
 import { PhotoField } from "@/components/photo/PhotoField";
 import { AddressField } from "@/components/place/AddressField";
+import { PositionField } from "@/components/place/PositionField";
 import { Field, Fieldset, Input, Textarea } from "@/components/ui/Field";
 import type {
   OccasionFieldErrors,
@@ -181,48 +182,18 @@ export function OccasionFormFields({
             : { restError: errors.addressRest })}
         />
       </div>
-      <Fieldset
-        id="location"
+      <PositionField
+        idPrefix="occasion"
         legend="開催場所の位置"
-        requirement="publish"
-        help="開催場所の位置を、緯度と経度で指定します（例: 35.6812 / 139.7671）。位置は所在地から決まりません。地図で選ぶ操作は、地図の段階で加わります。"
-        {...optionalError(errors.location)}
-      >
-        <div className="sm02-location">
-          <Field id="occasion-latitude" label="緯度">
-            {(control) => (
-              <Input
-                {...control}
-                name="latitude"
-                inputMode="decimal"
-                placeholder="例: 35.6812"
-                value={values.latitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ latitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-          <Field id="occasion-longitude" label="経度">
-            {(control) => (
-              <Input
-                {...control}
-                name="longitude"
-                inputMode="decimal"
-                placeholder="例: 139.7671"
-                value={values.longitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ longitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-        </div>
-      </Fieldset>
+        requirement={"publish"}
+        subject="開催場所"
+        mark="催"
+        latitude={values.latitude}
+        longitude={values.longitude}
+        onChange={onChange}
+        error={errors.location}
+        disabled={disabled}
+      />
     </>
   );
 }

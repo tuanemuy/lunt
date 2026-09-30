@@ -639,3 +639,140 @@
     }
   }
 }
+
+/*
+  位置の指定 (CF-09) of SM-02, RQ-02, RM-02 and EM-02: the chosen point on
+  a still MapCanvas 200px high (the design's `.m-map` + `.m-pin`), the
+  picker dialog (full screen below md), and the coordinates as a fallback.
+  `.map.…` outranks map.css, which loads after this sheet.
+*/
+@layer components {
+  .position-field__map,
+  .map.position-field__map {
+    height: 200px;
+    border-radius: var(--radius-2);
+  }
+  .position-field__empty {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: var(--space-12);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--line) var(--border-1), transparent var(--border-1)),
+      linear-gradient(
+        90deg,
+        var(--line) var(--border-1),
+        transparent var(--border-1)
+      );
+    background-size: 48px 48px;
+    background-position: center;
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .position-field__empty[aria-invalid="true"] {
+    outline: var(--border-1) solid var(--focus);
+  }
+  .position-field__coordinates {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+  }
+  .position-field__coordinates > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--size-touch);
+    width: fit-content;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-2);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--green);
+    text-decoration: underline;
+    text-underline-offset: var(--space-4);
+    text-decoration-thickness: var(--border-1);
+    cursor: pointer;
+  }
+
+  /* The picked point: MapPin Selected=true. */
+  .map .map-pin.map-pick,
+  .map .map-pin.map-pick:hover {
+    background: var(--green);
+    color: var(--white);
+  }
+  .map-pin.map-pick[data-pickable="true"] {
+    cursor: grab;
+  }
+  .map-pin.map-pick[data-pickable="false"] {
+    cursor: default;
+  }
+
+  .m-dialog.position-picker {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--radius-0);
+  }
+  .position-picker__panel {
+    height: 100%;
+    gap: var(--space-12);
+    padding: var(--space-16) var(--space-16)
+      max(var(--space-16), env(safe-area-inset-bottom));
+  }
+  .position-picker__lead,
+  .position-picker__note,
+  .position-picker__readout {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .position-picker__readout {
+    color: var(--ink);
+  }
+  .position-picker__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8) var(--space-16);
+  }
+  .position-picker__map,
+  .map.position-picker__map {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 240px;
+    border-radius: var(--radius-8);
+  }
+  .position-picker__actions {
+    margin-top: 0;
+  }
+
+  @media (min-width: 768px) {
+    .m-dialog.position-picker {
+      width: calc(100% - 2 * var(--space-32));
+      max-width: 760px;
+      height: min(760px, calc(100dvh - 2 * var(--space-32)));
+      margin: auto;
+      border-radius: var(--radius-16);
+    }
+    .position-picker__panel {
+      padding: var(--space-24) var(--space-21);
+    }
+    .position-picker__actions {
+      flex-direction: row;
+    }
+    .position-picker__actions .button {
+      width: auto;
+      min-width: 200px;
+      padding-inline: var(--space-24);
+    }
+  }
+}
+
+/* MapLibre's cursor rules are unlayered; picking wants a crosshair. */
+.map--picking .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: crosshair;
+}

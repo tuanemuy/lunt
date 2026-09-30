@@ -86,3 +86,16 @@ export type MapPin =
         emphasis?: MapPinEmphasis | undefined;
       }>)
   | (PinBase & Readonly<{ kind: "region"; name: string; selected: boolean }>);
+
+/**
+ * The one point a form places on the map (CF-09 位置の指定), drawn as a
+ * selected pin apart from `pins`. It moves only through `onPick`.
+ */
+export type MapPickedPoint = Readonly<{
+  /** `null` while nothing is chosen yet. */
+  position: LngLat | null;
+  /** The point's accessible name, e.g. 選んだ位置. */
+  label: string;
+  /** The pin's short text, e.g. 店 (MapPin Selected=true). */
+  mark: string;
+}>;

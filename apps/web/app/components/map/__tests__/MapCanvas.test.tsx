@@ -62,10 +62,30 @@ class FakeMap {
 }
 
 class FakeMarker {
+  static instances: FakeMarker[] = [];
   readonly element: HTMLElement;
+  readonly listeners = new Map<string, () => void>();
   lngLat: [number, number] | null = null;
-  constructor(options: { element: HTMLElement }) {
+  draggable: boolean;
+  constructor(options: { element: HTMLElement; draggable?: boolean }) {
     this.element = options.element;
+    this.draggable = options.draggable ?? false;
+    FakeMarker.instances.push(this);
+  }
+  on(type: string, listener: () => void) {
+    this.listeners.set(type, listener);
+    return this;
+  }
+  getElement() {
+    return this.element;
+  }
+  getLngLat() {
+    const [lng, lat] = this.lngLat ?? [0, 0];
+    return { lng, lat };
+  }
+  setDraggable(draggable: boolean) {
+    this.draggable = draggable;
+    return this;
   }
   setLngLat(lngLat: [number, number]) {
     this.lngLat = lngLat;
@@ -151,6 +171,7 @@ async function load(map: FakeMap) {
 
 beforeEach(() => {
   FakeMap.instances = [];
+  FakeMarker.instances = [];
 });
 
 afterEach(() => {
@@ -373,6 +394,75 @@ describe("MapCanvas", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "喫茶 日々" })).toBeTruthy();
     warn.mockRestore();
+  });
+
+  it("places the picked point where the map is tapped and where its pin is dragged", async () => {
+    const onPick = vi.fn();
+    const onSelect = vi.fn();
+    const { map, rerender } = await mount({
+      pins: [],
+      onPick,
+      onSelect,
+      picked: { position: null, label: "選んだ位置", mark: "店" },
+    });
+    await load(map);
+    expect(screen.queryByRole("img", { name: "選んだ位置" })).toBeNull();
+
+    map.fire("click", {
+      originalEvent: { target: map.canvas },
+      lngLat: { lat: 35.68, lng: 139.76 },
+    });
+    expect(onPick).toHaveBeenCalledWith({ latitude: 35.68, longitude: 139.76 });
+    expect(onSelect).toHaveBeenCalledWith(null);
+
+    rerender(
+      <MapCanvas
+        {...props({
+          pins: [],
+          onPick,
+          picked: {
+            position: { latitude: 35.68, longitude: 139.76 },
+            label: "選んだ位置",
+            mark: "店",
+          },
+        })}
+      />,
+    );
+    const pin = screen.getByRole("img", { name: "選んだ位置" });
+    expect(pin.textContent).toBe("店");
+    const marker = FakeMarker.instances.find((m) => m.element === pin);
+    expect(marker?.draggable).toBe(true);
+    expect(marker?.lngLat).toEqual([139.76, 35.68]);
+
+    onPick.mockClear();
+    map.fire("click", {
+      originalEvent: { target: pin },
+      lngLat: { lat: 0, lng: 0 },
+    });
+    expect(onPick).not.toHaveBeenCalled();
+
+    marker?.setLngLat([139.77, 35.69]);
+    marker?.listeners.get("dragend")?.();
+    expect(onPick).toHaveBeenCalledWith({ latitude: 35.69, longitude: 139.77 });
+  });
+
+  it("draws a fixed point without zoom buttons when only looked at", async () => {
+    const { map } = await mount({
+      pins: [],
+      interactive: false,
+      picked: {
+        position: { latitude: 35.68, longitude: 139.76 },
+        label: "位置",
+        mark: "店",
+      },
+    });
+    await load(map);
+    expect(map.options).toMatchObject({ interactive: false });
+    expect(map.touchZoomRotate.disableRotation).not.toHaveBeenCalled();
+    const pin = screen.getByRole("img", { name: "位置" });
+    expect(FakeMarker.instances.find((m) => m.element === pin)?.draggable).toBe(
+      false,
+    );
   });
 
   it("tints the default style it fetches", async () => {

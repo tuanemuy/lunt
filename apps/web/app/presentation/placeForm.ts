@@ -71,7 +71,10 @@ export function toPlaceProfile(
       "町域を選んでください。郵便番号から探すか、都道府県・市区町村・町域を順に選びます";
   }
   if (latitude === null || longitude === null) {
-    errors.location = "位置を、緯度と経度の数で入力してください";
+    errors.location =
+      values.latitude.trim() === "" && values.longitude.trim() === ""
+        ? "地図の上で、店舗の位置を指定してください"
+        : "位置を、緯度と経度の数で入力してください";
   }
   if (
     errors.name !== undefined ||

@@ -16,7 +16,7 @@ import {
   type LocationUnavailableReason,
   useCurrentLocation,
 } from "@/components/map/useCurrentLocation";
-import { buttonClassName } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
 import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
@@ -26,7 +26,6 @@ import {
   browseCriteriaOf,
   browseSearchKey,
   browseSearchOf,
-  filterHref,
   withoutArea,
   withoutAreas,
   withoutCategory,
@@ -265,9 +264,9 @@ export function RegionsBoard({ search, first, conditions }: RegionsBoardProps) {
           actions={
             <>
               <TextButton onClick={start}>もう一度試す</TextButton>
-              <a className="text-button" href={filterHref("regions", search)}>
+              <TextLink to="/filter" search={{ from: "regions", ...search }}>
                 エリアを選ぶ
-              </a>
+              </TextLink>
             </>
           }
         >
@@ -333,7 +332,6 @@ function RegionsEmpty({
   search: BrowseSearch;
   onClearAreas: () => void;
 }) {
-  const filter = filterHref("regions", search);
   return (
     <Feedback
       kind="empty"
@@ -351,9 +349,13 @@ function RegionsEmpty({
         </>
       }
       action={
-        <a className={buttonClassName("secondary")} href={filter}>
+        <ButtonLink
+          to="/filter"
+          search={{ from: "regions", ...search }}
+          variant="secondary"
+        >
           {focus === "areas" ? "エリアを変更する" : "エリアを選ぶ"}
-        </a>
+        </ButtonLink>
       }
       links={
         <>

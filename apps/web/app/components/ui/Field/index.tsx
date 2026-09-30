@@ -26,7 +26,12 @@ type FieldProps = {
   children: (control: FieldControlProps) => ReactNode;
 };
 
-function RequirementMark({ requirement }: { requirement: FieldRequirement }) {
+/** 必須 / 公開に必須 / 任意 after a label, for a field laid out by hand. */
+export function RequirementMark({
+  requirement,
+}: {
+  requirement: FieldRequirement;
+}) {
   switch (requirement) {
     case "required":
       return <span className="m-field__req">必須</span>;

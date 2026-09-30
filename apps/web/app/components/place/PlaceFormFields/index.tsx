@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PhotoField } from "@/components/photo/PhotoField";
-import { Field, Fieldset, Input, Textarea } from "@/components/ui/Field";
+import { Field, Input, Textarea } from "@/components/ui/Field";
 import type {
   PlaceField,
   PlaceFieldErrors,
@@ -10,6 +10,7 @@ import type {
 } from "@/presentation/placeForm";
 import type { AreaLists } from "@/presentation/placeView";
 import { AddressField } from "../AddressField";
+import { PositionField } from "../PositionField";
 
 type PlaceFormFieldsProps = {
   values: PlaceFormValues;
@@ -115,48 +116,18 @@ export function PlaceFormFields({
           : { restError: errors.addressRest })}
       />
       {notes.town}
-      <Fieldset
-        id="location"
+      <PositionField
+        idPrefix="place"
         legend="位置"
-        requirement="required"
-        help="店舗の位置を、緯度と経度で指定します（例: 35.6812 / 139.7671）。位置は所在地から決まりません。地図で選ぶ操作は、地図の段階で加わります。"
-        {...optionalError(errors.location)}
-      >
-        <div className="sm02-location">
-          <Field id="place-latitude" label="緯度">
-            {(control) => (
-              <Input
-                {...control}
-                name="latitude"
-                inputMode="decimal"
-                placeholder="例: 35.6812"
-                value={values.latitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ latitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-          <Field id="place-longitude" label="経度">
-            {(control) => (
-              <Input
-                {...control}
-                name="longitude"
-                inputMode="decimal"
-                placeholder="例: 139.7671"
-                value={values.longitude}
-                disabled={disabled}
-                aria-invalid={errors.location === undefined ? undefined : true}
-                onChange={(event) =>
-                  onChange({ longitude: event.currentTarget.value })
-                }
-              />
-            )}
-          </Field>
-        </div>
-      </Fieldset>
+        requirement={"required"}
+        subject="店舗"
+        mark="店"
+        latitude={values.latitude}
+        longitude={values.longitude}
+        onChange={onChange}
+        error={errors.location}
+        disabled={disabled}
+      />
       {notes.location}
       <Field
         id="place-hours"
