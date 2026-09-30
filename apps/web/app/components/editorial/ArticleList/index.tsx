@@ -148,14 +148,9 @@ export function ArticleList({ data }: { data: EditorialListData }) {
     <ArticleListFrame>
       <ManageBody>
         {total === 0 ? (
-          <>
-            <p className="m-status" data-tone="neutral">
-              読みものはまだありません
-            </p>
-            <EmptyPanel title="読みものはまだありません">
-              掲載・店舗・地域・イベントを紹介する読みものを作成します。保存すると下書きになり、ここに並びます。
-            </EmptyPanel>
-          </>
+          <EmptyPanel title="読みものはまだありません">
+            掲載・店舗・地域・イベントを紹介する読みものを作成します。保存すると下書きになり、ここに並びます。
+          </EmptyPanel>
         ) : (
           <>
             <p className="m-status">
