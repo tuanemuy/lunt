@@ -526,6 +526,8 @@ export function DiscoverFeed({
         <>
           <FeedItems items={list.items} signedIn={screen.signedIn} />
           <FeedFooter list={list} />
+          {/* browse.md VW-01 has the VW-07 entry whether filtered or not
+              (the design's filtered state leaves it out). */}
           {screen.filtered ? (
             <ButtonLink
               to="/filter"
@@ -535,11 +537,10 @@ export function DiscoverFeed({
             >
               条件を変更
             </ButtonLink>
-          ) : (
-            <ButtonLink to={EVENTS_PATH} variant="secondary" fit>
-              イベントの一覧を見る
-            </ButtonLink>
-          )}
+          ) : null}
+          <ButtonLink to={EVENTS_PATH} variant="secondary" fit>
+            イベントの一覧を見る
+          </ButtonLink>
         </>
       )}
     </div>
