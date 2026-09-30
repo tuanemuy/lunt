@@ -1,6 +1,7 @@
 import { Address } from "@repo/core/domain/common/address";
 import { GeoPoint } from "@repo/core/domain/common/geo";
 import type { PhotoId } from "@repo/core/domain/common/ids";
+import { LineBreak } from "@repo/core/domain/common/lineBreak";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { PlaceErrorCode } from "./errorCode";
@@ -18,15 +19,23 @@ export type BusinessHours = string & { readonly [businessHoursBrand]: true };
 export type ContactInfo = string & { readonly [contactInfoBrand]: true };
 
 /**
- * A free-text value: trimmed, never empty. Optional fields hold `null`
- * rather than an empty string.
+ * A free-text value: trimmed, never empty; with `oneLine`, without a line
+ * break (`LineBreak`). Optional fields hold `null` rather than an empty
+ * string.
  */
-const text = <T extends string>(code: PlaceErrorCode, label: string) => ({
-  /** Trims; throws `code` when nothing is left. */
+const text = <T extends string>(
+  code: PlaceErrorCode,
+  label: string,
+  oneLine = false,
+) => ({
+  /** Trims; throws `code` when nothing is left, or at a line break when `oneLine`. */
   create: (input: string): T => {
     const value = input.trim();
     if (value.length === 0) {
       throw new BusinessRuleError(code, `${label} must not be empty`);
+    }
+    if (oneLine && LineBreak.contains(value)) {
+      throw new BusinessRuleError(code, `${label} must be one line`);
     }
     return value as T;
   },
@@ -38,7 +47,12 @@ const text = <T extends string>(code: PlaceErrorCode, label: string) => ({
   equals: (a: T, b: T): boolean => a === b,
 });
 
-export const PlaceName = text<PlaceName>(PlaceErrorCode.InvalidName, "Name");
+/** Trimmed, non-empty, one line (`PLACE_INVALID_NAME`). */
+export const PlaceName = text<PlaceName>(
+  PlaceErrorCode.InvalidName,
+  "Name",
+  true,
+);
 export const PlaceDescription = text<PlaceDescription>(
   PlaceErrorCode.InvalidDescription,
   "Description",

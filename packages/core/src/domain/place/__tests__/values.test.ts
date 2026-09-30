@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { expectBusinessError } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { OperatingStatus } from "../operatingStatus";
 import {
   BusinessHours,
@@ -38,6 +39,19 @@ describe("text values", () => {
   ] as const)("trims and rejects blank input (%#)", (value, code) => {
     expect(value.create("  値  ")).toBe("値");
     expectBusinessError(() => value.create(" 　 "), code);
+  });
+
+  it.each(LINE_BREAK_CASES)("rejects a name with %s inside", (_label, c) => {
+    expectBusinessError(
+      () => PlaceName.create(`山田${c}商店`),
+      "PLACE_INVALID_NAME",
+    );
+  });
+
+  it.each(LINE_BREAK_CASES)("keeps %s inside the other texts", (_label, c) => {
+    for (const value of [PlaceDescription, BusinessHours, ContactInfo]) {
+      expect(value.create(`一行目${c}二行目`)).toBe(`一行目${c}二行目`);
+    }
   });
 
   it("reads a blank optional text as null", () => {

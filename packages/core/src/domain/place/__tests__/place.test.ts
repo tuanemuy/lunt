@@ -2,6 +2,7 @@ import { FieldPatch } from "@repo/core/domain/common/fieldPatch";
 import { RehydrationError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import { expectBusinessError } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { Place } from "../place";
 import { PlaceRevision } from "../revision";
 import {
@@ -315,5 +316,12 @@ describe("Place.snapshot / reconstruct", () => {
     ]) {
       expect(() => Place.reconstruct(broken)).toThrow(RehydrationError);
     }
+  });
+
+  it.each(LINE_BREAK_CASES)("rejects a stored name with %s", (_label, c) => {
+    const snapshot = Place.snapshot(samplePlace());
+    expect(() =>
+      Place.reconstruct({ ...snapshot, name: `山田${c}商店` }),
+    ).toThrow(RehydrationError);
   });
 });
