@@ -107,8 +107,9 @@
     height: 36px;
   }
 
-  /* VW-07 イベントの一覧 */
-  .events {
+  /* VW-07 イベントの一覧 and VW-09 読む (CS-09 until the articles' stage) */
+  .events,
+  .articles {
     display: flex;
     flex-direction: column;
     gap: var(--space-24);
@@ -207,7 +208,8 @@
     .regions__skeleton--photo {
       max-width: 700px;
     }
-    .events {
+    .events,
+    .articles {
       padding-block: var(--space-32) var(--space-0);
     }
     .row-list {

@@ -42,6 +42,7 @@ import { Route as ManageOpsIndexRouteImport } from './routes/_manage/ops/index'
 import { Route as ManageOpsCategoriesRouteImport } from './routes/_manage/ops/categories'
 import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
 import { Route as ManageOpsSearchRouteImport } from './routes/_manage/ops/search'
+import { Route as ViewerArticlesIndexRouteImport } from './routes/_viewer/articles/index'
 import { Route as ViewerEventsIndexRouteImport } from './routes/_viewer/events/index'
 import { Route as ViewerListingsListingIdRouteImport } from './routes/_viewer/listings/$listingId'
 import { Route as ViewerPlacesPlaceIdRouteImport } from './routes/_viewer/places/$placeId'
@@ -261,6 +262,11 @@ const ManageOpsSearchRoute = ManageOpsSearchRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => ManageOpsRoute,
+} as any)
+const ViewerArticlesIndexRoute = ViewerArticlesIndexRouteImport.update({
+  id: '/articles/',
+  path: '/articles/',
+  getParentRoute: () => ViewerRoute,
 } as any)
 const ViewerEventsIndexRoute = ViewerEventsIndexRouteImport.update({
   id: '/events/',
@@ -595,6 +601,7 @@ export interface FileRoutesByFullPath {
   '/login/': typeof AccountLoginIndexRoute
   '/me/': typeof AccountMeIndexRoute
   '/ops/': typeof ManageOpsIndexRoute
+  '/articles/': typeof ViewerArticlesIndexRoute
   '/events/': typeof ViewerEventsIndexRoute
   '/regions/': typeof ViewerRegionsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
@@ -676,6 +683,7 @@ export interface FileRoutesByTo {
   '/login': typeof AccountLoginIndexRoute
   '/me': typeof AccountMeIndexRoute
   '/ops': typeof ManageOpsIndexRoute
+  '/articles': typeof ViewerArticlesIndexRoute
   '/events': typeof ViewerEventsIndexRoute
   '/regions': typeof ViewerRegionsIndexRoute
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
@@ -761,6 +769,7 @@ export interface FileRoutesById {
   '/_account/login/': typeof AccountLoginIndexRoute
   '/_account/me/': typeof AccountMeIndexRoute
   '/_manage/ops/': typeof ManageOpsIndexRoute
+  '/_viewer/articles/': typeof ViewerArticlesIndexRoute
   '/_viewer/events/': typeof ViewerEventsIndexRoute
   '/_viewer/regions/': typeof ViewerRegionsIndexRoute
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
@@ -845,6 +854,7 @@ export interface FileRouteTypes {
     | '/login/'
     | '/me/'
     | '/ops/'
+    | '/articles/'
     | '/events/'
     | '/regions/'
     | '/__dev/manage-errors/$kind'
@@ -926,6 +936,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/me'
     | '/ops'
+    | '/articles'
     | '/events'
     | '/regions'
     | '/__dev/manage-errors/$kind'
@@ -1010,6 +1021,7 @@ export interface FileRouteTypes {
     | '/_account/login/'
     | '/_account/me/'
     | '/_manage/ops/'
+    | '/_viewer/articles/'
     | '/_viewer/events/'
     | '/_viewer/regions/'
     | '/_account/__dev/manage-errors/$kind'
@@ -1311,6 +1323,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/ops/search'
       preLoaderRoute: typeof ManageOpsSearchRouteImport
       parentRoute: typeof ManageOpsRoute
+    }
+    '/_viewer/articles/': {
+      id: '/_viewer/articles/'
+      path: '/articles'
+      fullPath: '/articles/'
+      preLoaderRoute: typeof ViewerArticlesIndexRouteImport
+      parentRoute: typeof ViewerRoute
     }
     '/_viewer/events/': {
       id: '/_viewer/events/'
@@ -1911,6 +1930,7 @@ interface ViewerRouteChildren {
   ViewerIndexRoute: typeof ViewerIndexRoute
   ViewerListingsListingIdRoute: typeof ViewerListingsListingIdRoute
   ViewerPlacesPlaceIdRoute: typeof ViewerPlacesPlaceIdRoute
+  ViewerArticlesIndexRoute: typeof ViewerArticlesIndexRoute
   ViewerEventsIndexRoute: typeof ViewerEventsIndexRoute
   ViewerRegionsIndexRoute: typeof ViewerRegionsIndexRoute
   ViewerEventsOccasionIdMapRoute: typeof ViewerEventsOccasionIdMapRoute
@@ -1927,6 +1947,7 @@ const ViewerRouteChildren: ViewerRouteChildren = {
   ViewerIndexRoute: ViewerIndexRoute,
   ViewerListingsListingIdRoute: ViewerListingsListingIdRoute,
   ViewerPlacesPlaceIdRoute: ViewerPlacesPlaceIdRoute,
+  ViewerArticlesIndexRoute: ViewerArticlesIndexRoute,
   ViewerEventsIndexRoute: ViewerEventsIndexRoute,
   ViewerRegionsIndexRoute: ViewerRegionsIndexRoute,
   ViewerEventsOccasionIdMapRoute: ViewerEventsOccasionIdMapRoute,
