@@ -46,6 +46,23 @@ function HoldingNotice({ data }: { data: OccasionDetailData }) {
 }
 
 /**
+ * CS-09 (イベントに閲覧できる掲載がない). With participants it sits at the
+ * top of their section; without any, the empty section is not shown
+ * (`spec/pages/index.md` 「対象が1件もない区分は、区分ごと表示しない」) and
+ * the notice stands alone at the place the section would take.
+ */
+function NoViewableListingNotice({ children }: { children: string }) {
+  return (
+    <Notice
+      title="このイベントで見られる掲載は、まだありません"
+      actions={<OtherEventsLink />}
+    >
+      {children}
+    </Notice>
+  );
+}
+
+/**
  * A participant (参加店舗, reference scene): the place with its days, and
  * the listings it attached with their offering state.
  */
@@ -86,8 +103,8 @@ function Participant({ item }: { item: ParticipantItem }) {
  * reference scene with its period, venue and holding status (開催予定・
  * 開催中・終了・中止), every participant with its attached listings and
  * days (APX 4 「参加店舗一覧」; days outside the period are not shown), and
- * the linked regions. Without a viewable attached listing the participants
- * section says so (CS-09). The procedures close it: 参加の申請 (RQ-06,
+ * the linked regions. Without a viewable attached listing the page says so
+ * (CS-09). The procedures close it: 参加の申請 (RQ-06,
  * while upcoming or ongoing, for a signed-out viewer or a steward of a
  * place) and the takedown claim (RQ-07). The occasion list (VW-07) is
  * offered below the sections and from the 終了・中止 and CS-09 notices, the
@@ -127,19 +144,22 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
             参加店舗を地図で見る
           </ButtonLink>
 
-          <section className="detail-section" aria-labelledby="dt04-shops">
-            <SectionTitle id="dt04-shops">参加店舗と楽しめること</SectionTitle>
-            {data.hasNoViewableListing ? (
-              <Notice
-                title="このイベントで見られる掲載は、まだありません"
-                actions={<OtherEventsLink />}
-              >
-                {data.participants.length === 0
-                  ? "参加するお店が決まると、ここに並びます。"
-                  : "参加するお店から、楽しめることを確かめられます。"}
-              </Notice>
-            ) : null}
-            {data.participants.length === 0 ? null : (
+          {data.participants.length === 0 ? (
+            data.hasNoViewableListing ? (
+              <NoViewableListingNotice>
+                参加するお店が決まると、ここに並びます。
+              </NoViewableListingNotice>
+            ) : null
+          ) : (
+            <section className="detail-section" aria-labelledby="dt04-shops">
+              <SectionTitle id="dt04-shops">
+                参加店舗と楽しめること
+              </SectionTitle>
+              {data.hasNoViewableListing ? (
+                <NoViewableListingNotice>
+                  参加するお店から、楽しめることを確かめられます。
+                </NoViewableListingNotice>
+              ) : null}
               <div className="detail-rows">
                 {data.participants.map((participant) => (
                   <Participant
@@ -148,8 +168,8 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
                   />
                 ))}
               </div>
-            )}
-          </section>
+            </section>
+          )}
 
           {data.regions.length === 0 ? null : (
             <section className="detail-section" aria-labelledby="dt04-regions">
