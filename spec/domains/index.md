@@ -239,6 +239,10 @@ type PhotosReleasedEvent = DomainEventBase<"photos.released", { photoIds: readon
 
 `TextNormalization.normalize(input: string): string` は、Unicode の NFKC 正規化、ロケールに依存しない Unicode の既定の小文字化（ASCII の外の文字にも当たる）、空白（全角を含む）の除去を、この順に行う。キーワードや店名・住所の一致を定める規則（下の「キーワードの一致」、Place の `PlaceMatching`）は、どれもこの関数で正規化した値を比べる。保存先にかかわらず、一致の結果はこの定義で決まる。
 
+### 改行
+
+値の規則が「改行を含まない」「改行を含められる」というときの改行は、LF（U+000A）、VT（U+000B）、FF（U+000C）、CR（U+000D）、NEL（U+0085）、LINE SEPARATOR（U+2028）、PARAGRAPH SEPARATOR（U+2029）のどれか。どのドメインも同じ集合で判定する（共有カーネルの関数1つが持つ）。
+
 ### キーワードの一致
 
 Discovery のキーワード検索（店舗・掲載・地域・イベント・読みものの5種類）と対象の選択の候補（店舗・掲載・地域・イベントの4種類）と、サービス運営者が非公開を含めて1つのキーワードで掲載・地域・イベントを探す読み取り（Listing の `ListingRepository.searchForOperation`、Region の `RegionRepository.searchForOperation`、Occasion の `OccasionRepository.searchForOperation`）は、この一致と関連度で決まる。対象の `SearchableText`（対象の文字列の全体）は、その種類のドメインの純粋な関数（Place の `PlaceMatching.searchableText`、Listing の `ListingMatching.searchableText`、Region の `Region.searchableText`、Occasion の `Occasion.searchableText`、Article の `Article.searchableText`）だけが定め、閲覧者向けの読み取り（Discovery の `SearchRelevance`）とサービス運営者の読み取り（`searchForOperation`）は同じ値を使う。店名と住所を別々に入れる照合（既存店舗の確認、登録申請の自動の照合、サービス運営者が名称・所在地で店舗を探す操作）は、Place の `PlaceMatching` が定める。
@@ -263,7 +267,7 @@ type SearchableText = Readonly<{ primary: string; secondary: readonly string[] }
 | `KeywordRelevance.relevance(text: SearchableText, keyword: SearchKeyword): number` | すべての語の `termScore` が 1 以上なら、その和。どれかが 0 なら 0 |
 | `KeywordRelevance.matches(text: SearchableText, keyword: SearchKeyword): boolean` | `relevance` が 1 以上 |
 
-一致する対象は `matches` が成り立つもので、関連度の高い順は `relevance` の降順。
+一致する対象は `matches` が成り立つもので、関連度の高い順は `relevance` の降順。アダプターは、書き込みの時点でこの関数群の定義で正規化した `SearchableText` を保存し、一致の判定に使ってよい。そのとき、保存された値から対象を復元できず `SearchableText` を作れない行は、キーワードの一致の結果に現れない（エラーにしない）
 
 ### メールアドレス
 

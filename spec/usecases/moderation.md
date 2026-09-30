@@ -126,7 +126,7 @@
 ### トランザクション境界
 
 - `run` を1つ使い、書き込まない
-- `run` の中で `roleRosterRepository`、`takedownClaimRepository` を読む
+- `run` の中で `roleRosterRepository`、`takedownClaimRepository` を読む。対象が読みものなら `articleRepository` も読む（公開状態）
 - `ContentDirectory.describe`、`ReferenceQueries.isViewable`、`PhotoStorage.displayRefs` は `run` の外で呼ぶ
 
 ### エラーケース
