@@ -17,7 +17,11 @@ const persistState =
     : { path: fileURLToPath(new URL(stateDir, import.meta.url)) };
 
 // The Lunt Worker runs in workerd during `vite dev` through the
-// Cloudflare plugin, with the bindings declared in wrangler.jsonc.
+// Cloudflare plugin, with the bindings declared in wrangler.jsonc. The
+// build copies the chosen configuration into `dist/server/wrangler.json`,
+// which a bare `wrangler deploy` deploys, so a deployment build names the
+// deployed one: `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build`
+// (docs/deployment.md).
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
@@ -25,7 +29,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     cloudflare({
-      configPath: "./wrangler.jsonc",
+      configPath: process.env.LUNT_WRANGLER_CONFIG || "./wrangler.jsonc",
       persistState,
       ...(persistState === true ? {} : { inspectorPort: false }),
       // Declare `rsc` as a child of the workerd-backed `ssr` env so the

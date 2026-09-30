@@ -2,6 +2,8 @@
 
 A deployment is the same Worker as `pnpm dev` with the development tools off: real mail (SMTP), real Google login, its own secrets, and the daily jobs on the Cron Trigger. `apps/web/wrangler.production.example.jsonc` is the sample configuration; `apps/web/wrangler.jsonc` stays the local development one.
 
+The build chooses the configuration. `pnpm build` copies the Wrangler configuration named by `LUNT_WRANGLER_CONFIG` (default `wrangler.jsonc`) into `apps/web/dist/server/wrangler.json`, and `wrangler deploy` deploys that file. A deployment is therefore built with `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc`; a plain `pnpm build` is for local preview (`pnpm start`) only.
+
 What changes against development:
 
 | | Development (`wrangler.jsonc`) | Deployment (`wrangler.production.example.jsonc`) |
@@ -49,20 +51,22 @@ From the repository root:
 ```bash
 pnpm install
 pnpm area:import https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
-pnpm build
+LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build
 ```
 
-`pnpm build` writes `apps/web/dist/client` (static assets, the area master included) and `apps/web/dist/server` (the Worker). Check the result against the configuration without deploying:
+The build writes `apps/web/dist/client` (static assets, the area master included) and `apps/web/dist/server` (the Worker and its `wrangler.json`, carrying the production configuration). Check the result without deploying:
 
 ```bash
 cd apps/web
-pnpm exec wrangler deploy --dry-run --config wrangler.production.jsonc
+pnpm exec wrangler deploy --dry-run
 ```
 
-It lists the bindings (`LUNT_STATE`, `EVENTS_QUEUE`, `PHOTOS`, `ASSETS`) and the vars. To try the deployed configuration locally first, put throwaway values of the four secrets (`SESSION_SECRET="…"` lines, 32 characters or more for the first two) in a file outside the repository, not in `.dev.vars`, whose development values would switch the tools back on:
+It reports `Using redirected Wrangler configuration` with `dist/server/wrangler.json`, and lists the bindings (`LUNT_STATE`, `EVENTS_QUEUE`, `PHOTOS`, `ASSETS`) and the production vars — `MAIL_TRANSPORT ("smtp")`, `EXTERNAL_IDP ("google")`, no `DEV_TOOLS`. If it shows `DEV_TOOLS`, the build used the development configuration: build again with `LUNT_WRANGLER_CONFIG`.
+
+To try the build locally first, put throwaway values of the four secrets (`SESSION_SECRET="…"` lines, 32 characters or more for the first two) in a file outside the repository and pass it with `--env-file`; without it, wrangler reads the development `.dev.vars` the build copied next to the Worker, whose values would switch the tools back on:
 
 ```bash
-pnpm exec wrangler dev --config wrangler.production.jsonc --local --port 8787 \
+pnpm exec wrangler dev --config dist/server/wrangler.json --local --port 8787 \
   --persist-to /tmp/lunt-prod-check --env-file /tmp/lunt-prod-check.env \
   --var APP_URL:http://127.0.0.1:8787
 ```
@@ -72,14 +76,14 @@ pnpm exec wrangler dev --config wrangler.production.jsonc --local --port 8787 \
 ## 5. Deploy and set the secrets
 
 ```bash
-pnpm exec wrangler deploy --config wrangler.production.jsonc
+pnpm exec wrangler deploy
 pnpm exec wrangler secret put SESSION_SECRET --config wrangler.production.jsonc        # e.g. `openssl rand -base64 48`
 pnpm exec wrangler secret put OPS_TOKEN --config wrangler.production.jsonc             # optional; unset turns /__ops/* off
 pnpm exec wrangler secret put SMTP_PASSWORD --config wrangler.production.jsonc
 pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET --config wrangler.production.jsonc
 ```
 
-Always pass `--config`. A bare `wrangler deploy` after `pnpm build` deploys `dist/server/wrangler.json`, which the build generates from the development `wrangler.jsonc` (`DEV_TOOLS=1`, public secrets). Until `SESSION_SECRET` is set (at least 32 characters), every request fails; `OPS_TOKEN` must also be at least 32 characters.
+`wrangler deploy` deploys the last build's `dist/server/wrangler.json` (so does `--config dist/server/wrangler.json`): run it only after a build with `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc`. Do not pass `--config wrangler.production.jsonc` to `deploy`: that file is the build's input, and wrangler would try to bundle the sources itself and fail. The `secret put` commands take it only for the Worker's name. Until `SESSION_SECRET` is set (at least 32 characters), every request fails; `OPS_TOKEN` must also be at least 32 characters.
 
 ## 6. Open the service
 
@@ -87,7 +91,7 @@ Follow `docs/getting_started.md` 「Opening a fresh environment」 steps 2–4 w
 
 ## Updating
 
-Re-run `pnpm build` and `wrangler deploy --config wrangler.production.jsonc`. Schema changes need no step: the object applies the migrations it has not recorded when it next starts (`docs/runtime_cloudflare_do.md` 「Schema」). Re-import the area master and redeploy when Japan Post publishes new data (monthly). Watch the logs with `pnpm exec wrangler tail lunt` or the dashboard (`observability` is on in the sample); operations are in `docs/runtime_cloudflare_do.md` (dead letters, daily jobs that stop early).
+Re-run `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build` and `wrangler deploy`. Schema changes need no step: the object applies the migrations it has not recorded when it next starts (`docs/runtime_cloudflare_do.md` 「Schema」). Re-import the area master and redeploy when Japan Post publishes new data (monthly). Watch the logs with `pnpm exec wrangler tail lunt` or the dashboard (`observability` is on in the sample); operations are in `docs/runtime_cloudflare_do.md` (dead letters, daily jobs that stop early).
 
 ## Backups
 

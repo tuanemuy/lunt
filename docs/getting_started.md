@@ -43,6 +43,8 @@ pnpm build     # dist/client (static assets) and dist/server (the Worker)
 pnpm start     # vite preview on http://localhost:4173, same bindings and local state
 ```
 
+It carries the development configuration (`wrangler.jsonc`). A build to deploy names the deployed one: `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build` (`docs/deployment.md`).
+
 ## Opening a fresh environment
 
 A new environment has no operator, no categories and (outside development) no area master. Do these once, in this order. `$APP_URL` and `$OPS_TOKEN` are the environment's; locally `http://localhost:3000` and `lunt-local-development-operations-token`.

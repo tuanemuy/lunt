@@ -52,6 +52,8 @@ pnpm build
 pnpm start        # http://localhost:4173
 ```
 
+このビルドは開発用の設定（`wrangler.jsonc`）を成果物に入れる。デプロイ用のビルドは `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build` で作る（[`docs/deployment.md`](docs/deployment.md)）。
+
 ## 新しい環境の初期設定
 
 1. エリアのマスターを取り込む: `pnpm area:import <utf_ken_all.zip のパスか URL>`（開発中は取り込まなくても同梱の見本で動く）
