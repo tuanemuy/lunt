@@ -1,4 +1,5 @@
 import { ArticleId, ListingId, PlaceId } from "@repo/core/domain/common/ids";
+import { PublishConditionUnmetError } from "@repo/core/domain/common/publication";
 import { isRehydrationError } from "@repo/core/domain/error";
 import { samplePhotoId } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
@@ -75,6 +76,69 @@ describe("Article", () => {
         ),
       "ARTICLE_INVALID_SHOWCASE_LIST",
     );
+  });
+
+  it("accepts a 100-character title and rejects 101 characters or any line terminator", () => {
+    const hundred = "あ".repeat(100);
+    expect(
+      Article.create({ id, content: input({ title: hundred }) }, t0).entity
+        .content.title,
+    ).toBe(hundred);
+    expectBusinessError(
+      () =>
+        Article.create({ id, content: input({ title: `${hundred}あ` }) }, t0),
+      "ARTICLE_INVALID_TITLE",
+    );
+    for (const code of [0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029]) {
+      const title = `前${String.fromCharCode(code)}後`;
+      expectBusinessError(
+        () => Article.create({ id, content: input({ title }) }, t0),
+        "ARTICLE_INVALID_TITLE",
+      );
+    }
+  });
+
+  it("attaches the missing requirements when a revise or a publish fails the condition", () => {
+    const reviseError = catchError(() =>
+      Article.revise(
+        published(),
+        input({ title: "", body: "", photoIds: [photo(1)] }),
+        t1,
+      ),
+    );
+    expect(reviseError).toBeInstanceOf(PublishConditionUnmetError);
+    expect((reviseError as PublishConditionUnmetError).missing).toEqual([
+      "title",
+      "body",
+    ]);
+    const draft = Article.create(
+      { id, content: input({ photoIds: [] }) },
+      t0,
+    ).entity;
+    const publishError = catchError(() => Article.publish(draft, t1));
+    expect(publishError).toBeInstanceOf(PublishConditionUnmetError);
+    expect((publishError as PublishConditionUnmetError).missing).toEqual([
+      "photos",
+    ]);
+  });
+
+  it("keeps a published article published when a takedown leaves photos, the next one the cover", () => {
+    const { entity, eventDrafts } = Article.takeDownPhotos(
+      published(),
+      [photo(1)],
+      t1,
+    );
+    expect(entity.publication).toEqual({
+      status: "published",
+      firstPublishedAt: t0,
+    });
+    expect(entity.content.photos.items[0]).toEqual({ photoId: photo(2) });
+    expect(entity.content.photos.takenDown).toBe(true);
+    expect(eventDrafts[0]?.payload).toEqual({
+      owner: { kind: "article", id },
+      photoIds: [photo(1)],
+      unpublished: false,
+    });
   });
 
   it("reports missing requirements in title, photos, body order", () => {

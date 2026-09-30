@@ -4,7 +4,8 @@ import { BusinessRuleError } from "@repo/core/domain/error";
 import { Occasion } from "@repo/core/domain/occasion/occasion";
 import { describe, expect, it } from "vitest";
 import { commitAfter, expectCode } from "../../authority/__tests__/kit";
-import { ConflictError, ForbiddenError } from "../../errors";
+import { ConflictError, ForbiddenError, SystemError } from "../../errors";
+import { createArticle } from "../createArticle";
 import { articleKit, content, EMPTY } from "./kit";
 
 const articleOwner = (id: string) => ({ kind: "article", id });
@@ -241,5 +242,26 @@ describe("createArticle", () => {
     expect(
       Article.snapshot(await k.stored(article.id)).content.showcases,
     ).toEqual([missing]);
+  });
+
+  it("takes showcase ids only in the generator's format, and never stores another", async () => {
+    const k = articleKit();
+    const E = await k.editor();
+    const id = k.newArticleId();
+    const attempt = createArticle({
+      container: k.container,
+      actor: E.actor,
+      input: {
+        articleId: id,
+        content: {
+          ...content(),
+          // @ts-expect-error a raw string is not a `GeneratedId`: the transport must parse it
+          showcases: [{ kind: "listing", id: "listing-1" }],
+        },
+      },
+    });
+    await expectCode(attempt, SystemError, "DATA_INTEGRITY_ERROR");
+    expect(await k.find(ArticleId.create(id))).toBeNull();
+    expect((await k.list(E)).items).toEqual([]);
   });
 });

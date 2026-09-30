@@ -1,7 +1,11 @@
-import { ConflictError, NotFoundError } from "@repo/core/application/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  SystemError,
+} from "@repo/core/application/errors";
 import { Article } from "@repo/core/domain/article/article";
 import type { ArticleId } from "@repo/core/domain/common/ids";
-import { PlaceId } from "@repo/core/domain/common/ids";
+import { ListingId, PlaceId } from "@repo/core/domain/common/ids";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import { describe, expect, it } from "vitest";
 import {
@@ -212,6 +216,44 @@ export function describeArticleRepositoryContract(
         );
         await insertArticles(h, a);
         expect((await getArticle(h, a.id)).entity).toEqual(a);
+      });
+
+      it("refuses to insert or save a showcase id the generator would not read back", async () => {
+        const h = await makeHarness();
+        const ids = articleIds();
+        const foreign: ShowcaseRef = {
+          kind: "listing",
+          id: ListingId.create("listing-1"),
+        };
+        const bad = draftArticle(
+          ids.article(),
+          articleContent({ showcases: [foreign] }),
+        );
+        const insertError = await insertArticles(h, bad).then(
+          () => null,
+          (error: unknown) => error,
+        );
+        expect(insertError).toBeInstanceOf(SystemError);
+        expect(await findArticle(h, bad.id)).toBeNull();
+
+        const a = draftArticle(ids.article());
+        await insertArticles(h, a);
+        const read = await getArticle(h, a.id);
+        const saveError = await saveArticle(
+          h,
+          Article.revise(
+            read.entity,
+            articleContent({ showcases: [foreign] }),
+            at(1),
+          ).entity,
+          read.expectedVersion,
+        ).then(
+          () => null,
+          (error: unknown) => error,
+        );
+        expect(saveError).toBeInstanceOf(SystemError);
+        expect((await getArticle(h, a.id)).entity).toEqual(a);
+        expect(await articlePage(h, null)).toEqual({ items: [a], count: 1 });
       });
     });
 

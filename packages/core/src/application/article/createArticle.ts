@@ -1,7 +1,4 @@
-import {
-  Article,
-  type ArticleContentInput,
-} from "@repo/core/domain/article/article";
+import { Article } from "@repo/core/domain/article/article";
 import { ArticleId } from "@repo/core/domain/common/ids";
 import { authorizeRole } from "../authority/access";
 import { ConflictError } from "../errors";
@@ -10,15 +7,16 @@ import type { GeneratedId } from "../ports/idGenerator";
 import type { ActorServiceArgs } from "../types";
 import {
   ARTICLE_ID_CONFLICT,
+  type ArticleContentFields,
   type ArticleWithRequirements,
+  contentInputOf,
   withRequirements,
 } from "./articles";
 
 export type CreateArticleInput = Readonly<{
   /** Minted by the caller and resent unchanged on failure. */
   articleId: GeneratedId;
-  /** Blank title / body are "not entered"; photos and showcases in display order. */
-  content: ArticleContentInput;
+  content: ArticleContentFields;
 }>;
 
 /**
@@ -43,15 +41,16 @@ export async function createArticle({
   input,
 }: ActorServiceArgs<CreateArticleInput>): Promise<ArticleWithRequirements> {
   const id = ArticleId.create(input.articleId);
+  const content = contentInputOf(input.content);
   const { entity, addedPhotoIds } = Article.create(
-    { id, content: input.content },
+    { id, content },
     container.clock.now(),
   );
   const article = await container.unitOfWorkProvider.run(async (ctx) => {
     await authorizeRole(ctx, actor, "edit_articles");
     const found = await ctx.articleRepository.findById(id);
     if (found !== null) {
-      if (Article.sameContent(found.entity, input.content)) {
+      if (Article.sameContent(found.entity, content)) {
         return found.entity;
       }
       throw new ConflictError(

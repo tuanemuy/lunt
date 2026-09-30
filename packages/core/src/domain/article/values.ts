@@ -21,7 +21,8 @@ export type ShowcaseList = readonly ShowcaseRef[] & {
   readonly [showcaseListBrand]: true;
 };
 
-const LINE_BREAK = /[\r\n\u2028\u2029]/u;
+/** Every Unicode line terminator: LF, VT, FF, CR, NEL, LS, PS. */
+const LINE_BREAK = /[\n\v\f\r\u0085\u2028\u2029]/u;
 
 const withinLength = (value: string, max: number): boolean => {
   const length = TextNormalization.characterCount(value);

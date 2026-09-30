@@ -258,11 +258,11 @@ function findPage(
 }
 
 /**
- * The published articles among those showcasing any target in `refs`
- * (a JSON array of `{ kind, id }`), for joining into a larger query as
- * `id IN (${PUBLISHED_SHOWCASING})` with `refs` as its one parameter.
+ * The ids of the articles, in any state, showcasing any target in `refs`
+ * (a JSON array of `{ kind, id }`) — possibly repeated. Join it as
+ * `id IN (…)` with `refs` as its one parameter and filter on status there.
  */
-export const PUBLISHED_SHOWCASING = `SELECT s.article_id
+const SHOWCASING_ARTICLE_IDS = `SELECT s.article_id
   FROM article_showcases s
   JOIN json_each(?) r
     ON s.target_kind = json_extract(r.value, '$.kind')
@@ -277,7 +277,7 @@ function findPublishedByShowcases(
   if (refs.length === 0) return { items: [], count: 0 };
   const wanted = JSON.stringify(refs.map(({ kind, id }) => ({ kind, id })));
   const where = `publication_status = 'published'
-    AND id IN (${PUBLISHED_SHOWCASING})`;
+    AND id IN (${SHOWCASING_ARTICLE_IDS})`;
   return {
     items: sql
       .exec<ArticleRow>(

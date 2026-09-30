@@ -1,15 +1,14 @@
-import {
-  Article,
-  type ArticleContentInput,
-} from "@repo/core/domain/article/article";
+import { Article } from "@repo/core/domain/article/article";
 import type { ArticleId } from "@repo/core/domain/common/ids";
 import type { Version } from "@repo/core/domain/common/version";
 import { authorizeRole } from "../authority/access";
 import { claimNewPhotos } from "../place/photos";
 import type { ActorServiceArgs } from "../types";
 import {
+  type ArticleContentFields,
   type ArticleWithRequirements,
   assertEditedVersion,
+  contentInputOf,
   requireArticle,
   withRequirements,
 } from "./articles";
@@ -19,7 +18,7 @@ export type ReviseArticleInput = Readonly<{
   /** The version the edit started from (`getArticleForEditing`). */
   version: Version;
   /** The whole content; photos kept and newly added, and showcases, in display order. */
-  content: ArticleContentInput;
+  content: ArticleContentFields;
 }>;
 
 /**
@@ -51,7 +50,7 @@ export async function reviseArticle({
     assertEditedVersion(read.entity, input.version);
     const { entity, eventDrafts, addedPhotoIds } = Article.revise(
       read.entity,
-      input.content,
+      contentInputOf(input.content),
       now,
     );
     if (entity === read.entity) return entity;

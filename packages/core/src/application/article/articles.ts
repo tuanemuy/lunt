@@ -1,22 +1,55 @@
 import {
   Article,
+  type ArticleContentInput,
   type PublicationRequirement,
 } from "@repo/core/domain/article/article";
 import type { ArticleRepositories } from "@repo/core/domain/article/ports/unitOfWork";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import type { ArticleId } from "@repo/core/domain/common/ids";
-import type { ShowcaseRef } from "@repo/core/domain/common/refs";
+import type { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
+import { type ShowcaseKind, ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { Versioned } from "@repo/core/domain/common/transactionalRepository";
 import type { Version } from "@repo/core/domain/common/version";
 import type { ReferenceResolution } from "@repo/core/domain/discovery/entry";
 import type { RequestContainer } from "../di/types";
 import { ConflictError, NotFoundError } from "../errors";
+import type { GeneratedId } from "../ports/idGenerator";
 
 export const ARTICLE_NOT_FOUND = "ARTICLE_NOT_FOUND";
 /** The id is already used by an article with other content. */
 export const ARTICLE_ID_CONFLICT = "ARTICLE_ID_CONFLICT";
 /** The edit started from a version someone else has saved over since. */
 export const ARTICLE_VERSION_CONFLICT = "ARTICLE_VERSION_CONFLICT";
+
+/**
+ * A showcased target as the caller names it. The id is a `GeneratedId`, so
+ * the transport has to parse it (`parseGeneratedId`) and an id the store
+ * would refuse to read back cannot be saved.
+ */
+export type ShowcaseInput = Readonly<{ kind: ShowcaseKind; id: GeneratedId }>;
+
+/**
+ * An article's whole content as entered (`createArticle`, `reviseArticle`).
+ * Blank title / body are "not entered"; photos (the first is the cover) and
+ * showcases in display order.
+ */
+export type ArticleContentFields = Readonly<{
+  title: string;
+  body: string;
+  photoIds: readonly PhotoId[];
+  showcases: readonly ShowcaseInput[];
+}>;
+
+/** `fields` as the domain's input, each showcase as its kind's ref. */
+export const contentInputOf = (
+  fields: ArticleContentFields,
+): ArticleContentInput => ({
+  title: fields.title,
+  body: fields.body,
+  photoIds: fields.photoIds,
+  showcases: fields.showcases.map((showcase) =>
+    ShowcaseRef.create(showcase.kind, showcase.id),
+  ),
+});
 
 /** The article with its version token; `NotFoundError` when there is none. */
 export async function requireArticle(

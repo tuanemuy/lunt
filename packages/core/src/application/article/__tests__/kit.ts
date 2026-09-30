@@ -1,8 +1,5 @@
 import { discoveryWorld } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import {
-  Article,
-  type ArticleContentInput,
-} from "@repo/core/domain/article/article";
+import { Article } from "@repo/core/domain/article/article";
 import { ArticleId, type PhotoId } from "@repo/core/domain/common/ids";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { Versioned } from "@repo/core/domain/common/transactionalRepository";
@@ -11,7 +8,8 @@ import type { RequestContainer } from "../../di/types";
 import { listArticlesShowcasing } from "../../discovery/listArticlesShowcasing";
 import { readArticle } from "../../discovery/readArticle";
 import { placeKit } from "../../place/__tests__/kit";
-import type { GeneratedId } from "../../ports/idGenerator";
+import { type GeneratedId, UuidV7Generator } from "../../ports/idGenerator";
+import type { ArticleContentFields, ShowcaseInput } from "../articles";
 import { createArticle } from "../createArticle";
 import { getArticleForEditing } from "../getArticleForEditing";
 import { listArticlesForEditing } from "../listArticlesForEditing";
@@ -23,20 +21,33 @@ import { unpublishArticle } from "../unpublishArticle";
 /** 2026-07-10 in Japan — the Discovery fixtures' `TODAY`. */
 const KIT_NOW = "2026-07-10T03:00:00.000Z";
 
+/** Content overrides naming showcases by their refs, as tests hold them. */
+export type ContentSpec = Partial<
+  Omit<ArticleContentFields, "showcases"> & {
+    showcases: readonly ShowcaseRef[];
+  }
+>;
+
+/** A showcase ref as the transport hands it over: its id parsed (`parseGeneratedId`). */
+export function showcaseInput(ref: ShowcaseRef): ShowcaseInput {
+  const id = UuidV7Generator.parse(ref.id);
+  if (id === null) throw new Error(`Not a generated id: ${ref.id}`);
+  return { kind: ref.kind, id };
+}
+
 /** A title and a body; no photo and no showcase unless given. */
-export function content(
-  overrides: Partial<ArticleContentInput> = {},
-): ArticleContentInput {
+export function content(overrides: ContentSpec = {}): ArticleContentFields {
+  const { showcases = [], ...rest } = overrides;
   return {
     title: "路地裏の珈琲店をめぐる",
     body: "谷中の路地を歩いて、小さな珈琲店を訪ねた。",
     photoIds: [],
-    showcases: [],
-    ...overrides,
+    ...rest,
+    showcases: showcases.map(showcaseInput),
   };
 }
 
-export const EMPTY: ArticleContentInput = {
+export const EMPTY: ArticleContentFields = {
   title: "",
   body: "",
   photoIds: [],
@@ -83,7 +94,7 @@ export function articleKit() {
 
   const create = (
     who: Person,
-    body: ArticleContentInput = content(),
+    body: ArticleContentFields = content(),
     articleId: GeneratedId = newArticleId(),
     over: RequestContainer = container,
   ) =>
@@ -96,7 +107,7 @@ export function articleKit() {
   const revise = (
     who: Person,
     article: Pick<Article, "id" | "version">,
-    body: ArticleContentInput,
+    body: ArticleContentFields,
     over: RequestContainer = container,
   ) =>
     reviseArticle({
@@ -178,7 +189,7 @@ export function articleKit() {
    * photo unless `body.photoIds` says otherwise.
    */
   async function article(
-    body: Partial<ArticleContentInput> = {},
+    body: ContentSpec = {},
     state: "draft" | "published" | "unpublished" = "draft",
     by?: Person,
   ): Promise<Article> {

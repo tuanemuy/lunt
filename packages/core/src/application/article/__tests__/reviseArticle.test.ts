@@ -1,5 +1,6 @@
 import type { Article } from "@repo/core/domain/article/article";
-import type { PhotoId } from "@repo/core/domain/common/ids";
+import { EventId } from "@repo/core/domain/common/event";
+import { PhotoId } from "@repo/core/domain/common/ids";
 import type { PublishConditionUnmetError } from "@repo/core/domain/common/publication";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { Listing } from "@repo/core/domain/listing/listing";
@@ -10,8 +11,12 @@ import {
   type Person,
   rejection,
 } from "../../authority/__tests__/kit";
-import { ConflictError, ForbiddenError } from "../../errors";
-import { discardReleased } from "../../media/discardReleasedPhotos";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { eventDecoders } from "../../events/registry";
+import {
+  discardReleased,
+  discardReleasedPhotos,
+} from "../../media/discardReleasedPhotos";
 import { type ArticleKit, articleKit, content } from "./kit";
 
 const released = (article: Article, photoIds: readonly PhotoId[]) => ({
@@ -162,10 +167,26 @@ describe("reviseArticle", () => {
   });
 
   it("reviseArticle#8 上の保存の後 / discardReleasedPhotos が photos.released を消費する", async () => {
-    const { k, A, B } = await replaceWithC();
-    await discardReleased(k.container, [A]);
+    const { k, A, B, mark } = await replaceWithC();
+    const [released] = (await k.since(mark)).filter(
+      (event) => event.type === "photos.released",
+    );
+    if (released === undefined) throw new Error("no photos.released");
+    await discardReleasedPhotos.handle(
+      k.container,
+      eventDecoders["photos.released"](released.payload, {
+        id: EventId.create(k.newArticleId()),
+        occurredAt: released.occurredAt,
+        aggregateId: released.aggregateId,
+      }),
+    );
     expect(await k.findPhoto(A)).toBeNull();
+    await expectCode(
+      k.container.photoStorage.copy(A, PhotoId.create(k.newArticleId())),
+      NotFoundError,
+    );
     expect(await k.findPhoto(B)).not.toBeNull();
+    await k.container.photoStorage.copy(B, PhotoId.create(k.newArticleId()));
   });
 
   it("reviseArticle#9 写真 A・B を持つ読みもの / 写真を B・A の順に並び替えて保存する", async () => {

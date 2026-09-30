@@ -26,6 +26,36 @@ const integrityError = (message: string, cause?: unknown) =>
   new SystemError(SystemErrorCode.DataIntegrityError, message, cause);
 
 /**
+ * What in `record` could not be read back as an article (its id, a photo
+ * id or a showcase id outside the generator's format, or a JSON column of
+ * the wrong shape; the store passes those through unchecked), or `null`
+ * when every id parses.
+ */
+function malformedPart(
+  record: ArticleRecord,
+  idGenerator: IdGenerator,
+): string | null {
+  const photoIds: unknown = record.content.photoIds;
+  const showcases: unknown = record.content.showcases;
+  if (!Array.isArray(photoIds) || !Array.isArray(showcases)) {
+    return `content (article ${record.id})`;
+  }
+  const showcaseIds = showcases.map((showcase: unknown) =>
+    typeof showcase === "object" &&
+    showcase !== null &&
+    "kind" in showcase &&
+    "id" in showcase &&
+    typeof showcase.kind === "string"
+      ? showcase.id
+      : null,
+  );
+  const malformed = [record.id, ...photoIds, ...showcaseIds].find(
+    (id: unknown) => typeof id !== "string" || idGenerator.parse(id) === null,
+  );
+  return malformed === undefined ? null : `id: ${String(malformed)}`;
+}
+
+/**
  * `ArticleRepository` over the Lunt state object. Reads query the object
  * immediately; writes append commands to the unit of work's buffer, which
  * the object applies — with the id-uniqueness and optimistic-lock checks —
@@ -40,28 +70,9 @@ export class DoArticleRepository implements ArticleRepository {
 
   /** A stored record as an `Article`; `DATA_INTEGRITY_ERROR` when it is not one. */
   static toArticle(record: ArticleRecord, idGenerator: IdGenerator): Article {
-    // The store passes the JSON columns through unchecked.
-    const photoIds: unknown = record.content.photoIds;
-    const showcases: unknown = record.content.showcases;
-    if (!Array.isArray(photoIds) || !Array.isArray(showcases)) {
-      throw integrityError(`Stored article ${record.id} has malformed content`);
-    }
-    const showcaseIds = showcases.map((showcase: unknown) =>
-      typeof showcase === "object" &&
-      showcase !== null &&
-      "kind" in showcase &&
-      "id" in showcase &&
-      typeof showcase.kind === "string"
-        ? showcase.id
-        : null,
-    );
-    const malformed = [record.id, ...photoIds, ...showcaseIds].find(
-      (id: unknown) => typeof id !== "string" || idGenerator.parse(id) === null,
-    );
-    if (malformed !== undefined) {
-      throw integrityError(
-        `Stored article has malformed id: ${String(malformed)}`,
-      );
+    const malformed = malformedPart(record, idGenerator);
+    if (malformed !== null) {
+      throw integrityError(`Stored article has malformed ${malformed}`);
     }
     const { firstPublishedAt } = record.publication;
     try {
@@ -154,10 +165,26 @@ export class DoArticleRepository implements ArticleRepository {
     });
   }
 
+  /**
+   * The record to write; `DATA_INTEGRITY_ERROR` when it holds an id the read
+   * side would refuse, so one bad id cannot break every read of the article
+   * and of the lists holding it.
+   */
+  private writable(article: Article): ArticleRecord {
+    const record = DoArticleRepository.toRecord(article);
+    const malformed = malformedPart(record, this.idGenerator);
+    if (malformed !== null) {
+      throw integrityError(
+        `Refusing to store an article with malformed ${malformed}`,
+      );
+    }
+    return record;
+  }
+
   async insert(article: Article): Promise<void> {
     this.writes.push({
       kind: "article.insert",
-      record: DoArticleRepository.toRecord(article),
+      record: this.writable(article),
     });
   }
 
@@ -167,7 +194,7 @@ export class DoArticleRepository implements ArticleRepository {
   ): Promise<void> {
     this.writes.push({
       kind: "article.save",
-      record: DoArticleRepository.toRecord(article),
+      record: this.writable(article),
       expectedVersion,
     });
   }
