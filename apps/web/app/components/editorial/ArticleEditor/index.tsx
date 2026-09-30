@@ -59,8 +59,8 @@ type Failure = Readonly<{
 
 type Outcome =
   | Readonly<{ kind: "saved" }>
-  | Readonly<{ kind: "published"; title: string }>
-  | Readonly<{ kind: "unpublished"; title: string }>
+  | Readonly<{ kind: "published" }>
+  | Readonly<{ kind: "unpublished" }>
   | Readonly<{ kind: "missing"; attempt: Attempt }>
   | Readonly<{ kind: "lostAccess" }>;
 
@@ -304,11 +304,8 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
         await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "publish" },
         });
-        const publishedTitle = articleTitleText(
-          draftRef.current.values.title.trim() || null,
-        );
         await reconcile();
-        setOutcome({ kind: "published", title: publishedTitle });
+        setOutcome({ kind: "published" });
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -323,7 +320,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
         });
         await reconcile();
         setConfirming(false);
-        setOutcome({ kind: "unpublished", title });
+        setOutcome({ kind: "unpublished" });
       } catch (error) {
         setConfirming(false);
         await fail(error, "unpublish");
@@ -437,7 +434,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
                 </>
               }
             >
-              {`「${outcome.title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
+              {`「${title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
             </Notice>
           </FocusOnMount>
         ) : null}
@@ -452,7 +449,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
                 </ButtonLink>
               }
             >
-              {`「${outcome.title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
+              {`「${title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
             </Notice>
           </FocusOnMount>
         ) : null}
