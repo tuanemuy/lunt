@@ -109,12 +109,15 @@ function FieldLinks({ fields }: { fields: ArticleFieldErrors }) {
 function FailureAlert({
   failure,
   statusText,
+  takenDown,
   busy,
   onReload,
   onRetry,
 }: {
   failure: Failure;
   statusText: string;
+  /** The article is 公開の取り下げ because a claim took its last photo. */
+  takenDown: boolean;
   busy: boolean;
   onReload: () => void;
   onRetry: () => void;
@@ -152,7 +155,13 @@ function FailureAlert({
         >
           {attempt === "save"
             ? `${state.message}。現在の状態は「${statusText}」です。`
-            : `別の編集担当者が先に${attempt === "publish" ? "公開して" : "公開を取り下げて"}いました。${NOT_APPLIED[attempt]}現在の公開状態は「${statusText}」です。`}
+            : `${
+                attempt === "publish"
+                  ? "別の編集担当者が先に公開していました。"
+                  : takenDown
+                    ? "申立てにより写真が削除され、公開の取り下げになっていました。"
+                    : "別の編集担当者が先に公開を取り下げていました。"
+              }${NOT_APPLIED[attempt]}現在の公開状態は「${statusText}」です。`}
         </Alert>
       );
     }
@@ -253,15 +262,19 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
       router.clearCache();
       return;
     }
-    setFailure({
-      state,
-      fields: articleFieldErrors(state, draftRef.current.values),
-      attempt,
-    });
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
       await reconcile();
     }
+    const next: Failure = {
+      state,
+      fields: articleFieldErrors(state, draftRef.current.values),
+      attempt,
+    };
+    startBusy(() => {
+      setConfirming(false);
+      setFailure(next);
+    });
   };
 
   /** Saves the form as it is; the reply's version is the one the next save sends. */
@@ -277,16 +290,17 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
     setDraft((current) => savedDraft(current, submitted, saved.version));
   };
 
-  // Each CS-13 notice is set after the reconcile and takes the focus on mount:
-  // set earlier, the router's scroll restoration at the end of the reload and
-  // the closing confirm dialog's focus return would both undo that focus.
+  // Each outcome is set after the reconcile, inside the transition (a set
+  // after an await is not), so it lands in the commit that shows the
+  // reconciled article, and its focus on mount is not undone by the router's
+  // scroll restoration or by the closing confirm dialog's focus return.
   const save = () =>
     startBusy(async () => {
       begin();
       try {
         await saveValues();
         await reconcile();
-        setOutcome({ kind: "saved" });
+        startBusy(() => setOutcome({ kind: "saved" }));
       } catch (error) {
         await fail(error, "save");
       }
@@ -305,7 +319,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
           data: { articleId: data.articleId, change: "publish" },
         });
         await reconcile();
-        setOutcome({ kind: "published" });
+        startBusy(() => setOutcome({ kind: "published" }));
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -319,10 +333,11 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
           data: { articleId: data.articleId, change: "unpublish" },
         });
         await reconcile();
-        setConfirming(false);
-        setOutcome({ kind: "unpublished" });
+        startBusy(() => {
+          setConfirming(false);
+          setOutcome({ kind: "unpublished" });
+        });
       } catch (error) {
-        setConfirming(false);
         await fail(error, "unpublish");
       }
     });
@@ -404,6 +419,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
             key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
             failure={failure}
             statusText={data.statusText}
+            takenDown={data.reason === "photoTakedown"}
             busy={busy}
             onReload={() =>
               startBusy(async () => {
