@@ -37,3 +37,8 @@ Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Ob
 | Node pool | `pnpm test:unit` |
 | Workers pool | `pnpm test:integration` |
 | One directory | `pnpm exec vitest run packages/core/src/domain/common` |
+| SMTP contract (sends real mail) | `SMTP_HOST=… SMTP_USERNAME=… SMTP_PASSWORD=… MAIL_FROM=… SMTP_TEST_TO=… pnpm test:integration` |
+| Google contract | `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm exec vitest run packages/core/src/adapters/identity` |
+| Types and lint | `pnpm typecheck`, `pnpm lint` |
+
+Without the credentials the contract suites are skipped, which is what the skipped counts of a plain `pnpm test` are.

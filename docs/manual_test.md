@@ -6,7 +6,7 @@
 
 1. Copy the settings: `cp apps/web/.dev.vars.manual-test.example apps/web/.dev.vars` (gitignored). They satisfy the 設定値 each procedure states — send cap M ≥ 20, login link/code lifetime T ≥ 4 minutes, wrong-code limit N ≥ 2, the review period P ≥ 2 days and D ≤ 8 days — and switch the automatic daily jobs off.
 2. Start from an empty state: `pnpm dev:reset && pnpm dev` (http://localhost:3000).
-3. Open the service: the first operator logs in once, then `POST /__ops/operators/establish` (`docs/runtime_cloudflare_do.md` 「Opening the service」).
+3. Open the service: the first operator logs in once, then `POST /__ops/operators/establish` and `POST /__ops/categories/provision` (`docs/getting_started.md` 「Opening a fresh environment」).
 4. Record the settings the procedures ask for from `.dev.vars` (and `apps/web/wrangler.jsonc` for anything not overridden).
 
 ## Seeding the test data

@@ -4,7 +4,7 @@
 // 「住所の郵便番号（1レコード1行、UTF-8形式）」.
 //
 //   <source>  utf_ken_all.csv, utf_ken_all.zip, or an http(s) URL of either
-//             (e.g. https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip)
+//             (e.g. https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip)
 //   --out     output directory (default: apps/web/public/area, gitignored)
 //
 // `pnpm area:import --test-master` rewrites the committed test master's

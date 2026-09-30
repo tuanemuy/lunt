@@ -10,7 +10,7 @@ pnpm dev          # vite dev: the Worker runs in workerd with the bindings of ap
 pnpm dev:reset    # delete the local state under apps/web/.wrangler/state
 ```
 
-There is no database setup: the object applies its schema from its constructor, so the first request creates everything. Local state persists across restarts under `apps/web/.wrangler/state`.
+There is no database setup: the object applies its schema from its constructor, so the first request creates everything. Local state persists across restarts under `apps/web/.wrangler/state` (or `LUNT_STATE_DIR`). Setup, opening a fresh environment and the tests step by step: `docs/getting_started.md`; deploying: `docs/deployment.md`.
 
 ## Topology
 
@@ -101,7 +101,7 @@ Procedure, per job, once a key keeps coming back:
 4. Let the next 00:05 run pick the targets up: the query still selects them, and the stopped run left everything behind them untouched, so one successful run drains the backlog. Then re-drive the dead letters found in step 2 (`POST /__ops/dead-letters/redrive`); the consumers are idempotent.
 5. Confirm on the next `[daily] <job> completed` line: `failed` back to 0 and `abandoned: false`.
 
-## Opening the service: the first operator
+## Opening the service
 
 Every operator screen needs an operator, and only an operator can grant the role, so the first one is made by the opening procedure (`establishFirstOperator`, `spec/usecases/authority.md`):
 
@@ -113,7 +113,40 @@ curl -X POST -H "Authorization: Bearer $OPS_TOKEN" -H "Content-Type: application
   -d '{"email":"operator@example.com"}' "$APP_URL/__ops/operators/establish"
 ```
 
-The answer is `{"established": "<email>"}`. Sending the same address again succeeds without a change. It fails with 404 (`ACCOUNT_NOT_FOUND`) when no account has that address yet, and with 422 (`AUTHORITY_OPERATORS_ALREADY_ESTABLISHED`) once operators exist — from then on, operators grant the role from the role management screen (OM-07). Locally, `OPS_TOKEN` is `lunt-local-development-operations-token` (`apps/web/wrangler.jsonc`).
+The answer is `{"established": "<email>"}`. Sending the same address again succeeds without a change. It fails with 404 (`ACCOUNT_NOT_FOUND`) when no account has that address yet, and with 422 (`AUTHORITY_OPERATORS_ALREADY_ESTABLISHED`) once operators exist — from then on, operators grant the role from the role management screen (OM-07, `/ops/roles`), where they also appoint editors. Locally, `OPS_TOKEN` is `lunt-local-development-operations-token` (`apps/web/wrangler.jsonc`).
+
+3. Put the initial categories (「食べる」「買う」「体験」「見る」) into the empty catalog (`provisionInitialCategories`):
+
+```bash
+curl -X POST -H "Authorization: Bearer $OPS_TOKEN" "$APP_URL/__ops/categories/provision"
+```
+
+The answer is `{"provisioned": true}`, or `{"provisioned": false}` when the catalog already has categories (resending is safe; a concurrent run that lost the race gets 409). Operators manage them afterwards at `/ops/categories`. The area master is imported before the build (「Area master」 below). The whole sequence, in order: `docs/getting_started.md` 「Opening a fresh environment」.
+
+## Settings
+
+Every setting is a Worker binding: `vars` in the configuration (`apps/web/wrangler.jsonc` locally, `apps/web/wrangler.production.example.jsonc` for a deployment), secrets from `wrangler secret put <NAME>` (locally: `apps/web/.dev.vars`, which overrides same-named `vars`). All values are strings; a variable left out takes its default, and a malformed value is refused where it is read (the request container reads the settings for every request, queue batch and scheduled run).
+
+| Name | Kind | Meaning | Default |
+| --- | --- | --- | --- |
+| `APP_URL` | var | public origin: links in mail, the Google redirect URI | — (required) |
+| `SESSION_SECRET` | secret | HMAC key of the session cookie and the login link / code digests, ≥ 32 characters | — (required) |
+| `OPS_TOKEN` | secret | bearer token of `/__ops/*`, ≥ 32 characters | unset: `/__ops/*` is off |
+| `DEV_TOOLS` | var | `1` turns the development tools on (`docs/manual_test.md`); never in a deployment | off |
+| `DEV_TOOLS_ALLOW_REMOTE` | var | `1` opens the development tools to hosts other than localhost (trusted shared test environments only) | off |
+| `DAILY_JOBS_AUTO` | var | `off` stops the Cron run of the daily jobs; counts only with `DEV_TOOLS=1` | on |
+| `MAIL_*`, `SMTP_*`, `EXTERNAL_IDP`, `GOOGLE_*`, `LOGIN_*` | | 「Mail and external login」 below | |
+| `APPLICATION_PROXY_AFTER_MS` | var | how long after an application went under review an operator may decide it in place of the stewards | `604800000` (7 days) |
+| `VICINITY_RADIUS_METERS` | var | 「Discovery settings」 below | `3000` |
+| `MAP_STYLE_URL` | var | 「Map tiles」 below | OpenFreeMap Positron |
+| `PHOTO_UNOWNED_RETENTION_MS` | var | how long an unowned photo is kept before the daily sweep removes it | `604800000` (7 days) |
+| `PHOTO_MAX_BYTES` | var | largest photo file accepted (a transport limit) | `10485760` (10 MiB) |
+| `OUTBOX_BATCH_SIZE` | var | outbox rows the relay claims per alarm | `100` |
+| `OUTBOX_LEASE_MS` | var | how long a claim lasts before another alarm may take the row over | `300000` |
+| `OUTBOX_ALERT_AFTER_ATTEMPTS` | var | failed publishes of one event after which each further failure logs at error level | `5` |
+| `OUTBOX_RETENTION_MS` | var | how long processed outbox rows and consumer receipts are kept | `604800000` (7 days) |
+
+Bindings: `LUNT_STATE` (Durable Object `LuntStateObject`), `EVENTS_QUEUE` (producer of `lunt-events`; consumers of `lunt-events` and `lunt-events-dlq`), `PHOTOS` (R2 `lunt-photos`), `ASSETS` (`dist/client`), and the Cron Trigger `5 15 * * *`.
 
 ## Mail and external login
 
@@ -161,7 +194,7 @@ The flow uses the authorization code with PKCE (S256), `state` and `nonce`, and 
 
 The area master (prefectures, municipalities, towns) is static JSON served from the Worker's static assets (`ASSETS`), built from Japan Post's 「住所の郵便番号（1レコード1行、UTF-8形式）」 (`.spec-implement/design.md` D-08).
 
-1. Download `utf_ken_all.zip` from https://www.post.japanpost.jp/zipcode/dl/utf-zip.html (direct link: https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip). Use the UTF-8 version, not the Shift_JIS `ken_all.zip`.
+1. Download `utf_ken_all.zip` from https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html (direct link: https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip; the older `/zipcode/dl/…` addresses no longer serve the file). Use the UTF-8 version, not the Shift_JIS `ken_all.zip`.
 2. Import it (a `.zip`, the extracted `utf_ken_all.csv`, or the URL): `pnpm area:import ~/Downloads/utf_ken_all.zip`. The files go to `apps/web/public/area/` (`index.json`, `towns/{prefecture}.json`, `postal/{first 3 digits}.json`; about 1,000 files). They are gitignored; `pnpm build` copies them into `dist/client`, and they deploy with the Worker. Re-run the import and redeploy when Japan Post publishes new data (monthly).
 3. Restart `pnpm dev` after importing: each isolate keeps the master it first read.
 
@@ -189,7 +222,7 @@ The browser fetches the style, tiles, glyphs and sprites from the style's host (
 
 ## Schema
 
-`adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.
+`adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration. Versions are allocated globally and applied lowest first: 1 core (outbox, receipts), 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox, 9 development clock, 10 media, 11 place, 12 listing, 13 discovery, 14 moderation, 15 application (stage 2), 16 notification (stage 2), 17 region, 18 occasion, 19 bookmark, 20 article, 21 discovery (search texts, with a backfill). A deploy that adds a version needs no step of its own: the object applies it on its next start, before it serves any request.
 
 A change that narrows a value rule (e.g. the line-break set of `domain/common/lineBreak.ts`) leaves stored rows the new rule rejects unrestorable, so ship it with a migration that rewrites that data and rebuilds `search_texts` (texts stored under the old rule would still match such rows).
 
@@ -200,4 +233,4 @@ A change that narrows a value rule (e.g. the line-break set of `domain/common/li
 
 ## Deployment
 
-Out of scope for now. A deployed configuration drops `DEV_TOOLS`, sets `SESSION_SECRET` and `OPS_TOKEN` with `wrangler secret put`, creates the two queues, and deploys with the `[[migrations]]` entry that makes `LuntStateObject` SQLite-backed.
+`docs/deployment.md`: resources, the sample configuration with the development tools off (`apps/web/wrangler.production.example.jsonc`), secrets, deploy, opening the service, updates and backups.

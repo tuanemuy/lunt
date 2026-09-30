@@ -5,7 +5,8 @@
 // single SQLite-backed Durable Object that holds every aggregate, the
 // outbox and the consumer receipts. The DO applies its schema itself —
 // there is no migration step. A deployed configuration drops DEV_TOOLS
-// and takes SESSION_SECRET from `wrangler secret put`.
+// and takes SESSION_SECRET from `wrangler secret put`: see
+// `wrangler.production.example.jsonc` and docs/deployment.md.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "lunt",

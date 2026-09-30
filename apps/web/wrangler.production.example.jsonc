@@ -1,0 +1,91 @@
+// Sample deployed configuration of the Lunt Worker, with the development
+// tools off. Copy it to `wrangler.production.jsonc`, replace the
+// `example` values, and deploy the output of `pnpm build` with it
+// (docs/deployment.md):
+//
+//   pnpm --filter @repo/web exec wrangler deploy --config wrangler.production.jsonc
+//
+// It deploys the build as it is (`no_bundle`); `wrangler.jsonc` stays the
+// local development configuration. Secrets are not here: set them with
+// `wrangler secret put <NAME> --config wrangler.production.jsonc`:
+//
+//   SESSION_SECRET        required, at least 32 random characters
+//   OPS_TOKEN             /__ops/* bearer token, at least 32 characters
+//                         (leave it unset to turn the endpoints off)
+//   SMTP_PASSWORD         required (MAIL_TRANSPORT=smtp)
+//   GOOGLE_CLIENT_SECRET  required (EXTERNAL_IDP=google)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lunt",
+  "main": "./dist/server/index.js",
+  "no_bundle": true,
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS"
+  },
+  // Serve on your own domain; without it the Worker answers on workers.dev.
+  // "routes": [{ "pattern": "lunt.example.com", "custom_domain": true }],
+  // Workers Logs: the `[daily]`, `[queue]` and relay lines of
+  // docs/runtime_cloudflare_do.md.
+  "observability": { "enabled": true },
+  "vars": {
+    // The public origin: links in mail, the Google redirect URI.
+    "APP_URL": "https://lunt.example.com",
+    // No DEV_TOOLS, DEV_TOOLS_ALLOW_REMOTE or DAILY_JOBS_AUTO: without
+    // DEV_TOOLS=1 there is no /__dev/*, no development clock, inbox or
+    // fake provider, and the Cron Trigger always runs the daily jobs.
+    "MAIL_TRANSPORT": "smtp",
+    "MAIL_FROM": "Lunt <no-reply@lunt.example.com>",
+    "SMTP_HOST": "smtp.example.com",
+    "SMTP_USERNAME": "example-user",
+    "EXTERNAL_IDP": "google",
+    "GOOGLE_CLIENT_ID": "example.apps.googleusercontent.com",
+    // Values the code defaults to when left out.
+    "LOGIN_CHALLENGE_TTL_MS": "900000",
+    "LOGIN_MAX_CODE_ATTEMPTS": "5",
+    "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5",
+    "APPLICATION_PROXY_AFTER_MS": "604800000",
+    "VICINITY_RADIUS_METERS": "3000",
+    "MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/positron",
+    "PHOTO_UNOWNED_RETENTION_MS": "604800000",
+    "PHOTO_MAX_BYTES": "10485760",
+    "OUTBOX_BATCH_SIZE": "100",
+    "OUTBOX_LEASE_MS": "300000",
+    "OUTBOX_ALERT_AFTER_ATTEMPTS": "5",
+    "OUTBOX_RETENTION_MS": "604800000"
+  },
+  // `wrangler r2 bucket create lunt-photos`
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-photos" }],
+  "durable_objects": {
+    "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]
+  },
+  // Keep this entry as it is: it makes LuntStateObject SQLite-backed. The
+  // object's own schema migrations run from its constructor.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LuntStateObject"] }],
+  // `wrangler queues create lunt-events` and `… lunt-events-dlq`
+  "queues": {
+    "producers": [{ "binding": "EVENTS_QUEUE", "queue": "lunt-events" }],
+    "consumers": [
+      {
+        "queue": "lunt-events",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "lunt-events-dlq"
+      },
+      {
+        "queue": "lunt-events-dlq",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 10
+      }
+    ]
+  },
+  "triggers": {
+    // 15:05 UTC = 00:05 JST.
+    "crons": ["5 15 * * *"]
+  }
+}
