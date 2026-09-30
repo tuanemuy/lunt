@@ -25,19 +25,24 @@ export const regionListRenderSchema = z.object({
   tab: z.enum(["places", "listings"]),
 });
 
-/** VW-06's body for one region and list (see `renderRegions`). */
+/**
+ * VW-06's body for one region and list (see `renderRegions`), with the
+ * region's name for the header — `null` when the region is not viewable
+ * (CS-06). The name waits for the region alone; the list still streams.
+ */
 export const renderRegionList = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(regionListRenderSchema))
   .handler(async ({ data }) => {
-    const { RegionListContent } = await import(
-      "@/components/explore/RegionListContent"
+    const [{ RegionListContent }, { loadRegionListHead }] = await Promise.all([
+      import("@/components/explore/RegionListContent"),
+      import("@/presentation/exploreData"),
+    ]);
+    const head = loadRegionListHead(data.regionId);
+    const RegionList = renderServerComponent(
+      <RegionListContent regionId={data.regionId} tab={data.tab} head={head} />,
     );
-    return {
-      RegionList: renderServerComponent(
-        <RegionListContent regionId={data.regionId} tab={data.tab} />,
-      ),
-    };
+    return { RegionList, regionName: (await head)?.name ?? null };
   });
 
 /** VW-07's body (see `renderRegions`). */

@@ -117,21 +117,43 @@ export async function loadRegionListingsPage(
   return toRegionListingsPage(output, todayOf(container));
 }
 
+/** VW-06's region as its header and title name it. */
+export type RegionListHead = Readonly<{ regionId: string; name: string }>;
+
 /**
- * VW-06's first screen. A region that is a draft, unpublished, suspended
- * or missing is CS-06, told apart here
- * because an error thrown inside the streamed render reaches the browser
- * redacted.
+ * VW-06's region, `null` when it is a draft, unpublished, suspended or
+ * missing (CS-06). Read once per screen: the route names the header with
+ * it while the list streams, and `loadRegionListScreen` reuses it.
+ */
+export async function loadRegionListHead(
+  regionId: string,
+): Promise<RegionListHead | null> {
+  const container = await getContainer();
+  try {
+    const view = await viewRegion({
+      container,
+      input: { regionId: RegionId.create(regionId) },
+    });
+    return { regionId: view.region.regionId, name: view.region.name };
+  } catch (error) {
+    if (error instanceof NotFoundError) return null;
+    throw error;
+  }
+}
+
+/**
+ * VW-06's first screen for the region `head` resolves to. A region that
+ * is not viewable is CS-06, told apart here because an error thrown
+ * inside the streamed render reaches the browser redacted.
  */
 export async function loadRegionListScreen(
   regionId: string,
   tab: RegionListTab,
+  head: Promise<RegionListHead | null>,
 ): Promise<RegionListScreen> {
-  const container = await getContainer();
   try {
-    const id = RegionId.create(regionId);
-    const [view, screen] = await Promise.all([
-      viewRegion({ container, input: { regionId: id } }),
+    const [region, screen] = await Promise.all([
+      head,
       tab === "places"
         ? loadRegionPlacesPage(regionId, 1).then(
             (first) => ({ kind: "places", first }) as const,
@@ -140,11 +162,9 @@ export async function loadRegionListScreen(
             (first) => ({ kind: "listings", first }) as const,
           ),
     ]);
-    return {
-      ...screen,
-      regionId: view.region.regionId,
-      name: view.region.name,
-    };
+    return region === null
+      ? { kind: "unavailable" }
+      : { ...screen, regionId: region.regionId, name: region.name };
   } catch (error) {
     if (error instanceof NotFoundError) return { kind: "unavailable" };
     throw error;

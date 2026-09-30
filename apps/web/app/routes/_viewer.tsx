@@ -12,6 +12,12 @@ declare module "@tanstack/react-router" {
     viewerHeader?: ViewerHeaderConfig;
     /** The tab a viewer screen belongs to when its URL is not under the tab's path. */
     viewerTab?: ViewerTabKey;
+    /**
+     * A detail header's back destination without history, from the
+     * screen's params (e.g. VW-06 back to its region's DT-03), in place of
+     * the static `backTo`.
+     */
+    viewerBackTo?: (params: Readonly<Record<string, string>>) => string;
   }
 }
 
@@ -41,10 +47,15 @@ function ViewerLayout() {
       const leaf = matches.at(-1);
       const header = leaf?.staticData.viewerHeader;
       const title = loaderTitle(leaf?.loaderData);
+      const backTo = leaf?.staticData.viewerBackTo?.(leaf.params);
       return {
         header:
-          header?.type === "detail" && title !== undefined
-            ? { ...header, title }
+          header?.type === "detail"
+            ? {
+                ...header,
+                ...(title === undefined ? {} : { title }),
+                ...(backTo === undefined ? {} : { backTo }),
+              }
             : header,
         tab: leaf?.staticData.viewerTab,
       };

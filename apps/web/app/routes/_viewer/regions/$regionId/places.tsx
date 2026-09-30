@@ -13,22 +13,40 @@ const searchSchema = z.object({
 /**
  * VW-06 地域内の一覧: `?tab=places` (the default) or `?tab=listings`,
  * the side chosen on DT-03. Needs no login; no browse condition applies.
+ * The header names the region (`viewerTitle`); CS-06 keeps the fixed
+ * 地域内の一覧. Back without history returns to the region's DT-03
+ * (`viewerBackTo`), also from CS-02.
  */
 export const Route = createFileRoute("/_viewer/regions/$regionId/places")({
   ...keepOnReturn,
   validateSearch: searchSchema,
   staticData: {
-    viewerHeader: { type: "detail", title: "地域内の一覧", backTo: "/regions" },
+    viewerHeader: { type: "detail", title: "地域内の一覧" },
+    viewerBackTo: (params) =>
+      `/regions/${encodeURIComponent(params.regionId ?? "")}`,
     viewerTab: "regions",
   },
   loaderDeps: ({ search }) => ({ tab: search.tab }),
   loader: async ({ params, deps }) => {
-    const { RegionList } = await renderRegionList({
+    const { RegionList, regionName } = await renderRegionList({
       data: { regionId: params.regionId, tab: deps.tab },
     });
-    return { RegionList };
+    return {
+      RegionList,
+      regionName,
+      ...(regionName === null ? {} : { viewerTitle: regionName }),
+    };
   },
-  head: () => ({ meta: [{ title: "地域内の一覧 — Lunt" }] }),
+  head: ({ loaderData }) => ({
+    meta: [
+      {
+        title:
+          loaderData?.regionName == null
+            ? "地域内の一覧 — Lunt"
+            : `${loaderData.regionName}の地域内の一覧 — Lunt`,
+      },
+    ],
+  }),
   component: RegionListPage,
   errorComponent: RegionListError,
 });
