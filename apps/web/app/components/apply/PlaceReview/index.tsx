@@ -47,6 +47,18 @@ function placeValueText(
   }
 }
 
+/**
+ * The position row of 提出の前の確認 reads as the design words it
+ * (`RQ-02_店舗の申請.html` 「地図で指定済み」), not as coordinates.
+ */
+const LOCATION_REVIEW_TEXT = "地図で指定済み";
+
+/**
+ * A revision's changed position: both sides would read 「地図で指定済み」,
+ * so the row says the position changes instead of comparing two values.
+ */
+const LOCATION_CHANGED_REVIEW_TEXT = `${LOCATION_REVIEW_TEXT}（変更あり）`;
+
 const REGISTRATION_FIELDS = [
   "photos",
   "name",
@@ -64,13 +76,17 @@ export function registrationReviewItems(
   const state: PlaceStateValues = { values, operatingStatus: "open" };
   return REGISTRATION_FIELDS.map((field) => ({
     term: REVIEW_TERM[field],
-    value: placeValueText(state, field),
+    value:
+      field === "location"
+        ? LOCATION_REVIEW_TEXT
+        : placeValueText(state, field),
   }));
 }
 
 /**
  * 提出の前の確認 of a revision: only the items it changes, each beside
- * the place's current value (「申請の状態」).
+ * the place's current value (「申請の状態」); a changed position is said to
+ * change rather than compared.
  */
 export function revisionReviewItems(
   current: PlaceStateValues,
@@ -79,12 +95,15 @@ export function revisionReviewItems(
 ): readonly Readonly<{ term: string; value: ReactNode }>[] {
   return changed.map((field) => ({
     term: REVIEW_TERM[field],
-    value: (
-      <Compared
-        current={placeValueText(current, field)}
-        proposed={placeValueText(next, field)}
-      />
-    ),
+    value:
+      field === "location" ? (
+        LOCATION_CHANGED_REVIEW_TEXT
+      ) : (
+        <Compared
+          current={placeValueText(current, field)}
+          proposed={placeValueText(next, field)}
+        />
+      ),
   }));
 }
 
