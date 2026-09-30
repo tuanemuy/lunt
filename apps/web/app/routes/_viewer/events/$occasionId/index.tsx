@@ -24,7 +24,8 @@ export const Route = createFileRoute("/_viewer/events/$occasionId/")({
     ),
   head: ({ match, loaderData, params }) => {
     const config = match.context?.config;
-    if (!config || loaderData === undefined) {
+    // A re-read that found the target gone (CS-06) keeps the old data.
+    if (!config || loaderData === undefined || match.status === "notFound") {
       return { meta: [{ title: "イベント — Lunt" }] };
     }
     const cover = loaderData.photos[0]?.photo?.src;

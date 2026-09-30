@@ -34,7 +34,8 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
   },
   head: ({ match, loaderData, params }) => {
     const config = match.context?.config;
-    if (!config || loaderData === undefined) {
+    // A re-read that found the target gone (CS-06) keeps the old data.
+    if (!config || loaderData === undefined || match.status === "notFound") {
       return { meta: [{ title: "お店 — Lunt" }] };
     }
     const { place } = loaderData;
