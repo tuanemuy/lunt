@@ -1,4 +1,6 @@
+import { Article, type ArticleStatus } from "@repo/core/domain/article/article";
 import {
+  ArticleId,
   InfoReportId,
   type ListingId,
   OccasionId,
@@ -164,6 +166,64 @@ export async function moderationKit() {
       });
     }
     return { id: occasionId, photos: photoIds, operator };
+  }
+
+  /**
+   * An article with `photos` fresh photo ids, written straight through the
+   * repository (no events): a draft, published, or unpublished by an
+   * editor (`byManager`).
+   */
+  async function articleWithPhotos(
+    photos: number,
+    state: ArticleStatus = "published",
+  ): Promise<Readonly<{ id: ArticleId; photos: readonly PhotoId[] }>> {
+    const id = ArticleId.create(k.newId());
+    const photoIds = Array.from({ length: photos }, () =>
+      PhotoId.create(k.newId()),
+    );
+    const { entity } = Article.create(
+      {
+        id,
+        content: {
+          title: "読みもの",
+          body: "本文",
+          photoIds,
+          showcases: [],
+        },
+      },
+      k.tick(),
+    );
+    const published =
+      state === "draft" ? null : Article.publish(entity, k.tick());
+    const stored =
+      published === null
+        ? entity
+        : state === "unpublished"
+          ? Article.unpublish(published, k.tick())
+          : published;
+    await k.run(({ articleRepository }) => articleRepository.insert(stored));
+    return { id, photos: photoIds };
+  }
+
+  async function storedArticle(id: ArticleId) {
+    const found = await k.run(({ articleRepository }) =>
+      articleRepository.findById(id),
+    );
+    if (found === null) throw new Error(`no article ${id}`);
+    return found;
+  }
+
+  /** Writes a change of the article straight through the repository (no events). */
+  async function changeArticle(
+    id: ArticleId,
+    fn: (article: Article, now: Date) => Article,
+  ): Promise<Article> {
+    const read = await storedArticle(id);
+    const next = fn(read.entity, k.tick());
+    await k.run(({ articleRepository }) =>
+      articleRepository.save(next, read.expectedVersion),
+    );
+    return next;
   }
 
   async function storedRegion(id: RegionId) {
@@ -352,6 +412,9 @@ export async function moderationKit() {
     listingWithPhotos,
     regionWithPhotos,
     occasionWithPhotos,
+    articleWithPhotos,
+    storedArticle,
+    changeArticle,
     storedRegion,
     storedOccasion,
     claimInput,

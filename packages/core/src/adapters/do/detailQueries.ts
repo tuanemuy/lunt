@@ -1,5 +1,7 @@
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type {
+  ArticleId,
   ListingId,
   OccasionId,
   PlaceId,
@@ -10,6 +12,7 @@ import type {
   Pagination,
   PaginationResult,
 } from "@repo/core/domain/common/pagination";
+import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type {
   ListingEntry,
   ParticipantEntry,
@@ -26,6 +29,7 @@ import {
   listingEntryFrom,
   participantEntryFrom,
   placeEntryFrom,
+  publishedArticleFrom,
   publishedOccasionFrom,
   publishedRegionFrom,
 } from "./discoveryRecords";
@@ -82,6 +86,36 @@ export class DoDetailQueries implements DetailQueries {
       return record === null
         ? null
         : publishedOccasionFrom(record, this.idGenerator);
+    });
+  }
+
+  findArticle(articleId: ArticleId): Promise<PublishedArticle | null> {
+    return mapDoError("Failed to find article", async () => {
+      const record = await this.client.query("discovery.findArticle", {
+        articleId,
+      });
+      return record === null
+        ? null
+        : publishedArticleFrom(record, this.idGenerator);
+    });
+  }
+
+  findArticlesShowcasing(
+    ref: ShowcaseRef,
+    pagination: Pagination,
+  ): Promise<PaginationResult<PublishedArticle>> {
+    return mapDoError("Failed to find articles showcasing", async () => {
+      const page = await this.client.query("discovery.findArticlesShowcasing", {
+        ref: { kind: ref.kind, id: ref.id },
+        page: pagination.page,
+        limit: pagination.limit,
+      });
+      return {
+        items: page.items.map((record) =>
+          publishedArticleFrom(record, this.idGenerator),
+        ),
+        count: page.count,
+      };
     });
   }
 

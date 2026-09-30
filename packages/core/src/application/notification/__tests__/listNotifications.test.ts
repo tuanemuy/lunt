@@ -7,6 +7,7 @@ import { ApplicationId, PhotoId, RegionId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";
 import { ListingEvents } from "@repo/core/domain/listing/events";
 import { ModerationEvents } from "@repo/core/domain/moderation/events";
+import { OccasionEvents } from "@repo/core/domain/occasion/events";
 import { PlaceEvents } from "@repo/core/domain/place/events";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
 import { RegionContent } from "@repo/core/domain/region/content";
@@ -131,11 +132,47 @@ describe("listNotifications", () => {
     await expect(list(k, null)).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
-  // S5: an editors' occurrence needs an article's showcase. The single list
-  // across authorities is covered below with stage-1 events.
-  it.todo(
-    "listNotifications#4 利用者 A は、店舗 P の店舗管理者、地域 R の地域運営者、編集担当者を兼ねる。それぞれの立場宛ての出来事と、A が個人として行った申請の承認が起きた / A として読む",
-  );
+  it("listNotifications#4 利用者 A は、店舗 P の店舗管理者、地域 R の地域運営者、編集担当者を兼ねる。それぞれの立場宛ての出来事と、A が個人として行った申請の承認が起きた / A として読む", async () => {
+    const k = notificationKit();
+    const A = await k.person("a");
+    const P = k.place("店舗P");
+    const R = k.region("地域R");
+    await k.appoint(P, A);
+    await k.appoint(R, A);
+    await k.editors(A);
+    const L = await k.listing(k.place("店舗Q"), { name: "掲載L" });
+    const A1 = await k.article([L], { title: "読みものA1" });
+    await k.consume(k.event(PlaceEvents.suspended(P.id, k.tick())));
+    await k.consume(
+      k.event(
+        OccasionEvents.regionLinked(k.occasion("イベントC").id, R.id, k.tick()),
+      ),
+    );
+    await k.consume(k.event(ListingEvents.deleted(L.id, k.tick())));
+    await k.consume(
+      k.event(
+        ApplicationEvents.approved(
+          k.applicationId(),
+          { kind: "individual", accountId: A.accountId },
+          k.tick(),
+        ),
+      ),
+    );
+    const result = await list(k, A.actor);
+    expect(result.count).toBe(4);
+    expect(result.items.map((item) => item.occurrence.to)).toEqual([
+      "applicant",
+      "editors",
+      "regionStewards",
+      "contentManagers",
+    ]);
+    expect(result.items.map((item) => item.pointedContent)).toEqual([
+      null,
+      A1,
+      R,
+      P,
+    ]);
+  });
   it("listNotifications#5 利用者 A と利用者 B が店舗 P の店舗管理者で、店舗 P が運営による非公開になった。B には別の通知もある / A として読む", async () => {
     const k = notificationKit();
     const [A, B] = [await k.person("a"), await k.person("b")];
@@ -498,10 +535,40 @@ describe("listNotifications", () => {
     await k.removeSteward(P, A);
     expect(await list(k, A.actor)).toEqual(before);
   });
-  // S5: an article's showcase.
-  it.todo(
-    "listNotifications#16 公開中の読みもの A1 が紹介する掲載 L が削除され、編集担当者 E に通知が届いた / E として読む",
-  );
+  it("listNotifications#16 公開中の読みもの A1 が紹介する掲載 L が削除され、編集担当者 E に通知が届いた / E として読む", async () => {
+    const k = notificationKit({ realDirectory: true });
+    const E = await k.person("e");
+    await k.editors(E);
+    const P = await k.registeredPlace("店舗P");
+    const L = await k.listing(P, { name: "掲載L" });
+    const A1 = await k.article([L], { title: "読みものA1" });
+    await k.container.unitOfWorkProvider.run(async ({ listingRepository }) => {
+      const found = await listingRepository.findById(L.id);
+      if (found === null) throw new Error("no listing");
+      await listingRepository.delete(L.id, found.expectedVersion);
+    });
+    await k.consume(k.event(ListingEvents.deleted(L.id, k.tick())));
+    const { items } = await list(k, E.actor);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      occurrence: {
+        to: "editors",
+        articleId: A1.id,
+        matter: {
+          kind: "showcase_changed",
+          change: { showcase: L, change: "deleted" },
+        },
+      },
+      delivery: "direct",
+      pointedContent: A1,
+      vacantTarget: null,
+      destination: { kind: "articleEditing", articleId: A1.id },
+    });
+    expect(items[0]?.labels).toEqual([
+      { ref: A1, label: "読みものA1" },
+      { ref: L, label: null },
+    ]);
+  });
   it("listNotifications#17 店舗 P への取り下げの申立て Cl が受け付けられ、サービス運営者 O に通知が届いた。その後、P が非公開になった / O として読む", async () => {
     const k = notificationKit({ realDirectory: true });
     const O = await k.person("o");
@@ -646,53 +713,6 @@ describe("listNotifications", () => {
 });
 
 describe("listNotifications with stage-1 events", () => {
-  it("lists every authority's and role's notifications in one newest-first list", async () => {
-    const k = notificationKit();
-    const A = await k.person("a");
-    const S3 = await k.person("s3");
-    await stewardAddedTo(k, A, S3);
-    await k.consume(
-      k.event(
-        ApplicationEvents.submitted(
-          k.applicationId(),
-          { kind: "steward", target: k.region("地域R") },
-          k.tick(),
-        ),
-      ),
-    );
-    await k.consume(
-      k.event(AuthorityEvents.roleGranted("editor", A.accountId, k.tick())),
-    );
-    await k.consume(
-      k.event(
-        ApplicationEvents.approved(
-          k.applicationId(),
-          { kind: "individual", accountId: A.accountId },
-          k.tick(),
-        ),
-      ),
-    );
-    const R = k.region("地域R2");
-    await k.appoint(R, A);
-    await k.consume(
-      k.event(
-        ApplicationEvents.submitted(
-          k.applicationId(),
-          { kind: "steward", target: R },
-          k.tick(),
-        ),
-      ),
-    );
-    const result = await list(k, A.actor);
-    expect(result.items.map((item) => item.occurrence.to)).toEqual([
-      "approver",
-      "applicant",
-      "grantee",
-      "placeStewards",
-    ]);
-    expect(result.count).toBe(4);
-  });
-
   it("returns the reader's notifications only, counting the reader's", async () => {
     const k = notificationKit();
     const [A, B, S3] = [

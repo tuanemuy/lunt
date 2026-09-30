@@ -1,4 +1,6 @@
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type {
+  ArticleId,
   ListingId,
   OccasionId,
   PlaceId,
@@ -9,6 +11,7 @@ import type {
   Pagination,
   PaginationResult,
 } from "@repo/core/domain/common/pagination";
+import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
 import type { PublishedRegion } from "@repo/core/domain/region/region";
 import type { ListingEntry, ParticipantEntry, PlaceEntry } from "../entry";
@@ -31,9 +34,10 @@ export type OccasionSubject =
  * 「DetailQueries」). Read-only; never joins a unit of work and reflects
  * every committed write at once.
  *
- * - `findListing` / `findPlace` / `findRegion` / `findOccasion`: the
- *   viewable target, or `null` when it is not viewable or does not exist
- *   (the two are not told apart, CS-06). Upcoming and ended listings,
+ * - `findListing` / `findPlace` / `findRegion` / `findOccasion` /
+ *   `findArticle`: the viewable target, or `null` when it is not viewable
+ *   or does not exist (the two are not told apart, CS-06). An article's
+ *   showcases are as stored, viewable or not. Upcoming and ended listings,
  *   closed places, and ended or cancelled occasions are returned
  *   (reference scene). A listing's `categoryId` is the stored one; the
  *   caller resolves it.
@@ -54,14 +58,18 @@ export type OccasionSubject =
  *   viewable. Every participant — no paging.
  * - `findRegionsOfOccasion`: viewable regions `linked` to a viewable
  *   occasion, in link order (`linkedAt` ascending, then `RegionId`).
- *
- * Articles (`findArticle`, `findArticlesShowcasing`) join with stage 5.
+ * - `findArticlesShowcasing`: published articles whose showcases hold
+ *   `ref` itself (a place's listing does not count), each once, newest
+ *   first (`firstPublishedAt` descending, then `ArticleId`). Empty
+ *   (`count` 0) when the target is not viewable or does not exist. For
+ *   viewers — unlike `ArticleRepository.findPublishedByShowcases`.
  */
 export interface DetailQueries {
   findListing(listingId: ListingId): Promise<ListingEntry | null>;
   findPlace(placeId: PlaceId): Promise<PlaceEntry | null>;
   findRegion(regionId: RegionId): Promise<PublishedRegion | null>;
   findOccasion(occasionId: OccasionId): Promise<PublishedOccasion | null>;
+  findArticle(articleId: ArticleId): Promise<PublishedArticle | null>;
   findListingsOfPlace(
     query: ListingsOfPlaceQuery,
     pagination: Pagination,
@@ -76,4 +84,8 @@ export interface DetailQueries {
   findRegionsOfOccasion(
     occasionId: OccasionId,
   ): Promise<readonly PublishedRegion[]>;
+  findArticlesShowcasing(
+    ref: ShowcaseRef,
+    pagination: Pagination,
+  ): Promise<PaginationResult<PublishedArticle>>;
 }

@@ -39,6 +39,8 @@ function labelOf(item: FeedEntry): string {
       return item.summary.listingId;
     case "region":
       return `region:${item.summary.regionId}`;
+    case "article":
+      return `article:${item.summary.articleId}`;
     case "occasion":
       return `occasion:${item.summary.occasionId}`;
   }
@@ -47,13 +49,16 @@ function labelOf(item: FeedEntry): string {
 const labels = (out: ReadFeedOutput): readonly string[] =>
   out.items.map(labelOf);
 
-/** Items as kinds: `L` for a listing, `R` / `O` for a frame. */
+const SHAPE_LETTER = {
+  listing: "L",
+  region: "R",
+  article: "A",
+  occasion: "O",
+} as const satisfies Record<FeedEntry["kind"], string>;
+
+/** Items as kinds: `L` for a listing, `R` / `A` / `O` for a frame. */
 const shape = (out: ReadFeedOutput): string =>
-  out.items
-    .map((item) =>
-      item.kind === "listing" ? "L" : item.kind === "region" ? "R" : "O",
-    )
-    .join("");
+  out.items.map((item) => SHAPE_LETTER[item.kind]).join("");
 
 const listingsIn = (out: ReadFeedOutput) =>
   out.items.flatMap((item) => (item.kind === "listing" ? [item.summary] : []));
@@ -138,18 +143,16 @@ const consecutiveConflicts = (
 
 describe("readFeed", () => {
   describe("対象と表示範囲", () => {
-    it.todo(
-      "readFeed#1 複数の地域の店舗に、商品・体験・景色・見どころのフィード対象の掲載がある。公開中の地域、公開中の読みもの、参加店舗を持つ開催前のイベントがある。選定の操作は誰も行っていない / 条件もカテゴリーも選ばずに読む",
-    ); // S5: articles
-
-    it("listings of several regions and categories mix in one shape, with region and occasion frames between them (the article frame joins in stage 5)", async () => {
+    it("readFeed#1 複数の地域の店舗に、商品・体験・景色・見どころのフィード対象の掲載がある。公開中の地域、公開中の読みもの、参加店舗を持つ開催前のイベントがある。選定の操作は誰も行っていない / 条件もカテゴリーも選ばずに読む", async () => {
       const k = await discoveryKit();
       const X = await k.w.region({ name: "谷中" });
       const Y = await k.w.region({ name: "根津" });
+      const Z = await k.w.region({ name: "千駄木" });
+      const A = await k.w.article({ title: "路地の話" });
       const E = await occasionWithParticipant(k);
       const made = [];
       for (const [i, categoryId] of k.categoryIds.entries()) {
-        for (const region of [X, Y]) {
+        for (const region of [X, Y, Z]) {
           const P = await k.w.place();
           await k.w.affiliate(P.id, [region.id]);
           made.push(
@@ -160,18 +163,21 @@ describe("readFeed", () => {
         }
       }
       const out = await read(k);
-      expect(shape(out)).toBe("RLLLLLLOLL");
-      expect(framesIn(out)).toEqual([`region:${Y.id}`, `occasion:${E.id}`]);
+      expect(shape(out)).toBe(`R${"L".repeat(6)}A${"L".repeat(6)}O`);
+      expect(framesIn(out)).toEqual([
+        `region:${Z.id}`,
+        `article:${A.id}`,
+        `occasion:${E.id}`,
+      ]);
       const regions = listingsIn(out).map((summary) => summary.region);
-      expect(new Set(regions)).toEqual(new Set(["谷中", "根津"]));
+      expect(new Set(regions)).toEqual(new Set(["谷中", "根津", "千駄木"]));
       expect(regions.slice(1).every((r, i) => r !== regions[i])).toBe(true);
       expect(out.listingCount).toBe(made.length);
     });
 
-    it.todo("readFeed#2 上と同じ / 読む"); // S5: articles (the article frame's title)
-
-    it("listing summaries carry the cover, the listing, place and region names and ids but no price or tagline; region and occasion frames carry photo, name, tagline and id", async () => {
+    it("readFeed#2 上と同じ / 読む", async () => {
       const k = await discoveryKit();
+      const A = await k.w.article({ title: "路地の話", photos: 2 });
       const R = await k.w.region({
         name: "谷中",
         content: { tagline: "路地を歩く" },
@@ -183,7 +189,7 @@ describe("readFeed", () => {
       const P = await k.w.place({ profile: { name: "山田珈琲店" } });
       await k.w.affiliate(P.id, [R.id]);
       const L = await k.w.store(k.w.f.published(P.id, { name: "桃" }));
-      for (let i = 0; i < 6; i += 1) await placeWithListing(k);
+      for (let i = 0; i < 12; i += 1) await placeWithListing(k);
       const out = await read(k);
       const listing = out.items.find(
         (item) => item.kind === "listing" && item.summary.listingId === L.id,
@@ -219,6 +225,18 @@ describe("readFeed", () => {
             source: "own",
             photoId: R.content.photos.items[0]?.photoId,
           },
+        },
+      });
+      expect(out.items.find((item) => item.kind === "article")).toEqual({
+        kind: "article",
+        summary: {
+          articleId: A.id,
+          cover: {
+            source: "own",
+            photoId: A.content.photos.items[0]?.photoId,
+            framing: null,
+          },
+          title: "路地の話",
         },
       });
       const occasion = out.items.find((item) => item.kind === "occasion");
@@ -367,11 +385,7 @@ describe("readFeed", () => {
       expect(listingIdsIn(out)).toEqual(made.map((l) => l.id).reverse());
     });
 
-    it.todo(
-      "readFeed#12 別々の店舗・別々の地域の掲載があり、店舗の位置が現在地から近い順に P1、P2、P3。地域とイベントも現在地からの距離が違う / 現在地つきで読む",
-    ); // S5: articles (the article frame stays newest first)
-
-    it("with an origin, listings, region frames and occasion frames come nearest first (the article frame joins in stage 5)", async () => {
+    it("readFeed#12 別々の店舗・別々の地域の掲載があり、店舗の位置が現在地から近い順に P1、P2、P3。地域とイベントも現在地からの距離が違う / 現在地つきで読む", async () => {
       const k = await discoveryKit();
       const { L: L1 } = await placeWithListing(k, locatedAt(north(100)));
       const { L: L2 } = await placeWithListing(k, locatedAt(north(500)));
@@ -384,8 +398,14 @@ describe("readFeed", () => {
       const { L: Lfar } = await placeWithListing(k, locatedAt(north(5_000)), [
         Rfar,
       ]);
-      const { L: L8 } = await placeWithListing(k, locatedAt(north(8_000)));
-      const { L: L9 } = await placeWithListing(k, locatedAt(north(9_000)));
+      const far = [];
+      for (const km of [8, 9, 10, 11, 12, 13, 14]) {
+        far.push(
+          (await placeWithListing(k, locatedAt(north(km * 1_000)))).L.id,
+        );
+      }
+      await k.w.article();
+      const newest = await k.w.article();
       const Enear = await occasionWithParticipant(k, {
         location: north(1_500),
       });
@@ -401,9 +421,10 @@ describe("readFeed", () => {
         Lnear.id,
         L3.id,
         Lfar.id,
-        L8.id,
+        far[0],
+        `article:${newest.id}`,
+        ...far.slice(1),
         `occasion:${Enear.id}`,
-        L9.id,
       ]);
     });
 
@@ -481,27 +502,25 @@ describe("readFeed", () => {
   });
 
   describe("大きな枠", () => {
-    it.todo(
-      "readFeed#18 フィード対象の掲載が13件。枠の候補は、地域2件、読みもの2件、イベント2件 / 読む",
-    ); // S5: articles
-
-    it("with 13 listings and two regions and two occasions, frames rotate region → occasion → region (articles skipped until stage 5), each kind in its own order", async () => {
+    it("readFeed#18 フィード対象の掲載が13件。枠の候補は、地域2件、読みもの2件、イベント2件 / 読む", async () => {
       const k = await discoveryKit();
       const R1 = await k.w.region();
       const R2 = await k.w.region();
       await placeWithListing(k, {}, [R1]);
       await placeWithListing(k, {}, [R2]);
       await distinctListings(k, 11);
+      await k.w.article();
+      const A2 = await k.w.article();
       await occasionWithParticipant(k, { period: PERIODS.upcoming });
       const early = await occasionWithParticipant(k, {
         period: PERIODS.ongoing,
       });
       const out = await read(k);
-      expect(shape(out)).toBe(`R${"L".repeat(6)}O${"L".repeat(6)}RL`);
+      expect(shape(out)).toBe(`R${"L".repeat(6)}A${"L".repeat(6)}OL`);
       expect(framesIn(out)).toEqual([
         `region:${R2.id}`,
+        `article:${A2.id}`,
         `occasion:${early.id}`,
-        `region:${R1.id}`,
       ]);
     });
 
@@ -535,6 +554,8 @@ describe("readFeed", () => {
     it("readFeed#21 フィード対象の掲載があり、公開中の地域・読みもの・イベントが1つもない / 読む", async () => {
       const k = await discoveryKit();
       await k.w.region({ state: "draft" });
+      await k.w.article({ state: "draft" });
+      await k.w.article({ state: "unpublished" });
       await k.w.occasion({ state: "unpublished" });
       await distinctListings(k, 8);
       expect(shape(await read(k))).toBe("L".repeat(8));
@@ -542,27 +563,31 @@ describe("readFeed", () => {
   });
 
   describe("ページ", () => {
-    it.todo(
-      "readFeed#22 フィード対象の掲載が14件。枠の候補は、地域・読みもの・イベントが1件ずつ。読み込みの間に候補は変わらない / 1ページ6件で、1〜3ページ目を同じ条件で読む",
-    ); // S5: articles
-
-    it("pages count listings: with 14 listings, one region and one occasion, pages of 6 read R+6L+O, 6L, 2L (the article frame joins in stage 5)", async () => {
+    it("readFeed#22 フィード対象の掲載が14件。枠の候補は、地域・読みもの・イベントが1件ずつ。読み込みの間に候補は変わらない / 1ページ6件で、1〜3ページ目を同じ条件で読む", async () => {
       const k = await discoveryKit();
       const R = await k.w.region();
       await placeWithListing(k, {}, [R]);
       await distinctListings(k, 13);
-      await occasionWithParticipant(k);
+      const A = await k.w.article();
+      const E = await occasionWithParticipant(k);
       const pages = [];
       for (const page of [1, 2, 3]) {
         pages.push(await read(k, { pagination: { page, limit: 6 } }));
       }
       expect(pages.map(shape)).toEqual([
-        `R${"L".repeat(6)}O`,
-        "L".repeat(6),
+        `R${"L".repeat(6)}A`,
+        `${"L".repeat(6)}O`,
         "LL",
+      ]);
+      expect(pages.flatMap(framesIn)).toEqual([
+        `region:${R.id}`,
+        `article:${A.id}`,
+        `occasion:${E.id}`,
       ]);
       expect(pages.map((p) => p.listingCount)).toEqual([14, 14, 14]);
       expect(pages.map((p) => p.hasMore)).toEqual([true, true, false]);
+      const whole = await read(k, { pagination: { page: 1, limit: 18 } });
+      expect(pages.flatMap((p) => labels(p))).toEqual(labels(whole));
     });
 
     it("readFeed#23 同じ店舗・同じ地域の掲載が混ざった、フィード対象の掲載が30件 / 1ページ10件で1〜3ページ目を読み、別に1ページ30件で読む", async () => {
@@ -715,11 +740,7 @@ describe("readFeed", () => {
       expect(out.effective).toEqual({ areas: [], categoryIds: [] });
     });
 
-    it.todo(
-      "readFeed#28 選択エリアに、条件に合う掲載を持つ店舗が所属する地域 R1 と、条件に合う掲載を持たない地域 R2 がある。開催場所が選択エリアにあるイベント E1、選択エリアの外のイベント E2、読みものがある / エリアとカテゴリーを選んで読む",
-    ); // S5: articles (the article frame regardless of criteria)
-
-    it("with criteria, region frames are the regions with a matching listing and occasion frames those whose venue is in the areas, never filtered by category (the article frame joins in stage 5)", async () => {
+    it("readFeed#28 選択エリアに、条件に合う掲載を持つ店舗が所属する地域 R1 と、条件に合う掲載を持たない地域 R2 がある。開催場所が選択エリアにあるイベント E1、選択エリアの外のイベント E2、読みものがある / エリアとカテゴリーを選んで読む", async () => {
       const k = await discoveryKit();
       const [eat, buy] = k.categoryIds;
       if (eat === undefined || buy === undefined) throw new Error("categories");
@@ -732,7 +753,7 @@ describe("readFeed", () => {
       const P2 = await k.w.place(inArea);
       await k.w.affiliate(P2.id, [R2.id]);
       await k.w.store(k.w.f.published(P2.id, { categoryId: buy }));
-      for (let i = 0; i < 5; i += 1) {
+      for (let i = 0; i < 11; i += 1) {
         const P = await k.w.place(inArea);
         await k.w.store(k.w.f.published(P.id, { categoryId: eat }));
       }
@@ -740,21 +761,23 @@ describe("readFeed", () => {
         address: SampleAddress.umeda(),
       });
       await occasionWithParticipant(k, { address: SampleAddress.ginza() });
+      const A = await k.w.article();
       const out = await read(k, {
         criteria: { areas: [PREFECTURE_A], categoryIds: [eat] },
       });
-      expect(framesIn(out)).toEqual([`region:${R1.id}`, `occasion:${E1.id}`]);
-      expect(out.listingCount).toBe(6);
+      expect(framesIn(out)).toEqual([
+        `region:${R1.id}`,
+        `article:${A.id}`,
+        `occasion:${E1.id}`,
+      ]);
+      expect(out.listingCount).toBe(12);
     });
 
-    it.todo(
-      "readFeed#29 条件に合うフィード対象の掲載がない。公開中の地域・読みもの・イベントはある / 条件を選んで読む",
-    ); // S5: articles
-
-    it("with no listing matching the criteria, the feed is empty and has no frame though regions and occasions exist (articles join in stage 5)", async () => {
+    it("readFeed#29 条件に合うフィード対象の掲載がない。公開中の地域・読みもの・イベントはある / 条件を選んで読む", async () => {
       const k = await discoveryKit();
       const R = await k.w.region();
       await placeWithListing(k, {}, [R]);
+      await k.w.article();
       await occasionWithParticipant(k);
       const out = await read(k, {
         criteria: { areas: [PREFECTURE_A], categoryIds: [] },

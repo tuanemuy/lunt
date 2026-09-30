@@ -42,10 +42,7 @@ const occasionRef = (occasion: Pick<Occasion, "id">) =>
 const shapeOf = (resolutions: readonly ReferenceResolution[]) =>
   resolutions.map((r) => ({ ref: r.ref, viewable: r.viewable }));
 
-/**
- * `ReferenceQueries` contract (`spec/testcases/ports/referenceQueries.md`).
- * Rows that need articles stay `todo` until stage 5 (Article).
- */
+/** `ReferenceQueries` contract (`spec/testcases/ports/referenceQueries.md`). */
 export function describeReferenceQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
 ): void {
@@ -491,12 +488,20 @@ export function describeReferenceQueriesContract(
           ).toBe(false);
         }
       });
-      it.todo(
-        "referenceQueries#27 published の読みもの / article の参照で呼ぶ",
-      );
-      it.todo(
-        "referenceQueries#28 draft と unpublished の読みもの / それぞれ呼ぶ",
-      );
+
+      it("referenceQueries#27 published の読みもの / article の参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const A = await w.article();
+        expect(await viewable(h, { kind: "article", id: A.id })).toBe(true);
+      });
+
+      it("referenceQueries#28 draft と unpublished の読みもの / それぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished"] as const) {
+          const A = await w.article({ state });
+          expect(await viewable(h, { kind: "article", id: A.id })).toBe(false);
+        }
+      });
 
       it("referenceQueries#29 どの集約も指さない ID / 5つの種類でそれぞれ呼ぶ", async () => {
         const { h } = await setup();

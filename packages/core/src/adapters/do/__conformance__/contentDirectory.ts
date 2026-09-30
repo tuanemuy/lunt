@@ -1,3 +1,4 @@
+import { Article } from "@repo/core/domain/article/article";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import { ListingId, PhotoId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
@@ -15,6 +16,17 @@ import { Region } from "@repo/core/domain/region/region";
 import { describe, expect, it } from "vitest";
 import type { SqlExec, SqlRow } from "../sql";
 import type { ContentLookup, ContentLookups } from "../store/contentLookups";
+import {
+  articleContent,
+  articleIds,
+  articleTicker,
+  draftArticle,
+  EMPTY_ARTICLE_CONTENT,
+  insertArticles,
+  publishedArticle,
+  unpublishedArticle,
+  updateArticle,
+} from "./articleFixtures";
 import { expectBusinessRuleError } from "./assertions";
 import { ScopeAbort } from "./fixtures";
 import type { ConformanceHarness } from "./harness";
@@ -45,10 +57,9 @@ import {
 } from "./regionFixtures";
 
 /**
- * A fresh store and the directory over it. Listings, places, regions and
- * occasions are stored through their own repositories; the rows that also
- * need articles (S5) stay `todo` and the extra tests (without `#n`)
- * exercise the same rule on the stored kinds.
+ * A fresh store and the directory over it. Listings, places, regions,
+ * occasions and articles are stored through their own repositories; the
+ * extra tests (without `#n`) exercise a row's rule on further states.
  */
 export type ContentDirectoryHarness = ConformanceHarness &
   Readonly<{ directory: ContentDirectory }>;
@@ -97,6 +108,14 @@ const occasionSummary = (occasion: Occasion): ContentSummary => ({
   photoIds: PhotoSet.photoIds(occasion.content.photos),
 });
 
+const articleRef = (article: Article): ContentRef => Article.ref(article);
+
+const articleSummary = (article: Article): ContentSummary => ({
+  target: articleRef(article),
+  name: article.content.title,
+  photoIds: PhotoSet.photoIds(article.content.photos),
+});
+
 /** Places and listings built through their domains, ids ascending in mint order. */
 function world(h: ContentDirectoryHarness) {
   const f = listingFactory();
@@ -121,23 +140,7 @@ export function describeContentDirectoryContract(
 ): void {
   describe("ContentDirectory contract", () => {
     describe("describe", () => {
-      it.todo(
-        "contentDirectory#1 公開中の掲載 L1、店舗 P1、公開中の地域 R1、公開中のイベント O1、公開中の読みもの A1 が保存されている / describe([A1, O1, R1, P1, L1])",
-      );
-
-      it("orders the stored kinds listing before place, whatever the request order (#1 on stage-2 kinds)", async () => {
-        const h = await makeHarness();
-        const w = world(h);
-        const P1 = await w.place(1, "一号店");
-        const L1 = await w.store(
-          w.f.published(P1.id, { name: "限定メニュー" }),
-        );
-        expect(
-          await h.directory.describe([placeRef(P1), listingRef(L1)]),
-        ).toEqual([listingSummary(L1), placeSummary(P1)]);
-      });
-
-      it("orders a stored listing, place and published region by kind, whatever the request order (#1 with a region)", async () => {
+      it("contentDirectory#1 公開中の掲載 L1、店舗 P1、公開中の地域 R1、公開中のイベント O1、公開中の読みもの A1 が保存されている / describe([A1, O1, R1, P1, L1])", async () => {
         const h = await makeHarness();
         const w = world(h);
         const P1 = await w.place(1, "一号店");
@@ -147,32 +150,39 @@ export function describeContentDirectoryContract(
         const ids = regionIds();
         const R1 = publishedRegion(ids.region(), [ids.photo(), ids.photo()]);
         await insertRegions(h, R1);
-        expect(
-          await h.directory.describe([
-            regionRef(R1),
-            placeRef(P1),
-            listingRef(L1),
-          ]),
-        ).toEqual([listingSummary(L1), placeSummary(P1), regionSummary(R1)]);
-      });
-
-      it("orders a stored place, region and occasion by kind, whatever the request order (#1 with an occasion)", async () => {
-        const h = await makeHarness();
-        const w = world(h);
-        const P1 = await w.place(1, "一号店");
-        const ids = regionIds();
-        const R1 = publishedRegion(ids.region(), [ids.photo()]);
-        await insertRegions(h, R1);
-        const o = occasionFactory();
-        const O1 = o.published({ name: "夏祭り", photos: 2 });
+        const O1 = occasionFactory().published({ name: "夏祭り", photos: 2 });
         await insertOccasions(h, O1);
-        expect(
-          await h.directory.describe([
-            occasionRef(O1),
-            regionRef(R1),
-            placeRef(P1),
-          ]),
-        ).toEqual([placeSummary(P1), regionSummary(R1), occasionSummary(O1)]);
+        const a = articleIds();
+        const A1 = publishedArticle(
+          a.article(),
+          articleContent({
+            title: "路地の話",
+            photoIds: [a.photo(), a.photo()],
+          }),
+        );
+        await insertArticles(h, A1);
+        const found = await h.directory.describe([
+          articleRef(A1),
+          occasionRef(O1),
+          regionRef(R1),
+          placeRef(P1),
+          listingRef(L1),
+        ]);
+        expect(found).toEqual([
+          listingSummary(L1),
+          placeSummary(P1),
+          regionSummary(R1),
+          occasionSummary(O1),
+          articleSummary(A1),
+        ]);
+        expect(found.map((summary) => summary.target.kind)).toEqual([
+          "listing",
+          "place",
+          "region",
+          "occasion",
+          "article",
+        ]);
+        expect(found[4]?.name).toBe("路地の話");
       });
 
       it("contentDirectory#2 店舗 P2、P1 が保存されている / describe([P2, P1])", async () => {
@@ -234,9 +244,50 @@ export function describeContentDirectoryContract(
         ).toEqual([]);
       });
 
-      it.todo(
-        "contentDirectory#8 運営による非公開の掲載 L1、非公開の店舗 P1、公開を取り下げた地域 R1、運営による非公開のイベント O1、公開を取り下げた読みもの A1 が保存されている / describe([L1, P1, R1, O1, A1])",
-      );
+      it("contentDirectory#8 運営による非公開の掲載 L1、非公開の店舗 P1、公開を取り下げた地域 R1、運営による非公開のイベント O1、公開を取り下げた読みもの A1 が保存されている / describe([L1, P1, R1, O1, A1])", async () => {
+        const h = await makeHarness();
+        const w = world(h);
+        const P1 = await w.place(1, "非公開の店舗");
+        await updatePlace(h, P1.id, (p) => Place.suspend(p, PLACE_T0).entity);
+        const L1 = await w.store(
+          w.f.suspended(w.f.published(P1.id, { name: "運営による非公開" })),
+        );
+        const ids = regionIds();
+        const R1 = Region.unpublish(
+          publishedRegion(ids.region(), [ids.photo()], {
+            name: "取り下げた地域",
+          }),
+          ticker()(),
+        ).entity;
+        await insertRegions(h, R1);
+        const o = occasionFactory();
+        const O1 = o.suspended(o.published({ name: "非公開のイベント" }));
+        await insertOccasions(h, O1);
+        const a = articleIds();
+        const A1 = unpublishedArticle(
+          a.article(),
+          articleContent({
+            title: "取り下げた読みもの",
+            photoIds: [a.photo()],
+          }),
+        );
+        await insertArticles(h, A1);
+        expect(
+          await h.directory.describe([
+            listingRef(L1),
+            placeRef(P1),
+            regionRef(R1),
+            occasionRef(O1),
+            articleRef(A1),
+          ]),
+        ).toEqual([
+          listingSummary(L1),
+          placeSummary(P1),
+          regionSummary(R1),
+          occasionSummary(O1),
+          articleSummary(A1),
+        ]);
+      });
 
       it("returns suspended, unpublished and draft listings and a suspended place (#8 on stage-2 kinds)", async () => {
         const h = await makeHarness();
@@ -340,9 +391,19 @@ export function describeContentDirectoryContract(
         ]);
       });
 
-      it.todo(
-        "contentDirectory#10 名称が未入力の下書きの地域 R1 と、タイトルが未入力の下書きの読みもの A1 が保存されている / describe([R1, A1])",
-      );
+      it("contentDirectory#10 名称が未入力の下書きの地域 R1 と、タイトルが未入力の下書きの読みもの A1 が保存されている / describe([R1, A1])", async () => {
+        const h = await makeHarness();
+        const R1 = newRegion(regionIds().region(), emptyRegionContent());
+        await insertRegions(h, R1);
+        const A1 = draftArticle(articleIds().article(), EMPTY_ARTICLE_CONTENT);
+        await insertArticles(h, A1);
+        expect(
+          await h.directory.describe([articleRef(A1), regionRef(R1)]),
+        ).toEqual([
+          { target: regionRef(R1), name: null, photoIds: [] },
+          { target: articleRef(A1), name: null, photoIds: [] },
+        ]);
+      });
 
       it("returns an unnamed draft listing with name null (#10 on stage-2 kinds)", async () => {
         const h = await makeHarness();
@@ -354,15 +415,6 @@ export function describeContentDirectoryContract(
             name: null,
             photoIds: listingSummary(L1).photoIds,
           },
-        ]);
-      });
-
-      it("returns an unnamed draft region with name null (#10 with a region)", async () => {
-        const h = await makeHarness();
-        const R1 = newRegion(regionIds().region(), emptyRegionContent());
-        await insertRegions(h, R1);
-        expect(await h.directory.describe([regionRef(R1)])).toEqual([
-          { target: regionRef(R1), name: null, photoIds: [] },
         ]);
       });
 
@@ -466,9 +518,29 @@ export function describeContentDirectoryContract(
         expect(summary?.photoIds).toEqual([X.photoId, Y.photoId]);
       });
 
-      it.todo(
-        "contentDirectory#16 読みもの A1 が保存されている / UnitOfWork の中で A1 のタイトルを変えて save してコミットし、直後に describe([A1])",
-      );
+      it("contentDirectory#16 読みもの A1 が保存されている / UnitOfWork の中で A1 のタイトルを変えて save してコミットし、直後に describe([A1])", async () => {
+        const h = await makeHarness();
+        const a = articleIds();
+        const photo = a.photo();
+        const A1 = publishedArticle(
+          a.article(),
+          articleContent({ title: "旧タイトル", photoIds: [photo] }),
+        );
+        await insertArticles(h, A1);
+        await updateArticle(
+          h,
+          A1.id,
+          (article) =>
+            Article.revise(
+              article,
+              articleContent({ title: "新タイトル", photoIds: [photo] }),
+              articleTicker()(),
+            ).entity,
+        );
+        expect(await h.directory.describe([articleRef(A1)])).toEqual([
+          { target: articleRef(A1), name: "新タイトル", photoIds: [photo] },
+        ]);
+      });
 
       it("shows a name changed by a committed save (#16 on a place)", async () => {
         const h = await makeHarness();

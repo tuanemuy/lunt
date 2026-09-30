@@ -1,3 +1,4 @@
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type { AreaCode } from "@repo/core/domain/common/areaCode";
 import type { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import type { PlaceId, RegionId } from "@repo/core/domain/common/ids";
@@ -83,8 +84,9 @@ export type RegionsQuery = Readonly<{
  *   region is not viewable.
  * - `findOccasions`: the viewable occasions upcoming or ongoing on `today`
  *   (participants or not), by period start, then end.
- *
- * The article list joins with stage 5 (`findArticles`).
+ * - `findArticles`: the published articles (showcases or not, viewable or
+ *   not), newest first (`firstPublishedAt` descending, then `ArticleId`).
+ *   Also the feed's article frames, never narrowed by criteria.
  */
 export interface ExplorationQueries {
   findPlaceCells(query: PlaceCellsQuery): Promise<readonly PlaceCell[]>;
@@ -109,4 +111,7 @@ export interface ExplorationQueries {
     today: LocalDate,
     pagination: Pagination,
   ): Promise<PaginationResult<PublishedOccasion>>;
+  findArticles(
+    pagination: Pagination,
+  ): Promise<PaginationResult<PublishedArticle>>;
 }

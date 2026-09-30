@@ -1,4 +1,5 @@
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type {
   Pagination,
   PaginationResult,
@@ -19,6 +20,7 @@ import type { PublishedRegion } from "@repo/core/domain/region/region";
 import {
   listingEntryFrom,
   placeEntryFrom,
+  publishedArticleFrom,
   publishedOccasionFrom,
   publishedRegionFrom,
   scoredFrom,
@@ -30,6 +32,7 @@ const scoredPlace = scoredFrom(placeEntryFrom);
 const scoredListing = scoredFrom(listingEntryFrom);
 const scoredRegion = scoredFrom(publishedRegionFrom);
 const scoredOccasion = scoredFrom(publishedOccasionFrom);
+const scoredArticle = scoredFrom(publishedArticleFrom);
 
 /**
  * `KeywordSearchQueries` over the Lunt state object: the object scores
@@ -116,6 +119,25 @@ export class DoKeywordSearchQueries implements KeywordSearchQueries {
       return {
         items: page.items.map((record) =>
           scoredOccasion(record, this.idGenerator),
+        ),
+        count: page.count,
+      };
+    });
+  }
+
+  searchArticles(
+    keyword: SearchKeyword,
+    pagination: Pagination,
+  ): Promise<PaginationResult<Scored<PublishedArticle>>> {
+    return mapDoError("Failed to search articles", async () => {
+      const page = await this.client.query("discovery.searchArticles", {
+        terms: keyword.terms,
+        page: pagination.page,
+        limit: pagination.limit,
+      });
+      return {
+        items: page.items.map((record) =>
+          scoredArticle(record, this.idGenerator),
         ),
         count: page.count,
       };

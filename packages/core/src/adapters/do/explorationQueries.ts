@@ -1,5 +1,6 @@
 import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import type { RegionId } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
@@ -27,6 +28,7 @@ import type { PublishedRegion } from "@repo/core/domain/region/region";
 import {
   listingEntryFrom,
   placeEntryFrom,
+  publishedArticleFrom,
   publishedOccasionFrom,
   publishedRegionFrom,
 } from "./discoveryRecords";
@@ -224,6 +226,23 @@ export class DoExplorationQueries implements ExplorationQueries {
       return {
         items: page.items.map((record) =>
           publishedOccasionFrom(record, this.idGenerator),
+        ),
+        count: page.count,
+      };
+    });
+  }
+
+  findArticles(
+    pagination: Pagination,
+  ): Promise<PaginationResult<PublishedArticle>> {
+    return mapDoError("Failed to find articles", async () => {
+      const page = await this.client.query("discovery.findArticles", {
+        page: pagination.page,
+        limit: pagination.limit,
+      });
+      return {
+        items: page.items.map((record) =>
+          publishedArticleFrom(record, this.idGenerator),
         ),
         count: page.count,
       };

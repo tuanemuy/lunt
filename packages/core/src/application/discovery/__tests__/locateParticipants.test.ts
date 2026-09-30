@@ -214,12 +214,58 @@ describe("locateParticipants", () => {
             : [],
       );
 
-    it("locateParticipants 範囲なしで読む / 範囲の外の区画はない", async () => {
-      const k = await discoveryKit();
+    /** Three participants inside `B` and two outside it, each far apart. */
+    const insideAndOutside = async (k: DiscoveryKit) => {
       const E = await k.w.occasion();
-      await participantAt(k, E.id, at(35, 139));
-      await participantAt(k, E.id, at(34.7, 135.5));
-      expect((await locate(k, E.id)).outside).toEqual([]);
+      const inside = [
+        await participantAt(k, E.id, at(35, 136)),
+        await participantAt(k, E.id, at(35.8, 137.6)),
+        await participantAt(k, E.id, at(36.6, 139.2)),
+      ];
+      const outside = [
+        await participantAt(k, E.id, at(34, 135)),
+        await participantAt(k, E.id, at(37, 141)),
+      ];
+      const B = { southWest: at(34.9, 135.9), northEast: at(36.7, 139.3) };
+      return { E, B, inside, outside };
+    };
+
+    const cellKeys = (cells: readonly Cell[]) =>
+      cells.map((cell) => [cell.kind, cell.column, cell.row, idsOf([cell])]);
+
+    it("locateParticipants#11 イベント E の参加店舗が、範囲 B の中に3件、B の外に2件 / E と範囲 B で読む", async () => {
+      const k = await discoveryKit();
+      const { E, B, inside, outside } = await insideAndOutside(k);
+      const out = await locate(k, E.id, B);
+      expect(idsOf(out.cells).sort()).toEqual(
+        inside.map((place) => place.id).sort(),
+      );
+      expect(idsOf(out.outside).sort()).toEqual(
+        outside.map((place) => place.id).sort(),
+      );
+      const whole = await locate(k, E.id);
+      expect(out.extent).toEqual(whole.extent);
+      const outsideIds = new Set<string>(outside.map((place) => place.id));
+      expect(cellKeys(out.outside)).toEqual(
+        cellKeys(
+          whole.cells.filter((cell) =>
+            idsOf([cell]).every((id) => outsideIds.has(id)),
+          ),
+        ),
+      );
+      const ids = [...idsOf(out.cells), ...idsOf(out.outside)];
+      expect(new Set(ids).size).toBe(5);
+      expect(ids).toHaveLength(5);
+    });
+
+    it("locateParticipants#12 上と同じ / E と範囲なしで読む", async () => {
+      const k = await discoveryKit();
+      const { E, inside, outside } = await insideAndOutside(k);
+      const out = await locate(k, E.id);
+      expect(idsOf(out.cells).sort()).toEqual(
+        [...inside, ...outside].map((place) => place.id).sort(),
+      );
+      expect(out.outside).toEqual([]);
     });
 
     it("locateParticipants 東京と大阪の参加店舗 / 範囲ごとに読むと、範囲の中と外で各店舗が1回ずつ", async () => {

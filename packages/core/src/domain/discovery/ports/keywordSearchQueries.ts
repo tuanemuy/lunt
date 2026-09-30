@@ -1,3 +1,4 @@
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type {
   Pagination,
@@ -31,8 +32,7 @@ export type OccasionSearch = Readonly<{
  * newest first, then id. `vacantOnly` / `openOnly` narrow the range; the
  * page and `count` are decided inside it. Kinds page independently and
  * take no browse criteria. Read-only; never joins a unit of work.
- *
- * Articles (`searchArticles`) join with stage 5.
+ * Articles match on `Article.searchableText` (title, then body).
  */
 export interface KeywordSearchQueries {
   searchPlaces(
@@ -51,4 +51,8 @@ export interface KeywordSearchQueries {
     query: OccasionSearch,
     pagination: Pagination,
   ): Promise<PaginationResult<Scored<PublishedOccasion>>>;
+  searchArticles(
+    keyword: SearchKeyword,
+    pagination: Pagination,
+  ): Promise<PaginationResult<Scored<PublishedArticle>>>;
 }

@@ -61,10 +61,7 @@ const idsOf = <T>(
 
 /**
  * `KeywordSearchQueries` contract
- * (`spec/testcases/ports/keywordSearchQueries.md`). Stage 3a implements
- * places, listings, regions and occasions; rows that need articles
- * (`searchArticles`) stay `todo` until stage 5, each with an extra test of
- * the same rule over the four kinds.
+ * (`spec/testcases/ports/keywordSearchQueries.md`).
  */
 export function describeKeywordSearchQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
@@ -108,6 +105,9 @@ export function describeKeywordSearchQueriesContract(
         },
         options.pagination ?? PAGE,
       );
+
+    const articles = (h: DiscoveryHarness, text: string, pagination = PAGE) =>
+      h.keywordSearchQueries.searchArticles(keyword(text), pagination);
 
     const named = (w: ReturnType<typeof discoveryWorld>, name: string) =>
       w.place({ profile: { name } });
@@ -254,9 +254,17 @@ export function describeKeywordSearchQueriesContract(
         );
       });
 
-      it.todo(
-        "keywordSearchQueries#10 タイトルに「港」を含む読みものと、本文にだけ「港」を含む読みもの / 「港」で searchArticles を呼ぶ",
-      ); // S5
+      it("keywordSearchQueries#10 タイトルに「港」を含む読みものと、本文にだけ「港」を含む読みもの / 「港」で searchArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const inBody = await w.article({ title: "町の話", body: "港を歩く" });
+        const inTitle = await w.article({ title: "港の朝", body: "朝の話" });
+        const page = await articles(h, "港");
+        expect(ranked(page, idOf)).toEqual([
+          [inTitle.id, 3],
+          [inBody.id, 1],
+        ]);
+      });
+
       it("keywordSearchQueries#11 店舗の名称と、その店舗の掲載の名称が、どちらも「山田」を含む / 「山田」で searchPlaces と searchListings を呼ぶ", async () => {
         const { h, w } = await setup();
         const P = await named(w, "山田商店");
@@ -265,9 +273,20 @@ export function describeKeywordSearchQueriesContract(
         expect(idsOf(await listings(h, "山田"), listingIdOf)).toEqual([L.id]);
       });
 
-      it.todo(
-        "keywordSearchQueries#12 どの対象にも含まれない語 / 5つのメソッドをそれぞれ呼ぶ",
-      ); // S5
+      it("keywordSearchQueries#12 どの対象にも含まれない語 / 5つのメソッドをそれぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await named(w, "山田商店");
+        await w.available(P.id);
+        await w.region();
+        await w.occasion();
+        await w.article({ title: "山田の話" });
+        const none = { items: [], count: 0 };
+        expect(await places(h, "該当なし")).toEqual(none);
+        expect(await listings(h, "該当なし")).toEqual(none);
+        expect(await regions(h, "該当なし")).toEqual(none);
+        expect(await occasions(h, "該当なし")).toEqual(none);
+        expect(await articles(h, "該当なし")).toEqual(none);
+      });
 
       it("a keyword whose terms NFKC expands past 100 characters is searched in every kind, not refused", async () => {
         const { h, w } = await setup();
@@ -284,19 +303,6 @@ export function describeKeywordSearchQueriesContract(
         expect(idsOf(await listings(h, text), listingIdOf)).toEqual([L.id]);
         expect(idsOf(await regions(h, text), idOf)).toEqual([R.id]);
         expect(idsOf(await occasions(h, text), idOf)).toEqual([E.id]);
-      });
-
-      it("a word no target holds finds nothing in the four stage-3a kinds (#12 without searchArticles)", async () => {
-        const { h, w } = await setup();
-        const P = await named(w, "山田商店");
-        await w.available(P.id);
-        await w.region();
-        await w.occasion();
-        const none = { items: [], count: 0 };
-        expect(await places(h, "該当なし")).toEqual(none);
-        expect(await listings(h, "該当なし")).toEqual(none);
-        expect(await regions(h, "該当なし")).toEqual(none);
-        expect(await occasions(h, "該当なし")).toEqual(none);
       });
     });
 
@@ -422,9 +428,12 @@ export function describeKeywordSearchQueriesContract(
         expect(await occasions(h, "マルシェ")).toEqual({ items: [], count: 0 });
       });
 
-      it.todo(
-        "keywordSearchQueries#22 キーワードに一致する、draft と unpublished の読みもの / searchArticles を呼ぶ",
-      ); // S5
+      it("keywordSearchQueries#22 キーワードに一致する、draft と unpublished の読みもの / searchArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        await w.article({ state: "draft", title: "港の朝" });
+        await w.article({ state: "unpublished", title: "港の朝" });
+        expect(await articles(h, "港")).toEqual({ items: [], count: 0 });
+      });
     });
 
     describe("候補の範囲", () => {
@@ -572,9 +581,34 @@ export function describeKeywordSearchQueriesContract(
         ]);
       });
 
-      it.todo(
-        "keywordSearchQueries#31 relevance が同じ地域・イベント・読みものが、それぞれ firstPublishedAt の違う2つずつ / searchRegions・searchOccasions・searchArticles を呼ぶ",
-      ); // S5
+      it("keywordSearchQueries#31 relevance が同じ地域・イベント・読みものが、それぞれ firstPublishedAt の違う2つずつ / searchRegions・searchOccasions・searchArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const olderRegion = await w.region({ name: "港町" });
+        const newerRegion = await w.region({ name: "港南" });
+        const olderOccasion = await w.occasion({
+          name: "港まつり",
+          period: ["2026-07-15", "2026-07-16"],
+        });
+        const newerOccasion = await w.occasion({
+          name: "港フェス",
+          period: ["2026-07-30", "2026-07-31"],
+        });
+        const olderArticle = await w.article({ title: "港の朝" });
+        const newerArticle = await w.article({ title: "港の夜" });
+        expect(ranked(await regions(h, "港"), idOf)).toEqual([
+          [newerRegion.id, 3],
+          [olderRegion.id, 3],
+        ]);
+        expect(ranked(await occasions(h, "港"), idOf)).toEqual([
+          [newerOccasion.id, 3],
+          [olderOccasion.id, 3],
+        ]);
+        expect(ranked(await articles(h, "港"), idOf)).toEqual([
+          [newerArticle.id, 3],
+          [olderArticle.id, 3],
+        ]);
+      });
+
       it("keywordSearchQueries#32 一致する掲載が1件 / searchListings を呼ぶ", async () => {
         const { h, w } = await setup();
         const P = await w.place();
@@ -628,43 +662,19 @@ export function describeKeywordSearchQueriesContract(
         expect(listingPage.count).toBe(2);
       });
 
-      it.todo(
-        "keywordSearchQueries#36 一致する店舗・地域・イベント・読みものが、それぞれ5件 / searchPlaces・searchRegions・searchOccasions・searchArticles を、limit: 3 で page: 1・page: 2・page: 3 と呼ぶ",
-      ); // S5
-
-      it("regions and occasions of equal relevance come newest first — occasions too, not by holding period (#31 without articles)", async () => {
-        const { h, w } = await setup();
-        const olderRegion = await w.region({ name: "港町" });
-        const newerRegion = await w.region({ name: "港南" });
-        const olderOccasion = await w.occasion({
-          name: "港まつり",
-          period: ["2026-07-15", "2026-07-16"],
-        });
-        const newerOccasion = await w.occasion({
-          name: "港フェス",
-          period: ["2026-07-30", "2026-07-31"],
-        });
-        expect(idsOf(await regions(h, "港"), idOf)).toEqual([
-          newerRegion.id,
-          olderRegion.id,
-        ]);
-        expect(idsOf(await occasions(h, "港"), idOf)).toEqual([
-          newerOccasion.id,
-          olderOccasion.id,
-        ]);
-      });
-
-      it("places, regions and occasions page 3, 2, then none of 5 (#36 without searchArticles)", async () => {
+      it("keywordSearchQueries#36 一致する店舗・地域・イベント・読みものが、それぞれ5件 / searchPlaces・searchRegions・searchOccasions・searchArticles を、limit: 3 で page: 1・page: 2・page: 3 と呼ぶ", async () => {
         const { h, w } = await setup();
         const all = {
           places: [] as string[],
           regions: [] as string[],
           occasions: [] as string[],
+          articles: [] as string[],
         };
         for (let i = 0; i < 5; i += 1) {
           all.places.push((await named(w, "港食堂")).id);
           all.regions.push((await w.region({ name: "港町" })).id);
           all.occasions.push((await w.occasion({ name: "港まつり" })).id);
+          all.articles.push((await w.article({ title: "港の朝" })).id);
         }
         const reads = [
           [
@@ -687,6 +697,13 @@ export function describeKeywordSearchQueriesContract(
               idOf,
             ),
             all.occasions,
+          ],
+          [
+            await threePages(
+              (pagination) => articles(h, "港", pagination),
+              idOf,
+            ),
+            all.articles,
           ],
         ] as const;
         for (const [read, ids] of reads) {
@@ -737,9 +754,23 @@ export function describeKeywordSearchQueriesContract(
         expect(await listings(h, "山田")).toEqual({ items: [], count: 0 });
       });
 
-      it.todo(
-        "keywordSearchQueries#40 キーワードに一致する draft の地域・イベント・読みもの（公開条件を満たす） / それぞれ publish して save してコミットし、直後に searchRegions・searchOccasions・searchArticles を呼ぶ",
-      ); // S5
+      it("keywordSearchQueries#40 キーワードに一致する draft の地域・イベント・読みもの（公開条件を満たす） / それぞれ publish して save してコミットし、直後に searchRegions・searchOccasions・searchArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const R = await w.region({ state: "draft", name: "港町" });
+        const E = await w.occasion({ state: "draft", name: "港まつり" });
+        const A = await w.article({ state: "draft", title: "港の朝" });
+        expect(await articles(h, "港")).toEqual({ items: [], count: 0 });
+        await w.updateRegion(R, (s) => Region.publish(s, w.f.tick()).entity);
+        await w.updateOccasion(
+          E,
+          (s) => Occasion.publish(s, w.f.tick()).entity,
+        );
+        await w.publishArticle(A);
+        expect(idsOf(await regions(h, "港"), idOf)).toEqual([R.id]);
+        expect(idsOf(await occasions(h, "港"), idOf)).toEqual([E.id]);
+        expect(idsOf(await articles(h, "港"), idOf)).toEqual([A.id]);
+      });
+
       it("keywordSearchQueries#41 キーワードに一致する draft の掲載 L / UnitOfWork の中で、publish した L を save した後に、fn が例外を投げる", async () => {
         const { h, w } = await setup();
         const P = await w.place();
@@ -773,19 +804,6 @@ export function describeKeywordSearchQueriesContract(
           items: [],
           count: 0,
         });
-      });
-
-      it("a draft region and occasion published and committed show at once (#40 without articles)", async () => {
-        const { h, w } = await setup();
-        const R = await w.region({ state: "draft", name: "港町" });
-        const E = await w.occasion({ state: "draft", name: "港まつり" });
-        await w.updateRegion(R, (s) => Region.publish(s, w.f.tick()).entity);
-        await w.updateOccasion(
-          E,
-          (s) => Occasion.publish(s, w.f.tick()).entity,
-        );
-        expect(idsOf(await regions(h, "港"), idOf)).toEqual([R.id]);
-        expect(idsOf(await occasions(h, "港"), idOf)).toEqual([E.id]);
       });
     });
   });

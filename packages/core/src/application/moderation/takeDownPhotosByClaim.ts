@@ -1,3 +1,4 @@
+import { Article } from "@repo/core/domain/article/article";
 import type { EventDraft } from "@repo/core/domain/common/event";
 import type { PhotoId, TakedownClaimId } from "@repo/core/domain/common/ids";
 import type { Publication } from "@repo/core/domain/common/publication";
@@ -28,7 +29,7 @@ export type TakeDownPhotosByClaimOutput = Readonly<{
   unpublished: boolean;
 }>;
 
-/** The target does not exist (deleted, never existed, or an article before S5). */
+/** The target does not exist (deleted or never existed). */
 export const CONTENT_NOT_FOUND = "CONTENT_NOT_FOUND";
 
 const notFound = (target: ContentRef) =>
@@ -59,7 +60,6 @@ const publishable = (
  * Calls the target kind's repository and `takeDownPhotos`, and saves
  * against the version read
  * (`spec/usecases/moderation.md` 「takeDownPhotosByClaim」's table).
- * Articles are wired in S5; until then an article target reads as missing.
  */
 async function takeDown(
   ctx: UnitOfWorkContext,
@@ -127,8 +127,21 @@ async function takeDown(
         eventDrafts,
       );
     }
-    case "article":
-      throw notFound(target);
+    case "article": {
+      const found = await ctx.articleRepository.findById(target.id);
+      if (found === null) throw notFound(target);
+      const { entity, eventDrafts } = Article.takeDownPhotos(
+        found.entity,
+        photoIds,
+        now,
+      );
+      await ctx.articleRepository.save(entity, found.expectedVersion);
+      return publishable(
+        found.entity.publication,
+        entity.publication,
+        eventDrafts,
+      );
+    }
   }
 }
 
@@ -143,14 +156,15 @@ async function takeDown(
  * unchanged. Emits the aggregate's `content.photos_taken_down`,
  * `photos.released` and, for a listing, region or occasion that loses its
  * last photo while published, `{listing|region|occasion}.unpublished`
- * (`photoTakedown`). Removed photos cannot be restored.
+ * (`photoTakedown`); an article unpublished that way emits no
+ * publication event. Removed photos cannot be restored.
  *
  * Checked in the order the spec fixes: `ForbiddenError`
  * (`operate_service`, also when revoked before the commit);
  * `NotFoundError` (`TAKEDOWN_CLAIM_NOT_FOUND`); `BusinessRuleError` `MODERATION_TAKEDOWN_CLAIM_ALREADY_RESOLVED` /
  * `MODERATION_TAKEDOWN_CLAIM_TARGET_MISMATCH`; `NotFoundError`
  * (`CONTENT_NOT_FOUND`) for a gone target; `BusinessRuleError`
- * `{LISTING|PLACE|REGION|OCCASION}_PHOTO_NOT_FOUND` when any photo is not the target's
+ * `{LISTING|PLACE|REGION|OCCASION|ARTICLE}_PHOTO_NOT_FOUND` when any photo is not the target's
  * (none is removed). `ConflictError` when a manager's save commits first.
  */
 export async function takeDownPhotosByClaim({

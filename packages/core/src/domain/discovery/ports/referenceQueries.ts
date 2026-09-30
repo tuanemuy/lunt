@@ -15,10 +15,8 @@ import type { ReferenceResolution } from "../entry";
  *   occasions resolve with their target.
  * - `isViewable`: whether the one target is viewable; `false` when it does
  *   not exist. A listing is judged with its place's suspension. Independent
- *   of the date and the scene; the kind and the id decide together.
- *
- * Articles are judged with stage 5; until then no article exists, so an
- * article ref reads as not viewable.
+ *   of the date and the scene; the kind and the id decide together. An
+ *   article is viewable while published.
  */
 export interface ReferenceQueries {
   resolve(

@@ -1,11 +1,7 @@
 import type { AreaCode } from "@repo/core/domain/common/areaCode";
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
-import type {
-  CategoryId,
-  OccasionId,
-  PlaceId,
-} from "@repo/core/domain/common/ids";
-import { RegionId } from "@repo/core/domain/common/ids";
+import type { CategoryId, PlaceId } from "@repo/core/domain/common/ids";
+import { OccasionId, RegionId } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type { ResolvedCriteria } from "@repo/core/domain/discovery/browseCriteria";
 import { Geo, MapGrid } from "@repo/core/domain/discovery/geo";
@@ -44,6 +40,12 @@ import {
 
 const PAGE = { page: 1, limit: 10 } as const;
 const UNKNOWN_REGION = RegionId.create("ffffffff-ffff-7fff-8fff-00000ffffffd");
+const UNKNOWN_OCCASION = OccasionId.create(
+  "ffffffff-ffff-7fff-8fff-00000ffffffc",
+);
+
+const idsOf = (items: readonly Readonly<{ id: string }>[]) =>
+  items.map((item) => item.id);
 
 type Page = Readonly<{ page: number; limit: number }>;
 
@@ -1776,27 +1778,88 @@ export function describeExplorationQueriesContract(
     });
 
     describe("findArticles", () => {
-      it.todo(
-        "explorationQueries#96 読みものが1つもない / findArticles を呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#97 published の読みもの A1、draft の読みもの、unpublished の読みもの / findArticles を呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#98 紹介先を持たない公開中の読みものと、紹介先がすべて閲覧できない公開中の読みもの / findArticles を呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#99 公開中の読みもの A1・A2・A3 の firstPublishedAt が T1 < T2 < T3。A1 は公開を取り下げた後、T3 より後に再び公開されている / findArticles を呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#100 firstPublishedAt が同じ読みものが2つ / findArticles を呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#101 公開中の読みものが3つ / page: 1・limit: 3 で呼ぶ",
-      ); // S5
-      it.todo(
-        "explorationQueries#102 公開中の読みものが5つ / limit: 3 で page: 1・page: 2・page: 3 を呼ぶ",
-      ); // S5
+      const articlesOf = (h: DiscoveryHarness, pagination: Page = PAGE) =>
+        h.explorationQueries.findArticles(pagination);
+
+      it("explorationQueries#96 読みものが1つもない / findArticles を呼ぶ", async () => {
+        const { h } = await setup();
+        expect(await articlesOf(h)).toEqual({ items: [], count: 0 });
+      });
+
+      it("explorationQueries#97 published の読みもの A1、draft の読みもの、unpublished の読みもの / findArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const A1 = await w.article();
+        await w.article({ state: "draft" });
+        await w.article({ state: "unpublished" });
+        const found = await articlesOf(h);
+        expect(found.items).toEqual([A1]);
+        expect(found.count).toBe(1);
+      });
+
+      it("explorationQueries#98 紹介先を持たない公開中の読みものと、紹介先がすべて閲覧できない公開中の読みもの / findArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const bare = await w.article();
+        const hidden = await w.region({ state: "unpublished" });
+        const P = await w.place({ suspended: true });
+        const shows = await w.article({
+          showcases: [
+            { kind: "region", id: hidden.id },
+            { kind: "place", id: P.id },
+            { kind: "occasion", id: UNKNOWN_OCCASION },
+          ],
+        });
+        const found = await articlesOf(h);
+        expect(idsOf(found.items)).toEqual([shows.id, bare.id]);
+        expect(found.items[0]?.content.showcases).toEqual(
+          shows.content.showcases,
+        );
+      });
+
+      it("explorationQueries#99 公開中の読みもの A1・A2・A3 の firstPublishedAt が T1 < T2 < T3。A1 は公開を取り下げた後、T3 より後に再び公開されている / findArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const A1 = await w.article();
+        const A2 = await w.article();
+        const A3 = await w.article();
+        await w.unpublishArticle(A1);
+        await w.publishArticle(A1);
+        expect(idsOf((await articlesOf(h)).items)).toEqual([
+          A3.id,
+          A2.id,
+          A1.id,
+        ]);
+      });
+
+      it("explorationQueries#100 firstPublishedAt が同じ読みものが2つ / findArticles を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const T = w.f.tick();
+        const first = await w.article({ at: T });
+        const second = await w.article({ at: T });
+        expect(idsOf((await articlesOf(h)).items)).toEqual(
+          [first.id, second.id].sort(),
+        );
+      });
+
+      it("explorationQueries#101 公開中の読みものが3つ / page: 1・limit: 3 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (let i = 0; i < 3; i += 1) await w.article();
+        const found = await articlesOf(h, { page: 1, limit: 3 });
+        expect(found.items).toHaveLength(3);
+        expect(found.count).toBe(3);
+      });
+
+      it("explorationQueries#102 公開中の読みものが5つ / limit: 3 で page: 1・page: 2・page: 3 を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const made: string[] = [];
+        for (let i = 0; i < 5; i += 1) made.push((await w.article()).id);
+        const pages = [
+          await articlesOf(h, { page: 1, limit: 3 }),
+          await articlesOf(h, { page: 2, limit: 3 }),
+          await articlesOf(h, { page: 3, limit: 3 }),
+        ];
+        expect(pages.map((p) => p.items.length)).toEqual([3, 2, 0]);
+        expect(pages.map((p) => p.count)).toEqual([5, 5, 5]);
+        expect(pages.flatMap((p) => idsOf(p.items))).toEqual(made.reverse());
+      });
     });
 
     describe("可視性と UnitOfWork", () => {
@@ -1866,19 +1929,25 @@ export function describeExplorationQueriesContract(
         expect(placeIdsOf((await placesOf(h, R.id)).items)).toEqual([P.id]);
       });
 
-      it.todo(
-        "explorationQueries#108 draft のイベント E と draft の読みもの A（どちらも公開条件を満たす） / それぞれ publish して save してコミットし、直後に findOccasions・findArticles を呼ぶ",
-      ); // S5
-
-      it("an occasion published and committed shows in findOccasions at once (#108 without the article)", async () => {
+      it("explorationQueries#108 draft のイベント E と draft の読みもの A（どちらも公開条件を満たす） / それぞれ publish して save してコミットし、直後に findOccasions・findArticles を呼ぶ", async () => {
         const { h, w } = await setup();
         const E = await w.occasion({ state: "draft" });
+        const A = await w.article({ state: "draft" });
         expect(await occasionsOf(h)).toEqual({ items: [], count: 0 });
+        expect(await h.explorationQueries.findArticles(PAGE)).toEqual({
+          items: [],
+          count: 0,
+        });
         await w.updateOccasion(
           E,
           (stored) => Occasion.publish(stored, w.f.tick()).entity,
         );
+        const published = await w.publishArticle(A);
         expect(occasionIdsOf((await occasionsOf(h)).items)).toEqual([E.id]);
+        expect(await h.explorationQueries.findArticles(PAGE)).toEqual({
+          items: [published],
+          count: 1,
+        });
       });
 
       it("explorationQueries#109 店舗が保存されていない / UnitOfWork の中で店舗 P を insert した後に、fn が例外を投げる", async () => {

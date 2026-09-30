@@ -12,6 +12,7 @@ import { articleQueryHandlers } from "./article";
 import { authorityQueryHandlers } from "./authority";
 import { bookmarkQueryHandlers } from "./bookmark";
 import { discoveryQueryHandlers } from "./discovery";
+import { discoveryArticleQueryHandlers } from "./discoveryArticles";
 import { discoveryExplorationQueryHandlers } from "./discoveryExploration";
 import { discoveryFeedQueryHandlers } from "./discoveryFeed";
 import { listingQueryHandlers } from "./listing";
@@ -44,6 +45,7 @@ export const queryHandlers = {
   ...discoveryQueryHandlers,
   ...discoveryExplorationQueryHandlers,
   ...discoveryFeedQueryHandlers,
+  ...discoveryArticleQueryHandlers,
   ...regionQueryHandlers,
   ...occasionQueryHandlers,
   ...bookmarkQueryHandlers,

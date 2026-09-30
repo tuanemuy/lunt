@@ -5,10 +5,12 @@ import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { CoverPhoto, PlaceEntry } from "@repo/core/domain/discovery/entry";
 import type { PlaceCell } from "@repo/core/domain/discovery/mapClustering";
 import {
+  type ArticleSummary,
   type ListingSummary,
   type OccasionSummary,
   type PlaceSummary,
   type RegionSummary,
+  type ShowcaseSummary,
   ViewProjection,
 } from "@repo/core/domain/discovery/viewProjection";
 import type { PhotoDisplayRef } from "@repo/core/domain/media/photoDisplayRef";
@@ -59,6 +61,25 @@ export const regionSummaryPhotoIds = (
 export const occasionSummaryPhotoIds = (
   summary: OccasionSummary,
 ): readonly PhotoId[] => [summary.cover.photoId];
+
+export const articleSummaryPhotoIds = (
+  summary: ArticleSummary,
+): readonly PhotoId[] => [summary.cover.photoId];
+
+export const showcaseSummaryPhotoIds = (
+  showcase: ShowcaseSummary,
+): readonly PhotoId[] => {
+  switch (showcase.kind) {
+    case "listing":
+      return listingSummaryPhotoIds(showcase.summary);
+    case "place":
+      return placeSummaryPhotoIds(showcase.summary);
+    case "region":
+      return regionSummaryPhotoIds(showcase.summary);
+    case "occasion":
+      return occasionSummaryPhotoIds(showcase.summary);
+  }
+};
 
 /**
  * A place on the map: its summary (operating status included, the

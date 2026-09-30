@@ -23,8 +23,7 @@ export function createTestModerationServices(
 
 /**
  * Test-only `ContentDirectory` holding the targets a test adds, for tests
- * that name targets without storing them (articles have no storage before
- * S5): `createTestContainer({ overrides:
+ * that name targets without storing them: `createTestContainer({ overrides:
  * () => ({ contentDirectory: directory }) })`. It keeps the port's contract
  * (0–100 targets, existing ones only, `ContentOrder`).
  */

@@ -1,5 +1,6 @@
 import { SystemError, SystemErrorCode } from "@repo/core/application/errors";
 import type { IdGenerator } from "@repo/core/application/ports/idGenerator";
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import { ListingId, PhotoId } from "@repo/core/domain/common/ids";
 import type {
   ListingEntry,
@@ -18,6 +19,7 @@ import {
 import { Framing } from "@repo/core/domain/listing/values";
 import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
 import type { PublishedRegion } from "@repo/core/domain/region/region";
+import type { ArticleRecord } from "./protocol/article";
 import type {
   ListingEntryRecord,
   ParticipantEntryRecord,
@@ -28,6 +30,7 @@ import type {
 import type { ListingRecord } from "./protocol/listing";
 import type { OccasionRecord } from "./protocol/occasion";
 import type { RegionRecord } from "./protocol/region";
+import { DoArticleRepository } from "./repositories/articleRepository";
 import { listingFromRecord } from "./repositories/listingRepository";
 import { occasionFromRecord } from "./repositories/occasionRepository";
 import { participationFromRecord } from "./repositories/participationRepository";
@@ -95,6 +98,18 @@ export function publishedOccasionFrom(
     throw integrity(`Viewable occasion ${occasion.id} is not viewable`);
   }
   return occasion;
+}
+
+/** A viewable article; `DATA_INTEGRITY_ERROR` when the record is not one. */
+export function publishedArticleFrom(
+  record: ArticleRecord,
+  idGenerator: IdGenerator,
+): PublishedArticle {
+  const article = DoArticleRepository.toArticle(record, idGenerator);
+  if (!VisibilityPolicy.viewableArticle(article)) {
+    throw integrity(`Viewable article ${article.id} is not viewable`);
+  }
+  return article;
 }
 
 /**

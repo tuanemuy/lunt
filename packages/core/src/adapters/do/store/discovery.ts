@@ -40,8 +40,8 @@ import type { Migration } from "./schema";
 
 /**
  * Discovery keeps no state of its own: every read is computed from Place's,
- * Listing's, Region's, Occasion's and Authority's tables (their store
- * modules document the columns). Migration 13 adds only indexes for its
+ * Listing's, Region's, Occasion's, Article's and Authority's tables (their
+ * store modules document the columns). Migration 13 adds only indexes for its
  * reads: `idx_listings_newest_viewable` lets the feed's newest-first
  * listing pages walk the viewable listings in order instead of sorting
  * every one.
@@ -509,6 +509,16 @@ function isViewable(sql: SqlExec, ref: RefRecord): boolean {
       return isRegionViewable(sql, ref.id);
     case "occasion":
       return isOccasionViewable(sql, ref.id);
+    case "article":
+      return (
+        sql
+          .exec(
+            `SELECT 1 FROM articles
+               WHERE id = ? AND publication_status = 'published'`,
+            ref.id,
+          )
+          .toArray().length > 0
+      );
     default:
       return false;
   }
@@ -932,6 +942,7 @@ export {
   idsParam,
   inOrder,
   isRegionViewable,
+  isViewable,
   LISTING_COLUMNS,
   LISTING_DISCOVERABLE,
   LISTING_VIEWABLE,

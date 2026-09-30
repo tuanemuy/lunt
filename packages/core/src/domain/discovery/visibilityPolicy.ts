@@ -1,3 +1,7 @@
+import type {
+  Article,
+  PublishedArticle,
+} from "@repo/core/domain/article/article";
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { Suspension } from "@repo/core/domain/common/suspension";
 import type {
@@ -41,6 +45,9 @@ const isRegionViewable = (region: PublicationExposure): boolean =>
 const isOccasionViewable = (occasion: PublicationExposure): boolean =>
   isPublishedAndShown(occasion);
 
+const isArticleViewable = (article: Pick<Article, "publication">): boolean =>
+  article.publication.status === "published";
+
 const isDiscoverable = (standing: Standing): boolean => {
   switch (standing.kind) {
     case "listing":
@@ -53,6 +60,7 @@ const isDiscoverable = (standing: Standing): boolean => {
     case "occasion":
       return standing.holding === "upcoming" || standing.holding === "ongoing";
     case "region":
+    case "article":
       return true;
   }
 };
@@ -67,9 +75,8 @@ const admits = (scene: Scene, standing: Standing): boolean =>
  * no per-scene or per-screen exceptions. Viewability depends only on the
  * publication state, the operator suspension and the place's suspension —
  * never on the date, the operating status, the holding status or the
- * cancellation.
- *
- * Articles join with stage 5 (`spec/domains/index.md` 「開発の順序との対応」).
+ * cancellation. Articles have no suspension: only their publication state
+ * counts.
  */
 export const VisibilityPolicy = {
   /** Not suspended by the operator. */
@@ -83,6 +90,11 @@ export const VisibilityPolicy = {
   isRegionViewable,
   /** `published` and not suspended; cancellation and holding status do not matter. */
   isOccasionViewable,
+  /** `published` (articles are never suspended). */
+  isArticleViewable,
+  /** `isArticleViewable` as a guard to the published variant. */
+  viewableArticle: (article: Article): article is PublishedArticle =>
+    article.publication.status === "published",
   /** `isRegionViewable` as a guard to the published variant. */
   viewableRegion: (region: Region): region is PublishedRegion =>
     region.publication.status === "published" && isRegionViewable(region),
@@ -92,7 +104,7 @@ export const VisibilityPolicy = {
   /**
    * A listing is discoverable while `available` at a place that is not
    * permanently closed; a place while not permanently closed; an occasion
-   * while upcoming or ongoing; a region always.
+   * while upcoming or ongoing; a region and an article always.
    */
   isDiscoverable,
   /** `reference` admits every standing; `discovery` only discoverable ones. */

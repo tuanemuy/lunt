@@ -1,3 +1,4 @@
+import { Article } from "@repo/core/domain/article/article";
 import { PhotoId, TakedownClaimId } from "@repo/core/domain/common/ids";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { BusinessRuleError } from "@repo/core/domain/error";
@@ -84,17 +85,15 @@ describe("submitTakedownClaim", () => {
     expect(await k.events("takedown_claim.submitted")).toHaveLength(1);
   });
 
-  it.todo(
-    "submitTakedownClaim#4 閲覧できる地域・イベント・読みものが、それぞれ写真を持つ / 立場を写真の権利者にし、それぞれの対象について、対象の写真を示して提出する",
-  );
-
-  it("accepts a photo rights holder's claim on a region's and an occasion's photo (#4 without articles)", async () => {
+  it("submitTakedownClaim#4 閲覧できる地域・イベント・読みものが、それぞれ写真を持つ / 立場を写真の権利者にし、それぞれの対象について、対象の写真を示して提出する", async () => {
     const k = await moderationKit();
     const region = await k.regionWithPhotos(2);
     const occasion = await k.occasionWithPhotos(2);
+    const article = await k.articleWithPhotos(2);
     for (const [target, photos] of [
       [{ kind: "region", id: region.id }, region.photos],
       [{ kind: "occasion", id: occasion.id }, occasion.photos],
+      [{ kind: "article", id: article.id }, article.photos],
     ] as const) {
       const [, second] = photos;
       if (second === undefined) throw new Error("two photos");
@@ -107,16 +106,18 @@ describe("submitTakedownClaim", () => {
         photoIds: [second],
       });
     }
-    expect(await k.events("takedown_claim.submitted")).toHaveLength(2);
+    expect(await k.events("takedown_claim.submitted")).toHaveLength(3);
   });
 
-  it("refuses a photo a region or occasion does not have", async () => {
+  it("refuses a photo a region, occasion or article does not have", async () => {
     const k = await moderationKit();
     const region = await k.regionWithPhotos(1);
     const occasion = await k.occasionWithPhotos(1);
+    const article = await k.articleWithPhotos(1);
     for (const target of [
       { kind: "region", id: region.id },
       { kind: "occasion", id: occasion.id },
+      { kind: "article", id: article.id },
     ] as const) {
       await expectRejected(
         k,
@@ -309,11 +310,23 @@ describe("submitTakedownClaim", () => {
     );
   });
 
-  it.todo(
-    "submitTakedownClaim#14 対象の読みものが、入力している間に公開の取り下げになった / 写真の権利者として提出する",
-  );
+  it("submitTakedownClaim#14 対象の読みものが、入力している間に公開の取り下げになった / 写真の権利者として提出する", async () => {
+    const k = await moderationKit();
+    const article = await k.articleWithPhotos(1);
+    await k.changeArticle(article.id, Article.unpublish);
+    await expectRejected(
+      k,
+      {
+        claimId: k.newId(),
+        target: { kind: "article", id: article.id },
+        photoIds: article.photos,
+      },
+      BusinessRuleError,
+      "MODERATION_TAKEDOWN_CLAIM_TARGET_UNAVAILABLE",
+    );
+  });
 
-  it("refuses a listing its manager unpublished while the claim was entered (#14 on a stage-2 kind)", async () => {
+  it("refuses a listing its manager unpublished while the claim was entered", async () => {
     const k = await moderationKit();
     const { m, listing, target } = await viewableListing(k);
     await k.unpublish(m, listing.id);

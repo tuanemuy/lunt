@@ -1,4 +1,5 @@
 import { Account } from "@repo/core/domain/account/entity";
+import { Article, type ArticleStatus } from "@repo/core/domain/article/article";
 import { RoleRoster } from "@repo/core/domain/authority/roleRoster";
 import {
   type Appointee,
@@ -13,6 +14,7 @@ import { type EventDraft, EventId } from "@repo/core/domain/common/event";
 import {
   type AccountId,
   ApplicationId,
+  ArticleId,
   CategoryId,
   InfoReportId,
   InvitationId,
@@ -24,7 +26,11 @@ import {
   TakedownClaimId,
 } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
-import type { ContentRef, StewardedRef } from "@repo/core/domain/common/refs";
+import type {
+  ContentRef,
+  ShowcaseRef,
+  StewardedRef,
+} from "@repo/core/domain/common/refs";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import { ListingContent } from "@repo/core/domain/listing/content";
 import { Listing } from "@repo/core/domain/listing/listing";
@@ -64,8 +70,8 @@ const FAR = { page: 1, limit: 100 } as const;
  * Usecase-test kit for Notification: the production-shaped test container
  * with a test `ContentDirectory` (targets and names a test sets, regions
  * and occasions included before their stage stores them) — or, with
- * `realDirectory`, the production one over the stored places and
- * listings — and a `TestMailer`, preconditions written straight through
+ * `realDirectory`, the production one over the stored content — and a
+ * `TestMailer`, preconditions written straight through
  * the repositories (no events), and readers for what was delivered.
  */
 export function notificationKit(
@@ -272,6 +278,47 @@ export function notificationKit(
     const ref = { kind: "listing", id } as const;
     directory.add(ref, name, [photoId]);
     return { ref, photoId };
+  }
+
+  /**
+   * An article with one photo showcasing `showcases`, written straight
+   * through the repository (no events) in `status` (default `published`;
+   * `unpublished` is an editor's unpublish), named in the directory by its
+   * title.
+   */
+  async function article(
+    showcases: readonly ShowcaseRef[],
+    spec: Readonly<{ status?: ArticleStatus; title?: string }> = {},
+  ): Promise<Extract<ContentRef, { kind: "article" }>> {
+    const id = ArticleId.create(idGenerator.next());
+    const title = spec.title ?? "読みもの";
+    const { entity } = Article.create(
+      {
+        id,
+        content: {
+          title,
+          body: "本文",
+          photoIds: [PhotoId.create(idGenerator.next())],
+          showcases,
+        },
+      },
+      tick(),
+    );
+    const status = spec.status ?? "published";
+    const published =
+      status === "draft" ? null : Article.publish(entity, tick());
+    const stored =
+      published === null
+        ? entity
+        : status === "unpublished"
+          ? Article.unpublish(published, tick())
+          : published;
+    await base.unitOfWorkProvider.run(({ articleRepository }) =>
+      articleRepository.insert(stored),
+    );
+    const ref = { kind: "article", id } as const;
+    directory.add(ref, title);
+    return ref;
   }
 
   async function writeCatalog(
@@ -529,6 +576,7 @@ export function notificationKit(
     participate,
     listing,
     publishedListing,
+    article,
     categories,
     retireCategory,
     renameCategory,

@@ -16,6 +16,7 @@ import {
 import { DoContentDirectory } from "../contentDirectory";
 import type { LuntStateClient } from "../protocol/client";
 import type { QueryArgs, QueryName, QueryResult } from "../protocol/queries";
+import { articleContentLookup } from "../store/article";
 import { CONTENT_LOOKUPS, describeContent } from "../store/contentLookups";
 import { occasionContentLookup } from "../store/occasion";
 import { regionContentLookup } from "../store/region";
@@ -60,12 +61,11 @@ describeContentLookupMechanism(async () => {
   };
 });
 
-describe("ContentDirectory in stage 3", () => {
+describe("ContentDirectory's registered lookups", () => {
   it("registers the region lookup and describes a stored region through the object's own lookups", async () => {
     expect(CONTENT_LOOKUPS.listing).toBeDefined();
     expect(CONTENT_LOOKUPS.place).toBeDefined();
     expect(CONTENT_LOOKUPS.region).toBe(regionContentLookup);
-    expect(CONTENT_LOOKUPS.article).toBeUndefined();
     const h = createNodeHarness();
     const ids = regionIds();
     const photo = ids.photo();
@@ -105,5 +105,9 @@ describe("ContentDirectory in stage 3", () => {
         photoIds: O1.content.photos.items.map((photo) => photo.photoId),
       },
     ]);
+  });
+
+  it("registers the article lookup", () => {
+    expect(CONTENT_LOOKUPS.article).toBe(articleContentLookup);
   });
 });

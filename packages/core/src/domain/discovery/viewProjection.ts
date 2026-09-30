@@ -1,7 +1,17 @@
+import type {
+  ArticleContent,
+  ArticlePhoto,
+  PublishedArticle,
+} from "@repo/core/domain/article/article";
+import type {
+  ArticleBody,
+  ArticleTitle,
+} from "@repo/core/domain/article/values";
 import type { Address } from "@repo/core/domain/common/address";
 import type { DateRange } from "@repo/core/domain/common/dateRange";
 import type { GeoPoint } from "@repo/core/domain/common/geo";
 import type {
+  ArticleId,
   CategoryId,
   ListingId,
   OccasionId,
@@ -9,6 +19,7 @@ import type {
   RegionId,
 } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { Tagline } from "@repo/core/domain/common/tagline";
 import type { ListingContent } from "@repo/core/domain/listing/content";
 import {
@@ -50,7 +61,9 @@ import type {
   CoverPhoto,
   ListingEntry,
   PlaceEntry,
+  ReferenceResolution,
   RegionContext,
+  ResolvedTarget,
   SubstituteCover,
 } from "./entry";
 import {
@@ -117,6 +130,61 @@ export type OccasionSummary = Readonly<{
   period: DateRange;
   venue: CompleteVenue;
   standing: OccasionStanding;
+}>;
+
+/** An article in a list or frame: its cover and title; the body is not shown. */
+export type ArticleSummary = Readonly<{
+  articleId: ArticleId;
+  cover: OwnCover;
+  title: ArticleTitle;
+}>;
+
+/**
+ * A showcased target as an article shows it: the kind's summary with its
+ * standing (reference scene), the displayed region named.
+ */
+export type ShowcaseSummary =
+  | Readonly<{ kind: "listing"; summary: ListingSummary }>
+  | Readonly<{ kind: "place"; summary: PlaceSummary }>
+  | Readonly<{ kind: "region"; summary: RegionSummary }>
+  | Readonly<{ kind: "occasion"; summary: OccasionSummary }>;
+
+/**
+ * A published article as viewers read it: its content and the viewable
+ * showcased targets in the editor's order (those not viewable left out).
+ */
+export type ArticleDetail = Readonly<{
+  articleId: ArticleId;
+  title: ArticleTitle;
+  body: ArticleBody;
+  /** Registration order; the first is the cover. */
+  photos: readonly ArticlePhoto[];
+  showcases: readonly ShowcaseSummary[];
+}>;
+
+/**
+ * One showcased target of a preview: its summary when viewable, else only
+ * the fact that viewers would not see it.
+ */
+export type ShowcasePreview =
+  | Readonly<{ ref: ShowcaseRef; viewable: true; showcase: ShowcaseSummary }>
+  | Readonly<{ ref: ShowcaseRef; viewable: false }>;
+
+/**
+ * Unpublished article content projected by the same rules as
+ * `articleSummary` and the article page. Title, body and cover may be
+ * missing, since the content need not meet the publish condition. Every
+ * showcase is kept, in order; a target viewers cannot see is marked so
+ * (the published page leaves it out).
+ */
+export type ArticlePreview = Readonly<{
+  summary: Readonly<{ cover: OwnCover | null; title: ArticleTitle | null }>;
+  detail: Readonly<{
+    title: ArticleTitle | null;
+    body: ArticleBody | null;
+    photos: readonly ArticlePhoto[];
+    showcases: readonly ShowcasePreview[];
+  }>;
 }>;
 
 /**
@@ -505,6 +573,97 @@ function previewListing(
   };
 }
 
+const ownArticleCover = (photo: ArticlePhoto): OwnCover => ({
+  source: "own",
+  photoId: photo.photoId,
+  framing: null,
+});
+
+function articleSummary(article: PublishedArticle): ArticleSummary {
+  return {
+    articleId: article.id,
+    cover: ownArticleCover(article.content.photos.items[0]),
+    title: article.content.title,
+  };
+}
+
+/** A resolved (viewable) showcase's summary with its standing on `today`. */
+function showcaseSummary(
+  target: ResolvedTarget,
+  today: LocalDate,
+): ShowcaseSummary {
+  const displayed = { kind: "displayed" } as const;
+  switch (target.kind) {
+    case "listing":
+      return {
+        kind: "listing",
+        summary: listingSummary(target.entry, displayed, today),
+      };
+    case "place":
+      return { kind: "place", summary: placeSummary(target.entry, displayed) };
+    case "region":
+      return { kind: "region", summary: regionSummary(target.region) };
+    case "occasion":
+      return {
+        kind: "occasion",
+        summary: occasionSummary(target.occasion, today),
+      };
+  }
+}
+
+/**
+ * The article page: the content as stored and `showcases` (the viewable
+ * showcased targets, in the article's order) as summaries.
+ */
+function articleDetail(
+  article: PublishedArticle,
+  showcases: readonly ResolvedTarget[],
+  today: LocalDate,
+): ArticleDetail {
+  const { content } = article;
+  return {
+    articleId: article.id,
+    title: content.title,
+    body: content.body,
+    photos: content.photos.items,
+    showcases: showcases.map((target) => showcaseSummary(target, today)),
+  };
+}
+
+/**
+ * Unpublished content as `articleSummary` and `articleDetail` would show
+ * it. `showcases` are every resolution of the content's showcases
+ * (`ReferenceQueries.resolve`), in order; those not viewable stay, marked.
+ */
+function previewArticle(
+  content: ArticleContent,
+  showcases: readonly ReferenceResolution[],
+  today: LocalDate,
+): ArticlePreview {
+  const [first] = content.photos.items;
+  return {
+    summary: {
+      cover: first === undefined ? null : ownArticleCover(first),
+      title: content.title,
+    },
+    detail: {
+      title: content.title,
+      body: content.body,
+      photos: content.photos.items,
+      showcases: showcases.map(
+        (resolution): ShowcasePreview =>
+          resolution.viewable
+            ? {
+                ref: resolution.ref,
+                viewable: true,
+                showcase: showcaseSummary(resolution.target, today),
+              }
+            : { ref: resolution.ref, viewable: false },
+      ),
+    },
+  };
+}
+
 /**
  * A listing detail's 「他の掲載」: `samePlace` without `self`, then
  * `sameRegion`, cut to the first `limit` (the screen's count).
@@ -536,11 +695,15 @@ export const ViewProjection = {
   placeSummary,
   regionSummary,
   occasionSummary,
+  articleSummary,
+  showcaseSummary,
   listingDetail,
   placeDetail,
   regionDetail,
   occasionDetail,
+  articleDetail,
   previewListing,
+  previewArticle,
   pickOtherListings,
   compareNewestListings,
 };

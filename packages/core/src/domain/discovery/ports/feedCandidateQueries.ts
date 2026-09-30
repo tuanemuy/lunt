@@ -51,7 +51,8 @@ export type FeedListingCandidates = Readonly<{
  *   never apply. 「開催日の順」 (period start, then end) without `origin`;
  *   with it, by the venue's distance, then newest first.
  *
- * Article frames come from `ExplorationQueries.findArticles` (stage 5).
+ * Article frames come from `ExplorationQueries.findArticles`: articles are
+ * never narrowed by criteria and stay newest first (V-47).
  */
 export interface FeedCandidateQueries {
   findListings(

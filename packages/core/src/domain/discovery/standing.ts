@@ -30,18 +30,21 @@ export type OccasionStanding = Readonly<{
 
 export type RegionStanding = Readonly<{ kind: "region" }>;
 
+export type ArticleStanding = Readonly<{ kind: "article" }>;
+
 /**
  * What the scene rules look at and what viewers are shown: a listing's
  * offering status (an upcoming one carries its start day) and its place's
  * operating status; a place's operating status; an occasion's holding
- * status. Regions have no standing that changes with the scene (articles
- * join in stage 5).
+ * status. Regions and articles have no standing that changes with the
+ * scene.
  */
 export type Standing =
   | ListingStanding
   | PlaceStanding
   | OccasionStanding
-  | RegionStanding;
+  | RegionStanding
+  | ArticleStanding;
 
 const ofListing = (
   listing: PublishedListing,
@@ -81,10 +84,12 @@ const ofOccasion = (
 };
 
 const REGION: RegionStanding = { kind: "region" };
+const ARTICLE: ArticleStanding = { kind: "article" };
 
 export const Standing = {
   ofListing,
   ofPlace,
   ofOccasion,
   ofRegion: (): RegionStanding => REGION,
+  ofArticle: (): ArticleStanding => ARTICLE,
 };

@@ -5,6 +5,7 @@ import type { ArticleQueries } from "./article";
 import type { AuthorityQueries } from "./authority";
 import type { BookmarkQueries } from "./bookmark";
 import type { DiscoveryQueries } from "./discovery";
+import type { DiscoveryArticleQueries } from "./discoveryArticles";
 import type { DiscoveryExplorationQueries } from "./discoveryExploration";
 import type { DiscoveryFeedQueries } from "./discoveryFeed";
 import type { ListingQueries } from "./listing";
@@ -44,6 +45,7 @@ export type QueryCatalog = AccountQueries &
   DiscoveryQueries &
   DiscoveryExplorationQueries &
   DiscoveryFeedQueries &
+  DiscoveryArticleQueries &
   RegionQueries &
   OccasionQueries &
   BookmarkQueries &

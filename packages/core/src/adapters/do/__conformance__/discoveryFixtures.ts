@@ -1,11 +1,17 @@
+import {
+  Article,
+  type ArticleContentInput,
+} from "@repo/core/domain/article/article";
 import type { GeoPoint } from "@repo/core/domain/common/geo";
-import type {
-  ListingId,
-  OccasionId,
-  PlaceId,
-  RegionId,
+import {
+  ArticleId,
+  type ListingId,
+  type OccasionId,
+  type PlaceId,
+  type RegionId,
 } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { PlaceEntry } from "@repo/core/domain/discovery/entry";
 import type { DetailQueries } from "@repo/core/domain/discovery/ports/detailQueries";
 import type { ExplorationQueries } from "@repo/core/domain/discovery/ports/explorationQueries";
@@ -88,6 +94,19 @@ export type OccasionState =
 
 export type DiscoveryOccasionSpec = OccasionSpec &
   Readonly<{ state?: OccasionState }>;
+
+export type ArticleState = "published" | "draft" | "unpublished";
+
+export type ArticleSpec = Readonly<{
+  state?: ArticleState;
+  title?: string;
+  body?: string;
+  /** How many photos (1 by default). */
+  photos?: number;
+  showcases?: readonly ShowcaseRef[];
+  /** When it is created and (unless a draft) first published; a tick by default. */
+  at?: Date;
+}>;
 
 export type PlaceSpec = Readonly<{
   status?: OperatingStatus;
@@ -386,6 +405,49 @@ export function discoveryWorld(h: DiscoveryHarness) {
     });
 
   /**
+   * An article built through the domain, stored in `spec.state` (published
+   * by default, first published at `spec.at`).
+   */
+  const article = async (spec: ArticleSpec = {}): Promise<Article> => {
+    const at = spec.at ?? f.tick();
+    const content: ArticleContentInput = {
+      title: spec.title ?? "読みもの",
+      body: spec.body ?? "本文",
+      photoIds: Array.from(
+        { length: spec.photos ?? 1 },
+        () => f.photo().photoId,
+      ),
+      showcases: spec.showcases ?? [],
+    };
+    const created = Article.create(
+      { id: ArticleId.create(f.ids.next()), content },
+      at,
+    ).entity;
+    const state = spec.state ?? "published";
+    const built =
+      state === "draft"
+        ? created
+        : state === "unpublished"
+          ? Article.unpublish(Article.publish(created, at), at)
+          : Article.publish(created, at);
+    await h.uow.run(({ articleRepository }) => articleRepository.insert(built));
+    return built;
+  };
+
+  /** Saves `change(stored)` of the article against the version read. */
+  const updateArticle = (
+    target: Article,
+    change: (stored: Article) => Article,
+  ): Promise<Article> =>
+    h.uow.run(async ({ articleRepository }) => {
+      const read = await articleRepository.findById(target.id);
+      if (read === null) throw new Error(`no article ${target.id}`);
+      const next = change(read.entity);
+      await articleRepository.save(next, read.expectedVersion);
+      return next;
+    });
+
+  /**
    * The entry the port must return, by `ViewProjection.placeEntry`: the
    * place's listings (for the substitute cover), and its affiliations and
    * the regions they may name.
@@ -437,6 +499,12 @@ export function discoveryWorld(h: DiscoveryHarness) {
     updateLink,
     restoreLink,
     unlink,
+    article,
+    updateArticle,
+    publishArticle: (a: Article, at: Date = f.tick()) =>
+      updateArticle(a, (stored) => Article.publish(stored, at)),
+    unpublishArticle: (a: Article, at: Date = f.tick()) =>
+      updateArticle(a, (stored) => Article.unpublish(stored, at)),
     suspendPlace: (p: Place) =>
       updatePlace(p, (stored) => Place.suspend(stored, PLACE_T0).entity),
     unsuspendPlace: (p: Place) =>

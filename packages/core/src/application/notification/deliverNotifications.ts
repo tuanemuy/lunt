@@ -11,10 +11,12 @@ import { IdBatch } from "@repo/core/domain/common/idBatch";
 import {
   type AccountId,
   type CategoryId,
+  type ListingId,
   NotificationId,
   type OccasionId,
   type PlaceId,
 } from "@repo/core/domain/common/ids";
+import { LocalDate } from "@repo/core/domain/common/localDate";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import {
@@ -108,29 +110,103 @@ async function participatingPlaces(
 }
 
 /**
+ * Every listing of the place in any state (`findPageByPlace` with the
+ * unfiltered shelf), every page read.
+ */
+async function listingsOfPlace(
+  ctx: UnitOfWorkContext,
+  placeId: PlaceId,
+  today: LocalDate,
+): Promise<readonly ListingId[]> {
+  const listings: ListingId[] = [];
+  for (let page = 1; ; page += 1) {
+    const { items, count } = await ctx.listingRepository.findPageByPlace(
+      placeId,
+      { publication: null, phase: null },
+      today,
+      { page, limit: IdBatch.maxSize },
+    );
+    listings.push(...items.map((listing) => listing.id));
+    if (items.length === 0 || listings.length >= count) return listings;
+  }
+}
+
+/** The place whose listings are the event's showcase candidates, if any. */
+function placeOfShowcaseCandidates(event: NotifiableEvent): PlaceId | null {
+  switch (event.type) {
+    case "place.suspended":
+      return event.payload.placeId;
+    case "place.operating_status_changed":
+      return event.payload.to === "permanentlyClosed"
+        ? event.payload.placeId
+        : null;
+    default:
+      return null;
+  }
+}
+
+type ShowcasingArticle = AnnouncementFacts["showcasingArticles"][number];
+
+/**
+ * The articles published at consumption time that showcase any of the
+ * event's candidates (`Announcements.showcaseRefsOf`), each with the
+ * candidates it showcases, in its own showcase order. All candidates go to
+ * `findPublishedByShowcases` in one call, and every page is read.
+ */
+async function showcasingArticles(
+  ctx: UnitOfWorkContext,
+  event: NotifiableEvent,
+  today: LocalDate,
+): Promise<readonly ShowcasingArticle[]> {
+  const placeId = placeOfShowcaseCandidates(event);
+  const candidates = Announcements.showcaseRefsOf(
+    event,
+    placeId === null ? [] : await listingsOfPlace(ctx, placeId, today),
+  );
+  if (candidates.length === 0) return [];
+  const wanted = new Set(candidates.map(ContentRef.key));
+  const found: ShowcasingArticle[] = [];
+  for (let page = 1; ; page += 1) {
+    const { items, count } =
+      await ctx.articleRepository.findPublishedByShowcases(candidates, {
+        page,
+        limit: IdBatch.maxSize,
+      });
+    found.push(
+      ...items.map((article) => ({
+        articleId: article.id,
+        showcases: article.content.showcases.filter((showcase) =>
+          wanted.has(ContentRef.key(showcase)),
+        ),
+      })),
+    );
+    if (items.length === 0 || found.length >= count) return found;
+  }
+}
+
+/**
  * Reads the facts the event's announcements need (`AnnouncementFacts`),
- * inside the read-only `run`. The published articles showcasing what an
- * event changed come from Article's repository, which lands in stage 5;
- * until then no article showcases anything, and a place's listings (the
- * candidates of its suspension or closure) need not be read.
+ * inside the read-only `run`.
  */
 async function readAnnouncementFacts(
   ctx: UnitOfWorkContext,
   event: NotifiableEvent,
+  today: LocalDate,
 ): Promise<AnnouncementFacts> {
+  const facts: AnnouncementFacts = {
+    ...AnnouncementFacts.none,
+    showcasingArticles: await showcasingArticles(ctx, event, today),
+  };
   switch (event.type) {
     case "content.photos_taken_down": {
       const { owner } = event.payload;
-      if (owner.kind !== "listing") return AnnouncementFacts.none;
+      if (owner.kind !== "listing") return facts;
       const found = await ctx.listingRepository.findById(owner.id);
-      return {
-        ...AnnouncementFacts.none,
-        ownerListingPlace: found?.entity.placeId ?? null,
-      };
+      return { ...facts, ownerListingPlace: found?.entity.placeId ?? null };
     }
     case "category.retired":
       return {
-        ...AnnouncementFacts.none,
+        ...facts,
         placesOfRetiredCategory: await placesOfRetiredCategory(
           ctx,
           event.payload.categoryId,
@@ -139,14 +215,14 @@ async function readAnnouncementFacts(
     case "occasion.cancelled":
     case "occasion.period_changed":
       return {
-        ...AnnouncementFacts.none,
+        ...facts,
         participatingPlaces: await participatingPlaces(
           ctx,
           event.payload.occasionId,
         ),
       };
     default:
-      return AnnouncementFacts.none;
+      return facts;
   }
 }
 
@@ -255,8 +331,9 @@ export async function planAnnouncements(
   container: RequestContainer,
   event: NotifiableEvent,
 ): Promise<readonly PlannedAnnouncement[]> {
+  const today = LocalDate.fromInstant(container.clock.now());
   const read = await container.unitOfWorkProvider.run(async (ctx) => {
-    const facts = await readAnnouncementFacts(ctx, event);
+    const facts = await readAnnouncementFacts(ctx, event, today);
     const toRead = Announcements.from(event, facts);
     const audiences = toRead.map(Addressing.audienceOf);
     const addressing = await readAddressingFacts(ctx, audiences);

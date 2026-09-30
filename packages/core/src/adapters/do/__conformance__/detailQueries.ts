@@ -1,4 +1,5 @@
 import {
+  ArticleId,
   CategoryId,
   ListingId,
   OccasionId,
@@ -6,6 +7,7 @@ import {
   RegionId,
 } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
+import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import type { OccasionSubject } from "@repo/core/domain/discovery/ports/detailQueries";
 import type { Scene } from "@repo/core/domain/discovery/scene";
 import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
@@ -35,14 +37,14 @@ const UNKNOWN_REGION = RegionId.create("ffffffff-ffff-7fff-8fff-00000ffffffd");
 const UNKNOWN_OCCASION = OccasionId.create(
   "ffffffff-ffff-7fff-8fff-00000ffffffc",
 );
+const UNKNOWN_ARTICLE = ArticleId.create(
+  "ffffffff-ffff-7fff-8fff-00000ffffffb",
+);
 
 const idsOf = (items: readonly Readonly<{ id: string }>[]) =>
   items.map((item) => item.id);
 
-/**
- * `DetailQueries` contract (`spec/testcases/ports/detailQueries.md`).
- * Rows that need articles stay `todo` until stage 5 (Article).
- */
+/** `DetailQueries` contract (`spec/testcases/ports/detailQueries.md`). */
 export function describeDetailQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
 ): void {
@@ -74,16 +76,13 @@ export function describeDetailQueriesContract(
         .then((found) => idsOf(found));
 
     describe("対象1件の読み取り", () => {
-      it.todo(
-        "detailQueries#1 どの集約も保存されていない / findListing・findPlace・findRegion・findOccasion・findArticle を、それぞれ任意の ID で呼ぶ",
-      );
-
-      it("findListing, findPlace, findRegion and findOccasion return null when nothing is stored (#1 without findArticle)", async () => {
+      it("detailQueries#1 どの集約も保存されていない / findListing・findPlace・findRegion・findOccasion・findArticle を、それぞれ任意の ID で呼ぶ", async () => {
         const { h } = await setup();
         expect(await h.detailQueries.findListing(UNKNOWN_LISTING)).toBeNull();
         expect(await h.detailQueries.findPlace(UNKNOWN_PLACE)).toBeNull();
         expect(await h.detailQueries.findRegion(UNKNOWN_REGION)).toBeNull();
         expect(await h.detailQueries.findOccasion(UNKNOWN_OCCASION)).toBeNull();
+        expect(await h.detailQueries.findArticle(UNKNOWN_ARTICLE)).toBeNull();
       });
 
       it("detailQueries#2 営業中の店舗 P の、published で提供中の掲載 L / findListing を呼ぶ", async () => {
@@ -315,12 +314,29 @@ export function describeDetailQueriesContract(
         }
       });
 
-      it.todo(
-        "detailQueries#19 published の読みもの。紹介先はすべて閲覧できない / findArticle を呼ぶ",
-      );
-      it.todo(
-        "detailQueries#20 draft と unpublished の読みもの / それぞれ findArticle を呼ぶ",
-      );
+      it("detailQueries#19 published の読みもの。紹介先はすべて閲覧できない / findArticle を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place({ suspended: true });
+        const R = await w.region({ state: "unpublished" });
+        const A = await w.article({
+          showcases: [
+            { kind: "place", id: P.id },
+            { kind: "region", id: R.id },
+            { kind: "listing", id: UNKNOWN_LISTING },
+          ],
+        });
+        const found = await h.detailQueries.findArticle(A.id);
+        expect(found).toEqual(A);
+        expect(found?.content.showcases).toEqual(A.content.showcases);
+      });
+
+      it("detailQueries#20 draft と unpublished の読みもの / それぞれ findArticle を呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (const state of ["draft", "unpublished"] as const) {
+          const A = await w.article({ state });
+          expect(await h.detailQueries.findArticle(A.id)).toBeNull();
+        }
+      });
     });
 
     describe("findListingsOfPlace", () => {
@@ -926,20 +942,157 @@ export function describeDetailQueriesContract(
     });
 
     describe("findArticlesShowcasing", () => {
-      for (const name of [
-        "detailQueries#67 店舗 P を紹介先に持つ読みものがない / place の P で呼ぶ",
-        "detailQueries#68 P を紹介先に持つ published の読みもの A1・A2・A3 の firstPublishedAt が T1 < T2 < T3 / place の P で呼ぶ",
-        "detailQueries#69 firstPublishedAt が同じ読みものが2つ / place の P で呼ぶ",
-        "detailQueries#70 P を紹介先に持つ draft の読みものと unpublished の読みもの / place の P で呼ぶ",
-        "detailQueries#71 掲載 L、地域 R、イベント E を、それぞれ紹介先に持つ公開中の読みものが1つずつ / listing の L、region の R、occasion の E で、それぞれ呼ぶ",
-        "detailQueries#72 店舗 P の掲載 L だけを紹介先に持つ公開中の読みもの / place の P で呼ぶ",
-        "detailQueries#73 公開中の読みもの A が、P を含む複数の紹介先を持つ / place の P で呼ぶ",
-        "detailQueries#74 非公開の店舗 P、P の published の掲載 L、unpublished の地域 R、運営による非公開のイベント E を、それぞれ紹介先に持つ公開中の読みものがある。または、紹介先の ID の対象がない / それぞれの参照で呼ぶ",
-        "detailQueries#75 P を紹介先に持つ公開中の読みものが3つ / page: 1・limit: 3 で呼ぶ",
-        "detailQueries#76 P を紹介先に持つ公開中の読みものが5つ / limit: 3 で page: 1・page: 2・page: 3 を呼ぶ",
-      ]) {
-        it.todo(name);
-      }
+      const showcasing = (
+        h: Awaited<ReturnType<typeof setup>>["h"],
+        ref: ShowcaseRef,
+        pagination: Readonly<{ page: number; limit: number }> = PAGE,
+      ) => h.detailQueries.findArticlesShowcasing(ref, pagination);
+
+      const placeRef = (P: Place): ShowcaseRef => ({ kind: "place", id: P.id });
+
+      it("detailQueries#67 店舗 P を紹介先に持つ読みものがない / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        await w.article();
+        expect(await showcasing(h, placeRef(P))).toEqual({
+          items: [],
+          count: 0,
+        });
+      });
+
+      it("detailQueries#68 P を紹介先に持つ published の読みもの A1・A2・A3 の firstPublishedAt が T1 < T2 < T3 / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const showcases = [placeRef(P)];
+        const A1 = await w.article({ showcases });
+        const A2 = await w.article({ showcases });
+        const A3 = await w.article({ showcases });
+        const found = await showcasing(h, placeRef(P));
+        expect(found.items).toEqual([A3, A2, A1]);
+        expect(found.count).toBe(3);
+      });
+
+      it("detailQueries#69 firstPublishedAt が同じ読みものが2つ / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const T = w.f.tick();
+        const first = await w.article({ at: T, showcases: [placeRef(P)] });
+        const second = await w.article({ at: T, showcases: [placeRef(P)] });
+        expect(idsOf((await showcasing(h, placeRef(P))).items)).toEqual(
+          [first.id, second.id].sort(),
+        );
+      });
+
+      it("detailQueries#70 P を紹介先に持つ draft の読みものと unpublished の読みもの / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        await w.article({ state: "draft", showcases: [placeRef(P)] });
+        await w.article({ state: "unpublished", showcases: [placeRef(P)] });
+        expect(await showcasing(h, placeRef(P))).toEqual({
+          items: [],
+          count: 0,
+        });
+      });
+
+      it("detailQueries#71 掲載 L、地域 R、イベント E を、それぞれ紹介先に持つ公開中の読みものが1つずつ / listing の L、region の R、occasion の E で、それぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const refs: readonly ShowcaseRef[] = [
+          { kind: "listing", id: (await w.available(P.id)).id },
+          { kind: "region", id: (await w.region()).id },
+          { kind: "occasion", id: (await w.occasion()).id },
+        ];
+        const articles = [];
+        for (const ref of refs) {
+          articles.push(await w.article({ showcases: [ref] }));
+        }
+        for (const [i, ref] of refs.entries()) {
+          expect(await showcasing(h, ref)).toEqual({
+            items: [articles[i]],
+            count: 1,
+          });
+        }
+      });
+
+      it("detailQueries#72 店舗 P の掲載 L だけを紹介先に持つ公開中の読みもの / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        await w.article({ showcases: [{ kind: "listing", id: L.id }] });
+        expect(await showcasing(h, placeRef(P))).toEqual({
+          items: [],
+          count: 0,
+        });
+      });
+
+      it("detailQueries#73 公開中の読みもの A が、P を含む複数の紹介先を持つ / place の P で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const Q = await w.place();
+        const R = await w.region();
+        const A = await w.article({
+          showcases: [
+            { kind: "place", id: Q.id },
+            placeRef(P),
+            { kind: "region", id: R.id },
+          ],
+        });
+        expect(await showcasing(h, placeRef(P))).toEqual({
+          items: [A],
+          count: 1,
+        });
+      });
+
+      it("detailQueries#74 非公開の店舗 P、P の published の掲載 L、unpublished の地域 R、運営による非公開のイベント E を、それぞれ紹介先に持つ公開中の読みものがある。または、紹介先の ID の対象がない / それぞれの参照で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.available(P.id);
+        const refs: readonly ShowcaseRef[] = [
+          placeRef(P),
+          { kind: "listing", id: L.id },
+          { kind: "region", id: (await w.region({ state: "unpublished" })).id },
+          {
+            kind: "occasion",
+            id: (await w.occasion({ state: "suspended" })).id,
+          },
+          { kind: "listing", id: UNKNOWN_LISTING },
+          { kind: "place", id: UNKNOWN_PLACE },
+          { kind: "region", id: UNKNOWN_REGION },
+          { kind: "occasion", id: UNKNOWN_OCCASION },
+        ];
+        await w.article({ showcases: refs });
+        await w.suspendPlace(P);
+        for (const ref of refs) {
+          expect(await showcasing(h, ref)).toEqual({ items: [], count: 0 });
+        }
+      });
+
+      it("detailQueries#75 P を紹介先に持つ公開中の読みものが3つ / page: 1・limit: 3 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        for (let i = 0; i < 3; i += 1) {
+          await w.article({ showcases: [placeRef(P)] });
+        }
+        const found = await showcasing(h, placeRef(P), { page: 1, limit: 3 });
+        expect(found.items).toHaveLength(3);
+        expect(found.count).toBe(3);
+      });
+
+      it("detailQueries#76 P を紹介先に持つ公開中の読みものが5つ / limit: 3 で page: 1・page: 2・page: 3 を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const made: string[] = [];
+        for (let i = 0; i < 5; i += 1) {
+          made.push((await w.article({ showcases: [placeRef(P)] })).id);
+        }
+        const pages = [];
+        for (const page of [1, 2, 3]) {
+          pages.push(await showcasing(h, placeRef(P), { page, limit: 3 }));
+        }
+        expect(pages.map((p) => p.items.length)).toEqual([3, 2, 0]);
+        expect(pages.map((p) => p.count)).toEqual([5, 5, 5]);
+        expect(pages.flatMap((p) => idsOf(p.items))).toEqual(made.reverse());
+      });
     });
 
     describe("可視性と UnitOfWork", () => {
@@ -1004,9 +1157,18 @@ export function describeDetailQueriesContract(
         expect(await related(h, { kind: "region", id: R.id })).toEqual([E.id]);
       });
 
-      it.todo(
-        "detailQueries#82 draft の読みもの A が店舗 P を紹介先に持つ（公開条件を満たす） / publish して save してコミットし、直後に findArticle と findArticlesShowcasing を呼ぶ",
-      );
+      it("detailQueries#82 draft の読みもの A が店舗 P を紹介先に持つ（公開条件を満たす） / publish して save してコミットし、直後に findArticle と findArticlesShowcasing を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const ref: ShowcaseRef = { kind: "place", id: P.id };
+        const A = await w.article({ state: "draft", showcases: [ref] });
+        expect(await h.detailQueries.findArticle(A.id)).toBeNull();
+        const published = await w.publishArticle(A);
+        expect(await h.detailQueries.findArticle(A.id)).toEqual(published);
+        expect(await h.detailQueries.findArticlesShowcasing(ref, PAGE)).toEqual(
+          { items: [published], count: 1 },
+        );
+      });
 
       it("detailQueries#83 published の掲載 L / UnitOfWork の中で、unpublish した L を save した後に、fn が例外を投げる", async () => {
         const { h, w } = await setup();

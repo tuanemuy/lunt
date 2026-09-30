@@ -1,3 +1,4 @@
+import type { PublishedArticle } from "@repo/core/domain/article/article";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
@@ -10,6 +11,7 @@ import {
 } from "@repo/core/domain/discovery/feedComposer";
 import type { FeedQuery } from "@repo/core/domain/discovery/ports/feedCandidateQueries";
 import {
+  type ArticleSummary,
   type ListingSummary,
   type OccasionSummary,
   type RegionSummary,
@@ -21,6 +23,7 @@ import type { RequestContainer } from "../di/types";
 import type { ServiceArgs } from "../types";
 import { type BrowseCriteriaInput, resolveBrowseCriteria } from "./criteria";
 import {
+  articleSummaryPhotoIds,
   listingSummaryPhotoIds,
   occasionSummaryPhotoIds,
   type PhotoRefs,
@@ -41,11 +44,12 @@ export type ReadFeedInput = Readonly<{
 
 /**
  * One item of the feed: a listing card, or a large frame introducing a
- * region or an occasion. Article frames join with stage 5.
+ * region, an article or an occasion.
  */
 export type FeedEntry =
   | Readonly<{ kind: "listing"; summary: ListingSummary }>
   | Readonly<{ kind: "region"; summary: RegionSummary }>
+  | Readonly<{ kind: "article"; summary: ArticleSummary }>
   | Readonly<{ kind: "occasion"; summary: OccasionSummary }>;
 
 export type ReadFeedOutput = Readonly<{
@@ -80,6 +84,7 @@ type Composed = Readonly<{
   page: FeedPage;
   listings: ReadonlyMap<string, ListingEntry>;
   regions: ReadonlyMap<string, PublishedRegion>;
+  articles: ReadonlyMap<string, PublishedArticle>;
   occasions: ReadonlyMap<string, PublishedOccasion>;
 }>;
 
@@ -87,16 +92,21 @@ type Composed = Readonly<{
  * Composes the page from the head of the light candidates: one read of
  * `requirement.listings`, read again from the head with twice the size
  * only while `FeedComposer.page` cannot decide the order. The frames are
- * read once, only when a slot falls on the page.
+ * read once, only when a slot falls on the page; article frames are the
+ * newest published articles whatever the criteria (V-47).
  */
 async function composePage(
-  container: Pick<RequestContainer, "feedCandidateQueries">,
+  container: Pick<
+    RequestContainer,
+    "feedCandidateQueries" | "explorationQueries"
+  >,
   query: FeedQuery,
   pagination: Pagination,
 ): Promise<
   Readonly<{
     page: FeedPage;
     regions: readonly PublishedRegion[];
+    articles: readonly PublishedArticle[];
     occasions: readonly PublishedOccasion[];
   }>
 > {
@@ -106,9 +116,12 @@ async function composePage(
     upTo,
   );
   const framesPerKind = FeedComposer.framesNeeded(pagination, read.count);
-  const [regions, occasions] = await Promise.all([
+  const [regions, articles, occasions] = await Promise.all([
     readFrames(framesPerKind, (p) =>
       container.feedCandidateQueries.findRegionFrames(query, p),
+    ),
+    readFrames(framesPerKind, (p) =>
+      container.explorationQueries.findArticles(p),
     ),
     readFrames(framesPerKind, (p) =>
       container.feedCandidateQueries.findOccasionFrames(query, p),
@@ -116,7 +129,7 @@ async function composePage(
   ]);
   const frames = {
     regions: regions.map((region) => region.id),
-    articles: [],
+    articles: articles.map((article) => article.id),
     occasions: occasions.map((occasion) => occasion.id),
   };
   for (;;) {
@@ -130,7 +143,7 @@ async function composePage(
       },
       pagination,
     );
-    if (page !== null) return { page, regions, occasions };
+    if (page !== null) return { page, regions, articles, occasions };
     upTo *= 2;
     read = await container.feedCandidateQueries.findListingCandidates(
       query,
@@ -167,12 +180,12 @@ async function listingEntries(
 async function compose(
   container: Pick<
     RequestContainer,
-    "feedCandidateQueries" | "referenceQueries"
+    "feedCandidateQueries" | "explorationQueries" | "referenceQueries"
   >,
   query: FeedQuery,
   pagination: Pagination,
 ): Promise<Composed> {
-  const { page, regions, occasions } = await composePage(
+  const { page, regions, articles, occasions } = await composePage(
     container,
     query,
     pagination,
@@ -181,6 +194,7 @@ async function compose(
     page,
     listings: await listingEntries(container, page),
     regions: new Map(regions.map((region) => [region.id, region])),
+    articles: new Map(articles.map((article) => [article.id, article])),
     occasions: new Map(occasions.map((o) => [o.id, o])),
   };
 }
@@ -193,15 +207,14 @@ function photoIdsOfEntry(item: FeedEntry): readonly PhotoId[] {
       return listingSummaryPhotoIds(item.summary);
     case "region":
       return regionSummaryPhotoIds(item.summary);
+    case "article":
+      return articleSummaryPhotoIds(item.summary);
     case "occasion":
       return occasionSummaryPhotoIds(item.summary);
   }
 }
 
-/**
- * The item's summary, or none when its target dropped out between reads
- * (and for an article frame, which cannot occur before stage 5).
- */
+/** The item's summary, or none when its target dropped out between reads. */
 function entryOf(
   composed: Composed,
   item: FeedItem,
@@ -236,8 +249,17 @@ function entryOf(
             },
           ];
     }
-    case "article":
-      return [];
+    case "article": {
+      const article = composed.articles.get(item.articleId);
+      return article === undefined
+        ? []
+        : [
+            {
+              kind: "article",
+              summary: ViewProjection.articleSummary(article),
+            },
+          ];
+    }
   }
 }
 
@@ -248,8 +270,9 @@ function entryOf(
  * frames at the head and after every sixth listing. Pages count listings;
  * each page is composed from the head of the candidates, so consecutive
  * pages join into the feed composed at once while the candidates stay put.
- * No matching listing gives an empty feed without frames. Articles join
- * with stage 5 (until then there is no article frame). Needs no login.
+ * No matching listing gives an empty feed without frames. Article frames
+ * are the newest published articles, never narrowed by the criteria nor
+ * ordered by the origin. Needs no login.
  *
  * @throws BusinessRuleError `COMMON_INVALID_INPUT` for a pagination out of
  *   bounds, `COMMON_INVALID_GEO_POINT` for an origin out of range, and the

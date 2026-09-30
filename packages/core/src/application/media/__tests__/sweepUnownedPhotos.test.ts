@@ -1,5 +1,9 @@
+import { RoleRoster } from "@repo/core/domain/authority/roleRoster";
+import type { Actor } from "@repo/core/domain/common/actor";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
+import { createArticle } from "../../article/createArticle";
+import type { GeneratedId } from "../../ports/idGenerator";
 import { discardReleased } from "../discardReleasedPhotos";
 import {
   sweepUnownedPhotos,
@@ -36,6 +40,41 @@ async function acceptedWithContent(k: MediaKit): Promise<PhotoId> {
   expect((await k.get(id)).entity.stage).toBe("accepted");
   expect(await k.served(id)).not.toBeNull();
   return id;
+}
+
+/** A person holding the editor role (stored without events). */
+async function editorOf(k: MediaKit): Promise<Actor> {
+  const editor = k.person();
+  await k.uow.inner.run(async ({ roleRosterRepository }) => {
+    const read = await roleRosterRepository.find("editor");
+    await roleRosterRepository.save(
+      RoleRoster.grant(read.entity, editor.accountId, k.clock.now()).entity,
+      read.expectedVersion,
+    );
+  });
+  return editor;
+}
+
+/** The editor's save of a new article carrying `photoId` (`createArticle`). */
+async function saveArticle(
+  k: MediaKit,
+  editor: Actor,
+  articleId: GeneratedId,
+  photoId: PhotoId,
+): Promise<void> {
+  await createArticle({
+    container: { ...k.container, unitOfWorkProvider: k.uow.inner },
+    actor: editor,
+    input: {
+      articleId,
+      content: {
+        title: "読みもの",
+        body: "",
+        photoIds: [photoId],
+        showcases: [],
+      },
+    },
+  });
 }
 
 describe("sweepUnownedPhotos", () => {
@@ -126,13 +165,48 @@ describe("sweepUnownedPhotos", () => {
     expect(report).toMatchObject({ processed: 1, failed: 0 });
   });
 
-  it.todo(
-    "sweepUnownedPhotos#8 登録から残す期間を過ぎた、持ち主のない写真。ジョブがページを読んだ後、その写真を読み直す前に、その写真を載せた読みものの保存が確定する / ジョブがその写真を処理する",
-  );
+  it("sweepUnownedPhotos#8 登録から残す期間を過ぎた、持ち主のない写真。ジョブがページを読んだ後、その写真を読み直す前に、その写真を載せた読みものの保存が確定する / ジョブがその写真を処理する", async () => {
+    const k = mediaKit();
+    const editor = await editorOf(k);
+    const claimed = await k.register(editor);
+    const other = await k.register(editor);
+    k.passRetention();
+    const articleId = k.newPhotoId();
+    // Scope 1 reads the page; the article's save commits before scope 2 re-reads.
+    k.uow.beforeCommitOf(1, () => saveArticle(k, editor, articleId, claimed));
+    const report = await sweep(k);
+    expect((await k.get(claimed)).entity).toMatchObject({
+      stage: "stored",
+      owner: { kind: "article", id: articleId },
+    });
+    expect(await k.served(claimed)).not.toBeNull();
+    await k.expectNoPhoto(other);
+    expect(report.failed).toBe(0);
+  });
 
-  it.todo(
-    "sweepUnownedPhotos#9 登録から残す期間を過ぎた、持ち主のない写真。ジョブがその写真を読み直した後、破棄を確定する前に、その写真を載せた読みものの保存が確定する / ジョブが破棄を確定しようとする",
-  );
+  it("sweepUnownedPhotos#9 登録から残す期間を過ぎた、持ち主のない写真。ジョブがその写真を読み直した後、破棄を確定する前に、その写真を載せた読みものの保存が確定する / ジョブが破棄を確定しようとする", async () => {
+    const k = mediaKit();
+    const editor = await editorOf(k);
+    const claimed = await k.register(editor);
+    k.clock.advance(1_000);
+    const other = await k.register(editor);
+    k.passRetention();
+    const articleId = k.newPhotoId();
+    // Scope 2 is the first photo's re-read and discard: the article's save
+    // commits in between, so the discard's save conflicts.
+    k.uow.beforeCommitOf(2, () => saveArticle(k, editor, articleId, claimed));
+    const report = await sweep(k);
+    expect(k.logger.byLevel("info")).toContainEqual(
+      expect.objectContaining({ meta: { photoId: claimed } }),
+    );
+    expect((await k.get(claimed)).entity).toMatchObject({
+      stage: "stored",
+      owner: { kind: "article", id: articleId },
+    });
+    expect(await k.served(claimed)).not.toBeNull();
+    await k.expectNoPhoto(other);
+    expect(report.failed).toBe(0);
+  });
 
   it("sweepUnownedPhotos#10 掃除の対象がない / ジョブを実行する", async () => {
     const k = mediaKit();
@@ -149,46 +223,6 @@ describe("sweepUnownedPhotos", () => {
       abandoned: false,
     });
     expect(await k.get(owned)).toEqual(before);
-  });
-
-  // Mechanisms of #8 and #9 until Article (S5) saves articles: a claim
-  // committed by any owning domain's save, at the same two moments.
-  it("keeps a photo claimed after the page was read and before it is re-read", async () => {
-    const k = mediaKit();
-    const alice = k.person();
-    const claimed = await k.register(alice);
-    const other = await k.register(alice);
-    k.passRetention();
-    const listing = k.owner("listing");
-    // Scope 1 reads the page; the claim commits before scope 2 re-reads.
-    k.uow.beforeCommitOf(1, () => k.claim(claimed, listing, alice));
-    await sweep(k);
-    expect((await k.get(claimed)).entity).toMatchObject({
-      stage: "stored",
-      owner: listing,
-    });
-    expect(await k.served(claimed)).not.toBeNull();
-    await k.expectNoPhoto(other);
-  });
-
-  it("does not discard a photo claimed between its re-read and the discard's commit", async () => {
-    const k = mediaKit();
-    const alice = k.person();
-    const claimed = await k.register(alice);
-    k.clock.advance(1_000);
-    const other = await k.register(alice);
-    k.passRetention();
-    const listing = k.owner("listing");
-    // Scope 2 is the first photo's re-read and discard.
-    k.uow.beforeCommitOf(2, () => k.claim(claimed, listing, alice));
-    const report = await sweep(k);
-    expect((await k.get(claimed)).entity).toMatchObject({
-      stage: "stored",
-      owner: listing,
-    });
-    expect(await k.served(claimed)).not.toBeNull();
-    await k.expectNoPhoto(other);
-    expect(report.failed).toBe(0);
   });
 
   it("runs as the daily job with the run's time", async () => {

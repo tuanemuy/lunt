@@ -2,6 +2,7 @@ import type { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import {
+  type ArticleSummary,
   type ListingSummary,
   type OccasionSummary,
   type PlaceSummary,
@@ -11,6 +12,7 @@ import {
 import type { RequestContainer } from "../di/types";
 import type { ServiceArgs } from "../types";
 import {
+  articleSummaryPhotoIds,
   listingSummaryPhotoIds,
   occasionSummaryPhotoIds,
   type PhotoRefs,
@@ -20,11 +22,14 @@ import {
   todayOf,
 } from "./views";
 
-/**
- * The kinds a keyword search reads, in the order the results show them.
- * Articles join with stage 5.
- */
-export const SEARCH_KINDS = ["place", "region", "listing", "occasion"] as const;
+/** The kinds a keyword search reads, in the order the results show them. */
+export const SEARCH_KINDS = [
+  "place",
+  "region",
+  "listing",
+  "occasion",
+  "article",
+] as const;
 
 export type SearchKind = (typeof SEARCH_KINDS)[number];
 
@@ -50,6 +55,7 @@ export type SearchResults = Readonly<{
   region: SearchPage<RegionSummary> | null;
   listing: SearchPage<ListingSummary> | null;
   occasion: SearchPage<OccasionSummary> | null;
+  article: SearchPage<ArticleSummary> | null;
 }>;
 
 export type SearchByKeywordOutput = Readonly<{
@@ -127,16 +133,32 @@ async function searchOccasions(
   };
 }
 
+async function searchArticles(
+  container: RequestContainer,
+  keyword: SearchKeyword,
+  pagination: Pagination,
+): Promise<SearchPage<ArticleSummary>> {
+  const page = await container.keywordSearchQueries.searchArticles(
+    keyword,
+    pagination,
+  );
+  return {
+    items: page.items.map(({ entry }) => ViewProjection.articleSummary(entry)),
+    count: page.count,
+  };
+}
+
 const photoIdsOf = (results: SearchResults) => [
   ...(results.place?.items.flatMap(placeSummaryPhotoIds) ?? []),
   ...(results.region?.items.flatMap(regionSummaryPhotoIds) ?? []),
   ...(results.listing?.items.flatMap(listingSummaryPhotoIds) ?? []),
   ...(results.occasion?.items.flatMap(occasionSummaryPhotoIds) ?? []),
+  ...(results.article?.items.flatMap(articleSummaryPhotoIds) ?? []),
 ];
 
 /**
  * DIS-05 (VW-03): targets matching the keyword, per kind — places, regions,
- * listings, occasions (articles join with stage 5) — each by relevance
+ * listings, occasions, articles (title, then body) — each by relevance
  * (`KeywordRelevance`, then newest first) and paged on its own. Reference
  * scene: each summary carries its standing; places without photos show
  * their substitute cover. The browse criteria never apply. No match in any
@@ -155,7 +177,7 @@ export async function searchByKeyword({
   const today = todayOf(container);
   const reads = (kind: SearchKind) =>
     input.kinds === "all" || input.kinds === kind;
-  const [place, region, listing, occasion] = await Promise.all([
+  const [place, region, listing, occasion, article] = await Promise.all([
     reads("place") ? searchPlaces(container, keyword, pagination) : null,
     reads("region") ? searchRegions(container, keyword, pagination) : null,
     reads("listing")
@@ -164,8 +186,15 @@ export async function searchByKeyword({
     reads("occasion")
       ? searchOccasions(container, keyword, pagination, today)
       : null,
+    reads("article") ? searchArticles(container, keyword, pagination) : null,
   ]);
-  const results: SearchResults = { place, region, listing, occasion };
+  const results: SearchResults = {
+    place,
+    region,
+    listing,
+    occasion,
+    article,
+  };
   return {
     results,
     photos: await photoRefsOf(container, photoIdsOf(results)),

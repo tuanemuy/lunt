@@ -5,7 +5,11 @@ import type { AccountId, CategoryId } from "@repo/core/domain/common/ids";
 import { ArticleId, ListingId, PhotoId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { PhotosTakenDownEvent } from "@repo/core/domain/common/photoEvents";
-import type { ContentRef, StewardedRef } from "@repo/core/domain/common/refs";
+import type {
+  ContentRef,
+  ShowcaseRef,
+  StewardedRef,
+} from "@repo/core/domain/common/refs";
 import { ListingEvents } from "@repo/core/domain/listing/events";
 import { ModerationEvents } from "@repo/core/domain/moderation/events";
 import type { NotifiableEvent } from "@repo/core/domain/notification/announcement";
@@ -82,6 +86,33 @@ async function expectReceived(
   return notes;
 }
 
+/**
+ * `who` holds exactly the notifications of `expected`, in any order (one
+ * consumption's announcements share a `createdAt`), and one mail for each.
+ */
+async function expectReceivedInAnyOrder(
+  k: Kit,
+  who: Who,
+  expected: readonly Readonly<{
+    occurrence: Record<string, unknown>;
+    delivery: Delivery;
+  }>[],
+): Promise<readonly Notification[]> {
+  const notes = await k.notificationsOf(who);
+  expect(notes).toHaveLength(expected.length);
+  expect(notes).toEqual(
+    expect.arrayContaining(expected.map((e) => expect.objectContaining(e))),
+  );
+  const mails = k.mailsTo(who);
+  expect(mails.map((mail) => mail.link)).toEqual(
+    expect.arrayContaining(
+      notes.map((note) => NotificationDestination.of(note)),
+    ),
+  );
+  expect(mails).toHaveLength(expected.length);
+  return notes;
+}
+
 async function expectNothing(k: Kit, ...who: readonly Who[]): Promise<void> {
   for (const w of who) {
     expect(await k.notificationsOf(w)).toEqual([]);
@@ -123,6 +154,30 @@ const listingMatter = (
   content: l,
   placeId: p.id,
   matter: { kind },
+});
+
+const offeringEnded = (k: Kit, l: ListingRef, observedOn: string) =>
+  k.event(
+    ListingEvents.offeringEnded(l.id, LocalDate.parse(observedOn), k.tick()),
+  );
+
+const occasionEnded = (
+  k: Kit,
+  c: Extract<StewardedRef, { kind: "occasion" }>,
+  observedOn: string,
+) => k.event(OccasionEvents.ended(c.id, LocalDate.parse(observedOn), k.tick()));
+
+type ArticleRef = Extract<ContentRef, { kind: "article" }>;
+
+/** The editors' occurrence of `change` to `showcase`, one of `article`'s. */
+const showcaseChanged = (
+  article: ArticleRef,
+  showcase: ShowcaseRef,
+  change: string,
+) => ({
+  to: "editors",
+  articleId: article.id,
+  matter: { kind: "showcase_changed", change: { showcase, change } },
 });
 
 const categoryRetired = (k: Kit, id: CategoryId) =>
@@ -434,10 +489,22 @@ describe("deliverNotifications", () => {
       expect(k.mailer.sent).toEqual([]);
     });
 
-    // S5: listing.suspended with a showcasing article (editors).
-    it.todo(
-      "deliverNotifications#12 S1 が店舗 P の店舗管理者で、編集担当者でもある。公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended を消費する",
-    );
+    it("deliverNotifications#12 S1 が店舗 P の店舗管理者で、編集担当者でもある。公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      await k.editors(w.S1);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      await k.consume(k.event(ListingEvents.suspended(L.id, w.P.id, k.tick())));
+      const notes = await expectReceivedInAnyOrder(k, w.S1, [
+        { occurrence: listingMatter(L, w.P, "suspended"), delivery: "direct" },
+        {
+          occurrence: showcaseChanged(A, L, "suspended"),
+          delivery: "direct",
+        },
+      ]);
+      expect(new Set(notes.map((n) => n.occurrenceKey)).size).toBe(2);
+    });
     it("deliverNotifications#13 サービス運営者の名簿が開設前（サービス運営者がいない）。店舗 V は店舗管理者が不在 / 店舗 V の place.suspended を消費する", async () => {
       const k = notificationKit();
       const V = k.place("店舗V");
@@ -1670,49 +1737,316 @@ describe("deliverNotifications", () => {
   });
 
   describe("編集担当者宛て（P-96）", () => {
-    // S5: articles and their showcases.
-    it.todo(
-      "deliverNotifications#65 公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended、listing.unpublished、listing.deleted をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#66 公開中の読みもの A が掲載 L を紹介している。掲載 L が期日で提供終了になった / 掲載 L の listing.offering_ended を消費する",
-    );
-    it.todo(
-      "deliverNotifications#67 公開中の読みもの A が掲載 L を紹介している。店舗管理者が掲載 L を提供終了にした / 掲載 L の listing.offering_ended を消費する",
-    );
-    it.todo(
-      "deliverNotifications#68 公開中の読みもの A が掲載 L を紹介している。掲載 L の提供終了を、2つのジョブが同じ observedOn で重ねて確かめた / 掲載 L の2つの listing.offering_ended（ドメインイベントの ID は別、observedOn は同じ）をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#69 公開中の読みもの A が掲載 L を紹介している。掲載 L が提供終了になり、提供中に戻った後、別の日に再び提供終了になった / observedOn の違う2つの listing.offering_ended をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#70 公開中の読みもの A が店舗 P と掲載 L を紹介し、公開中の読みもの B が掲載 M（店舗 P）を紹介している / 店舗 P の place.suspended を消費する",
-    );
-    it.todo(
-      "deliverNotifications#71 公開中の読みもの A が店舗 P と掲載 L を紹介している。店舗 P が閉店になった / place.operating_status_changed（to が閉店）を消費する",
-    );
-    it.todo(
-      "deliverNotifications#72 公開中の読みもの A が地域 R を紹介している / 地域 R の region.suspended、region.unpublished をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#73 公開中の読みもの A がイベント C を紹介している。イベント C に参加中の店舗はない / イベント C の occasion.suspended、occasion.unpublished、occasion.cancelled、occasion.ended をそれぞれ消費する",
-    );
-    it.todo(
-      "deliverNotifications#74 公開中の読みもの A がイベント C を紹介している。イベント C の終了を、2つのジョブが同じ observedOn で重ねて確かめた / 2つの occasion.ended をそれぞれ消費する",
-    );
-    it.todo(
-      'deliverNotifications#75 公開中の読みもの A が掲載 L を紹介している。申立てに基づいて掲載 L の最後の写真が削除され、掲載 L が一時非公開になった / content.photos_taken_down（owner は掲載 L、unpublished: true）と、listing.unpublished（reason: "photoTakedown"）をそれぞれ消費する',
-    );
-    it.todo(
-      "deliverNotifications#76 掲載 L を紹介する読みものが、下書きの読みものと、公開を取り下げた読みものだけ / 掲載 L の listing.deleted を消費する",
-    );
-    it.todo(
-      "deliverNotifications#77 公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.unsuspended を消費する",
-    );
-    it.todo(
-      "deliverNotifications#78 編集担当者が0人。公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended を消費する",
-    );
+    it("deliverNotifications#65 公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended、listing.unpublished、listing.deleted をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      await k.consume(k.event(ListingEvents.suspended(L.id, w.P.id, k.tick())));
+      await k.consume(
+        k.event(ListingEvents.unpublished(L.id, "byManager", k.tick())),
+      );
+      await k.consume(k.event(ListingEvents.deleted(L.id, k.tick())));
+      for (const who of [w.E1, w.E2]) {
+        const notes = await expectReceived(
+          k,
+          who,
+          ["suspended", "unpublished", "deleted"].map((change) => ({
+            occurrence: showcaseChanged(A, L, change),
+            delivery: "direct" as const,
+          })),
+        );
+        for (const note of notes) {
+          expect(Occurrence.pointedContent(note.occurrence)).toEqual(A);
+        }
+      }
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: listingMatter(L, w.P, "suspended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it("deliverNotifications#66 公開中の読みもの A が掲載 L を紹介している。掲載 L が期日で提供終了になった / 掲載 L の listing.offering_ended を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      await k.consume(offeringEnded(k, L, "2026-10-01"));
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, L, "offering_ended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.S1, w.S2, w.O1);
+    });
+    it("deliverNotifications#67 公開中の読みもの A が掲載 L を紹介している。店舗管理者が掲載 L を提供終了にした / 掲載 L の listing.offering_ended を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      // The operation's event carries the day it was observed, like the job's.
+      await k.consume(offeringEnded(k, L, "2026-09-30"));
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, L, "offering_ended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.S1, w.S2);
+    });
+    it("deliverNotifications#68 公開中の読みもの A が掲載 L を紹介している。掲載 L の提供終了を、2つのジョブが同じ observedOn で重ねて確かめた / 掲載 L の2つの listing.offering_ended（ドメインイベントの ID は別、observedOn は同じ）をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      const first = offeringEnded(k, L, "2026-10-01");
+      const second = offeringEnded(k, L, "2026-10-01");
+      expect(second.id).not.toBe(first.id);
+      await k.consume(first);
+      await k.consume(second);
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, L, "offering_ended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it("deliverNotifications#69 公開中の読みもの A が掲載 L を紹介している。掲載 L が提供終了になり、提供中に戻った後、別の日に再び提供終了になった / observedOn の違う2つの listing.offering_ended をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      await k.consume(offeringEnded(k, L, "2026-10-01"));
+      await k.consume(offeringEnded(k, L, "2026-10-08"));
+      for (const who of [w.E1, w.E2]) {
+        const notes = await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, L, "offering_ended"),
+            delivery: "direct",
+          },
+          {
+            occurrence: showcaseChanged(A, L, "offering_ended"),
+            delivery: "direct",
+          },
+        ]);
+        expect(new Set(notes.map((n) => n.occurrenceKey)).size).toBe(2);
+      }
+    });
+    it("deliverNotifications#70 公開中の読みもの A が店舗 P と掲載 L を紹介し、公開中の読みもの B が掲載 M（店舗 P）を紹介している / 店舗 P の place.suspended を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const M = await k.listing(w.P);
+      const A = await k.article([w.P, L]);
+      const B = await k.article([M]);
+      await k.consume(placeSuspended(k, w.P));
+      for (const who of [w.E1, w.E2]) {
+        const notes = await expectReceivedInAnyOrder(k, who, [
+          {
+            occurrence: showcaseChanged(A, w.P, "suspended"),
+            delivery: "direct",
+          },
+          {
+            occurrence: showcaseChanged(A, L, "place_suspended"),
+            delivery: "direct",
+          },
+          {
+            occurrence: showcaseChanged(B, M, "place_suspended"),
+            delivery: "direct",
+          },
+        ]);
+        expect(new Set(notes.map((n) => n.occurrenceKey)).size).toBe(3);
+      }
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          { occurrence: suspendedOf(w.P, "suspended"), delivery: "direct" },
+        ]);
+      }
+    });
+    it("deliverNotifications#71 公開中の読みもの A が店舗 P と掲載 L を紹介している。店舗 P が閉店になった / place.operating_status_changed（to が閉店）を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([w.P, L]);
+      await k.consume(
+        k.event(
+          PlaceEvents.operatingStatusChanged(
+            w.P.id,
+            "open",
+            "permanentlyClosed",
+            k.tick(),
+          ),
+        ),
+      );
+      for (const who of [w.E1, w.E2]) {
+        await expectReceivedInAnyOrder(k, who, [
+          {
+            occurrence: showcaseChanged(A, w.P, "closed"),
+            delivery: "direct",
+          },
+          {
+            occurrence: showcaseChanged(A, L, "place_closed"),
+            delivery: "direct",
+          },
+        ]);
+      }
+      await expectNothing(k, w.S1, w.S2);
+    });
+    it("deliverNotifications#72 公開中の読みもの A が地域 R を紹介している / 地域 R の region.suspended、region.unpublished をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const A = await k.article([w.R]);
+      await k.consume(k.event(RegionEvents.suspended(w.R.id, k.tick())));
+      await k.consume(
+        k.event(RegionEvents.unpublished(w.R.id, "byManager", k.tick())),
+      );
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, w.R, "suspended"),
+            delivery: "direct",
+          },
+          {
+            occurrence: showcaseChanged(A, w.R, "unpublished"),
+            delivery: "direct",
+          },
+        ]);
+      }
+      for (const who of [w.RS1, w.RS2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: contentMatterOf(w.R, "suspended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it("deliverNotifications#73 公開中の読みもの A がイベント C を紹介している。イベント C に参加中の店舗はない / イベント C の occasion.suspended、occasion.unpublished、occasion.cancelled、occasion.ended をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const A = await k.article([w.C]);
+      await k.consume(k.event(OccasionEvents.suspended(w.C.id, k.tick())));
+      await k.consume(
+        k.event(OccasionEvents.unpublished(w.C.id, "byManager", k.tick())),
+      );
+      await k.consume(k.event(OccasionEvents.cancelled(w.C.id, k.tick())));
+      await k.consume(occasionEnded(k, w.C, "2026-10-04"));
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(
+          k,
+          who,
+          ["suspended", "unpublished", "cancelled", "ended"].map((change) => ({
+            occurrence: showcaseChanged(A, w.C, change),
+            delivery: "direct" as const,
+          })),
+        );
+      }
+    });
+    it("deliverNotifications#74 公開中の読みもの A がイベント C を紹介している。イベント C の終了を、2つのジョブが同じ observedOn で重ねて確かめた / 2つの occasion.ended をそれぞれ消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const A = await k.article([w.C]);
+      await k.consume(occasionEnded(k, w.C, "2026-10-04"));
+      await k.consume(occasionEnded(k, w.C, "2026-10-04"));
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, w.C, "ended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it('deliverNotifications#75 公開中の読みもの A が掲載 L を紹介している。申立てに基づいて掲載 L の最後の写真が削除され、掲載 L が一時非公開になった / content.photos_taken_down（owner は掲載 L、unpublished: true）と、listing.unpublished（reason: "photoTakedown"）をそれぞれ消費する', async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      const A = await k.article([L]);
+      await k.consume(photosTakenDown(k, L, true));
+      await expectNothing(k, w.E1, w.E2);
+      await k.consume(
+        k.event(ListingEvents.unpublished(L.id, "photoTakedown", k.tick())),
+      );
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: listingMatter(L, w.P, "photos_taken_down"),
+            delivery: "direct",
+          },
+        ]);
+      }
+      for (const who of [w.E1, w.E2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: showcaseChanged(A, L, "unpublished"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it("deliverNotifications#76 掲載 L を紹介する読みものが、下書きの読みものと、公開を取り下げた読みものだけ / 掲載 L の listing.deleted を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      await k.article([L], { status: "draft" });
+      await k.article([L], { status: "unpublished" });
+      await expect(
+        k.consume(k.event(ListingEvents.deleted(L.id, k.tick()))),
+      ).resolves.toBeUndefined();
+      expect(k.mailer.sent).toEqual([]);
+      await expectNothing(k, w.E1, w.E2);
+    });
+    it("deliverNotifications#77 公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.unsuspended を消費する", async () => {
+      const k = notificationKit();
+      const w = await world(k);
+      const L = await k.listing(w.P);
+      await k.article([L]);
+      await k.consume(
+        k.event(ListingEvents.unsuspended(L.id, w.P.id, k.tick())),
+      );
+      await expectNothing(k, w.E1, w.E2);
+      for (const who of [w.S1, w.S2]) {
+        await expectReceived(k, who, [
+          {
+            occurrence: listingMatter(L, w.P, "unsuspended"),
+            delivery: "direct",
+          },
+        ]);
+      }
+    });
+    it("deliverNotifications#78 編集担当者が0人。公開中の読みもの A が掲載 L を紹介している / 掲載 L の listing.suspended を消費する", async () => {
+      const k = notificationKit();
+      const [O1, S1, S2] = [
+        await k.person("o1"),
+        await k.person("s1"),
+        await k.person("s2"),
+      ];
+      await k.operators(O1);
+      const P = k.place("店舗P");
+      await k.appoint(P, S1, S2);
+      const L = await k.listing(P);
+      await k.article([L]);
+      await expect(
+        k.consume(k.event(ListingEvents.suspended(L.id, P.id, k.tick()))),
+      ).resolves.toBeUndefined();
+      for (const who of [S1, S2]) {
+        await expectReceived(k, who, [
+          { occurrence: listingMatter(L, P, "suspended"), delivery: "direct" },
+        ]);
+      }
+      await expectNothing(k, O1);
+      expect(k.mailer.sent).toHaveLength(2);
+    });
   });
 
   describe("サービス運営者宛て（P-97）", () => {
@@ -2049,7 +2383,7 @@ describe("deliverNotifications", () => {
 
 /**
  * What the rows leave implicit: a takedown on a listing that is gone, the
- * editors' events while no article is published (stage 5), and the names
+ * editors' events when no published article showcases the change, and the names
  * a mail's labels carry.
  */
 describe("deliverNotifications (content matters)", () => {
@@ -2067,7 +2401,30 @@ describe("deliverNotifications (content matters)", () => {
     await expectNothing(k, w.S1, w.O1);
   });
 
-  it("announces no editors' change while no article is published (stage 5)", async () => {
+  it("announces every published article showcasing the change, beyond one page", async () => {
+    const k = notificationKit();
+    const w = await world(k);
+    const L = await k.listing(w.P);
+    const articles = new Set<string>();
+    for (let i = 0; i < 101; i += 1) {
+      articles.add((await k.article([L])).id);
+    }
+    const planned = await planAnnouncements(
+      k.container,
+      k.event(ListingEvents.deleted(L.id, k.tick())),
+    );
+    expect(
+      new Set(
+        planned.map((p) =>
+          p.delivered.occurrence.to === "editors"
+            ? p.delivered.occurrence.articleId
+            : null,
+        ),
+      ),
+    ).toEqual(articles);
+  });
+
+  it("announces no editors' change when no published article showcases the change", async () => {
     const k = notificationKit();
     const w = await world(k);
     const L = await k.listing(w.P);

@@ -50,22 +50,20 @@ const coverOf = (listing: Listing) => {
 };
 
 describe("searchByKeyword", () => {
-  it.todo(
-    "searchByKeyword#1 名称に「山田」を含む店舗・地域・掲載・イベントと、タイトルに「山田」を含む読みものが、すべて閲覧できる / 「山田」で、5種類すべてを読む",
-  ); // S5: articles
-
-  it("reads places, regions, listings and occasions matching the keyword, each kind apart with its count and ids to open the detail (articles join in stage 5)", async () => {
+  it("searchByKeyword#1 名称に「山田」を含む店舗・地域・掲載・イベントと、タイトルに「山田」を含む読みものが、すべて閲覧できる / 「山田」で、5種類すべてを読む", async () => {
     const k = await discoveryKit();
     const P = await k.w.place({ profile: { name: "山田珈琲店" } });
     const R = await k.w.region({ name: "山田の里" });
     const L = await k.w.store(k.w.f.published(P.id, { name: "山田の桃" }));
     const E = await k.w.occasion({ name: "山田まつり" });
+    const A = await k.w.article({ title: "山田を歩く" });
     const out = await search(k, "山田");
     expect(Object.keys(out.results)).toEqual([
       "place",
       "region",
       "listing",
       "occasion",
+      "article",
     ]);
     expect(out.results.place).toMatchObject({
       items: [{ placeId: P.id, name: "山田珈琲店" }],
@@ -83,9 +81,27 @@ describe("searchByKeyword", () => {
       items: [{ occasionId: E.id, name: "山田まつり" }],
       count: 1,
     });
+    const [articlePhoto] = A.content.photos.items;
+    expect(out.results.article).toEqual({
+      items: [
+        {
+          articleId: A.id,
+          cover: {
+            source: "own",
+            photoId: articlePhoto?.photoId,
+            framing: null,
+          },
+          title: "山田を歩く",
+        },
+      ],
+      count: 1,
+    });
     const [listingPhoto] = L.content.photos.items;
-    if (listingPhoto === undefined) throw new Error("a photo");
+    if (listingPhoto === undefined || articlePhoto === undefined) {
+      throw new Error("a photo");
+    }
     expect(out.photos[listingPhoto.photoId]).toBeDefined();
+    expect(out.photos[articlePhoto.photoId]).toBeDefined();
   });
 
   it("searchByKeyword#2 店舗「山田」「山田珈琲店」「喫茶山田屋」と、紹介にだけ「山田」を含む店舗「海の家」、所在地にだけ「山田」を含む店舗「港食堂」がある / 「山田」で店舗を読む", async () => {
@@ -254,16 +270,13 @@ describe("searchByKeyword", () => {
     );
   });
 
-  it.todo(
-    "searchByKeyword#10 一時非公開の掲載、運営による非公開のイベント、公開を取り下げた地域と読みもの、非公開の店舗とその公開中の掲載が、どれもキーワードに一致する / そのキーワードで読む",
-  ); // S5: articles
-
-  it("unpublished listings, suspended occasions, unpublished regions, and suspended places with their published listings never appear nor count (articles join in stage 5)", async () => {
+  it("searchByKeyword#10 一時非公開の掲載、運営による非公開のイベント、公開を取り下げた地域と読みもの、非公開の店舗とその公開中の掲載が、どれもキーワードに一致する / そのキーワードで読む", async () => {
     const k = await discoveryKit();
     const host = await k.w.place({ profile: { name: "農園" } });
     await k.w.store(k.w.f.unpublished(host.id, { name: "港の桃" }));
     await k.w.occasion({ name: "港まつり", state: "suspended" });
     await k.w.region({ name: "港町", state: "unpublished" });
+    await k.w.article({ title: "港の朝", state: "unpublished" });
     const hidden = await k.w.place({
       suspended: true,
       profile: { name: "港食堂" },
@@ -275,6 +288,7 @@ describe("searchByKeyword", () => {
       region: { items: [], count: 0 },
       listing: { items: [], count: 0 },
       occasion: { items: [], count: 0 },
+      article: { items: [], count: 0 },
     });
   });
 
@@ -298,6 +312,7 @@ describe("searchByKeyword", () => {
       place: null,
       region: null,
       occasion: null,
+      article: null,
     });
     expect([...listingIds(first), ...listingIds(second)]).toEqual([
       exact.id,
@@ -316,12 +331,14 @@ describe("searchByKeyword", () => {
     await k.w.available(P.id);
     await k.w.region();
     await k.w.occasion();
+    await k.w.article({ title: "山田の話" });
     const out = await search(k, "存在しない語");
     expect(out.results).toEqual({
       place: { items: [], count: 0 },
       region: { items: [], count: 0 },
       listing: { items: [], count: 0 },
       occasion: { items: [], count: 0 },
+      article: { items: [], count: 0 },
     });
   });
 
@@ -334,6 +351,7 @@ describe("searchByKeyword", () => {
       vi.spyOn(queries, "searchRegions"),
       vi.spyOn(queries, "searchListings"),
       vi.spyOn(queries, "searchOccasions"),
+      vi.spyOn(queries, "searchArticles"),
     ];
     for (const keyword of ["", "  　 "]) {
       await expect(search(k, keyword)).rejects.toMatchObject({

@@ -5,6 +5,7 @@ import type {
   ContentSummaryRecord,
 } from "../protocol/moderation";
 import type { SqlExec } from "../sql";
+import { articleContentLookup } from "./article";
 import { listingContentLookup } from "./listing";
 import { occasionContentLookup } from "./occasion";
 import { placeContentLookup } from "./place";
@@ -40,6 +41,7 @@ export const CONTENT_LOOKUPS: ContentLookups = {
   place: placeContentLookup,
   region: regionContentLookup,
   occasion: occasionContentLookup,
+  article: articleContentLookup,
 };
 
 /**
