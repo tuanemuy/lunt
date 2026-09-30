@@ -306,6 +306,7 @@ function showcaseItems(
 
 // ---------------------------------------------------------------- AM-02
 
+/** The takedown wording lasts until the editor saves changed photos (CS-16). */
 function statusText(article: Article): string {
   const { publication } = article;
   switch (publication.status) {
@@ -314,7 +315,8 @@ function statusText(article: Article): string {
     case "published":
       return `公開中 · ${dateText(article)}`;
     case "unpublished":
-      return publication.reason === "photoTakedown"
+      return publication.reason === "photoTakedown" &&
+        article.content.photos.takenDown
         ? "公開の取り下げ · 申立てで写真が削除されました"
         : `公開の取り下げ · ${dateText(article)}`;
   }
