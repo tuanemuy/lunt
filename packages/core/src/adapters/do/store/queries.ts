@@ -8,6 +8,7 @@ import type { SqlExec } from "../sql";
 import { accountQueryHandlers } from "./account";
 import { applicationQueryHandlers } from "./application";
 import { areaQueryHandlers } from "./area";
+import { articleQueryHandlers } from "./article";
 import { authorityQueryHandlers } from "./authority";
 import { bookmarkQueryHandlers } from "./bookmark";
 import { discoveryQueryHandlers } from "./discovery";
@@ -46,6 +47,7 @@ export const queryHandlers = {
   ...regionQueryHandlers,
   ...occasionQueryHandlers,
   ...bookmarkQueryHandlers,
+  ...articleQueryHandlers,
 } satisfies QueryHandlers;
 
 export function runQuery<K extends QueryName>(

@@ -1,6 +1,7 @@
 import type { AccountRepositories } from "@repo/core/domain/account/ports/unitOfWork";
 import type { ApplicationRepositories } from "@repo/core/domain/application/ports/unitOfWork";
 import type { AreaRepositories } from "@repo/core/domain/area/ports/unitOfWork";
+import type { ArticleRepositories } from "@repo/core/domain/article/ports/unitOfWork";
 import type { AuthorityRepositories } from "@repo/core/domain/authority/ports/unitOfWork";
 import type { BookmarkRepositories } from "@repo/core/domain/bookmark/ports/unitOfWork";
 import type { EventDraft } from "@repo/core/domain/common/event";
@@ -30,7 +31,8 @@ export type UnitOfWorkRepositories = AccountRepositories &
   ModerationRepositories &
   RegionRepositories &
   OccasionRepositories &
-  BookmarkRepositories;
+  BookmarkRepositories &
+  ArticleRepositories;
 
 export type UnitOfWorkContext = UnitOfWorkRepositories &
   Readonly<{

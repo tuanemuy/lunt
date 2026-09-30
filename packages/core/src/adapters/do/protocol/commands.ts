@@ -1,6 +1,7 @@
 import type { AccountCommand } from "./account";
 import type { ApplicationCommand } from "./application";
 import type { AreaCommand } from "./area";
+import type { ArticleCommand } from "./article";
 import type { AuthorityCommand } from "./authority";
 import type { BookmarkCommand } from "./bookmark";
 import type { DiscoveryCommand } from "./discovery";
@@ -35,7 +36,8 @@ export type WriteCommand =
   | ModerationCommand
   | RegionCommand
   | OccasionCommand
-  | BookmarkCommand;
+  | BookmarkCommand
+  | ArticleCommand;
 
 export type WriteCommandKind = WriteCommand["kind"];
 

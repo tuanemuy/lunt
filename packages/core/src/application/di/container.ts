@@ -11,6 +11,7 @@ import { ConsoleLogger } from "../ports/logger";
 import { type AccountEnv, createAccountServices } from "./account";
 import { type ApplicationEnv, createApplicationServices } from "./application";
 import { type AreaEnv, createAreaServices } from "./area";
+import { type ArticleEnv, createArticleServices } from "./article";
 import { type AuthorityEnv, createAuthorityServices } from "./authority";
 import { type BookmarkEnv, createBookmarkServices } from "./bookmark";
 import { devToolsEnabled } from "./clock";
@@ -52,7 +53,8 @@ export type LuntEnv = Readonly<{
   DiscoveryEnv &
   RegionEnv &
   OccasionEnv &
-  BookmarkEnv;
+  BookmarkEnv &
+  ArticleEnv;
 
 /**
  * The session secret the local `wrangler.jsonc` ships with. It is public,
@@ -148,6 +150,7 @@ export function createRequestContainer(
     ...createPlaceServices(env, deps),
     ...createListingServices(env, deps),
     ...createDiscoveryServices(env, deps),
+    ...createArticleServices(env, deps),
     ...createBookmarkServices(env, deps),
     ...createOccasionServices(env, deps),
     ...createRegionServices(env, deps),

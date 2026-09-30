@@ -4,6 +4,7 @@ import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
 import { createTestAccountServices } from "../account/__tests__/testServices";
 import { createTestApplicationServices } from "../application/__tests__/testServices";
 import { createTestAreaServices } from "../area/__tests__/testServices";
+import { createTestArticleServices } from "../article/__tests__/testServices";
 import { createTestAuthorityServices } from "../authority/__tests__/testServices";
 import { createTestBookmarkServices } from "../bookmark/__tests__/testServices";
 import type { RequestContainer } from "../di/types";
@@ -113,6 +114,7 @@ export function createTestContainer(
     ...createTestPlaceServices(deps),
     ...createTestListingServices(deps),
     ...createTestDiscoveryServices(deps),
+    ...createTestArticleServices(deps),
     ...createTestBookmarkServices(deps),
     ...createTestOccasionServices(deps),
     ...createTestRegionServices(deps),

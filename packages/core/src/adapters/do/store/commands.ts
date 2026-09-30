@@ -3,6 +3,7 @@ import type { SqlExec } from "../sql";
 import { accountCommandHandlers } from "./account";
 import { applicationCommandHandlers } from "./application";
 import { areaCommandHandlers } from "./area";
+import { articleCommandHandlers } from "./article";
 import { authorityCommandHandlers } from "./authority";
 import { bookmarkCommandHandlers } from "./bookmark";
 import { discoveryCommandHandlers } from "./discovery";
@@ -38,6 +39,7 @@ export const commandHandlers = {
   ...regionCommandHandlers,
   ...occasionCommandHandlers,
   ...bookmarkCommandHandlers,
+  ...articleCommandHandlers,
 } satisfies CommandHandlers;
 
 export function applyCommand(

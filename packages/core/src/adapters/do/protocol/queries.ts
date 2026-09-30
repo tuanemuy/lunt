@@ -1,6 +1,7 @@
 import type { AccountQueries } from "./account";
 import type { ApplicationQueries } from "./application";
 import type { AreaQueries } from "./area";
+import type { ArticleQueries } from "./article";
 import type { AuthorityQueries } from "./authority";
 import type { BookmarkQueries } from "./bookmark";
 import type { DiscoveryQueries } from "./discovery";
@@ -45,7 +46,8 @@ export type QueryCatalog = AccountQueries &
   DiscoveryFeedQueries &
   RegionQueries &
   OccasionQueries &
-  BookmarkQueries;
+  BookmarkQueries &
+  ArticleQueries;
 
 export type QueryName = keyof QueryCatalog & string;
 

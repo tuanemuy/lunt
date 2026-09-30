@@ -1,6 +1,7 @@
 import type { AccountErrorCode } from "@repo/core/domain/account/errorCode";
 import type { ApplicationErrorCode } from "@repo/core/domain/application/errorCode";
 import type { AreaErrorCode } from "@repo/core/domain/area/errorCode";
+import type { ArticleErrorCode } from "@repo/core/domain/article/errorCode";
 import type { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import type { BookmarkErrorCode } from "@repo/core/domain/bookmark/errorCode";
 import type {
@@ -39,4 +40,5 @@ export type BusinessErrorCode =
   | ModerationErrorCode
   | RegionErrorCode
   | OccasionErrorCode
-  | BookmarkErrorCode;
+  | BookmarkErrorCode
+  | ArticleErrorCode;

@@ -2,6 +2,7 @@ import type { UnitOfWorkRepositories } from "@repo/core/application/execution/un
 import { createAccountRepositories } from "./account";
 import { createApplicationRepositories } from "./application";
 import { createAreaRepositories } from "./area";
+import { createArticleRepositories } from "./article";
 import { createAuthorityRepositories } from "./authority";
 import { createBookmarkRepositories } from "./bookmark";
 import type { RepositoryDeps } from "./deps";
@@ -34,5 +35,6 @@ export function createRepositories(
     ...createRegionRepositories(deps),
     ...createOccasionRepositories(deps),
     ...createBookmarkRepositories(deps),
+    ...createArticleRepositories(deps),
   };
 }
