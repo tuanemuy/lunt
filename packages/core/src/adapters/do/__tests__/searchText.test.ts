@@ -27,7 +27,7 @@ import { DoReferenceQueries } from "../referenceQueries";
 import type { SqlExec, SqlRow } from "../sql";
 import { KEYWORD_SEARCH } from "../store/discovery";
 import { ARTICLE_SEARCH } from "../store/discoveryArticles";
-import { applyMigrations } from "../store/schema";
+import { applyMigrations, MIGRATIONS } from "../store/schema";
 import {
   candidatesSql,
   needlesParam,
@@ -36,7 +36,12 @@ import {
   type SearchTargetKind,
   type SearchTextRow,
 } from "../store/searchText";
+import {
+  SEARCH_TEXT_BACKFILL_COLUMNS,
+  type SearchTextBackfillTable,
+} from "../store/searchTextBackfill";
 import { createNodeHarness } from "../testing/nodeHarness";
+import { createNodeSqlStorage } from "../testing/nodeSqlStorage";
 
 type StoredText = SearchTextRow &
   Readonly<{ target_kind: string; target_id: string }>;
@@ -243,6 +248,116 @@ describe("search_texts (store/searchText.ts, D-25)", () => {
       );
       expect(plan.join("\n")).not.toContain("TEMP B-TREE");
     }
+  });
+});
+
+const BACKFILLED_TABLES = Object.keys(
+  SEARCH_TEXT_BACKFILL_COLUMNS,
+) as readonly SearchTextBackfillTable[];
+
+const appliedVersions = (sql: SqlExec): readonly number[] =>
+  sql
+    .exec<Readonly<{ version: number }> & SqlRow>(
+      "SELECT version FROM _schema_migrations ORDER BY version",
+    )
+    .toArray()
+    .map((row) => Number(row.version));
+
+/** Copies `table`'s rows, in the columns `to` has, from one store to another. */
+function copyRows(from: SqlExec, to: SqlExec, table: string): void {
+  const columns = to
+    .exec<Readonly<{ name: string }> & SqlRow>(
+      "SELECT name FROM pragma_table_info(?)",
+      table,
+    )
+    .toArray()
+    .map((row) => row.name);
+  const list = columns.join(", ");
+  const slots = columns.map(() => "?").join(", ");
+  for (const row of from.exec(`SELECT ${list} FROM ${table}`).toArray()) {
+    to.exec(
+      `INSERT INTO ${table} (${list}) VALUES (${slots})`,
+      ...columns.map((column) => row[column]),
+    );
+  }
+}
+
+/** Forgets migration 21 on `storage`, so the next start applies it again. */
+function forgetMigration21(sql: SqlExec): void {
+  sql.exec("DROP TABLE search_texts");
+  sql.exec("DELETE FROM _schema_migrations WHERE version = 21");
+}
+
+describe("migration 21's backfill (store/searchTextBackfill.ts, frozen at version 21)", () => {
+  const upTo = (version: number) =>
+    MIGRATIONS.filter((migration) => migration.version <= version);
+
+  it("backfills an object at version 20 against the tables exactly as they are at version 21, then the current schema keeps them", async () => {
+    const { w, storage: source } = setup();
+    await everyKind(w);
+    const P = await w.place({ suspended: true });
+    await w.store(w.f.draft(P.id));
+    await w.article({ state: "draft", title: "下書き" });
+    const written = storedTexts(source.sql);
+    expect(written).toHaveLength(8);
+
+    const target = createNodeSqlStorage();
+    applyMigrations(target.sql, target.transaction, new Date(), upTo(20));
+    for (const table of BACKFILLED_TABLES) {
+      copyRows(source.sql, target.sql, table);
+    }
+    applyMigrations(target.sql, target.transaction, new Date(), upTo(21));
+    expect(appliedVersions(target.sql).at(-1)).toBe(21);
+    expect(storedTexts(target.sql)).toEqual(written);
+
+    applyMigrations(target.sql, target.transaction, new Date());
+    expect(appliedVersions(target.sql)).toEqual(
+      MIGRATIONS.map((migration) => migration.version),
+    );
+    expect(storedTexts(target.sql)).toEqual(written);
+  });
+
+  it("migrates an empty object without writing a text", () => {
+    const storage = createNodeSqlStorage();
+    applyMigrations(storage.sql, storage.transaction, new Date(), upTo(21));
+    expect(appliedVersions(storage.sql).at(-1)).toBe(21);
+    expect(storedTexts(storage.sql)).toEqual([]);
+  });
+
+  it("reads only its version-21 columns, so columns added later change nothing", async () => {
+    const { w, storage } = setup();
+    await everyKind(w);
+    const written = storedTexts(storage.sql);
+    for (const table of BACKFILLED_TABLES) {
+      storage.sql.exec(
+        `ALTER TABLE ${table} ADD COLUMN added_later TEXT NOT NULL DEFAULT 'x'`,
+      );
+    }
+    forgetMigration21(storage.sql);
+    applyMigrations(storage.sql, storage.transaction, new Date());
+    expect(storedTexts(storage.sql)).toEqual(written);
+  });
+
+  it("leaves a target whose stored values do not rebuild without a text, and does not fail", async () => {
+    const { w, storage } = setup();
+    const { P, R, E } = await everyKind(w);
+    const written = storedTexts(storage.sql);
+    storage.sql.exec("UPDATE places SET area_code = 'x' WHERE id = ?", P.id);
+    storage.sql.exec("UPDATE regions SET area_code = 'x' WHERE id = ?", R.id);
+    storage.sql.exec(
+      "UPDATE occasions SET photo_ids = 'not json' WHERE id = ?",
+      E.id,
+    );
+    forgetMigration21(storage.sql);
+    applyMigrations(storage.sql, storage.transaction, new Date());
+    expect(storedTexts(storage.sql)).toEqual(
+      written.filter(
+        (row) =>
+          !(row.target_kind === "place" && row.target_id === P.id) &&
+          !(row.target_kind === "region" && row.target_id === R.id) &&
+          !(row.target_kind === "occasion" && row.target_id === E.id),
+      ),
+    );
   });
 });
 

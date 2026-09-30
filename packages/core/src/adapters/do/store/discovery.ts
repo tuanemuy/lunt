@@ -14,126 +14,32 @@ import type { ListingRecord, OfferingRecord } from "../protocol/listing";
 import type { OccasionRecord } from "../protocol/occasion";
 import type { PlaceAffiliationsRecord, RegionRecord } from "../protocol/region";
 import type { SqlExec, SqlRow } from "../sql";
-import { articleSearchText } from "./article";
 import type { CommandHandlersOf } from "./commands";
-import { LISTING_PHASE_SQL, listingSearchText } from "./listing";
+import { LISTING_PHASE_SQL } from "./listing";
 import {
   OCCASION_COLUMNS,
   type OccasionRow,
   occasionRowToRecord,
-  occasionSearchText,
   participationRowToRecord,
 } from "./occasion";
-import {
-  PLACE_COLUMNS,
-  type PlaceRow,
-  placeRowToRecord,
-  placeSearchText,
-} from "./place";
+import { PLACE_COLUMNS, type PlaceRow, placeRowToRecord } from "./place";
 import type { QueryHandlersOf } from "./queries";
-import {
-  REGION_COLUMNS,
-  type RegionRow,
-  regionRowToRecord,
-  regionSearchText,
-} from "./region";
+import { REGION_COLUMNS, type RegionRow, regionRowToRecord } from "./region";
 import type { Migration } from "./schema";
 import {
   candidatesSql,
   needlesParam,
-  putSearchText,
   relevanceOfRow,
   SEARCH_TEXT_STATEMENTS,
   type SearchCandidates,
-  type SearchTargetKind,
   type SearchTextRow,
 } from "./searchText";
+import { backfillSearchTexts } from "./searchTextBackfill";
 
 /**
- * Discovery keeps no state of its own: every read is computed from Place's,
- * Listing's, Region's, Occasion's, Article's and Authority's tables (their
- * store modules document the columns). Migration 13 adds only indexes for its
- * reads: `idx_listings_newest_viewable` lets the feed's newest-first
- * listing pages walk the viewable listings in order instead of sorting
- * every one.
+ * Migration 21: the normalised keyword-search texts (`store/searchText.ts`),
+ * backfilled by `store/searchTextBackfill.ts` (frozen at version 21).
  */
-const BACKFILL_PAGE = 200;
-
-/**
- * Visits the rows `select` (which binds the last id seen) returns, in id
- * order and `BACKFILL_PAGE` at a time, so a backfill never holds every
- * (long) row at once.
- */
-function eachRow<R extends SqlRow & Readonly<{ id: string }>>(
-  sql: SqlExec,
-  select: string,
-  visit: (row: R) => void,
-): void {
-  let after = "";
-  for (;;) {
-    const rows = sql
-      .exec<R>(`${select} ORDER BY id LIMIT ?`, after, BACKFILL_PAGE)
-      .toArray();
-    for (const row of rows) visit(row);
-    const last = rows[rows.length - 1];
-    if (last === undefined || rows.length < BACKFILL_PAGE) return;
-    after = last.id;
-  }
-}
-
-type TextRow = Readonly<{
-  id: string;
-  name: string | null;
-  description: string | null;
-}> &
-  SqlRow;
-
-type ArticleTextRow = Readonly<{
-  id: string;
-  title: string | null;
-  body: string | null;
-}> &
-  SqlRow;
-
-/**
- * Migration 21's backfill: every stored target's search text, through the
- * same record → text functions the stores' writes use.
- */
-function backfillSearchTexts(sql: SqlExec): void {
-  const put = (kind: SearchTargetKind) => (id: string, text: TextOf) =>
-    putSearchText(sql, kind, id, text);
-  eachRow<PlaceRow>(
-    sql,
-    `SELECT ${PLACE_COLUMNS} FROM places WHERE id > ?`,
-    (row) => put("place")(row.id, placeSearchText(placeRowToRecord(row))),
-  );
-  eachRow<TextRow>(
-    sql,
-    "SELECT id, name, description FROM listings WHERE id > ?",
-    (row) =>
-      put("listing")(row.id, listingSearchText(row.name, row.description)),
-  );
-  eachRow<RegionRow>(
-    sql,
-    `SELECT ${REGION_COLUMNS} FROM regions WHERE id > ?`,
-    (row) => put("region")(row.id, regionSearchText(regionRowToRecord(row))),
-  );
-  eachRow<OccasionRow>(
-    sql,
-    `SELECT ${OCCASION_COLUMNS} FROM occasions o WHERE o.id > ?`,
-    (row) =>
-      put("occasion")(row.id, occasionSearchText(occasionRowToRecord(row))),
-  );
-  eachRow<ArticleTextRow>(
-    sql,
-    "SELECT id, title, body FROM articles WHERE id > ?",
-    (row) => put("article")(row.id, articleSearchText(row)),
-  );
-}
-
-type TextOf = Parameters<typeof putSearchText>[3];
-
-/** Migration 21: the normalised keyword-search texts (`store/searchText.ts`). */
 export const SEARCH_TEXT_MIGRATION: Migration = {
   version: 21,
   name: "normalised keyword-search texts",
@@ -141,6 +47,16 @@ export const SEARCH_TEXT_MIGRATION: Migration = {
   run: backfillSearchTexts,
 };
 
+/**
+ * Discovery's reads are computed from Place's, Listing's, Region's,
+ * Occasion's, Article's and Authority's tables (their store modules
+ * document the columns). Its own state is the keyword-search texts
+ * (`search_texts`, `store/searchText.ts`), which the stores write with
+ * their targets and migration 21 backfilled (`store/searchTextBackfill.ts`).
+ * Migration 13 adds only indexes for its reads:
+ * `idx_listings_newest_viewable` lets the feed's newest-first listing pages
+ * walk the viewable listings in order instead of sorting every one.
+ */
 export const DISCOVERY_MIGRATIONS: readonly Migration[] = [
   {
     version: 13,
