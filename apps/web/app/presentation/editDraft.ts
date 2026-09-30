@@ -5,6 +5,12 @@ import { useState } from "react";
  * what the form holds, the content it started from, the version the next
  * save sends, and a pending resync with the loader's copy.
  *
+ * Every comparison — whether the form was edited, whether someone else
+ * changed the target — looks only at `contentOf`, the part of the values a
+ * save persists. What the form merely shows of other targets (a showcase's
+ * state line, whether viewers can see it) changes without anyone saving,
+ * and must never read as an edit or as someone else's change (CS-07).
+ *
  * The version the next save sends comes from the server's reply to the
  * editor's own save or version-checked change, never from the loader right
  * after `useReconcile()`: the reconcile resolves before the island
@@ -36,23 +42,31 @@ export type EditDraft<V> = Readonly<{
     mode: "restart" | "content" | "version";
     atLeast: number;
   }> | null;
+  /** The persisted content of the form's values; display-only parts left out. */
+  contentOf: (values: V) => unknown;
 }>;
 
-const same = (a: unknown, b: unknown): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
+const signature = (value: unknown): string => JSON.stringify(value);
+
+const sameContent = <V>(draft: EditDraft<V>, a: V, b: V): boolean =>
+  signature(draft.contentOf(a)) === signature(draft.contentOf(b));
+
+const wholeValues = <V>(values: V): unknown => values;
 
 export const startEditDraft = <V>(
   values: V,
   version: number,
+  contentOf: (values: V) => unknown = wholeValues,
 ): EditDraft<V> => ({
   values,
   base: values,
   version,
   resync: null,
+  contentOf,
 });
 
 export const isDirty = <V>(draft: EditDraft<V>): boolean =>
-  !same(draft.values, draft.base);
+  !sameContent(draft, draft.values, draft.base);
 
 /**
  * The editor's save went through at `version`: the form keeps what it sent
@@ -64,7 +78,10 @@ export const savedDraft = <V>(
   submitted: V,
   version: number,
 ): EditDraft<V> => ({
-  values: same(draft.values, submitted) ? submitted : draft.values,
+  ...draft,
+  values: sameContent(draft, draft.values, submitted)
+    ? submitted
+    : draft.values,
   base: submitted,
   version,
   resync: { mode: "content", atLeast: version },
@@ -109,20 +126,22 @@ export const settledDraft = <V>(draft: EditDraft<V>): EditDraft<V> =>
  */
 function follow<V>(
   draft: EditDraft<V>,
-  content: V,
+  fresh: V,
   version: number,
 ): EditDraft<V> {
   if (!isDirty(draft)) {
-    return { values: content, base: content, version, resync: null };
+    return { ...draft, values: fresh, base: fresh, version, resync: null };
   }
-  if (same(content, draft.base)) return { ...draft, version, resync: null };
+  if (sameContent(draft, fresh, draft.base)) {
+    return { ...draft, base: fresh, version, resync: null };
+  }
   return draft.resync === null ? draft : { ...draft, resync: null };
 }
 
 /**
  * The draft after the loader's copy `fresh` at `version` arrived: the
  * waiting resync applied, or, with none waiting, a newer copy followed.
- * Otherwise the same draft.
+ * Otherwise the same draft, so applying it again changes nothing.
  */
 export function syncEditDraft<V>(
   draft: EditDraft<V>,
@@ -137,10 +156,9 @@ export function syncEditDraft<V>(
   if (resync.mode === "version") return follow(draft, fresh(), version);
   const content = fresh();
   return {
+    ...draft,
     values:
-      resync.mode === "content" && !same(draft.values, draft.base)
-        ? draft.values
-        : content,
+      resync.mode === "content" && isDirty(draft) ? draft.values : content,
     base: content,
     version,
     resync: null,
@@ -149,46 +167,59 @@ export function syncEditDraft<V>(
 
 /**
  * A new loader copy at the draft's own version: an unedited form with no
- * resync waiting takes its content. The target's stored content is the same,
- * but what the form shows of other targets (a showcase's viewability and
- * state) can change without a new version — a navigation back to the form
- * shows the cached copy first and swaps in the fresh one.
+ * resync waiting takes it. The target's stored content is the same, but
+ * what the form shows of other targets (a showcase's viewability and state)
+ * can change without a new version — a navigation back to the form shows
+ * the cached copy first and swaps in the fresh one.
  */
 export function refreshDraft<V>(
   draft: EditDraft<V>,
-  content: V,
+  fresh: V,
   version: number,
 ): EditDraft<V> {
   if (
     draft.resync !== null ||
     version !== draft.version ||
     isDirty(draft) ||
-    same(content, draft.base)
+    signature(fresh) === signature(draft.values)
   ) {
     return draft;
   }
-  return { values: content, base: content, version, resync: null };
+  return { ...draft, values: fresh, base: fresh };
 }
 
 /**
  * `EditDraft` as component state, synced with the loader's `data` during
  * render (React's "adjusting state when a prop changes").
+ *
+ * The loader's copy is told apart by its revision — its version and the
+ * values it gives the form — never by object identity, so a caller may
+ * build `data` afresh on every render. Each new revision is offered to
+ * `refreshDraft` once, and `syncEditDraft` returns the same draft when
+ * there is nothing left to apply, so a render settles after at most one
+ * extra pass.
+ *
+ * `contentOf` picks what a save persists out of the values (default: all
+ * of them); see `EditDraft`. It is read once, when the draft starts.
  */
 export function useEditDraft<D extends Readonly<{ version: number }>, V>(
   data: D,
   valuesOf: (data: D) => V,
+  contentOf?: (values: V) => unknown,
 ): readonly [
   EditDraft<V>,
   (next: (draft: EditDraft<V>) => EditDraft<V>) => void,
 ] {
+  const fresh = valuesOf(data);
+  const revision = `${data.version}:${signature(fresh)}`;
   const [draft, setDraft] = useState(() =>
-    startEditDraft(valuesOf(data), data.version),
+    startEditDraft(fresh, data.version, contentOf),
   );
-  const [seen, setSeen] = useState(data);
-  let synced = syncEditDraft(draft, () => valuesOf(data), data.version);
-  if (data !== seen) {
-    setSeen(data);
-    synced = refreshDraft(synced, valuesOf(data), data.version);
+  const [seen, setSeen] = useState(revision);
+  let synced = syncEditDraft(draft, () => fresh, data.version);
+  if (revision !== seen) {
+    setSeen(revision);
+    synced = refreshDraft(synced, fresh, data.version);
   }
   if (synced !== draft) setDraft(synced);
   return [synced, setDraft];

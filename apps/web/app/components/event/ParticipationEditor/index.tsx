@@ -4,6 +4,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -316,10 +317,11 @@ function ParticipationEditor({
   const shopName = placeName ?? "この店舗";
   const eventName = occasionName(occasion.name);
 
-  const [draft, setDraft] = useEditDraft(
-    { ...data, version: data.participation?.version ?? 0 },
-    valuesOf,
+  const source = useMemo(
+    () => ({ ...data, version: data.participation?.version ?? 0 }),
+    [data],
   );
+  const [draft, setDraft] = useEditDraft(source, valuesOf);
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const { values } = draft;

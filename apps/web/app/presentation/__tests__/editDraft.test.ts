@@ -140,6 +140,32 @@ describe("editDraft", () => {
     expect(synced.version).toBe(5);
   });
 
+  it("compares only the persisted content: a display-only change is neither an edit nor someone else's change", () => {
+    type Shown = Readonly<{ name: string; state: string }>;
+    const loaded = startEditDraft<Shown>(
+      { name: "before", state: "open" },
+      3,
+      (values) => values.name,
+    );
+    expect(
+      isDirty({ ...loaded, values: { name: "before", state: "hidden" } }),
+    ).toBe(false);
+    const edited = { ...loaded, values: { name: "mine", state: "open" } };
+    const synced = syncEditDraft(
+      edited,
+      () => ({ name: "before", state: "hidden" }),
+      4,
+    );
+    expect(synced.version).toBe(4);
+    expect(synced.values).toEqual({ name: "mine", state: "open" });
+    const theirs = syncEditDraft(
+      edited,
+      () => ({ name: "theirs", state: "hidden" }),
+      4,
+    );
+    expect(theirs).toBe(edited);
+  });
+
   it("after a state change the loader's copy of that version changes nothing", () => {
     const moved = movedDraft(startEditDraft({ name: "before" }, 3), 4);
     expect(syncEditDraft(moved, () => ({ name: "before" }), 3)).toBe(moved);
