@@ -91,12 +91,14 @@ export const uploadPhotoFn = createServerFn({ method: "POST" })
       { getContainer },
       { requireActor },
       { registerPhoto },
+      { getPhotoDisplayRef },
       { parseGeneratedId },
       { PhotoId },
     ] = await Promise.all([
       import("@repo/core/application/di/containerStore"),
       import("./actor"),
       import("@repo/core/application/media/registerPhoto"),
+      import("@repo/core/application/media/getPhotoDisplayRef"),
       import("./validator"),
       import("@repo/core/domain/common/ids"),
     ]);
@@ -124,8 +126,9 @@ export const uploadPhotoFn = createServerFn({ method: "POST" })
       },
     });
     const id = PhotoId.create(photoId);
-    const refs = await container.photoStorage.displayRefs([id]);
-    const ref = refs.get(id);
-    if (ref === undefined) throw new Error(`No display ref for photo ${id}`);
-    return { photoId: id, url: ref.url };
+    const { url } = await getPhotoDisplayRef({
+      container,
+      input: { photoId: id },
+    });
+    return { photoId: id, url };
   });

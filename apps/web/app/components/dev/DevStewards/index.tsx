@@ -13,8 +13,8 @@ type State =
   | Readonly<{ kind: "failed"; message: string }>;
 
 /**
- * Development tool: give a store a steward (stands in for claim approval
- * until S2B). The store id is the one in `/places/$placeId` or
+ * Development tool: give a store a steward the way approving a stewardship
+ * claim does, without the application. The store id is the one in `/places/$placeId` or
  * `/manage/places/$placeId`.
  */
 export function DevStewards() {

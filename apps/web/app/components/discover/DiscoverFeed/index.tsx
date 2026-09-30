@@ -55,8 +55,7 @@ const FEATURE_RATIO = 348 / 193;
 
 const feedMemory = entryMemory<PagedState<FeedItem>>();
 
-// VW-07 arrives with the explore screens; a plain path until the router knows it.
-const EVENTS_PATH: string = "/events";
+const EVENTS_PATH = "/events";
 
 /** VW-01's URL for other conditions (a new history entry: 戻る returns to the previous ones). */
 function useShowConditions() {

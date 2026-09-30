@@ -27,8 +27,7 @@ import type { ApplicationSubject, SubmissionTarget } from "./subject";
  * 所属, 離脱, 参加, 掲載, 掲載の修正) contributes: its target, content,
  * premises, approver seat, slot and subjects. The core is written once
  * against `KindSpec` / `KindDefinition`; a kind is one `KindSpec` type and
- * one `KindDefinition` value, registered in `domain/application/kinds.ts`
- * by the stage that brings the domains its content and premises read.
+ * one `KindDefinition` value, registered in `domain/application/kinds.ts`.
  * Adding a kind never edits the core, the ports or the storage.
  */
 

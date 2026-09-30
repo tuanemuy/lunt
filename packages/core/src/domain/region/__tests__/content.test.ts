@@ -4,7 +4,7 @@ import { isPublishConditionUnmetError } from "@repo/core/domain/common/publicati
 import {
   SampleAddress,
   samplePhotoId,
-} from "@repo/core/domain/place/testing/samples";
+} from "@repo/core/domain/common/testing/samples";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {

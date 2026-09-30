@@ -15,10 +15,9 @@ export type DevAppointPlaceStewardInput = Readonly<{
 /**
  * Development tool: makes an existing account a steward of a store, the
  * way approving a stewardship claim does (`authority.steward_appointed`,
- * `via: "application"`). Stage 2 has no screen that gives a store its
- * first steward — claim approval arrives with S2B — so manual tests and
- * checks of CM-02 / MY-06 seed one here (`/__dev/stewards`). Refused
- * unless the development tools are on.
+ * `via: "application"`), without filing and approving the claim — so
+ * manual tests and checks of CM-02 / MY-06 seed one here
+ * (`/__dev/stewards`). Refused unless the development tools are on.
  */
 export async function devAppointPlaceSteward({
   container,

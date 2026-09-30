@@ -34,9 +34,8 @@ const REF_WORD: Readonly<Record<OccurrenceRef["kind"], string>> = {
   account: "アカウント",
 };
 
-// Words of the spec's eight application kinds. A kind joins
-// `ApplicationKind` when its stage registers it (S2B, S3B), and the
-// annotation below then requires its word.
+// Words of the spec's eight application kinds; the annotation below
+// requires a word for every `ApplicationKind`.
 const KIND_WORDS = {
   registration: "店舗の新規登録",
   revision: "店舗の情報修正",

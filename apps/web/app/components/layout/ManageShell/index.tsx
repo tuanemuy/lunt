@@ -8,9 +8,7 @@ import { Logo } from "@/components/ui/Logo";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { ManageDock } from "./ManageDock";
 
-// Plain path: the account screens arrive in a later phase, and the router
-// only type-checks literal paths it already knows.
-const ACCOUNT_PATH: string = "/me";
+const ACCOUNT_PATH = "/me";
 
 type ManageShellProps = {
   /** The brand band's context label: お店の管理, 地域の運営, サービス運営, アカウント… */

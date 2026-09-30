@@ -28,8 +28,8 @@ function Row({ item, now }: { item: NotificationItem; now: Date }) {
       </time>
     </span>
   );
-  // Plain anchors: the destinations carry their own query strings, and
-  // several belong to screens of later stages.
+  // Plain anchors: the destinations are built paths that carry their own
+  // query strings (`notificationDestinationPath`).
   return (
     <li>
       {item.href === null ? (

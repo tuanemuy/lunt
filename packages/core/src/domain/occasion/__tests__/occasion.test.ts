@@ -1,6 +1,6 @@
 import { DateRange } from "@repo/core/domain/common/dateRange";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import { SampleAddress } from "@repo/core/domain/place/testing/samples";
+import { SampleAddress } from "@repo/core/domain/common/testing/samples";
 import { describe, expect, it } from "vitest";
 import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { OccasionContent } from "../content";

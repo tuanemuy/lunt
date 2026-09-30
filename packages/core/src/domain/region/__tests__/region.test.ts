@@ -2,11 +2,11 @@ import { Address } from "@repo/core/domain/common/address";
 import { GeoPoint } from "@repo/core/domain/common/geo";
 import { RegionId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
-import { isRehydrationError } from "@repo/core/domain/error";
 import {
   SampleAddress,
   samplePhotoId,
-} from "@repo/core/domain/place/testing/samples";
+} from "@repo/core/domain/common/testing/samples";
+import { isRehydrationError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";
 import {
   catchError,

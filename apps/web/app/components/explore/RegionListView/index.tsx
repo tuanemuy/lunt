@@ -29,8 +29,7 @@ import { type PagedState, usePagedList } from "../usePagedList";
 const placesMemory = entryMemory<PagedState<PlaceRowItem>>();
 const listingsMemory = entryMemory<PagedState<ListingCardItem>>();
 
-// VW-04 arrives with its own stage; the router only type-checks paths it knows.
-const MAP_PATH: string = "/map";
+const MAP_PATH = "/map";
 
 /**
  * A page that failed because the region stopped being viewable reloads

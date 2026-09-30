@@ -45,8 +45,7 @@ import { type PagedState, usePagedList } from "../usePagedList";
 
 const FEATURE_RATIO = 348 / 193;
 
-// VW-04 arrives with its own stage; the router only type-checks paths it knows.
-const MAP_PATH: string = "/map";
+const MAP_PATH = "/map";
 
 /** The page shown, and the position it was read for (`null`: none). */
 type Shown = Readonly<{ origin: LngLat | null; page: RegionsPage }>;

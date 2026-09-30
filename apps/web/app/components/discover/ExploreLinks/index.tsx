@@ -19,16 +19,11 @@ export type ExploreDestination = keyof typeof DESTINATIONS;
 export function ExploreLinks({ to }: { to: readonly ExploreDestination[] }) {
   return (
     <>
-      {to.map((key) => {
-        // Plain paths: some of these screens arrive with later stages, and
-        // the router only type-checks literal paths it already knows.
-        const path: string = DESTINATIONS[key].to;
-        return (
-          <TextLink key={key} to={path}>
-            {DESTINATIONS[key].label}
-          </TextLink>
-        );
-      })}
+      {to.map((key) => (
+        <TextLink key={key} to={DESTINATIONS[key].to}>
+          {DESTINATIONS[key].label}
+        </TextLink>
+      ))}
     </>
   );
 }

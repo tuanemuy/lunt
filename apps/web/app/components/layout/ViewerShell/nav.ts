@@ -1,4 +1,5 @@
 import type { IconName } from "@/components/ui/Icon";
+import type { FileRoutesByTo } from "@/routeTree.gen";
 
 export type ViewerTabKey =
   | "discover"
@@ -11,9 +12,7 @@ type ViewerTab = {
   key: ViewerTabKey;
   label: string;
   icon: IconName;
-  // Plain paths: most tab screens arrive in later phases, and the router only
-  // type-checks literal paths it already knows.
-  to: string;
+  to: keyof FileRoutesByTo;
 };
 
 /** The five viewer tabs, in the order of the bottom and top navigation. */
@@ -25,7 +24,10 @@ export const VIEWER_TABS: ReadonlyArray<ViewerTab> = [
   { key: "saved", label: "保存", icon: "bookmark", to: "/saved" },
 ];
 
-export const VIEWER_PATHS: Readonly<{ search: string; account: string }> = {
+export const VIEWER_PATHS: Readonly<{
+  search: keyof FileRoutesByTo;
+  account: keyof FileRoutesByTo;
+}> = {
   search: "/search",
   account: "/me",
 };

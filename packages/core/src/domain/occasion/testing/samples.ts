@@ -8,7 +8,7 @@ import {
   RegionId,
 } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import { SampleAddress } from "@repo/core/domain/place/testing/samples";
+import { SampleAddress } from "@repo/core/domain/common/testing/samples";
 import { OccasionContent } from "../content";
 import {
   Occasion,

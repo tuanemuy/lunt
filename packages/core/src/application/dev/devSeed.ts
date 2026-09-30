@@ -423,9 +423,9 @@ function lookup<T>(
  * document (`spec/manual-tests/*.md` 「テストデータ」) starts from, through
  * the product's own usecases acting as the right accounts — so events,
  * notifications and invariants are the real ones. Affiliations and the
- * participations of places with a steward, which only applications (S3B)
+ * participations of places with a steward, which only applications
  * create, go through the development paths that do what their approval
- * will (`devEstablishAffiliation`, `devEstablishParticipation`). Photos
+ * does (`devEstablishAffiliation`, `devEstablishParticipation`). Photos
  * are generated (`seedPhotoPng`) and registered with consent by the
  * account that uses them. Then a run of `recordEndedOccasions`, as the
  * daily job would have recorded the occasions already over, and last the

@@ -26,15 +26,12 @@ export type ContentLookup = (
   photoIds: readonly string[];
 }>[];
 
-export type ContentLookups = Readonly<
-  Partial<Record<ContentKind, ContentLookup>>
->;
+export type ContentLookups = Readonly<Record<ContentKind, ContentLookup>>;
 
 /**
  * `ContentDirectory`'s per-kind lookups — the one place a content kind joins
- * the directory. Listing, place (S2A), region, occasion (S3) and article
- * (S4) each add their entry when their tables land; a kind without an entry
- * reads as having no targets, so every name resolves to `null` until then.
+ * the directory. Every kind has one: a new `ContentKind` does not compile
+ * until its table can answer.
  */
 export const CONTENT_LOOKUPS: ContentLookups = {
   listing: listingContentLookup,
@@ -61,7 +58,6 @@ export function describeContent(
   }[] = [];
   for (const kind of ContentOrder.kinds) {
     const lookup = lookups[kind];
-    if (lookup === undefined) continue;
     const ids = [
       ...new Set(
         targets

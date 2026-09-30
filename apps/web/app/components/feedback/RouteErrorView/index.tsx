@@ -21,10 +21,8 @@ export type RouteProblem =
 /** The shell the content sits in; `bare` when no layout shell has rendered. */
 type Area = "viewer" | "manage" | "bare";
 
-// Plain paths: these screens arrive in later phases, and the router only
-// type-checks literal paths it already knows.
-const MY_PAGE: string = "/me";
-const LOGIN: string = "/login";
+const MY_PAGE = "/me";
+const LOGIN = "/login";
 
 type View = Readonly<{
   title: string;

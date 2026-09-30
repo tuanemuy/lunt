@@ -88,9 +88,8 @@ export type AccountAnnouncement = Extract<
 
 /**
  * The domain events of the correspondence table (`spec/domains/notification.md`
- * 「ドメインイベント」) whose stage has landed. A stage adds its events here
- * and the compiler then asks for their case in `Announcements.from` and
- * `Announcements.showcaseRefsOf`.
+ * 「ドメインイベント」). An event added here makes the compiler ask for its
+ * case in `Announcements.from` and `Announcements.showcaseRefsOf`.
  */
 export type NotifiableEvent =
   | InvitationIssuedEvent

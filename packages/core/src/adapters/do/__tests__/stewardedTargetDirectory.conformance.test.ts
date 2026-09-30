@@ -27,7 +27,7 @@ describeStewardedTargetDirectoryContract(async () => {
   return { directory: new DoStewardedTargetDirectory(state.client), uow };
 });
 
-describe("StewardedTargetDirectory in stage 3", () => {
+describe("StewardedTargetDirectory production lookups", () => {
   it("registers the place, region and occasion lookups and describes stored ones through the object's own lookups", async () => {
     expect(STEWARDED_TARGET_LOOKUPS.place).toBe(placeStewardedTargetLookup);
     expect(STEWARDED_TARGET_LOOKUPS.region).toBe(regionStewardedTargetLookup);

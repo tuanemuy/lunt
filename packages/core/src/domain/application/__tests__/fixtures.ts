@@ -1,4 +1,3 @@
-import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
 import {
   AccountId,
   ApplicationId,
@@ -50,7 +49,13 @@ const { Application, Premise, SubmissionScope } = TestModel;
  * minute per call.
  */
 export function applicationIds(start = 0x20_0000) {
-  const ids = new FakeIdGenerator(start);
+  // The shape of the application layer's `FakeIdGenerator`, minted here so
+  // the domain's tests do not depend on an outer layer.
+  let counter = start;
+  const ids = {
+    next: (): string =>
+      `ffffffff-ffff-7fff-8fff-${(counter++).toString(16).padStart(12, "0")}`,
+  };
   let clock = T0.getTime();
   return {
     account: (): AccountId => AccountId.create(ids.next()),

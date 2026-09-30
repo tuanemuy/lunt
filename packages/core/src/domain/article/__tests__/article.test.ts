@@ -1,7 +1,7 @@
 import { ArticleId, ListingId, PlaceId } from "@repo/core/domain/common/ids";
 import { PublishConditionUnmetError } from "@repo/core/domain/common/publication";
+import { samplePhotoId } from "@repo/core/domain/common/testing/samples";
 import { isRehydrationError } from "@repo/core/domain/error";
-import { samplePhotoId } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
 import {
   catchError,

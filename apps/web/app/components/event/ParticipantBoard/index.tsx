@@ -194,7 +194,7 @@ function appendNew(
 
 /**
  * EM-01 参加店舗と申請 (EVT-07, EVT-09, EVT-10): the participation
- * applications (they arrive with stage 3b), the participants with their
+ * applications, the participants with their
  * listings and dates, the exclusion of a participant (CS-12, whatever its
  * steward or the holding status) and the entries to CM-04. The board owns
  * the list, so an exclusion removes its row optimistically and keeps its

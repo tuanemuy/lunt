@@ -30,8 +30,8 @@ export type RefRecord = Readonly<{ kind: string; id: string }>;
 /**
  * The application's lookup keys, fixed by its target and computed by the
  * domain on the request side (`Application.slotOf` / `subjects` /
- * `approverSeat`). Kinds are registered per stage in request-side code,
- * so the object indexes what it is given instead of deriving it.
+ * `approverSeat`). Kinds are registered in request-side code, so the
+ * object indexes what it is given instead of deriving it.
  */
 export type ApplicationIndexRecord = Readonly<{
   applicant: RefRecord;

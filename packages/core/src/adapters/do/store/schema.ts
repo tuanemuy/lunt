@@ -77,9 +77,9 @@ const CORE_MIGRATION: Migration = {
  * Allocated: 1 core, 2 accounts, 3 dead letters, 4 login challenges,
  * 5 authority, 6 application, 7 notification, 8 development mailbox,
  * 9 development clock, 10 media, 11 place, 12 listing, 13 discovery,
- * 14 moderation, 15 application (stage 2), 16 notification (stage 2),
- * 17 region, 18 occasion, 19 bookmark, 20 article, 21 discovery (search
- * texts).
+ * 14 moderation, 17 region, 18 occasion, 19 bookmark, 20 article,
+ * 21 discovery (search texts). 15 and 16 were reserved for application
+ * and notification and stay unused.
  */
 export const MIGRATIONS: readonly Migration[] = [
   CORE_MIGRATION,
