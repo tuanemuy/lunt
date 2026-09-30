@@ -183,6 +183,23 @@ const requirement = (
 };
 
 /**
+ * How many candidates of each frame kind composing the page needs, once
+ * the feed's `listingCount` is known: none when no slot falls on the page
+ * (a page past the end, or one between two slots), else `slotCount` of the
+ * listings up to the page's end — the frames are assigned from slot 0.
+ */
+const framesNeeded = (pagination: Pagination, listingCount: number): number => {
+  const start = (pagination.page - 1) * pagination.limit;
+  const last = Math.min(pagination.page * pagination.limit, listingCount);
+  if (last <= start) return 0;
+  const slotOnPage =
+    start === 0 ||
+    Math.floor(last / LISTINGS_PER_FRAME) >
+      Math.floor(start / LISTINGS_PER_FRAME);
+  return slotOnPage ? slotCount(last) : 0;
+};
+
+/**
  * The page's items: its `limit` listings from `(page − 1) × limit` of the
  * arranged order, slot 0 ahead of the first page's listings and slot k
  * right after the 6k-th listing, on whichever page holds it. `null` while
@@ -236,5 +253,6 @@ export const FeedComposer = {
   slotCount,
   assignFrames,
   requirement,
+  framesNeeded,
   page,
 };

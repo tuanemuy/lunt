@@ -1,3 +1,4 @@
+import type { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import {
@@ -94,8 +95,8 @@ async function searchListings(
   container: RequestContainer,
   keyword: SearchKeyword,
   pagination: Pagination,
+  today: LocalDate,
 ): Promise<SearchPage<ListingSummary>> {
-  const today = todayOf(container);
   const page = await container.keywordSearchQueries.searchListings(
     keyword,
     pagination,
@@ -112,8 +113,8 @@ async function searchOccasions(
   container: RequestContainer,
   keyword: SearchKeyword,
   pagination: Pagination,
+  today: LocalDate,
 ): Promise<SearchPage<OccasionSummary>> {
-  const today = todayOf(container);
   const page = await container.keywordSearchQueries.searchOccasions(
     { keyword, openOnly: false, today },
     pagination,
@@ -151,13 +152,18 @@ export async function searchByKeyword({
 }: ServiceArgs<SearchByKeywordInput>): Promise<SearchByKeywordOutput> {
   const keyword = SearchKeyword.create(input.keyword);
   const pagination = Pagination.create(input.pagination);
+  const today = todayOf(container);
   const reads = (kind: SearchKind) =>
     input.kinds === "all" || input.kinds === kind;
   const [place, region, listing, occasion] = await Promise.all([
     reads("place") ? searchPlaces(container, keyword, pagination) : null,
     reads("region") ? searchRegions(container, keyword, pagination) : null,
-    reads("listing") ? searchListings(container, keyword, pagination) : null,
-    reads("occasion") ? searchOccasions(container, keyword, pagination) : null,
+    reads("listing")
+      ? searchListings(container, keyword, pagination, today)
+      : null,
+    reads("occasion")
+      ? searchOccasions(container, keyword, pagination, today)
+      : null,
   ]);
   const results: SearchResults = { place, region, listing, occasion };
   return {

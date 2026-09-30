@@ -320,6 +320,18 @@ describe("FeedComposer.page", () => {
     });
   });
 
+  it("needs no frame candidates for a page no slot falls on", () => {
+    const needed = (page: number, limit: number, count: number) =>
+      FeedComposer.framesNeeded({ page, limit }, count);
+    expect(needed(1, 20, 0)).toBe(0);
+    expect(needed(1, 20, 3)).toBe(1);
+    expect(needed(2, 4, 100)).toBe(2);
+    expect(needed(3, 2, 100)).toBe(2);
+    expect(needed(4, 2, 100)).toBe(0);
+    expect(needed(2, 20, 5)).toBe(0);
+    expect(needed(2, 5, 7)).toBe(2);
+  });
+
   it("joins pages read from the head into the feed composed at once", () => {
     fc.assert(
       fc.property(

@@ -488,6 +488,7 @@ export function describeFeedCandidateQueriesContract(
         await w.store(first);
         expect(first.id < second.id).toBe(true);
         const page = await listings(h);
+        expect(page.items).toHaveLength(2);
         for (const entry of page.items) {
           expect(entry.place.substituteCover).toEqual(coverOf(first));
         }

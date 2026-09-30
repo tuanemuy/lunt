@@ -136,10 +136,7 @@ async function compose(
     read.listings.length < required.listings &&
     start < read.count
   );
-  const framesPerKind =
-    start < read.count
-      ? FeedComposer.slotCount(Math.min(required.listings, read.count))
-      : 0;
+  const framesPerKind = FeedComposer.framesNeeded(pagination, read.count);
   const [regions, occasions] = await Promise.all([
     readFrames(framesPerKind, (p) =>
       container.feedCandidateQueries.findRegionFrames(query, p),

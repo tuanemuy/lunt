@@ -158,6 +158,75 @@ function sqlPage(
   return { ids, count: countOf(sql, countFrom, ...bindings) };
 }
 
+type PlaceTallyRow = Readonly<{
+  id: string;
+  n: number;
+  latitude: number;
+  longitude: number;
+}> &
+  SqlRow;
+
+type NewestRow = Readonly<{ id: string; newest: number; place_id: string }> &
+  SqlRow;
+
+/**
+ * The page of feed listings nearest first. A listing's distance is its
+ * place's, so the places are ranked first (one row per place with its
+ * count of matches): only listings of the places up to the one holding the
+ * page's last rank are read and fully compared. The total is the tallies'
+ * sum.
+ */
+function nearestListingsPage(
+  sql: SqlExec,
+  from: Readonly<{ scan: string; lookup: string }>,
+  bindings: readonly unknown[],
+  origin: NonNullable<FeedQueryRecord["origin"]>,
+  query: FeedQueryRecord,
+): IdPage {
+  const distance = distanceFrom(origin);
+  const places = sql
+    .exec<PlaceTallyRow>(
+      `SELECT p.id, COUNT(*) AS n, p.latitude, p.longitude ${from.scan}
+         GROUP BY p.id`,
+      ...bindings,
+    )
+    .toArray()
+    .map((row) => ({
+      id: row.id,
+      n: Number(row.n),
+      distance: distance(Number(row.latitude), Number(row.longitude)),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+  const count = places.reduce((sum, place) => sum + place.n, 0);
+  const end = query.page * query.limit;
+  let covered = 0;
+  let threshold = Number.POSITIVE_INFINITY;
+  for (const place of places) {
+    covered += place.n;
+    if (covered >= end) {
+      threshold = place.distance;
+      break;
+    }
+  }
+  const near = places.filter((place) => place.distance <= threshold);
+  if (near.length === 0) return { ids: [], count };
+  const distanceOf = new Map(near.map((place) => [place.id, place.distance]));
+  const ranked = sql
+    .exec<NewestRow>(
+      `SELECT l.id, l.first_published_at AS newest, l.place_id ${from.lookup}
+         AND l.place_id IN (SELECT value FROM json_each(?))`,
+      ...bindings,
+      idsParam(near.map((place) => place.id)),
+    )
+    .toArray()
+    .map((row) => ({
+      id: row.id,
+      newest: Number(row.newest),
+      distance: distanceOf.get(row.place_id) ?? Number.POSITIVE_INFINITY,
+    }));
+  return { ids: nearestPage(ranked, query).ids, count };
+}
+
 function findListings(
   sql: SqlExec,
   query: FeedQueryRecord,
@@ -165,9 +234,13 @@ function findListings(
   const where = feedListings(query);
   const from = (listings: string) => `FROM ${listings}
     JOIN places p ON p.id = l.place_id WHERE ${where.sql}`;
-  // Whole-set reads scan the table: walking the newest-first index
-  // (migration 13) for every row is slower than a plain scan.
-  const scan = from("listings l NOT INDEXED");
+  // Without criteria a whole-set read scans the table: walking the
+  // newest-first index (migration 13) for every row is slower than a plain
+  // scan. With criteria the planner picks its own path.
+  const scan =
+    query.areaCodes === null && query.categoryIds === null
+      ? from("listings l NOT INDEXED")
+      : from("listings l");
   const { ids, count } =
     query.origin === null
       ? sqlPage(
@@ -179,14 +252,11 @@ function findListings(
           query,
           scan,
         )
-      : nearestPage(
-          rankedByPoint(
-            sql,
-            `SELECT l.id, l.first_published_at AS newest,
-                    p.latitude, p.longitude ${scan}`,
-            where.bindings,
-            query.origin,
-          ),
+      : nearestListingsPage(
+          sql,
+          { scan, lookup: from("listings l") },
+          where.bindings,
+          query.origin,
           query,
         );
   return { items: inOrder(ids, viewableListings(sql, ids)), count };

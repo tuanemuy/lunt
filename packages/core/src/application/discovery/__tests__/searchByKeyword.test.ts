@@ -7,7 +7,7 @@ import {
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { Listing } from "@repo/core/domain/listing/listing";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   type SearchByKeywordInput,
   type SearchByKeywordOutput,
@@ -328,10 +328,18 @@ describe("searchByKeyword", () => {
   it("searchByKeyword#13 — / 空のキーワード、または空白だけのキーワードで読む", async () => {
     const k = await discoveryKit();
     await k.w.place({ profile: { name: "山田商店" } });
+    const queries = k.container.keywordSearchQueries;
+    const spies = [
+      vi.spyOn(queries, "searchPlaces"),
+      vi.spyOn(queries, "searchRegions"),
+      vi.spyOn(queries, "searchListings"),
+      vi.spyOn(queries, "searchOccasions"),
+    ];
     for (const keyword of ["", "  　 "]) {
       await expect(search(k, keyword)).rejects.toMatchObject({
         code: CommonErrorCode.InvalidSearchKeyword,
       });
     }
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
   });
 });

@@ -64,6 +64,14 @@ const listingIdsIn = (out: ReadFeedOutput): readonly ListingId[] =>
 const framesIn = (out: ReadFeedOutput) =>
   labels(out).filter((label) => label.includes(":"));
 
+/** How many listings precede each frame: the feed's intervals. */
+const framePositions = (out: ReadFeedOutput): readonly number[] =>
+  out.items.flatMap((item, i) =>
+    item.kind === "listing"
+      ? []
+      : [out.items.slice(0, i).filter((x) => x.kind === "listing").length],
+  );
+
 const ORIGIN = GeoPoint.create(35, 139);
 const METRES_PER_DEGREE = (6_371_000 * Math.PI) / 180;
 const north = (metres: number) =>
@@ -461,6 +469,40 @@ describe("readFeed", () => {
       ]);
     });
 
+    /** 150 listings of place A, then an older b1 of place B beyond them. */
+    async function pastOneCandidatePage(k: DiscoveryKit) {
+      const A = await k.w.place(locatedAt(north(100)));
+      const B = await k.w.place(locatedAt(north(1_000)));
+      const b1 = await k.w.available(B.id);
+      const as: ListingId[] = [];
+      for (let i = 0; i < 150; i += 1) as.push((await k.w.available(A.id)).id);
+      return { b1: b1.id, newestA: as.reverse() };
+    }
+
+    it("reads candidates past the first 100 until a listing of another place decides the second position (newest first)", async () => {
+      const k = await discoveryKit();
+      const { b1, newestA } = await pastOneCandidatePage(k);
+      const out = await read(k);
+      expect(listingIdsIn(out)).toEqual([
+        newestA[0],
+        b1,
+        ...newestA.slice(1, 19),
+      ]);
+      expect(out.listingCount).toBe(151);
+    });
+
+    it("reads candidates past the first 100 until a listing of another place decides the second position (nearest first)", async () => {
+      const k = await discoveryKit();
+      const { b1, newestA } = await pastOneCandidatePage(k);
+      const out = await read(k, { origin: ORIGIN });
+      expect(listingIdsIn(out)).toEqual([
+        newestA[0],
+        b1,
+        ...newestA.slice(1, 19),
+      ]);
+      expect(out.listingCount).toBe(151);
+    });
+
     it("readFeed#17 公開中の所属地域のない別々の店舗の掲載が、新しい順で並んでいる / 読む", async () => {
       const k = await discoveryKit();
       const newest = await distinctListings(k, 4);
@@ -636,11 +678,28 @@ describe("readFeed", () => {
     it("readFeed#25 都道府県 A の店舗の「食べる」の掲載、都道府県 B の町域 b の店舗の「買う」の掲載、町域 b の店舗の「体験」の掲載、都道府県 C の店舗の「食べる」の掲載がある / エリアに都道府県 A と町域 b、カテゴリーに「食べる」と「買う」を選んで読む", async () => {
       const k = await discoveryKit();
       const { eat, buy, eatInA, buyInB } = await fourListings(k);
+      const more = [];
+      for (let i = 0; i < 6; i += 1) {
+        const P = await k.w.place({
+          profile: { address: SampleAddress.umeda() },
+        });
+        more.push(await k.w.store(k.w.f.published(P.id, { categoryId: eat })));
+      }
+      await occasionWithParticipant(k, { address: SampleAddress.umeda() });
+      await occasionWithParticipant(k, { address: SampleAddress.ginza() });
       const out = await read(k, {
         criteria: { areas: [PREFECTURE_A, TOWN_B], categoryIds: [eat, buy] },
       });
-      expect(listingIdsIn(out)).toEqual([buyInB.id, eatInA.id]);
-      expect(out.listingCount).toBe(2);
+      expect(listingIdsIn(out)).toEqual([
+        ...more.map((l) => l.id).reverse(),
+        buyInB.id,
+        eatInA.id,
+      ]);
+      expect(out.listingCount).toBe(8);
+      const unfiltered = await read(k);
+      expect(framePositions(out)).toEqual([0, 6]);
+      expect(framePositions(out)).toEqual(framePositions(unfiltered));
+      expect(framesIn(out)).toEqual(framesIn(unfiltered));
       expect(out.effective).toEqual({
         areas: [
           AreaSelection.create(PREFECTURE_A),

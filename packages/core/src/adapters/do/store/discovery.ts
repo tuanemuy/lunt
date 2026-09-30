@@ -42,9 +42,9 @@ import type { Migration } from "./schema";
  * Discovery keeps no state of its own: every read is computed from Place's,
  * Listing's, Region's, Occasion's and Authority's tables (their store
  * modules document the columns). Migration 13 adds only indexes for its
- * reads: `idx_listings_newest_viewable` lets the newest-first listing
- * pages (the feed without an origin, a region's listings) walk the
- * viewable listings in order instead of sorting every one.
+ * reads: `idx_listings_newest_viewable` lets the feed's newest-first
+ * listing pages walk the viewable listings in order instead of sorting
+ * every one.
  */
 export const DISCOVERY_MIGRATIONS: readonly Migration[] = [
   {
@@ -230,26 +230,43 @@ function viewablePlaceRows(
 }
 
 /**
- * `ViewProjection.substituteCover` for a viewable place: the cover of its
- * newest viewable listing (any offering phase) when it has no photo.
+ * `ViewProjection.substituteCover` for viewable places, in one query: the
+ * cover of each photoless place's newest viewable listing (any offering
+ * phase), keyed by place id. Places with a photo or no viewable listing
+ * have no entry.
  */
-function substituteCoverOf(
+function substituteCoversOf(
   sql: SqlExec,
-  place: PlaceRow,
-): SubstituteCoverRecord | null {
-  const own: unknown = JSON.parse(place.photo_ids);
-  if (Array.isArray(own) && own.length > 0) return null;
-  const newest = sql
-    .exec<PhotosRow>(
-      `SELECT l.id, l.photos FROM listings l JOIN places p ON p.id = l.place_id
-         WHERE l.place_id = ? AND ${LISTING_VIEWABLE}
-         ORDER BY l.first_published_at DESC, l.id LIMIT 1`,
-      place.id,
+  places: readonly PlaceRow[],
+): ReadonlyMap<string, SubstituteCoverRecord> {
+  const photoless = places
+    .filter((place) => {
+      const own: unknown = JSON.parse(place.photo_ids);
+      return !(Array.isArray(own) && own.length > 0);
+    })
+    .map((place) => place.id);
+  if (photoless.length === 0) return new Map();
+  const rows = sql
+    .exec<PhotosRow & Readonly<{ place_id: string }>>(
+      `SELECT id, place_id, photos FROM (
+         SELECT l.id, l.place_id, l.photos, ROW_NUMBER() OVER (
+             PARTITION BY l.place_id
+             ORDER BY l.first_published_at DESC, l.id) AS nth
+           FROM listings l JOIN places p ON p.id = l.place_id
+           WHERE l.place_id IN (SELECT value FROM json_each(?))
+             AND ${LISTING_VIEWABLE})
+       WHERE nth = 1`,
+      idsParam(photoless),
     )
-    .toArray()[0];
-  if (newest === undefined) return null;
-  const [photo] = JSON.parse(newest.photos) as readonly ListingPhotoRecord[];
-  return photo === undefined ? null : { listingId: newest.id, photo };
+    .toArray();
+  return new Map(
+    rows.flatMap((row) => {
+      const [photo] = JSON.parse(row.photos) as readonly ListingPhotoRecord[];
+      return photo === undefined
+        ? []
+        : [[row.place_id, { listingId: row.id, photo }] as const];
+    }),
+  );
 }
 
 /** Stored affiliations of `placeIds`, keyed by place id. */
@@ -318,6 +335,7 @@ function placeEntries(
   const placeIds = rows.map((row) => row.id);
   const affiliations = affiliationsOf(sql, placeIds);
   const regions = viewableRegionsOfPlaces(sql, placeIds);
+  const covers = substituteCoversOf(sql, rows);
   return new Map(
     rows.map((row) => [
       row.id,
@@ -325,7 +343,7 @@ function placeEntries(
         place: placeRowToRecord(row),
         affiliations: affiliations.get(row.id) ?? null,
         regions: regions.get(row.id) ?? [],
-        substituteCover: substituteCoverOf(sql, row),
+        substituteCover: covers.get(row.id) ?? null,
       },
     ]),
   );
