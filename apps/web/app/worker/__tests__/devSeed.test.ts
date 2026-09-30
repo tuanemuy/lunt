@@ -93,6 +93,41 @@ describe("handleDevSeedRequest", () => {
     expect(duplicateKeys.status).toBe(400);
   });
 
+  it("takes a fixture onto an earlier seed, but not one that also opens the service", () => {
+    const onto = {
+      accounts: ["op1@example.com"],
+      onto: {
+        operator: "op1@example.com",
+        places: { S1: "place-1" },
+        deleteListings: [{ id: "listing-1", by: "op1@example.com" }],
+      },
+      listings: [
+        {
+          place: "S1",
+          key: "X1",
+          name: "テスト用の掲載 X1",
+          category: "食べる",
+          state: "published",
+        },
+      ],
+    };
+    expect(seedFixtureSchema.safeParse(onto).success).toBe(true);
+    expect(
+      seedFixtureSchema.safeParse({ ...onto, operators: ["op1@example.com"] })
+        .success,
+    ).toBe(false);
+    expect(
+      seedFixtureSchema.safeParse({ ...onto, places: [FIXTURE.places[0]] })
+        .success,
+    ).toBe(true);
+    expect(
+      seedFixtureSchema.safeParse({
+        ...onto,
+        places: [{ ...FIXTURE.places[0], key: "S1" }],
+      }).success,
+    ).toBe(false);
+  });
+
   describe("every manual-test fixture", () => {
     const dir = new URL(
       "../../../scripts/manual-test-fixtures/",
@@ -102,8 +137,30 @@ describe("handleDevSeedRequest", () => {
     const read = (name: string): unknown =>
       JSON.parse(readFileSync(new URL(name, dir), "utf8"));
 
-    it("is one of the nine documents' fixtures", () => {
-      expect(files).toHaveLength(9);
+    it("is one of the twelve documents' fixtures", () => {
+      expect(files).toHaveLength(12);
+    });
+
+    it.each(
+      readdirSync(new URL("sets/", dir)).filter((name) =>
+        name.endsWith(".json"),
+      ),
+    )("sets/%s adds listings to one of its document's places", (name) => {
+      const places = new Set(
+        seedFixtureSchema.parse(read(name)).places?.map((place) => place.key),
+      );
+      const sets = Object.values(
+        read(`sets/${name}`) as Record<
+          string,
+          { place: string; by: string; count: number; name: string }
+        >,
+      );
+      expect(sets.length).toBeGreaterThan(0);
+      for (const set of sets) {
+        expect(places).toContain(set.place);
+        expect(set.count).toBeLessThanOrEqual(200);
+        expect(set.name).toMatch(/\{n{1,3}\}/);
+      }
     });
 
     it.each(files)("%s is a fixture and seeds an empty state", async (name) => {

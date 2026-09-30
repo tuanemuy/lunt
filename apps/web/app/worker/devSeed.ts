@@ -149,30 +149,68 @@ const occasion = z
 const unique = (keys: readonly string[]): boolean =>
   new Set(keys).size === keys.length;
 
-/** The transport shape of `SeedFixture`; bounds keep one request small. */
-export const seedFixtureSchema = z
+const id = z.string().min(1).max(100);
+const keyedIds = z.record(key, id).optional();
+
+const contents = {
+  accounts: z.array(email).max(200),
+  places: z.array(place).max(100).optional(),
+  listings: z
+    .array(listing.extend({ place: key }))
+    .max(200)
+    .optional(),
+  regions: z.array(region).max(50).optional(),
+  affiliations: z.array(affiliation).max(100).optional(),
+  occasions: z.array(occasion).max(50).optional(),
+};
+
+const fresh = z
   .object({
-    accounts: z.array(email).max(200),
+    ...contents,
     operators: z
       .tuple([email], email)
       .refine((list) => list.length <= 20, "At most 20 operators"),
     editors: z.array(email).max(20).optional(),
     categories: z.array(z.string().min(1).max(100)).min(1).max(50).optional(),
-    places: z.array(place).max(100).optional(),
-    regions: z.array(region).max(50).optional(),
-    affiliations: z.array(affiliation).max(100).optional(),
-    occasions: z.array(occasion).max(50).optional(),
   })
-  .strict()
-  .refine((fixture) => {
-    const places = fixture.places ?? [];
-    return (
-      unique(places.map((p) => p.key)) &&
-      unique(places.flatMap((p) => p.listings ?? []).map((l) => l.key)) &&
-      unique((fixture.regions ?? []).map((r) => r.key)) &&
-      unique((fixture.occasions ?? []).map((o) => o.key))
-    );
-  }, "Place, listing, region and occasion keys must each be unique") satisfies z.ZodType<SeedFixture>;
+  .strict();
+
+const onto = z
+  .object({
+    ...contents,
+    onto: z
+      .object({
+        operator: email,
+        places: keyedIds,
+        regions: keyedIds,
+        deleteListings: z
+          .array(z.object({ id, by: email.optional() }).strict())
+          .max(200)
+          .optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+/** The transport shape of `SeedFixture`; bounds keep one request small. */
+export const seedFixtureSchema = z.union([fresh, onto]).refine((fixture) => {
+  const places = fixture.places ?? [];
+  return (
+    unique([
+      ...places.map((p) => p.key),
+      ...Object.keys(("onto" in fixture && fixture.onto.places) || {}),
+    ]) &&
+    unique([
+      ...places.flatMap((p) => p.listings ?? []).map((l) => l.key),
+      ...(fixture.listings ?? []).map((l) => l.key),
+    ]) &&
+    unique([
+      ...(fixture.regions ?? []).map((r) => r.key),
+      ...Object.keys(("onto" in fixture && fixture.onto.regions) || {}),
+    ]) &&
+    unique((fixture.occasions ?? []).map((o) => o.key))
+  );
+}, "Place, listing, region and occasion keys must each be unique") satisfies z.ZodType<SeedFixture>;
 
 /**
  * `POST /__dev/seed` — the development tool that seeds a manual-test

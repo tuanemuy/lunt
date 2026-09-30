@@ -1,0 +1,560 @@
+{
+  "accounts": [
+    "ops@example.com",
+    "editor@example.com",
+    "owner-kissa@example.com",
+    "owner-hana@example.com",
+    "owner-bakery@example.com",
+    "region-otemachi@example.com",
+    "event-aki@example.com"
+  ],
+  "operators": ["ops@example.com"],
+  "editors": ["editor@example.com"],
+  "categories": ["食べる", "買う", "体験", "見る"],
+  "places": [
+    {
+      "key": "S1",
+      "name": "喫茶ルント 大手町店",
+      "description": "窓辺の席でくつろげる喫茶店",
+      "businessHours": "7:00〜19:00",
+      "contact": "03-0000-0001",
+      "address": {
+        "postalCode": "100-0004",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.686,
+        "longitude": 139.763
+      },
+      "photos": ["kissa-lunt-1.jpg", "kissa-lunt-2.jpg"],
+      "members": [
+        {
+          "appoint": "owner-kissa@example.com"
+        }
+      ]
+    },
+    {
+      "key": "S2",
+      "name": "銀座花店",
+      "address": {
+        "postalCode": "104-0061",
+        "rest": "4-1-1"
+      },
+      "location": {
+        "latitude": 35.672,
+        "longitude": 139.765
+      },
+      "photos": ["ginza-hanaten.jpg"],
+      "members": [
+        {
+          "appoint": "owner-hana@example.com"
+        }
+      ]
+    },
+    {
+      "key": "S3",
+      "name": "梅田工房",
+      "address": {
+        "postalCode": "530-0001",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 34.7025,
+        "longitude": 135.4959
+      },
+      "photos": ["umeda-kobo.jpg"],
+      "operatingStatus": "temporarilyClosed"
+    },
+    {
+      "key": "S4",
+      "name": "丸の内古書店",
+      "address": {
+        "postalCode": "100-0005",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.68,
+        "longitude": 139.764
+      },
+      "photos": ["marunouchi-kosho.jpg"],
+      "operatingStatus": "permanentlyClosed"
+    },
+    {
+      "key": "S5",
+      "name": "まるのうち茶屋",
+      "address": {
+        "postalCode": "100-0005",
+        "rest": "2-2-2"
+      },
+      "location": {
+        "latitude": 35.682,
+        "longitude": 139.766
+      }
+    },
+    {
+      "key": "S6",
+      "name": "神田そば処",
+      "address": {
+        "postalCode": "101-0041",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.696,
+        "longitude": 139.769
+      },
+      "photos": ["kanda-soba.jpg"]
+    },
+    {
+      "key": "S7",
+      "name": "日本橋の蔵",
+      "address": {
+        "postalCode": "103-0027",
+        "rest": "1-1-1"
+      },
+      "location": {
+        "latitude": 35.684,
+        "longitude": 139.774
+      },
+      "photos": ["nihonbashi-kura.jpg"],
+      "suspended": true
+    },
+    {
+      "key": "S8",
+      "name": "丸の内ベーカリー",
+      "address": {
+        "postalCode": "100-0005",
+        "rest": "3-3-3"
+      },
+      "location": {
+        "latitude": 35.6835,
+        "longitude": 139.764
+      },
+      "photos": ["marunouchi-bakery.jpg"],
+      "members": [
+        {
+          "appoint": "owner-bakery@example.com"
+        }
+      ]
+    }
+  ],
+  "listings": [
+    {
+      "place": "S2",
+      "key": "L3",
+      "name": "バラの花束",
+      "category": "買う",
+      "photos": ["bara-hanataba.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S3",
+      "key": "L5",
+      "name": "革小物づくり体験",
+      "category": "体験",
+      "photos": ["kawa-komono.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S4",
+      "key": "L6",
+      "name": "古書の見どころ",
+      "category": "見る",
+      "photos": ["kosho-midokoro.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S5",
+      "key": "L10",
+      "name": "抹茶ラテ",
+      "category": "食べる",
+      "photos": ["matcha-latte.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S1",
+      "key": "L1",
+      "name": "季節のブレンド珈琲",
+      "description": "深煎りの豆で淹れる季節の一杯",
+      "category": "食べる",
+      "photos": ["kisetsu-blend.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S1",
+      "key": "L2",
+      "name": "大手町の朝景色",
+      "category": "見る",
+      "photos": ["otemachi-asa.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S8",
+      "key": "L13",
+      "name": "クロワッサン",
+      "category": "食べる",
+      "photos": ["croissant.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S5",
+      "key": "L7",
+      "name": "冬季限定ぜんざい",
+      "category": "食べる",
+      "photos": ["zenzai.jpg"],
+      "offeringAfterPublish": {
+        "kind": "period",
+        "start": "today-30",
+        "end": "today-1"
+      },
+      "state": "published"
+    },
+    {
+      "place": "S2",
+      "key": "L4",
+      "name": "銀座の路地散歩",
+      "category": "体験",
+      "photos": ["roji-sanpo.jpg"],
+      "offering": {
+        "kind": "period",
+        "start": "today+10",
+        "end": null
+      },
+      "state": "published"
+    },
+    {
+      "place": "S1",
+      "key": "L8",
+      "name": "栗のモンブラン",
+      "category": "食べる",
+      "photos": ["mont-blanc.jpg"],
+      "state": "unpublished"
+    },
+    {
+      "place": "S7",
+      "key": "L9",
+      "name": "蔵出し甘酒",
+      "category": "食べる",
+      "photos": ["amazake.jpg"],
+      "state": "published"
+    },
+    {
+      "place": "S2",
+      "key": "L11",
+      "name": "銀座の夜景ツアー",
+      "category": "体験",
+      "photos": ["yakei-tour.jpg"],
+      "offering": {
+        "kind": "dates",
+        "dates": ["today", "today+7", "today+14"]
+      },
+      "state": "published"
+    },
+    {
+      "place": "S1",
+      "key": "P1",
+      "name": "保存確認用のパン",
+      "category": "食べる",
+      "photos": ["hozon-pan.jpg"],
+      "state": "published"
+    }
+  ],
+  "regions": [
+    {
+      "key": "R3",
+      "name": "梅田クラフト街",
+      "address": {
+        "postalCode": "530-0001",
+        "rest": "1-3"
+      },
+      "location": {
+        "latitude": 34.705,
+        "longitude": 135.498
+      },
+      "photos": ["region-r3.jpg"],
+      "tagline": "手しごとの街",
+      "publication": "published"
+    },
+    {
+      "key": "R2",
+      "name": "銀座ぶらり",
+      "address": {
+        "postalCode": "104-0061",
+        "rest": "4-6"
+      },
+      "location": {
+        "latitude": 35.671,
+        "longitude": 139.764
+      },
+      "photos": ["region-r2.jpg"],
+      "publication": "published"
+    },
+    {
+      "key": "R4",
+      "name": "神田ほんのり",
+      "address": {
+        "postalCode": "101-0041",
+        "rest": "1-2"
+      },
+      "location": {
+        "latitude": 35.6955,
+        "longitude": 139.7685
+      },
+      "photos": ["region-r4.jpg"],
+      "description": "縁側のある古い家並みを歩く",
+      "tagline": "路地のそば屋めぐり",
+      "publication": "published"
+    },
+    {
+      "key": "R1",
+      "name": "大手町まちあるき",
+      "address": {
+        "postalCode": "100-0004",
+        "rest": "1-6"
+      },
+      "location": {
+        "latitude": 35.685,
+        "longitude": 139.766
+      },
+      "photos": ["otemachi-machiaruki-1.jpg", "otemachi-machiaruki-2.jpg"],
+      "description": "高層ビルの間の緑道を歩く",
+      "tagline": "朝のオフィス街をめぐる",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "region-otemachi@example.com"
+        }
+      ]
+    },
+    {
+      "key": "R5",
+      "name": "日本橋蔵めぐり",
+      "address": {
+        "postalCode": "103-0027",
+        "rest": "1-2"
+      },
+      "location": {
+        "latitude": 35.684,
+        "longitude": 139.7745
+      },
+      "photos": ["region-r5.jpg"],
+      "publication": "draft"
+    }
+  ],
+  "affiliations": [
+    {
+      "place": "S1",
+      "regions": ["R1"]
+    },
+    {
+      "place": "S2",
+      "regions": ["R2"]
+    },
+    {
+      "place": "S3",
+      "regions": ["R3"]
+    },
+    {
+      "place": "S4",
+      "regions": ["R1"]
+    },
+    {
+      "place": "S5",
+      "regions": ["R1"]
+    },
+    {
+      "place": "S6",
+      "regions": ["R4"]
+    },
+    {
+      "place": "S7",
+      "regions": ["R2"]
+    },
+    {
+      "place": "S8",
+      "regions": ["R1", "R2"],
+      "representative": "R2"
+    }
+  ],
+  "occasions": [
+    {
+      "key": "E1",
+      "name": "大手町秋まつり",
+      "period": {
+        "start": "today+7",
+        "end": "today+9"
+      },
+      "address": {
+        "postalCode": "100-0004",
+        "rest": "1-2"
+      },
+      "location": {
+        "latitude": 35.6865,
+        "longitude": 139.764
+      },
+      "photos": ["event-e1.jpg"],
+      "description": "広場に屋台が並ぶ",
+      "tagline": "秋の味覚が集まる3日間",
+      "publication": "published",
+      "members": [
+        {
+          "appoint": "event-aki@example.com"
+        }
+      ],
+      "regionLinks": [
+        {
+          "region": "R1"
+        }
+      ],
+      "participations": [
+        {
+          "place": "S1",
+          "listings": ["L1"],
+          "dates": ["today+7", "today+8"]
+        },
+        {
+          "place": "S3",
+          "listings": ["L5"],
+          "dates": ["today+9"]
+        },
+        {
+          "place": "S4"
+        }
+      ]
+    },
+    {
+      "key": "E2",
+      "name": "銀座フラワーウィーク",
+      "period": {
+        "start": "today-2",
+        "end": "today+4"
+      },
+      "address": {
+        "postalCode": "104-0061",
+        "rest": "4-1"
+      },
+      "location": {
+        "latitude": 35.6715,
+        "longitude": 139.7655
+      },
+      "photos": ["event-e2.jpg"],
+      "publication": "published",
+      "regionLinks": [
+        {
+          "region": "R2"
+        }
+      ],
+      "participations": [
+        {
+          "place": "S2",
+          "listings": ["L3", "L4"],
+          "dates": ["today"]
+        }
+      ]
+    },
+    {
+      "key": "E3",
+      "name": "梅田クラフト市",
+      "period": {
+        "start": "today-20",
+        "end": "today-18"
+      },
+      "address": {
+        "postalCode": "530-0001",
+        "rest": "1-3"
+      },
+      "location": {
+        "latitude": 34.704,
+        "longitude": 135.497
+      },
+      "photos": ["event-e3.jpg"],
+      "publication": "published",
+      "regionLinks": [
+        {
+          "region": "R3"
+        }
+      ],
+      "participations": [
+        {
+          "place": "S3"
+        }
+      ]
+    },
+    {
+      "key": "E4",
+      "name": "丸の内ジャズ夜",
+      "period": {
+        "start": "today+20",
+        "end": "today+21"
+      },
+      "address": {
+        "postalCode": "100-0005",
+        "rest": "1-2"
+      },
+      "location": {
+        "latitude": 35.681,
+        "longitude": 139.765
+      },
+      "photos": ["event-e4.jpg"],
+      "publication": "published",
+      "cancelled": true,
+      "regionLinks": [
+        {
+          "region": "R1"
+        }
+      ],
+      "participations": [
+        {
+          "place": "S1",
+          "listings": ["L1"]
+        }
+      ]
+    },
+    {
+      "key": "E5",
+      "name": "神田そば祭り",
+      "period": {
+        "start": "today+30",
+        "end": "today+31"
+      },
+      "address": {
+        "postalCode": "101-0041",
+        "rest": "1-3"
+      },
+      "location": {
+        "latitude": 35.6958,
+        "longitude": 139.7695
+      },
+      "photos": ["event-e5.jpg"],
+      "description": "提灯の灯る参道に屋台が出る",
+      "publication": "published",
+      "regionLinks": [
+        {
+          "region": "R4"
+        }
+      ]
+    },
+    {
+      "key": "E6",
+      "name": "日本橋のれん市",
+      "period": {
+        "start": "today+5",
+        "end": "today+6"
+      },
+      "address": {
+        "postalCode": "103-0027",
+        "rest": "1-3"
+      },
+      "location": {
+        "latitude": 35.6838,
+        "longitude": 139.7742
+      },
+      "photos": ["event-e6.jpg"],
+      "publication": "unpublished",
+      "participations": [
+        {
+          "place": "S2"
+        }
+      ]
+    }
+  ]
+}

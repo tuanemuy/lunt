@@ -1,0 +1,9 @@
+{
+  "bulk": {
+    "place": "S1",
+    "by": "owner-kissa@example.com",
+    "category": "食べる",
+    "name": "一括確認 {nnn}",
+    "count": 101
+  }
+}

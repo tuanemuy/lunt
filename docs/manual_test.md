@@ -15,12 +15,24 @@ Instead of building a document's 「テストデータ」 by hand, seed it into 
 
 ```sh
 LUNT_STATE_DIR=.wrangler/state-b pnpm --filter @repo/web dev:reset   # empty state
-node apps/web/scripts/seedManualTest.mjs shop --port 3102            # shop | listing | application | moderation | operation | membership | account | region | event
+node apps/web/scripts/seedManualTest.mjs shop --port 3102            # shop | listing | application | moderation | operation | membership | account | region | event | discover | explore | keep
 ```
 
 The script posts `apps/web/scripts/manual-test-fixtures/<document>.json` to `POST /__dev/seed` (a development tool: not found while `DEV_TOOLS` is off or the host is not local). It prints the ids it created, the `/places/<id>`, `/listings/<id>`, `/regions/<id>` and `/events/<id>` URLs, and saves them to `apps/web/.wrangler/seed-<document>-<port>.json`. It replaces the opening procedure (step 3 above): the first operator and the initial categories are part of the seed. Run it once per empty state; it is not idempotent.
 
 `devSeed` (`packages/core/src/application/dev/devSeed.ts`) goes through the product's usecases as the account the procedure names, so events, notifications and invariants are real: accounts as a development login; the first operator by `establishFirstOperator`, other operators and editors by `grantRole`; categories by `provisionInitialCategories` / `renameCategory` / `addCategory` / `retireCategory`; places by `registerPlaceByProxy` as the first operator; stewards as `/__dev/stewards` does (claim approval) or through `inviteMember` / `acceptInvitation` / `resignStewardship`; listings by `createListingDraft` / `publishListing` and the transition usecases as their manager (the first current steward, or the operator standing in for an absent one); regions and occasions by `registerRegion` / `registerOccasion` as the first operator, their stewards by `grantStewardship` (then invitations as for places), and their publication, cancellation and region links (`linkRegion` / `detachRegionLink`) as their manager; a place's representative region by `chooseRepresentativeRegion` as its first steward; suspensions by the operator. Affiliations, and participations of places with a steward, are made only by approving applications, which arrive with S3B: until then the seed makes them through the development paths described below. A participation of a place without a steward is `addParticipationDirectly` by the occasion's manager. States that would stand in the way of later steps — unpublished, ended or suspended listings, suspended places, unpublished or suspended regions, cancelled, unpublished or suspended occasions, detached links — are applied after everything else, and the seed ends with one run of `recordEndedOccasions`, as the daily job would have recorded the occasions already over. Records the product orders by time (first-affiliated order, participants, links) keep the fixture's order. Photos are PNGs drawn with their label (`seedPhotoPng`), registered with consent by the account that uses them and stored like any upload; every mention of a label registers a new photo from the same bytes.
+
+### Additional sets and volume
+
+Some test cases publish extra listings in their own preparation and delete them afterwards. Onto a document seeded on the same port:
+
+```sh
+node apps/web/scripts/seedManualTest.mjs discover --add X --port 3102      # publishes the set, saves ids to seed-discover-3102-set-X.json
+node apps/web/scripts/seedManualTest.mjs discover --remove X --port 3102   # deletes what --add X created
+node apps/web/scripts/seedManualTest.mjs discover --volume 300 --port 3102 # 300 more places for map clusters and scrolling
+```
+
+The sets are `manual-test-fixtures/sets/<document>.json` (`{n}` / `{nnn}` in the name is the number, plain or zero-padded): discover X (「テスト用の掲載 X1」〜「X8」), Z (「続き確認 001」〜「086」), W (「検索続き 001」〜「101」); explore X; keep bulk (「一括確認 001」〜「101」, TC-KEP-046). Each is created and deleted by S1's steward (店舗管理者K). `--volume N` registers N places without a steward (「ボリューム確認 店舗NNNN（町域）」) spread over 25 towns of the development area sample — central Tokyo (千代田区・中央区・文京区・台東区) and 大阪市北区 — with real town centres and a few hundred metres of jitter, two of three with a photo, each with one or two published listings (「ボリューム確認 掲載NNNN-n」, categories in turn), each affiliated with the nearest published region of the document within 1.5 km. It is sent 50 places per request (about 3.5 s each locally: 300 places, 450 listings in about 22 s) and is not removable: reset the state instead. The volume changes what the feed, map, search and region lists show, so add it only for the checks that need it.
 
 ### Fixture format
 
@@ -63,6 +75,9 @@ The script posts `apps/web/scripts/manual-test-fixtures/<document>.json` to `POS
     "suspended": false,           // by the operator, last
     "members": [{ "appoint": "region-op1@example.com" }]   // appoint = grantStewardship; invite / resign as for places
   }],
+  "listings": [   // listings of any place, created after every place, in this order (e.g. one first-publish order across places)
+    { "place": "S2", "key": "L3", "name": "バラの花束", "category": "買う", "photos": ["bara.jpg"], "state": "published" }
+  ],
   "affiliations": [   // established in the order listed (region.affiliation_established)
     { "place": "S1", "regions": ["R1"], "representative": "R1" }   // representative: chosen by the place's first steward
   ],
@@ -80,6 +95,8 @@ The script posts `apps/web/scripts/manual-test-fixtures/<document>.json` to `POS
   }]
 }
 ```
+
+A fixture with `onto` in place of `operators` / `editors` / `categories` seeds into a state an earlier seed filled (what `--add`, `--remove` and `--volume` send): it opens nothing, reuses existing accounts, uses the active categories, deletes `onto.deleteListings` first (each `{ "id", "by" }`, `by` defaulting to the operator), and lets `onto.places` / `onto.regions` (`{ key: id }`) stand wherever a place or region key is. `onto.operator` acts where the first operator would.
 
 Categories: initial categories the list does not name are renamed to the missing names in order, further names are added, and initial ones still unnamed are retired (successor: the first listed). Place, listing, region and occasion keys must each be unique; the answer maps them (and account addresses, category names) to ids. A region linked to an occasion must be published when the link is made (its suspension comes last); a participation's listings must be the place's published listings (unpublishing and suspending them comes last) and its dates within the period.
 
@@ -104,6 +121,9 @@ Applications of any kind are not seeded, and articles (S5) do not exist yet. Eac
 | membership | User A's revision application for 谷中ベーカリー (step 5) and L's affiliation application to 「谷中ぐるり」 (step 6; the affiliation kind comes with S3B). 「くるみパン」 is given the category 食べる and `kurumi.jpg` |
 | account | Nothing of the test data. 日暮里せんべい is placed in 谷中 7-1-1 (the development area sample has no 日暮里) |
 | region | Nothing of the base data (the document's test cases prepare their applications themselves). 喫茶みなと's participation in みなと夏まつり and every affiliation, 古書かもめ's made while it has no steward included, are established through the development paths. The events have no tagline or description (the document gives none); events get `event-photo-1.jpg`, listings a photo named after them |
+| discover | Articles A1–A3 (S5). The affiliations (S8's representative R2 is chosen by 店舗管理者B) and S1's and S2's participations go through the development paths. The document gives no photos for regions and events, which cannot be published without one: each gets `region-<key>.jpg` / `event-<key>.jpg` (R1 its two). Listings are published in the table's order across places (fixture-level `listings`). Descriptions hold only the words the document names (L1 「深煎り」, R4 「縁側」, E5 「提灯」, S1, R1, E1). Sets X, Z, W: `--add` / `--remove` |
+| explore | As discover, plus S9, S10 and Y1–Y4 (registered after S8; Y1–Y4 affiliated with R1 after the base affiliations). `viewer@example.com` is not created (the first login does it). Set X: `--add` / `--remove` |
+| keep | As discover, plus P1 (published last, by 店舗管理者K). The `keep-*` accounts are not created: the document needs them to start without an account. Nothing is saved: every save is a step of the document (bookmarks need no seeding). Set bulk (TC-KEP-046): `--add` / `--remove` |
 | event | Nothing of the base data. 喫茶みなと's participations (みなと夏まつり, 春の古本市, 冬のマルシェ), 海辺ベーカリー's (秋のあかり展) and 港の本屋's affiliation with 港町通り go through the development paths; 古書かもめ's is added directly by the event operator. 春の古本市 is recorded as ended by the seed's final `recordEndedOccasions` run (`occasion.ended`). 旧市街 and 運河地区 have no region operator (the document names none); regions get `region-seed.jpg` |
 
 Where a document gives no address the fixture picks one in 谷中 (`110-0001`), 千駄木 (`113-0022`) or 根津 (`113-0031`) — for region and event, 山下町 (`231-0023`) — and a location near it.

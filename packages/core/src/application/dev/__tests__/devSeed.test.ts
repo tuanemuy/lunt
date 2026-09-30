@@ -1,6 +1,7 @@
 import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { ForbiddenError, NotFoundError } from "@repo/core/application/errors";
+import { ListingId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { describe, expect, it } from "vitest";
@@ -639,6 +640,115 @@ describe("devSeed (development tool)", () => {
     ]) {
       expect(types).toContain(type);
     }
+  });
+
+  it("publishes fixture-level listings in their order, then seeds more onto the same state", async () => {
+    const t = createTestContainer({ start: START });
+    const { container } = t;
+    const first = await devSeed({
+      container,
+      input: {
+        accounts: ["op1@example.com", "owner-x@example.com"],
+        operators: ["op1@example.com"],
+        places: [
+          {
+            key: "P1",
+            name: "喫茶ひだまり",
+            address: AREA,
+            location: NEAR,
+            members: [{ appoint: "owner-x@example.com" }],
+          },
+          { key: "P2", name: "丸の内茶屋", address: AREA, location: NEAR },
+        ],
+        listings: [
+          {
+            place: "P2",
+            key: "B",
+            name: "抹茶ラテ",
+            category: "食べる",
+            photos: ["b.jpg"],
+            state: "published",
+          },
+          {
+            place: "P1",
+            key: "A",
+            name: "季節のブレンド",
+            category: "食べる",
+            photos: ["a.jpg"],
+            state: "published",
+          },
+          {
+            place: "P1",
+            key: "C",
+            name: "栗のモンブラン",
+            category: "見る",
+            photos: ["c.jpg"],
+            state: "unpublished",
+          },
+        ],
+      },
+    });
+    expect(Object.keys(first.listings)).toEqual(["B", "A", "C"]);
+    const stored = (id: string | undefined) =>
+      container.unitOfWorkProvider.run(async (ctx) => {
+        if (id === undefined) throw new Error("no id");
+        return (await ctx.listingRepository.findById(ListingId.create(id)))
+          ?.entity;
+      });
+    const [b, a, c] = await Promise.all(
+      ["B", "A", "C"].map((key) => stored(first.listings[key])),
+    );
+    expect(a?.placeId).toBe(first.places.P1);
+    expect(b?.placeId).toBe(first.places.P2);
+    const publishedAt = (listing: typeof a) =>
+      listing?.publication.status === "draft"
+        ? Number.NaN
+        : (listing?.publication.firstPublishedAt.getTime() ?? Number.NaN);
+    expect(publishedAt(b)).toBeLessThan(publishedAt(a));
+    expect(publishedAt(a)).toBeLessThan(publishedAt(c));
+    expect(c?.publication.status).toBe("unpublished");
+
+    const P1 = first.places.P1 ?? "";
+    const more = await devSeed({
+      container,
+      input: {
+        accounts: ["op1@example.com", "owner-x@example.com"],
+        onto: {
+          operator: "op1@example.com",
+          places: { P1 },
+          deleteListings: [
+            { id: first.listings.A ?? "", by: "owner-x@example.com" },
+          ],
+        },
+        places: [
+          { key: "P3", name: "新しい店", address: AREA, location: NEAR },
+        ],
+        listings: [
+          {
+            place: "P1",
+            key: "D",
+            name: "追加の掲載",
+            category: "食べる",
+            photos: ["d.jpg"],
+            state: "published",
+            by: "owner-x@example.com",
+          },
+        ],
+      },
+    });
+    expect(more.accounts).toEqual(first.accounts);
+    expect(more.categories).toEqual(first.categories);
+    expect(Object.keys(more.places)).toEqual(["P3"]);
+    expect(Object.keys(more.listings)).toEqual(["D"]);
+    expect(await stored(first.listings.A)).toBeUndefined();
+    const d = await stored(more.listings.D);
+    expect(d?.placeId).toBe(P1);
+    expect(d?.publication.status).toBe("published");
+    expect(
+      (await listCategories({ container })).map((category) => category.name),
+    ).toEqual(["食べる", "買う", "体験", "見る"]);
+    const events = (await t.storedEvents()).map((event) => event.type);
+    expect(events.filter((type) => type === "listing.deleted")).toHaveLength(1);
   });
 
   it("refuses a representative region for a place without a steward", async () => {

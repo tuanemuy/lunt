@@ -6,11 +6,11 @@ import {
   type AccountId,
   type CategoryId,
   InvitationId,
-  type ListingId,
+  ListingId,
   type OccasionId,
   PhotoId,
-  type PlaceId,
-  type RegionId,
+  PlaceId,
+  RegionId,
 } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
@@ -25,6 +25,7 @@ import type { RequestContainer } from "../di/types";
 import { ForbiddenError, NotFoundError } from "../errors";
 import { addCategory } from "../listing/addCategory";
 import { createListingDraft } from "../listing/createListingDraft";
+import { deleteListing } from "../listing/deleteListing";
 import { endListingOffering } from "../listing/endListingOffering";
 import {
   type CategoryListView,
@@ -218,31 +219,71 @@ export type SeedOccasion = SeedContent &
   }>;
 
 /**
- * What `devSeed` puts into an empty environment: accounts first, then
- * roles, categories, places with their stewards and listings, regions,
- * affiliations, and occasions with their region links and participations.
- * The states that would stand in the way of later steps (unpublished,
- * ended or suspended listings, suspended places, unpublished or suspended
- * regions, cancelled, unpublished or suspended occasions, detached region
- * links) are applied last.
+ * A listing of any place (a key of the fixture's or of `onto`'s places),
+ * created after every place of the fixture, in the order listed — so the
+ * listings of several places can be published in one given order.
  */
-export type SeedFixture = Readonly<{
-  /** Accounts to create, as a development login does. */
+export type SeedPlaceListing = SeedListing & Readonly<{ place: string }>;
+
+/**
+ * An environment an earlier seed filled, to seed more into (a test case's
+ * additional listings, a volume of places): nothing is opened, the
+ * categories are the active ones, and the listed deletions come first.
+ */
+export type SeedOnto = Readonly<{
+  /** A current operator's address (in `accounts`); acts where the first operator would. */
+  operator: string;
+  /** Keys of places that exist, with their ids, usable wherever a place key is. */
+  places?: Readonly<Record<string, string>> | undefined;
+  /** Keys of regions that exist, with their ids, usable wherever a region key is. */
+  regions?: Readonly<Record<string, string>> | undefined;
+  /** Listings to delete, each by `by` (in `accounts`) or else the operator. */
+  deleteListings?:
+    | readonly Readonly<{ id: string; by?: string | undefined }>[]
+    | undefined;
+}>;
+
+type SeedContents = Readonly<{
+  /** Accounts to create, as a development login does; an existing one is reused. */
   accounts: readonly string[];
-  /** The first is established as the first operator and grants the rest. */
-  operators: readonly [string, ...string[]];
-  editors?: readonly string[] | undefined;
-  /**
-   * The active categories, exactly. Left out: the four initial ones. The
-   * initial ones not named are renamed to the missing names in order,
-   * further names are added, and initial ones still unused are retired.
-   */
-  categories?: readonly string[] | undefined;
   places?: readonly SeedPlace[] | undefined;
+  listings?: readonly SeedPlaceListing[] | undefined;
   regions?: readonly SeedRegion[] | undefined;
   affiliations?: readonly SeedAffiliation[] | undefined;
   occasions?: readonly SeedOccasion[] | undefined;
 }>;
+
+/**
+ * What `devSeed` puts into an empty environment (or, with `onto`, into
+ * one an earlier seed filled): accounts first, then roles, categories,
+ * places with their stewards and listings, the fixture-level listings,
+ * regions, affiliations, and occasions with their region links and
+ * participations. The states that would stand in the way of later steps
+ * (unpublished, ended or suspended listings, suspended places, unpublished
+ * or suspended regions, cancelled, unpublished or suspended occasions,
+ * detached region links) are applied last.
+ */
+export type SeedFixture = SeedContents &
+  (
+    | Readonly<{
+        /** The first is established as the first operator and grants the rest. */
+        operators: readonly [string, ...string[]];
+        editors?: readonly string[] | undefined;
+        /**
+         * The active categories, exactly. Left out: the four initial ones. The
+         * initial ones not named are renamed to the missing names in order,
+         * further names are added, and initial ones still unused are retired.
+         */
+        categories?: readonly string[] | undefined;
+        onto?: undefined;
+      }>
+    | Readonly<{
+        onto: SeedOnto;
+        operators?: undefined;
+        editors?: undefined;
+        categories?: undefined;
+      }>
+  );
 
 export type DevSeedResult = Readonly<{
   accounts: Readonly<Record<string, AccountId>>;
@@ -305,8 +346,9 @@ function lookup<T>(
   ids: Readonly<Record<string, T>>,
   key: string,
   kind: "PLACE" | "LISTING" | "REGION",
+  known: Readonly<Record<string, T>> = {},
 ): T {
-  const id = ids[key];
+  const id = ids[key] ?? known[key];
   if (id === undefined) {
     throw new NotFoundError(
       `SEED_${kind}_NOT_LISTED`,
@@ -327,8 +369,9 @@ function lookup<T>(
  * are generated (`seedPhotoPng`) and registered with consent by the
  * account that uses them. Ends with a run of `recordEndedOccasions`, as
  * the daily job would have recorded the occasions already over. Not
- * idempotent: run it once on an empty state. Refused unless the
- * development tools are on.
+ * idempotent: run it once on an empty state, then only with `onto` (which
+ * opens nothing and refers to what the earlier run answered). Refused
+ * unless the development tools are on.
  */
 export async function devSeed({
   container: base,
@@ -361,29 +404,55 @@ export async function devSeed({
     return { accountId };
   };
 
-  const [firstOperator, ...otherOperators] = input.operators;
-  await establishFirstOperator({ container, input: { email: firstOperator } });
-  const operator = actorOf(firstOperator);
-  for (const email of otherOperators) {
-    await grantRole({
+  const knownPlaces: Record<string, PlaceId> = {};
+  const knownRegions: Record<string, RegionId> = {};
+  let operator: Actor;
+  let categories: Record<string, CategoryId>;
+  if (input.onto === undefined) {
+    const [firstOperator, ...otherOperators] = input.operators;
+    await establishFirstOperator({
       container,
-      actor: operator,
-      input: { role: "operator", email },
+      input: { email: firstOperator },
     });
+    operator = actorOf(firstOperator);
+    for (const email of otherOperators) {
+      await grantRole({
+        container,
+        actor: operator,
+        input: { role: "operator", email },
+      });
+    }
+    for (const email of input.editors ?? []) {
+      await grantRole({
+        container,
+        actor: operator,
+        input: { role: "editor", email },
+      });
+    }
+    categories = await seedCategories(container, operator, input.categories);
+  } else {
+    const { onto } = input;
+    operator = actorOf(onto.operator);
+    for (const [key, id] of Object.entries(onto.places ?? {})) {
+      knownPlaces[key] = PlaceId.create(id);
+    }
+    for (const [key, id] of Object.entries(onto.regions ?? {})) {
+      knownRegions[key] = RegionId.create(id);
+    }
+    for (const listing of onto.deleteListings ?? []) {
+      await deleteListing({
+        container,
+        actor: listing.by === undefined ? operator : actorOf(listing.by),
+        input: { listingId: ListingId.create(listing.id) },
+      });
+    }
+    categories = Object.fromEntries(
+      (await listCategories({ container })).map((category) => [
+        category.name,
+        category.id,
+      ]),
+    );
   }
-  for (const email of input.editors ?? []) {
-    await grantRole({
-      container,
-      actor: operator,
-      input: { role: "editor", email },
-    });
-  }
-
-  const categories = await seedCategories(
-    container,
-    operator,
-    input.categories,
-  );
 
   const newPhotos = async (
     labels: readonly string[] | undefined,
@@ -462,6 +531,81 @@ export async function devSeed({
   const places: Record<string, PlaceId> = {};
   const placeStewards = new Map<string, readonly string[]>();
   const listings: Record<string, ListingId> = {};
+
+  /** Creates the listing on the place and brings it to its state (the rest comes last). */
+  const seedListing = async (
+    placeId: PlaceId,
+    stewards: readonly string[] | undefined,
+    listing: SeedListing,
+  ): Promise<void> => {
+    const by =
+      listing.by !== undefined ? actorOf(listing.by) : managerOf(stewards);
+    const categoryName = listing.category ?? null;
+    const categoryId = categoryName === null ? null : categories[categoryName];
+    if (categoryId === undefined) {
+      throw new NotFoundError(
+        "SEED_CATEGORY_NOT_FOUND",
+        `Listing ${listing.key}: no active category ${categoryName}`,
+      );
+    }
+    const content = {
+      name: listing.name,
+      description: listing.description ?? null,
+      categoryId,
+      photos: (await newPhotos(listing.photos, by)).map((photoId) => ({
+        photoId,
+        framing: null,
+      })),
+      offering: resolveOffering(listing.offering ?? { kind: "none" }, today),
+    };
+    const draft = await createListingDraft({
+      container,
+      actor: by,
+      input: {
+        listingId: container.idGenerator.next(),
+        placeId,
+        content,
+      },
+    });
+    listings[listing.key] = draft.id;
+    const ref = { listingId: draft.id };
+    if (listing.state !== "draft") {
+      const published = await publishListing({
+        container,
+        actor: by,
+        input: ref,
+      });
+      if (listing.offeringAfterPublish !== undefined) {
+        await updateListing({
+          container,
+          actor: by,
+          input: {
+            listingId: draft.id,
+            version: published.version,
+            content: {
+              ...content,
+              offering: resolveOffering(listing.offeringAfterPublish, today),
+            },
+          },
+        });
+      }
+    }
+    if (listing.state === "unpublished") {
+      finishing.push(() =>
+        unpublishListing({ container, actor: by, input: ref }),
+      );
+    } else if (listing.state === "ended") {
+      finishing.push(() =>
+        endListingOffering({ container, actor: by, input: ref }),
+      );
+    }
+    if (listing.suspended === true) {
+      finishing.push(() =>
+        suspendListing({ container, actor: operator, input: ref }),
+      );
+    }
+  };
+
   for (const fixture of input.places ?? []) {
     const town = await findTown(container, fixture.address);
     const placeId = container.idGenerator.next();
@@ -505,73 +649,7 @@ export async function devSeed({
     placeStewards.set(fixture.key, stewards);
 
     for (const listing of fixture.listings ?? []) {
-      const by =
-        listing.by !== undefined ? actorOf(listing.by) : managerOf(stewards);
-      const categoryName = listing.category ?? null;
-      const categoryId =
-        categoryName === null ? null : categories[categoryName];
-      if (categoryId === undefined) {
-        throw new NotFoundError(
-          "SEED_CATEGORY_NOT_FOUND",
-          `Listing ${listing.key}: no active category ${categoryName}`,
-        );
-      }
-      const content = {
-        name: listing.name,
-        description: listing.description ?? null,
-        categoryId,
-        photos: (await newPhotos(listing.photos, by)).map((photoId) => ({
-          photoId,
-          framing: null,
-        })),
-        offering: resolveOffering(listing.offering ?? { kind: "none" }, today),
-      };
-      const draft = await createListingDraft({
-        container,
-        actor: by,
-        input: {
-          listingId: container.idGenerator.next(),
-          placeId: place.id,
-          content,
-        },
-      });
-      listings[listing.key] = draft.id;
-      const ref = { listingId: draft.id };
-      if (listing.state !== "draft") {
-        const published = await publishListing({
-          container,
-          actor: by,
-          input: ref,
-        });
-        if (listing.offeringAfterPublish !== undefined) {
-          await updateListing({
-            container,
-            actor: by,
-            input: {
-              listingId: draft.id,
-              version: published.version,
-              content: {
-                ...content,
-                offering: resolveOffering(listing.offeringAfterPublish, today),
-              },
-            },
-          });
-        }
-      }
-      if (listing.state === "unpublished") {
-        finishing.push(() =>
-          unpublishListing({ container, actor: by, input: ref }),
-        );
-      } else if (listing.state === "ended") {
-        finishing.push(() =>
-          endListingOffering({ container, actor: by, input: ref }),
-        );
-      }
-      if (listing.suspended === true) {
-        finishing.push(() =>
-          suspendListing({ container, actor: operator, input: ref }),
-        );
-      }
+      await seedListing(place.id, stewards, listing);
     }
 
     if (fixture.suspended === true) {
@@ -583,6 +661,14 @@ export async function devSeed({
         }),
       );
     }
+  }
+
+  for (const listing of input.listings ?? []) {
+    await seedListing(
+      lookup(places, listing.place, "PLACE", knownPlaces),
+      placeStewards.get(listing.place),
+      listing,
+    );
   }
 
   const contentFields = async (fixture: SeedContent) => ({
@@ -635,11 +721,14 @@ export async function devSeed({
   }
 
   for (const fixture of input.affiliations ?? []) {
-    const placeId = lookup(places, fixture.place, "PLACE");
+    const placeId = lookup(places, fixture.place, "PLACE", knownPlaces);
     for (const key of fixture.regions) {
       await devEstablishAffiliation({
         container,
-        input: { placeId, regionId: lookup(regions, key, "REGION") },
+        input: {
+          placeId,
+          regionId: lookup(regions, key, "REGION", knownRegions),
+        },
       });
     }
     if (fixture.representative !== undefined) {
@@ -655,7 +744,12 @@ export async function devSeed({
         actor: actorOf(steward),
         input: {
           placeId,
-          regionId: lookup(regions, fixture.representative, "REGION"),
+          regionId: lookup(
+            regions,
+            fixture.representative,
+            "REGION",
+            knownRegions,
+          ),
         },
       });
     }
@@ -691,7 +785,7 @@ export async function devSeed({
     }
 
     for (const link of fixture.regionLinks ?? []) {
-      const regionId = lookup(regions, link.region, "REGION");
+      const regionId = lookup(regions, link.region, "REGION", knownRegions);
       await linkRegion({
         container,
         actor: manager,
@@ -709,7 +803,7 @@ export async function devSeed({
     }
 
     for (const participation of fixture.participations ?? []) {
-      const placeId = lookup(places, participation.place, "PLACE");
+      const placeId = lookup(places, participation.place, "PLACE", knownPlaces);
       const details = {
         occasionId: occasion.id,
         placeId,

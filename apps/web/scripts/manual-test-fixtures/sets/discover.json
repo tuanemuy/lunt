@@ -1,0 +1,23 @@
+{
+  "X": {
+    "place": "S1",
+    "by": "owner-kissa@example.com",
+    "category": "食べる",
+    "name": "テスト用の掲載 X{n}",
+    "count": 8
+  },
+  "Z": {
+    "place": "S1",
+    "by": "owner-kissa@example.com",
+    "category": "食べる",
+    "name": "続き確認 {nnn}",
+    "count": 86
+  },
+  "W": {
+    "place": "S1",
+    "by": "owner-kissa@example.com",
+    "category": "食べる",
+    "name": "検索続き {nnn}",
+    "count": 101
+  }
+}
