@@ -151,6 +151,7 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
     setOutcomeMissing(false);
     startRemoval(async () => {
       removePhoto(photoId);
+      let outcome: PhotoOutcome;
       try {
         const result = await takeDownPhotosByClaimFn({
           data: {
@@ -159,21 +160,23 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
             photoIds: [photoId],
           },
         });
-        setPhotoOutcome({
+        outcome = {
           kind: "removed",
           result,
           wasCover: index === 0,
           remaining: photos.length - 1,
-        });
+        };
       } catch (error) {
         const state = classifyError(error);
-        setPhotoOutcome(
+        outcome =
           state.kind === "premiseChanged" &&
-            (state.code?.endsWith("_PHOTO_NOT_FOUND") ?? false)
+          (state.code?.endsWith("_PHOTO_NOT_FOUND") ?? false)
             ? { kind: "gone" }
-            : { kind: "failed", error: state, photoId },
-        );
+            : { kind: "failed", error: state, photoId };
       }
+      // Set inside the transition (a set after an await is not), so the
+      // message lands in the commit that shows the reconciled target state.
+      startRemoval(() => setPhotoOutcome(outcome));
       await reconcile();
     });
   };
@@ -194,14 +197,16 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
     setFinishOutcome(null);
     setPhotoOutcome(null);
     startFinish(async () => {
+      let outcome: FinishOutcome;
       try {
         await resolveTakedownClaimFn({
           data: { claimId: data.claimId, outcome: outcomeText },
         });
-        setFinishOutcome({ kind: "done" });
+        outcome = { kind: "done" };
       } catch (error) {
-        setFinishOutcome({ kind: "failed", error: classifyError(error) });
+        outcome = { kind: "failed", error: classifyError(error) };
       }
+      startFinish(() => setFinishOutcome(outcome));
       await reconcile();
     });
   };
