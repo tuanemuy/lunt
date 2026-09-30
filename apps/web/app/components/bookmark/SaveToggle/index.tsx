@@ -7,6 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { rereadOnReturn } from "@/components/explore/entryMemory";
 import { cx } from "@/components/ui/cx";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
@@ -61,12 +62,25 @@ export function useMergeDeviceSaves(signedIn: boolean): void {
 }
 
 /**
+ * A save or removal the account confirmed, over the account's answer the
+ * screen was read with (`basis`); a later read that answers otherwise
+ * replaces it.
+ */
+type Confirmed = Readonly<{ basis: boolean; saved: boolean }>;
+
+/**
  * CF-04 for one listing or place: whether it is saved, and the switch.
  * Signed in (`saveState.signedIn`), the account decides: the switch flips
  * at once (`useOptimistic`), runs `saveBookmarkFn` / `removeBookmarkFn`
- * and reconciles the route; a failure puts the display back and reports
- * it. Signed out, the device decides (`deviceSaves`), read after hydration
- * (the server and the hydrating render show 「保存していない」).
+ * and keeps what the account confirmed; a failure puts the display back
+ * and reports it. Signed out, the device decides (`deviceSaves`), read
+ * after hydration (the server and the hydrating render show 「保存していない」).
+ *
+ * A confirmed save does not re-read the screen: it holds whether or not
+ * the target is still viewable (CF-04), so the detail or card the viewer
+ * is looking at stays as shown even when its target has become unviewable
+ * meanwhile. Signed in or out, the screens left before re-read on return
+ * (`rereadOnReturn`), and a new navigation reads afresh.
  */
 export function useSaveToggle({
   target,
@@ -75,10 +89,14 @@ export function useSaveToggle({
   target: SaveTarget;
   saveState: SaveState;
 }): SaveToggleState {
-  const reconcile = useReconcile();
   const device = useDeviceSaves();
   const onAccount = accountSaved(saveState, target);
-  const [optimistic, setOptimistic] = useOptimistic(onAccount ?? false);
+  const [confirmed, setConfirmed] = useState<Confirmed | null>(null);
+  const accountValue =
+    onAccount !== null && confirmed?.basis === onAccount
+      ? confirmed.saved
+      : onAccount;
+  const [optimistic, setOptimistic] = useOptimistic(accountValue ?? false);
   const [pending, startToggle] = useTransition();
   const [failure, setFailure] = useState<SaveFailure | null>(null);
   useMergeDeviceSaves(saveState.signedIn);
@@ -87,7 +105,7 @@ export function useSaveToggle({
     device?.some(
       (entry) => entry.kind === target.kind && entry.id === target.id,
     ) === true;
-  const saved = onAccount === null ? onDevice : optimistic;
+  const saved = accountValue === null ? onDevice : optimistic;
 
   const toggle = useCallback(() => {
     const action = saved ? "remove" : "save";
@@ -97,7 +115,8 @@ export function useSaveToggle({
         action === "save"
           ? deviceSaves.save(target, Date.now())
           : deviceSaves.remove(target);
-      if (!kept) setFailure({ action, error: null });
+      if (kept) rereadOnReturn();
+      else setFailure({ action, error: null });
       return;
     }
     if (pending) return;
@@ -107,12 +126,16 @@ export function useSaveToggle({
         await (action === "save" ? saveBookmarkFn : removeBookmarkFn)({
           data: target,
         });
-        await reconcile();
+        rereadOnReturn();
+        // Inside the action, so the optimistic value gives way to it in one commit.
+        startToggle(() =>
+          setConfirmed({ basis: onAccount, saved: action === "save" }),
+        );
       } catch (error) {
         setFailure({ action, error: classifyError(error) });
       }
     });
-  }, [saved, onAccount, pending, target, reconcile, setOptimistic]);
+  }, [saved, onAccount, pending, target, setOptimistic]);
 
   return { saved, pending, failure, toggle };
 }

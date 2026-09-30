@@ -23,8 +23,8 @@ import { renderFeed } from "./-renderDiscover";
  * tab's memory (`feedOrigin`), read here so a return from a detail finds
  * the same feed. The feed streams in under its skeleton, and a change of
  * the conditions or the position shows the skeleton again (CS-01). The
- * account's saves of every card shown are read with it, so a save toggle
- * that reconciles the route updates every page's cards (CF-04).
+ * account's saves of every card shown are read with it, so the re-read on
+ * return after a save (CF-04, `rereadOnReturn`) updates every page's cards.
  */
 export const Route = createFileRoute("/_viewer/")({
   ...keepOnReturn,

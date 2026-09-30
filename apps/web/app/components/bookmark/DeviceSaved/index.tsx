@@ -53,13 +53,14 @@ function ReadyBoard({
  * opening (later changes are this screen's own toggles, whose rows keep
  * their place until the screen is opened again). A failed read is CS-02
  * with a retry; the saves stay on the device. Returning from a detail is
- * not an opening: the read is kept for the history entry.
+ * not an opening: the read is kept for the history entry, unless a save
+ * or removal elsewhere (`rereadOnReturn`) changed the device meanwhile.
  */
 export function DeviceSaved() {
   const hydrated = useDeviceSaves() !== null;
   const entry = useHistoryEntryKey();
   const [loaded, setLoaded] = useState<Loaded>(
-    () => readMemory.recall(entry, "device") ?? { kind: "loading" },
+    () => readMemory.recallUnchanged(entry, "device") ?? { kind: "loading" },
   );
   const [retrying, startRetry] = useTransition();
 

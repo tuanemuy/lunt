@@ -4,9 +4,10 @@ import { type SaveState, saveKey } from "@/presentation/savedView";
 /**
  * The listings a feed shows, per history entry, so VW-01's loader can read
  * the account's saves of all of them afresh — the first page's and every
- * page loaded since. A save toggle reconciles the route (CF-04), and a
- * card of a later page must not fall back to what its page said when it
- * was loaded. In memory only: the server render and a reload start empty.
+ * page loaded since. A save (CF-04) makes the feed re-read when it is
+ * returned to (`rereadOnReturn`), and a card of a later page must not fall
+ * back to what its page said when it was loaded. In memory only: the
+ * server render and a reload start empty.
  */
 const shown = new Map<string, ReadonlySet<string>>();
 const MAX_ENTRIES = 20;
