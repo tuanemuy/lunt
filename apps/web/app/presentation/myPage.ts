@@ -44,15 +44,14 @@ const TARGET_SECTIONS = [
 
 /**
  * The role entries (`spec/pages/index.md` 「マイページからの入口」): the
- * operator's opens OM-01 (`/ops`, which stands in with OM-07 until OM-01's
- * stage); the editor's AM-01 comes with the editorial stage.
+ * operator's opens OM-01 (`/ops`), the editor's AM-01 (`/editorial`).
  */
 const ROLE_ENTRIES: Readonly<Record<Role, MyPageEntry>> = {
   editor: {
     key: "editor",
     title: "読みもの編集",
     meta: "編集担当者",
-    to: null,
+    to: "/editorial",
   },
   operator: {
     key: "operator",

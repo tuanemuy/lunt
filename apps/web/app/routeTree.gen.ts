@@ -18,6 +18,7 @@ import { Route as Char91__devChar93ClockRouteImport } from './routes/[__dev]/clo
 import { Route as Char91__devChar93InboxRouteImport } from './routes/[__dev]/inbox'
 import { Route as Char91__devChar93SessionRouteImport } from './routes/[__dev]/session'
 import { Route as Char91__devChar93StewardsRouteImport } from './routes/[__dev]/stewards'
+import { Route as ManageEditorialRouteImport } from './routes/_manage/editorial'
 import { Route as ManageOpsRouteImport } from './routes/_manage/ops'
 import { Route as ViewerIndexRouteImport } from './routes/_viewer/index'
 import { Route as ViewerFilterRouteImport } from './routes/_viewer/filter'
@@ -39,20 +40,22 @@ import { Route as AccountMeWithdrawRouteImport } from './routes/_account/me/with
 import { Route as ApplyApplyAffiliationRouteImport } from './routes/_apply/apply/affiliation'
 import { Route as ApplyApplyFindPlaceRouteImport } from './routes/_apply/apply/find-place'
 import { Route as ApplyApplyParticipationRouteImport } from './routes/_apply/apply/participation'
+import { Route as ManageEditorialIndexRouteImport } from './routes/_manage/editorial/index'
 import { Route as ManageOpsIndexRouteImport } from './routes/_manage/ops/index'
 import { Route as ManageOpsCategoriesRouteImport } from './routes/_manage/ops/categories'
 import { Route as ManageOpsRolesRouteImport } from './routes/_manage/ops/roles'
 import { Route as ManageOpsSearchRouteImport } from './routes/_manage/ops/search'
 import { Route as ViewerArticlesIndexRouteImport } from './routes/_viewer/articles/index'
+import { Route as ViewerArticlesArticleIdRouteImport } from './routes/_viewer/articles/$articleId'
 import { Route as ViewerEventsIndexRouteImport } from './routes/_viewer/events/index'
 import { Route as ViewerListingsListingIdRouteImport } from './routes/_viewer/listings/$listingId'
-import { Route as ViewerArticlesArticleIdRouteImport } from './routes/_viewer/articles/$articleId'
 import { Route as ViewerPlacesPlaceIdRouteImport } from './routes/_viewer/places/$placeId'
 import { Route as ViewerRegionsIndexRouteImport } from './routes/_viewer/regions/index'
 import { Route as AccountChar91__devChar93ManageErrorsKindRouteImport } from './routes/_account/[__dev]/manage-errors.$kind'
 import { Route as AccountMeApplicationsIndexRouteImport } from './routes/_account/me/applications/index'
 import { Route as AccountMeApplicationsApplicationIdRouteImport } from './routes/_account/me/applications/$applicationId'
 import { Route as ApplyApplyPlacesNewRouteImport } from './routes/_apply/apply/places/new'
+import { Route as ManageEditorialArticlesNewRouteImport } from './routes/_manage/editorial/articles/new'
 import { Route as ManageManageApplicationsApplicationIdRouteImport } from './routes/_manage/manage/applications/$applicationId'
 import { Route as ManageManageChecksReportIdRouteImport } from './routes/_manage/manage/checks/$reportId'
 import { Route as ManageManageEventsOccasionIdRouteImport } from './routes/_manage/manage/events/$occasionId'
@@ -74,6 +77,8 @@ import { Route as AccountLoginExternalProviderCallbackRouteImport } from './rout
 import { Route as ApplyApplyListingsListingIdRevisionRouteImport } from './routes/_apply/apply/listings/$listingId/revision'
 import { Route as ApplyApplyPlacesPlaceIdRevisionRouteImport } from './routes/_apply/apply/places/$placeId/revision'
 import { Route as ApplyApplyPlacesPlaceIdStewardshipRouteImport } from './routes/_apply/apply/places/$placeId/stewardship'
+import { Route as ManageEditorialArticlesArticleIdIndexRouteImport } from './routes/_manage/editorial/articles/$articleId/index'
+import { Route as ManageEditorialArticlesArticleIdPreviewRouteImport } from './routes/_manage/editorial/articles/$articleId/preview'
 import { Route as ManageManageEventsOccasionIdIndexRouteImport } from './routes/_manage/manage/events/$occasionId/index'
 import { Route as ManageManageEventsOccasionIdInfoRouteImport } from './routes/_manage/manage/events/$occasionId/info'
 import { Route as ManageManageEventsOccasionIdRegionsRouteImport } from './routes/_manage/manage/events/$occasionId/regions'
@@ -140,6 +145,11 @@ const Char91__devChar93StewardsRoute =
     path: '/__dev/stewards',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ManageEditorialRoute = ManageEditorialRouteImport.update({
+  id: '/editorial',
+  path: '/editorial',
+  getParentRoute: () => ManageRoute,
+} as any)
 const ManageOpsRoute = ManageOpsRouteImport.update({
   id: '/ops',
   path: '/ops',
@@ -250,6 +260,11 @@ const ApplyApplyParticipationRoute = ApplyApplyParticipationRouteImport.update({
   path: '/apply/participation',
   getParentRoute: () => ApplyRoute,
 } as any)
+const ManageEditorialIndexRoute = ManageEditorialIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ManageEditorialRoute,
+} as any)
 const ManageOpsIndexRoute = ManageOpsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -275,6 +290,11 @@ const ViewerArticlesIndexRoute = ViewerArticlesIndexRouteImport.update({
   path: '/articles/',
   getParentRoute: () => ViewerRoute,
 } as any)
+const ViewerArticlesArticleIdRoute = ViewerArticlesArticleIdRouteImport.update({
+  id: '/articles/$articleId',
+  path: '/articles/$articleId',
+  getParentRoute: () => ViewerRoute,
+} as any)
 const ViewerEventsIndexRoute = ViewerEventsIndexRouteImport.update({
   id: '/events/',
   path: '/events/',
@@ -288,11 +308,6 @@ const ViewerListingsListingIdRoute = ViewerListingsListingIdRouteImport.update({
 const ViewerPlacesPlaceIdRoute = ViewerPlacesPlaceIdRouteImport.update({
   id: '/places/$placeId',
   path: '/places/$placeId',
-  getParentRoute: () => ViewerRoute,
-} as any)
-const ViewerArticlesArticleIdRoute = ViewerArticlesArticleIdRouteImport.update({
-  id: '/articles/$articleId',
-  path: '/articles/$articleId',
   getParentRoute: () => ViewerRoute,
 } as any)
 const ViewerRegionsIndexRoute = ViewerRegionsIndexRouteImport.update({
@@ -323,6 +338,12 @@ const ApplyApplyPlacesNewRoute = ApplyApplyPlacesNewRouteImport.update({
   path: '/apply/places/new',
   getParentRoute: () => ApplyRoute,
 } as any)
+const ManageEditorialArticlesNewRoute =
+  ManageEditorialArticlesNewRouteImport.update({
+    id: '/articles/new',
+    path: '/articles/new',
+    getParentRoute: () => ManageEditorialRoute,
+  } as any)
 const ManageManageApplicationsApplicationIdRoute =
   ManageManageApplicationsApplicationIdRouteImport.update({
     id: '/manage/applications/$applicationId',
@@ -443,6 +464,18 @@ const ApplyApplyPlacesPlaceIdStewardshipRoute =
     id: '/apply/places/$placeId/stewardship',
     path: '/apply/places/$placeId/stewardship',
     getParentRoute: () => ApplyRoute,
+  } as any)
+const ManageEditorialArticlesArticleIdIndexRoute =
+  ManageEditorialArticlesArticleIdIndexRouteImport.update({
+    id: '/articles/$articleId/',
+    path: '/articles/$articleId/',
+    getParentRoute: () => ManageEditorialRoute,
+  } as any)
+const ManageEditorialArticlesArticleIdPreviewRoute =
+  ManageEditorialArticlesArticleIdPreviewRouteImport.update({
+    id: '/articles/$articleId/preview',
+    path: '/articles/$articleId/preview',
+    getParentRoute: () => ManageEditorialRoute,
   } as any)
 const ManageManageEventsOccasionIdIndexRoute =
   ManageManageEventsOccasionIdIndexRouteImport.update({
@@ -588,6 +621,7 @@ export interface FileRoutesByFullPath {
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/stewards': typeof Char91__devChar93StewardsRoute
+  '/editorial': typeof ManageEditorialRouteWithChildren
   '/ops': typeof ManageOpsRouteWithChildren
   '/filter': typeof ViewerFilterRoute
   '/map': typeof ViewerMapRoute
@@ -608,11 +642,13 @@ export interface FileRoutesByFullPath {
   '/ops/categories': typeof ManageOpsCategoriesRoute
   '/ops/roles': typeof ManageOpsRolesRoute
   '/ops/search': typeof ManageOpsSearchRoute
+  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/listings/$listingId': typeof ViewerListingsListingIdRoute
   '/places/$placeId': typeof ViewerPlacesPlaceIdRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
   '/login/': typeof AccountLoginIndexRoute
   '/me/': typeof AccountMeIndexRoute
+  '/editorial/': typeof ManageEditorialIndexRoute
   '/ops/': typeof ManageOpsIndexRoute
   '/articles/': typeof ViewerArticlesIndexRoute
   '/events/': typeof ViewerEventsIndexRoute
@@ -620,6 +656,7 @@ export interface FileRoutesByFullPath {
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/editorial/articles/new': typeof ManageEditorialArticlesNewRoute
   '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
   '/manage/events/$occasionId': typeof ManageManageEventsOccasionIdRouteWithChildren
@@ -641,8 +678,8 @@ export interface FileRoutesByFullPath {
   '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/editorial/articles/$articleId/preview': typeof ManageEditorialArticlesArticleIdPreviewRoute
   '/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
-  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
   '/manage/places/$placeId/info': typeof ManageManagePlacesPlaceIdInfoRoute
@@ -653,6 +690,7 @@ export interface FileRoutesByFullPath {
   '/manage/regions/$regionId/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
+  '/editorial/articles/$articleId/': typeof ManageEditorialArticlesArticleIdIndexRoute
   '/manage/events/$occasionId/': typeof ManageManageEventsOccasionIdIndexRoute
   '/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
   '/manage/regions/$regionId/': typeof ManageManageRegionsRegionIdIndexRoute
@@ -692,11 +730,13 @@ export interface FileRoutesByTo {
   '/ops/categories': typeof ManageOpsCategoriesRoute
   '/ops/roles': typeof ManageOpsRolesRoute
   '/ops/search': typeof ManageOpsSearchRoute
+  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/listings/$listingId': typeof ViewerListingsListingIdRoute
   '/places/$placeId': typeof ViewerPlacesPlaceIdRoute
   '/__dev/ui': typeof Char91__devChar93UiIndexRoute
   '/login': typeof AccountLoginIndexRoute
   '/me': typeof AccountMeIndexRoute
+  '/editorial': typeof ManageEditorialIndexRoute
   '/ops': typeof ManageOpsIndexRoute
   '/articles': typeof ViewerArticlesIndexRoute
   '/events': typeof ViewerEventsIndexRoute
@@ -704,6 +744,7 @@ export interface FileRoutesByTo {
   '/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/editorial/articles/new': typeof ManageEditorialArticlesNewRoute
   '/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
   '/manage/events/new': typeof ManageManageEventsNewRoute
@@ -722,6 +763,7 @@ export interface FileRoutesByTo {
   '/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/editorial/articles/$articleId/preview': typeof ManageEditorialArticlesArticleIdPreviewRoute
   '/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
   '/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/manage/events/$occasionId/members': typeof ManageManageEventsOccasionIdMembersRoute
@@ -730,10 +772,10 @@ export interface FileRoutesByTo {
   '/manage/places/$placeId/members': typeof ManageManagePlacesPlaceIdMembersRoute
   '/manage/regions/$regionId/events': typeof ManageManageRegionsRegionIdEventsRoute
   '/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
-  '/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/manage/regions/$regionId/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
   '/login/external/$provider': typeof AccountLoginExternalProviderIndexRoute
+  '/editorial/articles/$articleId': typeof ManageEditorialArticlesArticleIdIndexRoute
   '/manage/events/$occasionId': typeof ManageManageEventsOccasionIdIndexRoute
   '/manage/places/$placeId': typeof ManageManagePlacesPlaceIdIndexRoute
   '/manage/regions/$regionId': typeof ManageManageRegionsRegionIdIndexRoute
@@ -759,6 +801,7 @@ export interface FileRoutesById {
   '/__dev/inbox': typeof Char91__devChar93InboxRoute
   '/__dev/session': typeof Char91__devChar93SessionRoute
   '/__dev/stewards': typeof Char91__devChar93StewardsRoute
+  '/_manage/editorial': typeof ManageEditorialRouteWithChildren
   '/_manage/ops': typeof ManageOpsRouteWithChildren
   '/_viewer/filter': typeof ViewerFilterRoute
   '/_viewer/map': typeof ViewerMapRoute
@@ -780,11 +823,13 @@ export interface FileRoutesById {
   '/_manage/ops/categories': typeof ManageOpsCategoriesRoute
   '/_manage/ops/roles': typeof ManageOpsRolesRoute
   '/_manage/ops/search': typeof ManageOpsSearchRoute
+  '/_viewer/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/_viewer/listings/$listingId': typeof ViewerListingsListingIdRoute
   '/_viewer/places/$placeId': typeof ViewerPlacesPlaceIdRoute
   '/__dev/ui/': typeof Char91__devChar93UiIndexRoute
   '/_account/login/': typeof AccountLoginIndexRoute
   '/_account/me/': typeof AccountMeIndexRoute
+  '/_manage/editorial/': typeof ManageEditorialIndexRoute
   '/_manage/ops/': typeof ManageOpsIndexRoute
   '/_viewer/articles/': typeof ViewerArticlesIndexRoute
   '/_viewer/events/': typeof ViewerEventsIndexRoute
@@ -792,6 +837,7 @@ export interface FileRoutesById {
   '/_account/__dev/manage-errors/$kind': typeof AccountChar91__devChar93ManageErrorsKindRoute
   '/_account/me/applications/$applicationId': typeof AccountMeApplicationsApplicationIdRoute
   '/_apply/apply/places/new': typeof ApplyApplyPlacesNewRoute
+  '/_manage/editorial/articles/new': typeof ManageEditorialArticlesNewRoute
   '/_manage/manage/applications/$applicationId': typeof ManageManageApplicationsApplicationIdRoute
   '/_manage/manage/checks/$reportId': typeof ManageManageChecksReportIdRoute
   '/_manage/manage/events/$occasionId': typeof ManageManageEventsOccasionIdRouteWithChildren
@@ -813,6 +859,7 @@ export interface FileRoutesById {
   '/_apply/apply/listings/$listingId/revision': typeof ApplyApplyListingsListingIdRevisionRoute
   '/_apply/apply/places/$placeId/revision': typeof ApplyApplyPlacesPlaceIdRevisionRoute
   '/_apply/apply/places/$placeId/stewardship': typeof ApplyApplyPlacesPlaceIdStewardshipRoute
+  '/_manage/editorial/articles/$articleId/preview': typeof ManageEditorialArticlesArticleIdPreviewRoute
   '/_manage/manage/events/$occasionId/info': typeof ManageManageEventsOccasionIdInfoRoute
   '/_manage/manage/events/$occasionId/regions': typeof ManageManageEventsOccasionIdRegionsRoute
   '/_manage/manage/events/$occasionId_/members': typeof ManageManageEventsOccasionIdMembersRoute
@@ -823,8 +870,8 @@ export interface FileRoutesById {
   '/_manage/manage/regions/$regionId/info': typeof ManageManageRegionsRegionIdInfoRoute
   '/_manage/manage/regions/$regionId_/members': typeof ManageManageRegionsRegionIdMembersRoute
   '/_manage/ops/subjects/$kind/$id': typeof ManageOpsSubjectsKindIdRoute
-  '/_viewer/articles/$articleId': typeof ViewerArticlesArticleIdRoute
   '/_account/login/external/$provider/': typeof AccountLoginExternalProviderIndexRoute
+  '/_manage/editorial/articles/$articleId/': typeof ManageEditorialArticlesArticleIdIndexRoute
   '/_manage/manage/events/$occasionId/': typeof ManageManageEventsOccasionIdIndexRoute
   '/_manage/manage/places/$placeId/': typeof ManageManagePlacesPlaceIdIndexRoute
   '/_manage/manage/regions/$regionId/': typeof ManageManageRegionsRegionIdIndexRoute
@@ -847,6 +894,7 @@ export interface FileRouteTypes {
     | '/__dev/inbox'
     | '/__dev/session'
     | '/__dev/stewards'
+    | '/editorial'
     | '/ops'
     | '/filter'
     | '/map'
@@ -867,11 +915,13 @@ export interface FileRouteTypes {
     | '/ops/categories'
     | '/ops/roles'
     | '/ops/search'
+    | '/articles/$articleId'
     | '/listings/$listingId'
     | '/places/$placeId'
     | '/__dev/ui/'
     | '/login/'
     | '/me/'
+    | '/editorial/'
     | '/ops/'
     | '/articles/'
     | '/events/'
@@ -879,6 +929,7 @@ export interface FileRouteTypes {
     | '/__dev/manage-errors/$kind'
     | '/me/applications/$applicationId'
     | '/apply/places/new'
+    | '/editorial/articles/new'
     | '/manage/applications/$applicationId'
     | '/manage/checks/$reportId'
     | '/manage/events/$occasionId'
@@ -900,6 +951,7 @@ export interface FileRouteTypes {
     | '/apply/listings/$listingId/revision'
     | '/apply/places/$placeId/revision'
     | '/apply/places/$placeId/stewardship'
+    | '/editorial/articles/$articleId/preview'
     | '/manage/events/$occasionId/info'
     | '/manage/events/$occasionId/regions'
     | '/manage/events/$occasionId/members'
@@ -911,11 +963,11 @@ export interface FileRouteTypes {
     | '/manage/regions/$regionId/members'
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider/'
+    | '/editorial/articles/$articleId/'
     | '/manage/events/$occasionId/'
     | '/manage/places/$placeId/'
     | '/manage/regions/$regionId/'
     | '/apply/places/$placeId/listings/new'
-    | '/articles/$articleId'
     | '/manage/events/$occasionId/participants/$placeId'
     | '/manage/events/$occasionId/participants/new'
     | '/manage/places/$placeId/checks/$reportId'
@@ -951,11 +1003,13 @@ export interface FileRouteTypes {
     | '/ops/categories'
     | '/ops/roles'
     | '/ops/search'
+    | '/articles/$articleId'
     | '/listings/$listingId'
     | '/places/$placeId'
     | '/__dev/ui'
     | '/login'
     | '/me'
+    | '/editorial'
     | '/ops'
     | '/articles'
     | '/events'
@@ -963,6 +1017,7 @@ export interface FileRouteTypes {
     | '/__dev/manage-errors/$kind'
     | '/me/applications/$applicationId'
     | '/apply/places/new'
+    | '/editorial/articles/new'
     | '/manage/applications/$applicationId'
     | '/manage/checks/$reportId'
     | '/manage/events/new'
@@ -981,6 +1036,7 @@ export interface FileRouteTypes {
     | '/apply/listings/$listingId/revision'
     | '/apply/places/$placeId/revision'
     | '/apply/places/$placeId/stewardship'
+    | '/editorial/articles/$articleId/preview'
     | '/manage/events/$occasionId/info'
     | '/manage/events/$occasionId/regions'
     | '/manage/events/$occasionId/members'
@@ -992,6 +1048,7 @@ export interface FileRouteTypes {
     | '/manage/regions/$regionId/members'
     | '/ops/subjects/$kind/$id'
     | '/login/external/$provider'
+    | '/editorial/articles/$articleId'
     | '/manage/events/$occasionId'
     | '/manage/places/$placeId'
     | '/manage/regions/$regionId'
@@ -1003,7 +1060,6 @@ export interface FileRouteTypes {
     | '/manage/places/$placeId/listings/new'
     | '/manage/places/$placeId/events'
     | '/manage/places/$placeId/listings'
-    | '/articles/$articleId'
     | '/manage/places/$placeId/listings/$listingId/preview'
     | '/manage/places/$placeId/listings/$listingId'
   id:
@@ -1017,6 +1073,7 @@ export interface FileRouteTypes {
     | '/__dev/inbox'
     | '/__dev/session'
     | '/__dev/stewards'
+    | '/_manage/editorial'
     | '/_manage/ops'
     | '/_viewer/filter'
     | '/_viewer/map'
@@ -1038,11 +1095,13 @@ export interface FileRouteTypes {
     | '/_manage/ops/categories'
     | '/_manage/ops/roles'
     | '/_manage/ops/search'
+    | '/_viewer/articles/$articleId'
     | '/_viewer/listings/$listingId'
     | '/_viewer/places/$placeId'
     | '/__dev/ui/'
     | '/_account/login/'
     | '/_account/me/'
+    | '/_manage/editorial/'
     | '/_manage/ops/'
     | '/_viewer/articles/'
     | '/_viewer/events/'
@@ -1050,6 +1109,7 @@ export interface FileRouteTypes {
     | '/_account/__dev/manage-errors/$kind'
     | '/_account/me/applications/$applicationId'
     | '/_apply/apply/places/new'
+    | '/_manage/editorial/articles/new'
     | '/_manage/manage/applications/$applicationId'
     | '/_manage/manage/checks/$reportId'
     | '/_manage/manage/events/$occasionId'
@@ -1071,6 +1131,7 @@ export interface FileRouteTypes {
     | '/_apply/apply/listings/$listingId/revision'
     | '/_apply/apply/places/$placeId/revision'
     | '/_apply/apply/places/$placeId/stewardship'
+    | '/_manage/editorial/articles/$articleId/preview'
     | '/_manage/manage/events/$occasionId/info'
     | '/_manage/manage/events/$occasionId/regions'
     | '/_manage/manage/events/$occasionId_/members'
@@ -1082,6 +1143,7 @@ export interface FileRouteTypes {
     | '/_manage/manage/regions/$regionId_/members'
     | '/_manage/ops/subjects/$kind/$id'
     | '/_account/login/external/$provider/'
+    | '/_manage/editorial/articles/$articleId/'
     | '/_manage/manage/events/$occasionId/'
     | '/_manage/manage/places/$placeId/'
     | '/_manage/manage/regions/$regionId/'
@@ -1095,7 +1157,6 @@ export interface FileRouteTypes {
     | '/_manage/manage/places/$placeId/listings/'
     | '/_manage/manage/places/$placeId/listings/$listingId/preview'
     | '/_manage/manage/places/$placeId/listings/$listingId/'
-    | '/_viewer/articles/$articleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1179,6 +1240,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/__dev/stewards'
       preLoaderRoute: typeof Char91__devChar93StewardsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_manage/editorial': {
+      id: '/_manage/editorial'
+      path: '/editorial'
+      fullPath: '/editorial'
+      preLoaderRoute: typeof ManageEditorialRouteImport
+      parentRoute: typeof ManageRoute
     }
     '/_manage/ops': {
       id: '/_manage/ops'
@@ -1327,6 +1395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyApplyParticipationRouteImport
       parentRoute: typeof ApplyRoute
     }
+    '/_manage/editorial/': {
+      id: '/_manage/editorial/'
+      path: '/'
+      fullPath: '/editorial/'
+      preLoaderRoute: typeof ManageEditorialIndexRouteImport
+      parentRoute: typeof ManageEditorialRoute
+    }
     '/_manage/ops/': {
       id: '/_manage/ops/'
       path: '/'
@@ -1360,6 +1435,13 @@ declare module '@tanstack/react-router' {
       path: '/articles'
       fullPath: '/articles/'
       preLoaderRoute: typeof ViewerArticlesIndexRouteImport
+      parentRoute: typeof ViewerRoute
+    }
+    '/_viewer/articles/$articleId': {
+      id: '/_viewer/articles/$articleId'
+      path: '/articles/$articleId'
+      fullPath: '/articles/$articleId'
+      preLoaderRoute: typeof ViewerArticlesArticleIdRouteImport
       parentRoute: typeof ViewerRoute
     }
     '/_viewer/events/': {
@@ -1418,6 +1500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyApplyPlacesNewRouteImport
       parentRoute: typeof ApplyRoute
     }
+    '/_manage/editorial/articles/new': {
+      id: '/_manage/editorial/articles/new'
+      path: '/articles/new'
+      fullPath: '/editorial/articles/new'
+      preLoaderRoute: typeof ManageEditorialArticlesNewRouteImport
+      parentRoute: typeof ManageEditorialRoute
+    }
     '/_manage/manage/applications/$applicationId': {
       id: '/_manage/manage/applications/$applicationId'
       path: '/manage/applications/$applicationId'
@@ -1437,13 +1526,6 @@ declare module '@tanstack/react-router' {
       path: '/manage/events/$occasionId'
       fullPath: '/manage/events/$occasionId'
       preLoaderRoute: typeof ManageManageEventsOccasionIdRouteImport
-    '/_viewer/articles/$articleId': {
-      id: '/_viewer/articles/$articleId'
-      path: '/articles/$articleId'
-      fullPath: '/articles/$articleId'
-      preLoaderRoute: typeof ViewerArticlesArticleIdRouteImport
-      parentRoute: typeof ViewerRoute
-    }
       parentRoute: typeof ManageRoute
     }
     '/_manage/manage/events/new': {
@@ -1571,6 +1653,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/apply/places/$placeId/stewardship'
       preLoaderRoute: typeof ApplyApplyPlacesPlaceIdStewardshipRouteImport
       parentRoute: typeof ApplyRoute
+    }
+    '/_manage/editorial/articles/$articleId/': {
+      id: '/_manage/editorial/articles/$articleId/'
+      path: '/articles/$articleId'
+      fullPath: '/editorial/articles/$articleId/'
+      preLoaderRoute: typeof ManageEditorialArticlesArticleIdIndexRouteImport
+      parentRoute: typeof ManageEditorialRoute
+    }
+    '/_manage/editorial/articles/$articleId/preview': {
+      id: '/_manage/editorial/articles/$articleId/preview'
+      path: '/articles/$articleId/preview'
+      fullPath: '/editorial/articles/$articleId/preview'
+      preLoaderRoute: typeof ManageEditorialArticlesArticleIdPreviewRouteImport
+      parentRoute: typeof ManageEditorialRoute
     }
     '/_manage/manage/events/$occasionId/': {
       id: '/_manage/manage/events/$occasionId/'
@@ -1800,6 +1896,26 @@ const ApplyRouteChildren: ApplyRouteChildren = {
 
 const ApplyRouteWithChildren = ApplyRoute._addFileChildren(ApplyRouteChildren)
 
+interface ManageEditorialRouteChildren {
+  ManageEditorialIndexRoute: typeof ManageEditorialIndexRoute
+  ManageEditorialArticlesNewRoute: typeof ManageEditorialArticlesNewRoute
+  ManageEditorialArticlesArticleIdPreviewRoute: typeof ManageEditorialArticlesArticleIdPreviewRoute
+  ManageEditorialArticlesArticleIdIndexRoute: typeof ManageEditorialArticlesArticleIdIndexRoute
+}
+
+const ManageEditorialRouteChildren: ManageEditorialRouteChildren = {
+  ManageEditorialIndexRoute: ManageEditorialIndexRoute,
+  ManageEditorialArticlesNewRoute: ManageEditorialArticlesNewRoute,
+  ManageEditorialArticlesArticleIdPreviewRoute:
+    ManageEditorialArticlesArticleIdPreviewRoute,
+  ManageEditorialArticlesArticleIdIndexRoute:
+    ManageEditorialArticlesArticleIdIndexRoute,
+}
+
+const ManageEditorialRouteWithChildren = ManageEditorialRoute._addFileChildren(
+  ManageEditorialRouteChildren,
+)
+
 interface ManageOpsRouteChildren {
   ManageOpsCategoriesRoute: typeof ManageOpsCategoriesRoute
   ManageOpsRolesRoute: typeof ManageOpsRolesRoute
@@ -1912,6 +2028,7 @@ const ManageManageRegionsRegionIdRouteWithChildren =
   )
 
 interface ManageRouteChildren {
+  ManageEditorialRoute: typeof ManageEditorialRouteWithChildren
   ManageOpsRoute: typeof ManageOpsRouteWithChildren
   ManageManageApplicationsApplicationIdRoute: typeof ManageManageApplicationsApplicationIdRoute
   ManageManageChecksReportIdRoute: typeof ManageManageChecksReportIdRoute
@@ -1927,6 +2044,7 @@ interface ManageRouteChildren {
 }
 
 const ManageRouteChildren: ManageRouteChildren = {
+  ManageEditorialRoute: ManageEditorialRouteWithChildren,
   ManageOpsRoute: ManageOpsRouteWithChildren,
   ManageManageApplicationsApplicationIdRoute:
     ManageManageApplicationsApplicationIdRoute,
@@ -1968,6 +2086,7 @@ interface ViewerRouteChildren {
   ViewerSavedRoute: typeof ViewerSavedRoute
   ViewerSearchRoute: typeof ViewerSearchRoute
   ViewerIndexRoute: typeof ViewerIndexRoute
+  ViewerArticlesArticleIdRoute: typeof ViewerArticlesArticleIdRoute
   ViewerListingsListingIdRoute: typeof ViewerListingsListingIdRoute
   ViewerPlacesPlaceIdRoute: typeof ViewerPlacesPlaceIdRoute
   ViewerArticlesIndexRoute: typeof ViewerArticlesIndexRoute
@@ -1985,6 +2104,7 @@ const ViewerRouteChildren: ViewerRouteChildren = {
   ViewerSavedRoute: ViewerSavedRoute,
   ViewerSearchRoute: ViewerSearchRoute,
   ViewerIndexRoute: ViewerIndexRoute,
+  ViewerArticlesArticleIdRoute: ViewerArticlesArticleIdRoute,
   ViewerListingsListingIdRoute: ViewerListingsListingIdRoute,
   ViewerPlacesPlaceIdRoute: ViewerPlacesPlaceIdRoute,
   ViewerArticlesIndexRoute: ViewerArticlesIndexRoute,
@@ -2028,5 +2148,3 @@ declare module '@tanstack/react-start' {
     config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
-  ViewerArticlesArticleIdRoute: typeof ViewerArticlesArticleIdRoute
-  ViewerArticlesArticleIdRoute: ViewerArticlesArticleIdRoute,

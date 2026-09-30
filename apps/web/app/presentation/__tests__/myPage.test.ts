@@ -22,10 +22,10 @@ describe("myPageSections", () => {
     ]);
   });
 
-  it("lists the roles in the order given, without a destination for editors yet", () => {
+  it("lists the roles in the order given, the editor's opening AM-01", () => {
     const sections = myPageSections(["editor", "operator"], []);
     expect(sections[1]?.entries.map((entry) => [entry.key, entry.to])).toEqual([
-      ["editor", null],
+      ["editor", "/editorial"],
       ["operator", "/ops"],
     ]);
   });

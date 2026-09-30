@@ -20,6 +20,7 @@
 @import "./map-screens.css";
 @import "./explore-screens.css";
 @import "./discover-screens.css";
+@import "./editorial-screens.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal
    feel slower than the load it follows. */
