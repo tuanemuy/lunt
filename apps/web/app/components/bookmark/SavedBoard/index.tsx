@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useOptimistic,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import {
   useMergeStatus,
 } from "@/presentation/deviceSaveStore";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { readContinuation } from "@/presentation/offsetRead";
 import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
 import {
@@ -63,22 +65,38 @@ export type SavedSource =
 type BoardMemory = Readonly<{
   first: SavedPage;
   later: readonly SavedItem[];
-  pages: number;
+  cursor: Cursor;
   removed: ReadonlySet<string>;
 }>;
 
+/**
+ * Where the 「続き」 stands in the source's list as it is now: the rows
+ * ahead of it (the account's list loses those removed here and gains those
+ * saved again, at its top), and whether the end was reached.
+ */
+type Cursor = Readonly<{ offset: number; ended: boolean }>;
+
+const cursorAfter = (first: SavedPage): Cursor => ({
+  offset: first.items.length,
+  ended: first.items.length >= first.count,
+});
+
+const shift = (cursor: Cursor, by: number): Cursor => ({
+  ...cursor,
+  offset: Math.max(0, cursor.offset + by),
+});
+
 const boardMemory = entryMemory<BoardMemory>();
 
-async function fetchPage(
+async function fetchFrom(
   source: SavedSource,
-  page: number,
+  offset: number,
 ): Promise<SavedPage> {
   if (source.mode === "account") {
-    return listAccountSavedFn({ data: { page } });
+    return listAccountSavedFn({ data: { offset } });
   }
-  const start = (page - 1) * SAVED_PAGE_SIZE;
   const items = await resolveDeviceSavedFn({
-    data: { targets: source.order.slice(start, start + SAVED_PAGE_SIZE) },
+    data: { targets: source.order.slice(offset, offset + SAVED_PAGE_SIZE) },
   });
   return { items, count: source.order.length };
 }
@@ -322,7 +340,7 @@ export function SavedBoard({
   });
   const [shownFirst, setShownFirst] = useState(first);
   const [later, setLater] = useState<readonly SavedItem[]>(kept?.later ?? []);
-  const [pages, setPages] = useState(kept?.pages ?? 1);
+  const [cursor, setCursor] = useState(kept?.cursor ?? cursorAfter(first));
   const [removed, setRemoved] = useState<ReadonlySet<string>>(
     kept?.removed ?? new Set(),
   );
@@ -340,37 +358,46 @@ export function SavedBoard({
   if (first !== shownFirst) {
     setShownFirst(first);
     setLater([]);
-    setPages(1);
+    setCursor(cursorAfter(first));
     setRemoved(new Set());
     setPageFailure(false);
     setRowFailure(null);
   }
 
   useEffect(() => {
-    boardMemory.remember(entry, source.mode, { first, later, pages, removed });
-  }, [entry, source.mode, first, later, pages, removed]);
+    boardMemory.remember(entry, source.mode, { first, later, cursor, removed });
+  }, [entry, source.mode, first, later, cursor, removed]);
 
-  const seen = new Set<string>();
-  const items = [...first.items, ...later].filter((item) => {
-    const key = saveKey(item.target);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  const hasMore = pages * SAVED_PAGE_SIZE < first.count;
+  const { items, seen } = useMemo(() => {
+    const keys = new Set<string>();
+    const rows = [...first.items, ...later].filter((item) => {
+      const key = saveKey(item.target);
+      if (keys.has(key)) return false;
+      keys.add(key);
+      return true;
+    });
+    return { items: rows, seen: keys };
+  }, [first.items, later]);
+  const hasMore = !cursor.ended;
 
   const loadMore = useCallback(() => {
     startLoading(async () => {
       try {
-        const page = await fetchPage(source, pages + 1);
-        setLater((current) => [...current, ...page.items]);
-        setPages((loaded) => loaded + 1);
+        // A removal still under way may land before the read; the read
+        // then steps back to the last row shown.
+        const read = await readContinuation({
+          offset: cursor.offset,
+          isShown: (item: SavedItem) => seen.has(saveKey(item.target)),
+          readFrom: (offset) => fetchFrom(source, offset),
+        });
+        setLater((current) => [...current, ...read.items]);
+        setCursor({ offset: read.next, ended: read.ended });
         setPageFailure(false);
       } catch {
         setPageFailure(true);
       }
     });
-  }, [source, pages]);
+  }, [source, cursor, seen]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -412,6 +439,9 @@ export function SavedBoard({
           setRemoved((current) =>
             applyMark(current, { key, removed: !isRemoved }),
           );
+          // Removed, the row leaves the account's list ahead of the
+          // continuation; saved again, it comes back at the list's top.
+          setCursor((current) => shift(current, action === "remove" ? -1 : 1));
         } catch (error) {
           setRowFailure({ name, action, error: classifyError(error) });
         }

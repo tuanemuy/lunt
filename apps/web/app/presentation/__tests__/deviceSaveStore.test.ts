@@ -11,6 +11,7 @@ import {
   useDeviceSaves,
   useMergeStatus,
 } from "../deviceSaveStore";
+import { AppServerError } from "../errorResponse";
 
 function memoryStorage(initial?: string): SaveStorage & {
   raw: () => string | null;
@@ -131,6 +132,23 @@ describe("createDeviceSaveStore", () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
+  it("compacts the stored list to the entries it reads", () => {
+    const storage = memoryStorage(
+      JSON.stringify([
+        { kind: "listing", id: "x".repeat(129), savedAt: 1 },
+        { kind: "listing", id: " l1 ", savedAt: 2 },
+      ]),
+    );
+    const store = createDeviceSaveStore(() => storage);
+    expect(store.compact()).toBe(true);
+    expect(JSON.parse(storage.raw() ?? "null")).toEqual([
+      { kind: "listing", id: "l1", savedAt: 2 },
+    ]);
+    const clean = storage.raw();
+    expect(store.compact()).toBe(true);
+    expect(storage.raw()).toBe(clean);
+  });
+
   it("drops exactly the entries a merged batch carried", () => {
     const store = inMemoryStore();
     store.save(L1, 1);
@@ -191,6 +209,82 @@ describe("createDeviceMerger", () => {
     await expect(merger.merge()).resolves.toBe("merged");
     expect(store.snapshot()).toEqual([]);
     expect(merger.status()).toEqual({ kind: "idle" });
+  });
+
+  it("merges the usable saves and clears broken entries from the device", async () => {
+    const storage = memoryStorage(
+      JSON.stringify([
+        { kind: "listing", id: "l1", savedAt: 1 },
+        { kind: "listing", id: "x".repeat(129), savedAt: 2 },
+        { kind: "place", id: "  s1  ", savedAt: 3 },
+        { kind: "place", id: "", savedAt: 4 },
+      ]),
+    );
+    const store = createDeviceSaveStore(() => storage);
+    const sent: (readonly DeviceSave[])[] = [];
+    const merger = createDeviceMerger(store, async (batch) => {
+      sent.push(batch);
+    });
+    await expect(merger.merge()).resolves.toBe("merged");
+    expect(sent).toEqual([
+      [
+        { kind: "listing", id: "l1", savedAt: 1 },
+        { kind: "place", id: "s1", savedAt: 3 },
+      ],
+    ]);
+    expect(storage.raw()).toBeNull();
+  });
+
+  it("clears a device holding only broken entries without sending", async () => {
+    const storage = memoryStorage(
+      JSON.stringify([{ kind: "listing", id: " ", savedAt: 1 }]),
+    );
+    const send = vi.fn();
+    const merger = createDeviceMerger(
+      createDeviceSaveStore(() => storage),
+      send,
+    );
+    await expect(merger.merge()).resolves.toBe("nothing");
+    expect(send).not.toHaveBeenCalled();
+    expect(storage.raw()).toBeNull();
+  });
+
+  it("drops the entries a transport refusal names and sends the rest again", async () => {
+    const store = storeWith(3);
+    const sent: (readonly DeviceSave[])[] = [];
+    const merger = createDeviceMerger(store, async (batch) => {
+      sent.push(batch);
+      if (sent.length === 1) {
+        throw new AppServerError({
+          kind: "validation",
+          code: "INVALID_INPUT",
+          message: "Invalid input",
+          retryable: false,
+          fieldErrors: { "bookmarks.1.id": ["Too big"] },
+        });
+      }
+    });
+    await expect(merger.merge()).resolves.toBe("merged");
+    expect(sent.map((batch) => batch.map((entry) => entry.id))).toEqual([
+      ["l0", "l1", "l2"],
+      ["l0", "l2"],
+    ]);
+    expect(store.snapshot()).toEqual([]);
+  });
+
+  it("keeps the batch when a refusal names no entry", async () => {
+    const store = storeWith(2);
+    const merger = createDeviceMerger(store, async () => {
+      throw new AppServerError({
+        kind: "validation",
+        code: "INVALID_INPUT",
+        message: "Invalid input",
+        retryable: false,
+        fieldErrors: { bookmarks: ["Too big"] },
+      });
+    });
+    await expect(merger.merge()).resolves.toBe("failed");
+    expect(store.snapshot()).toHaveLength(2);
   });
 
   it("keeps the saves when the account refuses for want of a login", async () => {

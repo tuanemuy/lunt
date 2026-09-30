@@ -48,6 +48,25 @@ describe("DeviceSaves", () => {
     expect(DeviceSaves.parse("nope")).toEqual([]);
   });
 
+  it("takes ids as the merge's transport does: trimmed, 1 to 128 characters", () => {
+    const long = "x".repeat(128);
+    expect(
+      DeviceSaves.parse([
+        { kind: "listing", id: "y".repeat(129), savedAt: 1 },
+        { kind: "listing", id: ` ${"z".repeat(128)} `, savedAt: 1 },
+        { kind: "place", id: long, savedAt: 1 },
+        { kind: "listing", id: "  l-1 ", savedAt: 3 },
+        { ...L, savedAt: 2 },
+        { kind: "place", id: 7, savedAt: 1 },
+      ]),
+    ).toEqual([
+      { kind: "listing", id: "z".repeat(128), savedAt: 1 },
+      { kind: "place", id: long, savedAt: 1 },
+      { ...L, savedAt: 3 },
+    ]);
+    expect(DeviceSaves.maxIdLength).toBe(128);
+  });
+
   it("splits into merge batches of 100 that merge into the account", async () => {
     const k = await bookmarkKit();
     const A = await k.person();

@@ -42,8 +42,8 @@ export type SaveToggleState = Readonly<{
 
 /**
  * Once a screen knows it is signed in while this browser still holds
- * device saves (a login that returned elsewhere, the external login's
- * redirect), sends them to the account and reloads the screen once
+ * device saves (a login in another tab, saves made on the device since),
+ * sends them to the account and reloads the screen once
  * (KEP-04). Only from rest: a failed merge waits for VW-10's retry, and a
  * refused one (the session ended) for the next page load.
  */

@@ -9,6 +9,7 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { BookmarkRef, ContentRef } from "@repo/core/domain/common/refs";
 import { requireActor, resolveActor } from "./actor";
+import { readFromOffset } from "./offsetRead";
 import {
   SAVED_PAGE_SIZE,
   type SavedPage,
@@ -55,18 +56,21 @@ export async function resolveSaved(
 }
 
 /**
- * A page of the signed-in account's saves (VW-10, 「アカウントの保存」),
- * newest first, with hidden and deleted targets as unavailable rows.
- * `UnauthorizedError` when the session is gone.
+ * Up to a page of the signed-in account's saves (VW-10, 「アカウントの
+ * 保存」) from row `offset` of the list as it stands, newest first, with
+ * hidden and deleted targets as unavailable rows. `UnauthorizedError`
+ * when the session is gone.
  */
-export async function loadAccountSavedPage(page: number): Promise<SavedPage> {
+export async function loadAccountSavedFrom(offset: number): Promise<SavedPage> {
   const container = await getContainer();
   const actor = await requireActor(container);
-  const output = await listBookmarks({
-    container,
-    actor,
-    input: { pagination: { page, limit: SAVED_PAGE_SIZE } },
-  });
+  const output = await readFromOffset(offset, SAVED_PAGE_SIZE, (page) =>
+    listBookmarks({
+      container,
+      actor,
+      input: { pagination: { page, limit: SAVED_PAGE_SIZE } },
+    }),
+  );
   const items = await resolveSaved(
     container,
     output.items.map(({ target }) => ({ kind: target.kind, id: target.id })),

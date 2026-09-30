@@ -13,23 +13,55 @@ export type MapEnv = Readonly<{
   MAP_STYLE_URL?: string | undefined;
 }>;
 
-const mapStyleUrlSchema = z
-  .url({ protocol: /^https?$/ })
-  .default(DEFAULT_MAP_STYLE_URL);
+const mapStyleUrlSchema = z.url({ protocol: /^https?$/ });
 
-/** `MAP_STYLE_URL`, or the default; an empty value counts as unset. */
-export function readMapStyleUrl(env: MapEnv): string {
+/**
+ * `MAP_STYLE_URL`, or the default; an empty value counts as unset. A value
+ * that is not an http(s) URL is reported to `onInvalid` and the default
+ * is used: a bad setting must not take the screens with a map down.
+ */
+export function readMapStyleUrl(
+  env: MapEnv,
+  onInvalid: (value: string) => void = () => {},
+): string {
   const value = env.MAP_STYLE_URL?.trim();
-  return mapStyleUrlSchema.parse(value === "" ? undefined : value);
+  if (value === undefined || value === "") return DEFAULT_MAP_STYLE_URL;
+  const parsed = mapStyleUrlSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  onInvalid(value);
+  return DEFAULT_MAP_STYLE_URL;
 }
 
 /**
- * The map's style URL for a route's loader (VW-04, VW-08): the server's
- * `MAP_STYLE_URL` setting, so an operator swaps the tiles without a build.
+ * The map's style URL for a route's loader (VW-04, VW-08, DT-02): the
+ * server's `MAP_STYLE_URL` setting, so an operator swaps the tiles without
+ * a build.
  */
 export const loadMapStyleFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .handler(async () => {
-    const { env } = await import("cloudflare:workers");
-    return { styleUrl: readMapStyleUrl(env) };
+    const [{ env }, { getContainer }] = await Promise.all([
+      import("cloudflare:workers"),
+      import("@repo/core/application/di/containerStore"),
+    ]);
+    const styleUrl = readMapStyleUrl(env, (value) => {
+      void getContainer().then(({ logger }) =>
+        logger.warn("MAP_STYLE_URL is not an http(s) URL; using the default", {
+          value,
+        }),
+      );
+    });
+    return { styleUrl };
   });
+
+/**
+ * `loadMapStyleFn` for a screen whose map is not its point (DT-02's
+ * access): the default style when the setting cannot be read, rather than
+ * failing the screen.
+ */
+export function loadMapStyleOrDefault(): Promise<{ styleUrl: string }> {
+  return loadMapStyleFn().catch((reason: unknown) => {
+    console.warn("[map] style setting unavailable", reason);
+    return { styleUrl: DEFAULT_MAP_STYLE_URL };
+  });
+}

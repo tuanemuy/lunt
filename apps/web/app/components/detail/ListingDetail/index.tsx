@@ -14,7 +14,7 @@ import {
   type ListingDetailData,
   listingHeroOf,
 } from "@/presentation/detailView";
-import type { SaveState } from "@/presentation/savedView";
+import { SAVES_UNREAD, type SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { ListingCards } from "../ListingCard";
 import { ListingHeroText } from "../ListingHero";
@@ -89,20 +89,25 @@ export function ListingDetail({
   saveState,
 }: {
   data: ListingDetailData;
-  saveState: SaveState;
+  /** `null`: the saves could not be read, and the toggle is left out. */
+  saveState: SaveState | null;
 }) {
   const { offering, place } = data;
   const hasOthers = data.otherListings.length > 0;
   const save = useSaveToggle({
     target: { kind: "listing", id: data.listingId },
-    saveState,
+    saveState: saveState ?? SAVES_UNREAD,
   });
   return (
     <div className="container detail-page">
       <div className="detail detail--split">
         <DetailPhotos
           photos={data.photos}
-          overlay={<SaveButton state={save} label="この掲載を保存" />}
+          overlay={
+            saveState === null ? null : (
+              <SaveButton state={save} label="この掲載を保存" />
+            )
+          }
         />
         <div className="detail__main">
           <ListingHeroText hero={listingHeroOf(data)} />

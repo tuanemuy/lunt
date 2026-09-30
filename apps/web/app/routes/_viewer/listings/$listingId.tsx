@@ -5,7 +5,7 @@ import {
 } from "@/components/detail/DetailFeedback";
 import { DetailSkeleton } from "@/components/detail/DetailSkeleton";
 import { ListingDetail } from "@/components/detail/ListingDetail";
-import { loadSaveStateFn } from "@/presentation/bookmark";
+import { loadSaveStateOrNull } from "@/presentation/bookmark";
 import { loadListingDetailFn, orNotFound } from "@/presentation/detail";
 import { buildHead } from "@/presentation/head";
 
@@ -13,7 +13,8 @@ import { buildHead } from "@/presentation/head";
  * DT-01 掲載詳細. Needs no login. The loader waits for the listing, so a
  * listing that is not viewable answers CS-06 with HTTP 404; a navigation
  * shows the DetailHero-shaped skeleton meanwhile (CS-01). The viewer's
- * saves come along for the save toggle (CF-04).
+ * saves come along for the save toggle (CF-04); if they cannot be read,
+ * the detail shows without the toggle.
  */
 export const Route = createFileRoute("/_viewer/listings/$listingId")({
   staticData: {
@@ -24,9 +25,7 @@ export const Route = createFileRoute("/_viewer/listings/$listingId")({
     const [detail, saveState] = await orNotFound(
       Promise.all([
         loadListingDetailFn({ data: { listingId: params.listingId } }),
-        loadSaveStateFn({
-          data: { targets: [{ kind: "listing", id: params.listingId }] },
-        }),
+        loadSaveStateOrNull([{ kind: "listing", id: params.listingId }]),
       ]),
     );
     return { ...detail, saveState };

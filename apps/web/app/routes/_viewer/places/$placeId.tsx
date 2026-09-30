@@ -5,15 +5,17 @@ import {
 } from "@/components/detail/DetailFeedback";
 import { DetailSkeleton } from "@/components/detail/DetailSkeleton";
 import { PlaceDetail } from "@/components/detail/PlaceDetail";
-import { loadSaveStateFn } from "@/presentation/bookmark";
+import { loadSaveStateOrNull } from "@/presentation/bookmark";
 import { loadPlaceDetailFn, orNotFound } from "@/presentation/detail";
 import { buildHead } from "@/presentation/head";
-import { loadMapStyleFn } from "@/presentation/mapStyle";
+import { loadMapStyleOrDefault } from "@/presentation/mapStyle";
 
 /**
  * DT-02 店舗詳細. Needs no login; a signed-in steward of the place is
  * offered its management. A suspended or missing place answers CS-06 with
- * HTTP 404. The viewer's saves come along for the save toggle (CF-04).
+ * HTTP 404. The viewer's saves come along for the save toggle (CF-04) and
+ * the map style for the access map; neither fails the detail (without
+ * them: no toggle, the default style).
  */
 export const Route = createFileRoute("/_viewer/places/$placeId")({
   staticData: {
@@ -24,10 +26,8 @@ export const Route = createFileRoute("/_viewer/places/$placeId")({
     const [page, saveState, { styleUrl }] = await orNotFound(
       Promise.all([
         loadPlaceDetailFn({ data: { placeId: params.placeId } }),
-        loadSaveStateFn({
-          data: { targets: [{ kind: "place", id: params.placeId }] },
-        }),
-        loadMapStyleFn(),
+        loadSaveStateOrNull([{ kind: "place", id: params.placeId }]),
+        loadMapStyleOrDefault(),
       ]),
     );
     return { ...page, saveState, styleUrl };

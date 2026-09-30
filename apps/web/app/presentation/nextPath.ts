@@ -31,6 +31,14 @@ export function safeNextPath(raw: unknown): string {
 }
 
 /**
+ * MY-02's last step for a login the server finished (`/login/done`): it
+ * merges the device saves, then goes on to `next` (made safe first).
+ */
+export function loginDonePath(next: unknown): string {
+  return `/login/done?${new URLSearchParams({ next: safeNextPath(next) }).toString()}`;
+}
+
+/**
  * `/login` or a path under it, compared the way the router matches paths:
  * case-insensitively and with percent-encoding decoded.
  */

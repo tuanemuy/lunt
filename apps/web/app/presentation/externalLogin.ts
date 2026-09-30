@@ -19,7 +19,7 @@ import {
   verifyExternalLoginState,
 } from "./externalLoginState";
 import type { ExternalLoginFailure } from "./login";
-import { safeNextPath } from "./nextPath";
+import { loginDonePath, safeNextPath } from "./nextPath";
 
 /** The callback route of `provider`, as the provider must redirect to it. */
 export function externalLoginCallbackUrl(
@@ -125,8 +125,10 @@ function failureOf(error: unknown): ExternalLoginFailure {
 
 /**
  * `GET /login/external/$provider/callback?…`: proves the provider's answer
- * against the pending login in the cookie, logs the browser in and returns
- * it to `next`. Every failure lands on MY-02's input state.
+ * against the pending login in the cookie, logs the browser in and sends it
+ * to MY-02's last step (`/login/done`), which merges the device saves as
+ * the other logins do and returns to `next`. Every failure lands on
+ * MY-02's input state.
  */
 export async function completeExternalLogin(
   request: Request,
@@ -165,5 +167,5 @@ export async function completeExternalLogin(
     logFailure(container, "External login failed", error);
     return backToLogin(failureOf(error), state.next);
   }
-  return redirectTo(state.next);
+  return redirectTo(loginDonePath(state.next));
 }

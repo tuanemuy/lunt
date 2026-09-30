@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { Ref } from "react";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import type { ErrorState } from "@/presentation/errorState";
@@ -21,7 +21,7 @@ export function ListFooter({
   failure: ErrorState | null;
   loading: boolean;
   loadMore: () => void;
-  sentinel: RefObject<HTMLDivElement | null>;
+  sentinel: Ref<HTMLDivElement>;
   endText: string;
 }) {
   if (failure !== null) {

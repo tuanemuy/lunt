@@ -18,7 +18,7 @@ import { infoReportPath, takedownPath } from "@/presentation/applyView";
 import type { PlaceDetailPage } from "@/presentation/detail";
 import type { PlaceDetailData } from "@/presentation/detailView";
 import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
-import type { SaveState } from "@/presentation/savedView";
+import { SAVES_UNREAD, type SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { OccasionRows, RegionRows } from "../RelatedRows";
 import { PlaceListings } from "./PlaceListings";
@@ -176,7 +176,8 @@ export function PlaceDetail({
   styleUrl,
 }: {
   page: PlaceDetailPage;
-  saveState: SaveState;
+  /** `null`: the saves could not be read, and the toggle is left out. */
+  saveState: SaveState | null;
   /** The map style (`loadMapStyleFn`). */
   styleUrl: string;
 }) {
@@ -184,9 +185,12 @@ export function PlaceDetail({
   const [displayed] = data.regions;
   const save = useSaveToggle({
     target: { kind: "place", id: data.placeId },
-    saveState,
+    saveState: saveState ?? SAVES_UNREAD,
   });
-  const saveButton = <SaveButton state={save} label="このお店を保存" />;
+  const saveButton =
+    saveState === null ? null : (
+      <SaveButton state={save} label="このお店を保存" />
+    );
   const hasPhotos = data.photos.length > 0;
   return (
     <div className="container detail-page">

@@ -17,17 +17,24 @@ export type DeviceSave = Readonly<{
 const same = (a: Pick<DeviceSave, "kind" | "id">, ref: BookmarkRef) =>
   a.kind === ref.kind && a.id === ref.id;
 
-const isDeviceSave = (value: unknown): value is DeviceSave => {
-  if (typeof value !== "object" || value === null) return false;
+/** The longest target id a device save may carry, as the merge's transport accepts it. */
+const MAX_ID_LENGTH = 128;
+
+/**
+ * A stored entry as the merge's transport would take it — a bookmark
+ * kind, an id of 1–128 characters once trimmed (kept trimmed, as the
+ * server stores it), a time a `Date` can hold — or `null`.
+ */
+const readDeviceSave = (value: unknown): DeviceSave | null => {
+  if (typeof value !== "object" || value === null) return null;
   const { kind, id, savedAt } = value as Record<string, unknown>;
-  return (
-    typeof kind === "string" &&
-    BookmarkRef.isKind(kind) &&
-    typeof id === "string" &&
-    id.trim().length > 0 &&
-    typeof savedAt === "number" &&
-    !Number.isNaN(new Date(savedAt).getTime())
-  );
+  if (typeof kind !== "string" || !BookmarkRef.isKind(kind)) return null;
+  if (typeof id !== "string") return null;
+  const trimmed = id.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_ID_LENGTH) return null;
+  if (typeof savedAt !== "number" || Number.isNaN(new Date(savedAt).getTime()))
+    return null;
+  return { kind, id: trimmed, savedAt };
 };
 
 /**
@@ -41,24 +48,25 @@ const isDeviceSave = (value: unknown): value is DeviceSave => {
  * only after its merge succeeded — resending a batch is harmless.
  */
 export const DeviceSaves = {
+  maxIdLength: MAX_ID_LENGTH,
+
   /**
-   * Reads a stored list, dropping malformed entries (including times a
-   * `Date` cannot hold, which would fail every merge) and keeping the
-   * newest of duplicate targets, as `BookmarkMerge` does.
+   * Reads a stored list, dropping entries the merge's transport would
+   * refuse — one of them would fail its whole batch every time: a blank
+   * or overlong id, a time a `Date` cannot hold. Ids are trimmed, so the
+   * device and the account name a target alike. Of duplicate targets the
+   * newest stays, as `BookmarkMerge` does.
    */
   parse: (raw: unknown): readonly DeviceSave[] => {
     if (!Array.isArray(raw)) return [];
     const newest = new Map<string, DeviceSave>();
     for (const value of raw) {
-      if (!isDeviceSave(value)) continue;
-      const key = `${value.kind}:${value.id}`;
+      const save = readDeviceSave(value);
+      if (save === null) continue;
+      const key = `${save.kind}:${save.id}`;
       const seen = newest.get(key);
-      if (seen !== undefined && seen.savedAt >= value.savedAt) continue;
-      newest.set(key, {
-        kind: value.kind,
-        id: value.id,
-        savedAt: value.savedAt,
-      });
+      if (seen !== undefined && seen.savedAt >= save.savedAt) continue;
+      newest.set(key, save);
     }
     return [...newest.values()];
   },

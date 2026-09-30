@@ -1,13 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  loadSaveStateOrNull,
   mergeDeviceSavesSchema,
   SAVE_BATCH_MAX,
-  savedPageSchema,
+  savedFromSchema,
   saveTargetSchema,
   saveTargetsSchema,
 } from "../bookmark";
 import { classifyError } from "../errorState";
-import { accountSaved, saveKey } from "../savedView";
+import { accountSaved, type SaveState, saveKey } from "../savedView";
 import { validateInput } from "../validator";
 
 const LISTING_ID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b";
@@ -132,13 +133,41 @@ describe("mergeDeviceSavesSchema", () => {
   });
 });
 
-describe("savedPageSchema", () => {
-  const validate = validateInput(savedPageSchema);
+describe("savedFromSchema", () => {
+  const validate = validateInput(savedFromSchema);
 
-  it("takes a page from 1", () => {
-    expect(validate({ page: 2 })).toEqual({ page: 2 });
-    expect(rejects(() => validate({ page: 0 }))).toEqual(["page"]);
-    expect(rejects(() => validate({ page: 1.5 }))).toEqual(["page"]);
+  it("takes a row offset from 0", () => {
+    expect(validate({ offset: 0 })).toEqual({ offset: 0 });
+    expect(validate({ offset: 99 })).toEqual({ offset: 99 });
+    expect(rejects(() => validate({ offset: -1 }))).toEqual(["offset"]);
+    expect(rejects(() => validate({ offset: 1.5 }))).toEqual(["offset"]);
+    expect(rejects(() => validate({ offset: 1_000_001 }))).toEqual(["offset"]);
+  });
+});
+
+describe("loadSaveStateOrNull", () => {
+  const targets = [{ kind: "listing", id: LISTING_ID }] as const;
+
+  it("passes the save state through", async () => {
+    const state: SaveState = {
+      signedIn: true,
+      saved: [`listing:${LISTING_ID}`],
+    };
+    const load = vi.fn(async () => state);
+    await expect(loadSaveStateOrNull([...targets], load)).resolves.toEqual(
+      state,
+    );
+    expect(load).toHaveBeenCalledWith({ data: { targets: [...targets] } });
+  });
+
+  it("answers null instead of failing the detail when the read fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const load = vi.fn(async (): Promise<SaveState> => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(loadSaveStateOrNull([...targets], load)).resolves.toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 

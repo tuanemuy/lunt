@@ -24,6 +24,12 @@ export type SaveState =
   | Readonly<{ signedIn: false }>
   | Readonly<{ signedIn: true; saved: readonly string[] }>;
 
+/**
+ * What a screen whose saves could not be read hands its (hidden) toggle:
+ * nothing is read from or merged into an account it cannot see.
+ */
+export const SAVES_UNREAD: SaveState = { signedIn: false };
+
 /** The account's answer for `target`, or `null` while signed out. */
 export function accountSaved(
   state: SaveState,

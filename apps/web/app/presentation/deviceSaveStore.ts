@@ -88,6 +88,16 @@ export function createDeviceSaveStore(storage: () => SaveStorage | null) {
       write(DeviceSaves.save(snapshot(), refOf(target), now)),
     remove: (target: SaveTarget): boolean =>
       write(DeviceSaves.remove(snapshot(), refOf(target))),
+    /**
+     * Rewrites the stored list as `snapshot` reads it: entries it dropped
+     * as unusable (see `DeviceSaves.parse`) leave the device.
+     */
+    compact: (): boolean => {
+      const list = snapshot();
+      const raw = readRaw();
+      if (raw === null || raw === JSON.stringify(list)) return true;
+      return write(list);
+    },
     /** Drops the entries a merged batch carried, keeping any saved since. */
     drop: (batch: readonly DeviceSave[]): boolean =>
       write(
@@ -129,6 +139,23 @@ const STORAGE_FAILURE: ErrorState = {
 
 type MergeRun = { promise: Promise<MergeOutcome>; reconcileClaimed: boolean };
 
+const REFUSED_ENTRY = /^bookmarks\.(\d+)(\.|$)/;
+
+/** The entries of `batch` a transport refusal names (`bookmarks.{i}.…`). */
+function refusedEntries(
+  error: ErrorState,
+  batch: readonly DeviceSave[],
+): readonly DeviceSave[] {
+  if (error.kind !== "invalidInput") return [];
+  const refused = new Set<DeviceSave>();
+  for (const field of Object.keys(error.fieldErrors)) {
+    const index = REFUSED_ENTRY.exec(field)?.[1];
+    const entry = index === undefined ? undefined : batch[Number(index)];
+    if (entry !== undefined) refused.add(entry);
+  }
+  return [...refused];
+}
+
 /**
  * Sends the device saves to the account after a login (KEP-04): one
  * `mergeDeviceSavesFn` call per `DeviceSaves.batches` run, in turn, each
@@ -148,7 +175,46 @@ export function createDeviceMerger(
     for (const listener of listeners) listener();
   };
 
+  /**
+   * Sends one batch; entries the transport names as refused leave the
+   * device and the rest are sent again, so one broken entry cannot hold
+   * back the others. `null` once the batch went through.
+   */
+  const sendBatch = async (
+    batch: readonly DeviceSave[],
+  ): Promise<Exclude<MergeOutcome, "merged" | "nothing"> | null> => {
+    let sending = batch;
+    while (sending.length > 0) {
+      try {
+        await send(sending);
+        break;
+      } catch (error) {
+        const classified = classifyError(error);
+        if (classified.kind === "loginRequired") {
+          setStatus({ kind: "signedOut" });
+          return "signedOut";
+        }
+        const refused = refusedEntries(classified, sending);
+        if (refused.length === 0) {
+          setStatus({ kind: "failed", error: classified });
+          return "failed";
+        }
+        if (!store.drop(refused)) {
+          setStatus({ kind: "failed", error: STORAGE_FAILURE });
+          return "failed";
+        }
+        sending = sending.filter((entry) => !refused.includes(entry));
+      }
+    }
+    if (!store.drop(sending)) {
+      setStatus({ kind: "failed", error: STORAGE_FAILURE });
+      return "failed";
+    }
+    return null;
+  };
+
   const execute = async (): Promise<MergeOutcome> => {
+    store.compact();
     const batches = DeviceSaves.batches(store.snapshot());
     if (batches.length === 0) {
       setStatus({ kind: "idle" });
@@ -156,21 +222,8 @@ export function createDeviceMerger(
     }
     setStatus({ kind: "merging" });
     for (const batch of batches) {
-      try {
-        await send(batch);
-      } catch (error) {
-        const classified = classifyError(error);
-        if (classified.kind === "loginRequired") {
-          setStatus({ kind: "signedOut" });
-          return "signedOut";
-        }
-        setStatus({ kind: "failed", error: classified });
-        return "failed";
-      }
-      if (!store.drop(batch)) {
-        setStatus({ kind: "failed", error: STORAGE_FAILURE });
-        return "failed";
-      }
+      const stopped = await sendBatch(batch);
+      if (stopped !== null) return stopped;
     }
     setStatus({ kind: "idle" });
     return "merged";

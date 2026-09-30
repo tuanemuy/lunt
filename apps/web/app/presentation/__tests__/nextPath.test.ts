@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AFTER_LOGIN, safeNextPath } from "../nextPath";
+import { DEFAULT_AFTER_LOGIN, loginDonePath, safeNextPath } from "../nextPath";
 
 describe("safeNextPath", () => {
   it("keeps a same-origin path with its query and hash", () => {
@@ -49,5 +49,20 @@ describe("safeNextPath", () => {
 
   it("keeps paths that only start with the same letters", () => {
     expect(safeNextPath("/loginhelp")).toBe("/loginhelp");
+  });
+});
+
+describe("loginDonePath", () => {
+  it("carries the safe return path to MY-02's last step", () => {
+    expect(loginDonePath("/saved")).toBe("/login/done?next=%2Fsaved");
+    expect(loginDonePath("/places/p1?tab=a#top")).toBe(
+      "/login/done?next=%2Fplaces%2Fp1%3Ftab%3Da%23top",
+    );
+    expect(loginDonePath("https://evil.example/")).toBe(
+      `/login/done?next=${encodeURIComponent(DEFAULT_AFTER_LOGIN)}`,
+    );
+    expect(loginDonePath("/login/done?next=/me")).toBe(
+      `/login/done?next=${encodeURIComponent(DEFAULT_AFTER_LOGIN)}`,
+    );
   });
 });

@@ -31,6 +31,7 @@ import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/
 import { Route as Char91__devChar93UiMapRouteImport } from './routes/[__dev]/ui/map'
 import { Route as AccountInvitationsInvitationIdRouteImport } from './routes/_account/invitations/$invitationId'
 import { Route as AccountLoginIndexRouteImport } from './routes/_account/login/index'
+import { Route as AccountLoginDoneRouteImport } from './routes/_account/login/done'
 import { Route as AccountLoginLinkRouteImport } from './routes/_account/login/link'
 import { Route as AccountMeIndexRouteImport } from './routes/_account/me/index'
 import { Route as AccountMeNotificationsRouteImport } from './routes/_account/me/notifications'
@@ -206,6 +207,11 @@ const AccountInvitationsInvitationIdRoute =
 const AccountLoginIndexRoute = AccountLoginIndexRouteImport.update({
   id: '/login/',
   path: '/login/',
+  getParentRoute: () => AccountRoute,
+} as any)
+const AccountLoginDoneRoute = AccountLoginDoneRouteImport.update({
+  id: '/login/done',
+  path: '/login/done',
   getParentRoute: () => AccountRoute,
 } as any)
 const AccountLoginLinkRoute = AccountLoginLinkRouteImport.update({
@@ -586,6 +592,7 @@ export interface FileRoutesByFullPath {
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
+  '/login/done': typeof AccountLoginDoneRoute
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
   '/me/withdraw': typeof AccountMeWithdrawRoute
@@ -668,6 +675,7 @@ export interface FileRoutesByTo {
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
+  '/login/done': typeof AccountLoginDoneRoute
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
   '/me/withdraw': typeof AccountMeWithdrawRoute
@@ -754,6 +762,7 @@ export interface FileRoutesById {
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
   '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/_account/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
+  '/_account/login/done': typeof AccountLoginDoneRoute
   '/_account/login/link': typeof AccountLoginLinkRoute
   '/_account/me/notifications': typeof AccountMeNotificationsRoute
   '/_account/me/withdraw': typeof AccountMeWithdrawRoute
@@ -839,6 +848,7 @@ export interface FileRouteTypes {
     | '/__dev/ui/manage'
     | '/__dev/ui/map'
     | '/invitations/$invitationId'
+    | '/login/done'
     | '/login/link'
     | '/me/notifications'
     | '/me/withdraw'
@@ -921,6 +931,7 @@ export interface FileRouteTypes {
     | '/__dev/ui/manage'
     | '/__dev/ui/map'
     | '/invitations/$invitationId'
+    | '/login/done'
     | '/login/link'
     | '/me/notifications'
     | '/me/withdraw'
@@ -1006,6 +1017,7 @@ export interface FileRouteTypes {
     | '/__dev/ui/manage'
     | '/__dev/ui/map'
     | '/_account/invitations/$invitationId'
+    | '/_account/login/done'
     | '/_account/login/link'
     | '/_account/me/notifications'
     | '/_account/me/withdraw'
@@ -1245,6 +1257,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login/'
       preLoaderRoute: typeof AccountLoginIndexRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/_account/login/done': {
+      id: '/_account/login/done'
+      path: '/login/done'
+      fullPath: '/login/done'
+      preLoaderRoute: typeof AccountLoginDoneRouteImport
       parentRoute: typeof AccountRoute
     }
     '/_account/login/link': {
@@ -1700,6 +1719,7 @@ declare module '@tanstack/react-router' {
 
 interface AccountRouteChildren {
   AccountInvitationsInvitationIdRoute: typeof AccountInvitationsInvitationIdRoute
+  AccountLoginDoneRoute: typeof AccountLoginDoneRoute
   AccountLoginLinkRoute: typeof AccountLoginLinkRoute
   AccountMeNotificationsRoute: typeof AccountMeNotificationsRoute
   AccountMeWithdrawRoute: typeof AccountMeWithdrawRoute
@@ -1714,6 +1734,7 @@ interface AccountRouteChildren {
 
 const AccountRouteChildren: AccountRouteChildren = {
   AccountInvitationsInvitationIdRoute: AccountInvitationsInvitationIdRoute,
+  AccountLoginDoneRoute: AccountLoginDoneRoute,
   AccountLoginLinkRoute: AccountLoginLinkRoute,
   AccountMeNotificationsRoute: AccountMeNotificationsRoute,
   AccountMeWithdrawRoute: AccountMeWithdrawRoute,

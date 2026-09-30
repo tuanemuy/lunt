@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useOptimistic,
   useRef,
   useState,
@@ -45,6 +46,7 @@ import {
   periodText,
   type SubjectApplicationItem,
 } from "@/presentation/occasionView";
+import { readContinuation, readFromOffset } from "@/presentation/offsetRead";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
 import { useReconcile } from "@/presentation/reconcile";
 import { reviewFrom } from "@/presentation/reviewOrigin";
@@ -208,20 +210,30 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
   const proxy = frame.basis === "proxy";
 
   const [more, setMore] = useState<readonly ParticipantItem[]>([]);
-  const [loadedPages, setLoadedPages] = useState(1);
+  // Where the 「続き」 stands: the participants ahead of it (an exclusion
+  // takes one away), and whether the end was reached.
+  const [cursor, setCursor] = useState(() => ({
+    offset: data.participants.length,
+    ended: data.participants.length >= data.count,
+  }));
   const [count, setCount] = useState(data.count);
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [loadFailure, setLoadFailure] = useState<ErrorState | null>(null);
   const [loading, startLoading] = useTransition();
-  const sentinel = useRef<HTMLDivElement>(null);
+  // A state, not a ref: the list unmounts while an outcome panel shows,
+  // and the sentinel mounted on return must be observed anew.
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setCount(data.count);
   }, [data.count]);
 
-  const listed = appendNew(data.participants, more).filter(
-    (item) => !gone.has(item.placeId),
+  const all = useMemo(
+    () => appendNew(data.participants, more),
+    [data.participants, more],
   );
+  const loaded = useMemo(() => new Set(all.map((item) => item.placeId)), [all]);
+  const listed = all.filter((item) => !gone.has(item.placeId));
   const [shown, removeOptimistic] = useOptimistic(
     listed,
     (current: readonly ParticipantItem[], placeId: string) =>
@@ -232,17 +244,24 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
   const [excluding, startExclude] = useTransition();
   const listRef = useRef<HTMLElement>(null);
 
-  const hasMore = loadedPages * PARTICIPANT_PAGE_SIZE < count;
+  const hasMore = !cursor.ended;
   const failed = loadFailure !== null;
   const loadMore = useCallback(() => {
     startLoading(async () => {
       try {
-        const page = await listParticipantsFn({
-          data: { occasionId: frame.occasionId, page: loadedPages + 1 },
+        const read = await readContinuation({
+          offset: cursor.offset,
+          isShown: (item: ParticipantItem) => loaded.has(item.placeId),
+          readFrom: (offset) =>
+            readFromOffset(offset, PARTICIPANT_PAGE_SIZE, (page) =>
+              listParticipantsFn({
+                data: { occasionId: frame.occasionId, page },
+              }),
+            ),
         });
-        setMore((current) => appendNew(current, page.items));
-        setCount(page.count);
-        setLoadedPages((pages) => pages + 1);
+        setMore((current) => appendNew(current, read.items));
+        setCount(read.count);
+        setCursor({ offset: read.next, ended: read.ended });
         setLoadFailure(null);
       } catch (error) {
         const state = classifyError(error);
@@ -253,17 +272,16 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
         setLoadFailure(state);
       }
     });
-  }, [frame.occasionId, loadedPages, navigate, here]);
+  }, [frame.occasionId, cursor, loaded, navigate, here]);
 
   useEffect(() => {
-    const target = sentinel.current;
-    if (target === null || !hasMore || failed || loading) return;
+    if (sentinel === null || !hasMore || failed || loading) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) loadMore();
     });
-    observer.observe(target);
+    observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, failed, loading, loadMore]);
+  }, [sentinel, hasMore, failed, loading, loadMore]);
 
   const exclude = (item: ParticipantItem) =>
     startExclude(async () => {
@@ -276,12 +294,20 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
           data: { occasionId: frame.occasionId, placeId: item.placeId },
         });
         setGone((current) => new Set([...current, item.placeId]));
+        setCursor((current) => ({
+          ...current,
+          offset: Math.max(0, current.offset - 1),
+        }));
         setOutcome({ kind: "excluded", name: item.name });
         await reconcile();
       } catch (error) {
         const state = classifyError(error);
         if (state.kind === "notFound") {
           setGone((current) => new Set([...current, item.placeId]));
+          setCursor((current) => ({
+            ...current,
+            offset: Math.max(0, current.offset - 1),
+          }));
           setOutcome({ kind: "gone", name: item.name });
           await reconcile();
           return;
@@ -525,7 +551,7 @@ export function ParticipantBoard({ data }: { data: ParticipantBoardData }) {
                   </Notice>
                 </div>
               ) : hasMore ? (
-                <div ref={sentinel}>
+                <div ref={setSentinel}>
                   <p className="p-end" role="status">
                     {loading ? "続きを読み込んでいます" : ""}
                   </p>

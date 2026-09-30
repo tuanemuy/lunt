@@ -1,8 +1,14 @@
+import { DeviceSaves } from "@repo/core/application/bookmark/deviceSaves";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { PAGINATION_MAX_PAGE } from "./pagination";
-import { SAVE_TARGET_KINDS, type SavedPage, type SaveState } from "./savedView";
+import {
+  SAVE_TARGET_KINDS,
+  SAVED_PAGE_SIZE,
+  type SavedPage,
+  type SaveState,
+} from "./savedView";
 import { validateInput } from "./validator";
 
 /** Targets per saved-state read, per resolve and per merge (`IdBatch`, `BookmarkMerge`). */
@@ -13,7 +19,7 @@ const DATE_LIMIT_MS = 8.64e15;
 
 const targetField = z.object({
   kind: z.enum(SAVE_TARGET_KINDS),
-  id: z.string().trim().min(1).max(128),
+  id: z.string().trim().min(1).max(DeviceSaves.maxIdLength),
 });
 
 export const saveTargetSchema = targetField;
@@ -21,6 +27,8 @@ export const saveTargetSchema = targetField;
 export const saveTargetsSchema = z.object({
   targets: z.array(targetField).max(SAVE_BATCH_MAX),
 });
+
+type SaveTargets = z.input<typeof saveTargetsSchema>["targets"];
 
 /**
  * One merge call's device saves (KEP-04): shape and DoS limits only — the
@@ -37,8 +45,17 @@ export const mergeDeviceSavesSchema = z.object({
     .max(SAVE_BATCH_MAX),
 });
 
-export const savedPageSchema = z.object({
-  page: z.number().int().min(1).max(PAGINATION_MAX_PAGE),
+/**
+ * Where VW-10's 「続き」 starts: a row offset into the account's saves as
+ * they stand now, not a page number — the viewer's removals ahead of it
+ * move the rest up (`nextSavedOffset`).
+ */
+export const savedFromSchema = z.object({
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .max(PAGINATION_MAX_PAGE * SAVED_PAGE_SIZE),
 });
 
 /**
@@ -63,6 +80,23 @@ export const loadSaveStateFn = createServerFn({ method: "POST" })
       data.targets,
     );
   });
+
+/**
+ * `loadSaveStateFn` for a detail's loader (DT-01, DT-02), where the save
+ * state is not worth failing the page for: `null` when it cannot be read,
+ * and the screen goes without the toggle.
+ */
+export function loadSaveStateOrNull(
+  targets: SaveTargets,
+  load: (input: {
+    data: { targets: SaveTargets };
+  }) => Promise<SaveState> = loadSaveStateFn,
+): Promise<SaveState | null> {
+  return load({ data: { targets } }).catch((reason: unknown) => {
+    console.warn("[save] save state unavailable", reason);
+    return null;
+  });
+}
 
 /** CF-04: saves the target to the signed-in account (`saveBookmark`). */
 export const saveBookmarkFn = createServerFn({ method: "POST" })
@@ -123,17 +157,12 @@ export const mergeDeviceSavesFn = createServerFn({ method: "POST" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(mergeDeviceSavesSchema))
   .handler(async ({ data }) => {
-    const [
-      { getContainer },
-      { requireActor },
-      { mergeDeviceBookmarks },
-      { DeviceSaves },
-    ] = await Promise.all([
-      import("@repo/core/application/di/containerStore"),
-      import("./actor"),
-      import("@repo/core/application/bookmark/mergeDeviceBookmarks"),
-      import("@repo/core/application/bookmark/deviceSaves"),
-    ]);
+    const [{ getContainer }, { requireActor }, { mergeDeviceBookmarks }] =
+      await Promise.all([
+        import("@repo/core/application/di/containerStore"),
+        import("./actor"),
+        import("@repo/core/application/bookmark/mergeDeviceBookmarks"),
+      ]);
     const container = await getContainer();
     await mergeDeviceBookmarks({
       container,
@@ -143,13 +172,13 @@ export const mergeDeviceSavesFn = createServerFn({ method: "POST" })
     return null;
   });
 
-/** VW-10 (「アカウントの保存」), continued (CF-05). */
+/** VW-10 (「アカウントの保存」), continued from a row offset (CF-05). */
 export const listAccountSavedFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
-  .validator(validateInput(savedPageSchema))
+  .validator(validateInput(savedFromSchema))
   .handler(async ({ data }): Promise<SavedPage> => {
-    const { loadAccountSavedPage } = await import("./bookmarkData");
-    return loadAccountSavedPage(data.page);
+    const { loadAccountSavedFrom } = await import("./bookmarkData");
+    return loadAccountSavedFrom(data.offset);
   });
 
 /**
