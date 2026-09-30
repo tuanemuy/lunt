@@ -17,6 +17,7 @@
 @import "./event-screens.css";
 @import "./saved-screens.css";
 @import "./map.css";
+@import "./explore-screens.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal
    feel slower than the load it follows. */

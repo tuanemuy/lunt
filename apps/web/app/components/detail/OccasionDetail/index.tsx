@@ -13,6 +13,11 @@ import {
 import { DetailPhotos } from "../DetailPhotos";
 import { PlaceRow, RegionRows } from "../RelatedRows";
 
+/** VW-07 イベントの一覧, to look for other occasions. */
+function OtherEventsLink() {
+  return <TextLink to="/events">ほかのイベントを探す</TextLink>;
+}
+
 /** 終了・中止, told apart from a running occasion. */
 function HoldingNotice({ data }: { data: OccasionDetailData }) {
   switch (data.holding) {
@@ -21,14 +26,20 @@ function HoldingNotice({ data }: { data: OccasionDetailData }) {
       return null;
     case "ended":
       return (
-        <Notice title="このイベントは終了しました">
-          内容はこのまま見られます。
+        <Notice
+          title="このイベントは終了しました"
+          actions={<OtherEventsLink />}
+        >
+          内容はこのまま見られます。これから開かれるイベントも探せます。
         </Notice>
       );
     case "cancelled":
       return (
-        <Notice title="このイベントは中止になりました">
-          内容はこのまま見られます。
+        <Notice
+          title="このイベントは中止になりました"
+          actions={<OtherEventsLink />}
+        >
+          内容はこのまま見られます。ほかのイベントも探せます。
         </Notice>
       );
   }
@@ -78,8 +89,9 @@ function Participant({ item }: { item: ParticipantItem }) {
  * the linked regions. Without a viewable attached listing the participants
  * section says so (CS-09). The procedures close it: 参加の申請 (RQ-06,
  * while upcoming or ongoing, for a signed-out viewer or a steward of a
- * place) and the takedown claim (RQ-07). The participants' map (VW-08),
- * the occasion list (VW-07) and the articles arrive with their stages.
+ * place) and the takedown claim (RQ-07). The occasion list (VW-07) is
+ * offered below the sections and from the 終了・中止 and CS-09 notices. The
+ * participants' map (VW-08) and the articles arrive with their stages.
  */
 export function OccasionDetail({ data }: { data: OccasionDetailData }) {
   const running = data.holding === "upcoming" || data.holding === "ongoing";
@@ -110,7 +122,10 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
           <section className="detail-section" aria-labelledby="dt04-shops">
             <SectionTitle id="dt04-shops">参加店舗と楽しめること</SectionTitle>
             {data.hasNoViewableListing ? (
-              <Notice title="このイベントで見られる掲載は、まだありません">
+              <Notice
+                title="このイベントで見られる掲載は、まだありません"
+                actions={<OtherEventsLink />}
+              >
                 {data.participants.length === 0
                   ? "参加するお店が決まると、ここに並びます。"
                   : "参加するお店から、楽しめることを確かめられます。"}
@@ -134,6 +149,10 @@ export function OccasionDetail({ data }: { data: OccasionDetailData }) {
               <RegionRows items={data.regions} />
             </section>
           )}
+
+          <ButtonLink variant="secondary" to="/events">
+            イベントの一覧を見る
+          </ButtonLink>
 
           <div className="procedures">
             <hr className="divider" />

@@ -1,0 +1,217 @@
+/*
+  VW-05 まち, VW-06 地域内の一覧 and VW-07 イベントの一覧, after their
+  「画面固有」 blocks of spec/design/pages, and CF-03 選択中の条件 (shared by
+  VW-01, VW-04 and VW-05).
+*/
+@layer components {
+  /* CF-03: the chosen conditions (a fieldset, so it can be disabled while applying) */
+  .conditions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .conditions__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+
+  /* VW-05 まち: Catch → エリアを選ぶ → conditions → scope → EditorialFeature frames */
+  .regions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .regions__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+  .regions__catch,
+  .events__catch {
+    font-family: var(--font-display);
+    font-size: var(--text-catch);
+    line-height: var(--leading-catch);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+  }
+  .regions__scope {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+  }
+  .regions__scope-text {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+  }
+  .regions__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    transition: opacity var(--transition-default);
+  }
+  .regions__list[aria-busy="true"] {
+    opacity: 0.6;
+  }
+  .regions__skeleton--meta {
+    width: 96px;
+    height: 16px;
+  }
+  .regions__skeleton--catch-1 {
+    width: 200px;
+    height: 43px;
+  }
+  .regions__skeleton--catch-2 {
+    width: 240px;
+    height: 43px;
+  }
+  .regions__skeleton--photo {
+    width: 100%;
+    aspect-ratio: 348 / 193;
+  }
+  .regions__skeleton--name {
+    width: 140px;
+    height: 29px;
+  }
+
+  /* VW-06 地域内の一覧: Page 見出し → Region tabs → ContentRow / DiscoverCard */
+  .region-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .region-list__title {
+    font-family: var(--font-display);
+    font-size: var(--text-page);
+    line-height: var(--leading-page);
+    letter-spacing: var(--tracking-display);
+    font-weight: var(--weight-regular);
+    color: var(--ink);
+  }
+  .region-list__tabs {
+    gap: var(--space-16);
+  }
+  .region-list__skeleton--title {
+    width: 168px;
+    height: 36px;
+  }
+
+  /* VW-07 イベントの一覧 */
+  .events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .content-row__status {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--secondary);
+    font-weight: var(--weight-medium);
+  }
+
+  /* ContentRow lists (VW-06's places, VW-07's occasions): 1 / 2 / 3 columns */
+  .row-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-24);
+    column-gap: var(--space-32);
+  }
+  .row-list__footer {
+    grid-column: 1 / -1;
+  }
+
+  /* CF-05's end of a list */
+  .regions .list-end,
+  .region-list .list-end,
+  .events .list-end {
+    padding-block: var(--space-8);
+    border-top: var(--border-1) solid var(--line);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* Skeletons shaped like a ContentRow and a pair of cards */
+  .explore-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    width: 100%;
+  }
+  .explore-skeleton-row__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .explore-skeleton--photo {
+    flex: none;
+    width: 88px;
+    height: 88px;
+  }
+  .explore-skeleton--name {
+    width: 180px;
+    height: 24px;
+  }
+  .explore-skeleton--meta {
+    width: 150px;
+    height: 18px;
+  }
+  .explore-skeleton--small {
+    width: 96px;
+    height: 16px;
+  }
+  .explore-skeleton-cards {
+    width: 100%;
+  }
+  .explore-skeleton--card {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  @media (min-width: 768px) {
+    .regions__actions .button {
+      max-width: 348px;
+    }
+    .row-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .regions__head {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--space-32);
+    }
+    .regions__head .button {
+      width: auto;
+      min-width: 240px;
+      flex: none;
+    }
+    .regions__skeleton--photo {
+      max-width: 700px;
+    }
+    .events {
+      padding-block: var(--space-32) var(--space-0);
+    }
+    .row-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+}

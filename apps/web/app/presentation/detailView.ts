@@ -272,7 +272,11 @@ export function listingCard(
 const localityText = (address: Address): string =>
   `${address.municipality}・${address.town}`;
 
-function regionRow(summary: RegionSummary, refs: PhotoRefs): RegionRowItem {
+/** A region row of a summary. */
+export function regionRow(
+  summary: RegionSummary,
+  refs: PhotoRefs,
+): RegionRowItem {
   return {
     regionId: summary.regionId,
     name: summary.name,
@@ -327,7 +331,8 @@ export function daysText(dates: readonly string[], today: string): string {
     .join("・");
 }
 
-function occasionRow(
+/** An occasion row of a summary, its period worded against `today`. */
+export function occasionRow(
   summary: OccasionSummary,
   refs: PhotoRefs,
   today: string,

@@ -67,8 +67,8 @@ function RegionFeature({ data }: { data: RegionDetailData }) {
  * 店舗 (its places, newest affiliation first) and イベント (its upcoming
  * and ongoing occasions in 開催日の順). A tab with nothing to show is
  * left out; without listings 見つかる says so (CS-09) and leads to the
- * places. Each section shows its first six: the full lists (VW-06), the
- * map (VW-04), the other regions (VW-05) and the articles arrive with
+ * places. Each section shows its first six and leads to its full list
+ * (VW-06, on that side); the map (VW-04) and the articles arrive with
  * their stages. The procedures close it: 所属の申請 (RQ-05, this region
  * chosen) and the takedown claim (RQ-07).
  */
@@ -121,6 +121,15 @@ export function RegionDetail({ data }: { data: RegionDetailData }) {
             {data.listings.length > 0 ? (
               <section className="detail-section" aria-label="この街の掲載">
                 <ListingCards items={data.listings} />
+                <ButtonLink
+                  variant="secondary"
+                  fit
+                  to="/regions/$regionId/places"
+                  params={{ regionId: data.regionId }}
+                  search={{ tab: "listings" }}
+                >
+                  掲載をすべて見る
+                </ButtonLink>
               </section>
             ) : (
               <div className="dt03-empty">
@@ -160,6 +169,15 @@ export function RegionDetail({ data }: { data: RegionDetailData }) {
                 <PlaceRow key={place.placeId} item={place} />
               ))}
             </div>
+            <ButtonLink
+              variant="secondary"
+              fit
+              to="/regions/$regionId/places"
+              params={{ regionId: data.regionId }}
+              search={{ tab: "places" }}
+            >
+              お店をすべて見る
+            </ButtonLink>
           </section>
         ) : null}
 
