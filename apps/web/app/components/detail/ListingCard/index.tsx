@@ -22,8 +22,9 @@ export function ListingCardBody({ item }: { item: ListingCardItem }) {
 }
 
 /**
- * Lunt/DiscoverCard (20:28) of a listing, leading to its DT-01. The save
- * toggle (CF-04) joins with stage 4.
+ * Lunt/DiscoverCard (20:28) of a listing, leading to its DT-01. It has no
+ * save toggle: CF-04 sits only on the feed's cards, DT-01, DT-02 and VW-10
+ * (`spec/pages/index.md` 「保存と解除」).
  */
 export function ListingCard({ item }: { item: ListingCardItem }) {
   return (

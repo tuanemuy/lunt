@@ -25,13 +25,9 @@ export const keywordField = z.string().max(1000);
 export const feedPageSchema = z.object({
   search: browseSearchSchema,
   origin: originSchema,
-  // Past the feed's depth, the last page it reads (the list ends there).
-  page: z
-    .number()
-    .int()
-    .min(2)
-    .max(PAGINATION_MAX_PAGE)
-    .transform((page) => Math.min(page, FEED_MAX_PAGE)),
+  // The feed's depth (`page × limit ≤ 2,000`): a deeper page is refused;
+  // the screen ends the feed at the depth instead of asking for it.
+  page: z.number().int().min(2).max(FEED_MAX_PAGE),
 });
 
 /** VW-01: a further page of the feed (CF-05), with the account's saves among it. */

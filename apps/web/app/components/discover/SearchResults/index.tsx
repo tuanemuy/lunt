@@ -228,9 +228,7 @@ function GroupFooter({
       </div>
     );
   }
-  return list.count > SEARCH_PAGE_SIZE ? (
-    <p className="list-end">{label}はここまでです</p>
-  ) : null;
+  return <p className="list-end">{label}はここまでです</p>;
 }
 
 function ResultGroup({
