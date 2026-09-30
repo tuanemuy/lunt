@@ -78,6 +78,36 @@ export function pinLayer(pin: MapPin): number {
   return pin.kind === "region" ? 1 : 2;
 }
 
+/** A label's box on the screen, in CSS pixels from the map's top-left. */
+export type LabelBox = Readonly<{
+  key: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}>;
+
+/**
+ * The labels to hide so that no two shown overlap: each box in order is
+ * kept unless it overlaps one kept before it, so earlier boxes win.
+ */
+export function crowdedLabels(boxes: readonly LabelBox[]): ReadonlySet<string> {
+  const kept: LabelBox[] = [];
+  const crowded = new Set<string>();
+  for (const box of boxes) {
+    const overlaps = kept.some(
+      (other) =>
+        box.x < other.x + other.width &&
+        other.x < box.x + box.width &&
+        box.y < other.y + other.height &&
+        other.y < box.y + box.height,
+    );
+    if (overlaps) crowded.add(box.key);
+    else kept.push(box);
+  }
+  return crowded;
+}
+
 /** MapLibre's world is 512 CSS pixels wide at zoom 0. */
 const WORLD_SIZE_AT_ZOOM_0 = 512;
 

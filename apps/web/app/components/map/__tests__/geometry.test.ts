@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   centerOf,
   clampBounds,
+  crowdedLabels,
   pinCount,
   pinLayer,
   pinSelected,
@@ -114,5 +115,33 @@ describe("visibleBounds", () => {
     expect(span(near)).toBeCloseTo(span(wide) / 2);
     expect(centerOf(near).longitude).toBeCloseTo(at.longitude);
     expect(centerOf(near).latitude).toBeCloseTo(at.latitude, 3);
+  });
+});
+
+describe("crowdedLabels", () => {
+  const box = (key: string, x: number, y: number, width = 80) => ({
+    key,
+    x,
+    y,
+    width,
+    height: 20,
+  });
+
+  it("hides a label that overlaps one shown before it, earlier first", () => {
+    expect([
+      ...crowdedLabels([
+        box("selected", 100, 100),
+        box("near", 150, 110),
+        box("apart", 100, 130),
+        box("far", 400, 100),
+        box("on-apart", 120, 135),
+      ]),
+    ]).toEqual(["near", "on-apart"]);
+  });
+
+  it("keeps labels that only touch", () => {
+    expect(
+      crowdedLabels([box("a", 0, 0), box("b", 80, 0), box("c", 0, 20)]).size,
+    ).toBe(0);
   });
 });

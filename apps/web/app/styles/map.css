@@ -99,6 +99,12 @@
     background: var(--green);
     color: var(--white);
   }
+  /* Its name would overlap another region's at this zoom: the dot only, the name on hover or focus. */
+  .map__marker[data-crowded="true"]
+    .map-region:not(:hover, :focus-visible)
+    .map-region__name {
+    display: none;
+  }
 
   /* The viewer's position. */
   .map-me {

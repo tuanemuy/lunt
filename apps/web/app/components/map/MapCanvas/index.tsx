@@ -20,6 +20,8 @@ import { cx } from "../../ui/cx";
 import { TextButton } from "../../ui/TextButton";
 import {
   clampBounds,
+  crowdedLabels,
+  type LabelBox,
   pinCount,
   pinLayer,
   pinSelected,
@@ -94,6 +96,10 @@ type Phase = "loading" | "ready" | "unavailable";
 type MarkerEntry = { marker: Marker; host: HTMLElement; kind: MapPin["kind"] };
 
 const FIT_PADDING = 48;
+/** A region's name pill, as tall as `--leading-meta`; the rest of its button is touch area. */
+const REGION_LABEL_HEIGHT = 20;
+/** The region marker's `offset`: its dot's middle sits on the point. */
+const REGION_OFFSET_X = -6;
 const DEFAULT_MAX_ZOOM = 16;
 const CLUSTER_MAX_ZOOM = 18;
 const LOCATION_MIN_ZOOM = 14;
@@ -108,6 +114,48 @@ const JA_LOCALE: Readonly<Record<string, string>> = {
   "AttributionControl.ToggleAttribution": "地図の出典を表示",
   "AttributionControl.MapFeedback": "地図への意見",
 };
+
+/**
+ * Hides the names of regions whose label would overlap another's at the
+ * current zoom (the dot stays, the name stays the accessible label and
+ * shows on hover or focus). Selected regions win, then the pins' order.
+ */
+function declutterRegions(
+  map: MapLibreMap,
+  pins: readonly MapPin[],
+  markers: ReadonlyMap<string, MarkerEntry>,
+  widths: Map<string, number>,
+): void {
+  const regions = pins
+    .filter((pin) => pin.kind === "region")
+    .sort((a, b) => Number(pinSelected(b)) - Number(pinSelected(a)));
+  const boxes: LabelBox[] = [];
+  for (const pin of regions) {
+    const entry = markers.get(pin.key);
+    if (entry === undefined) continue;
+    const widthKey = `${pin.key}|${pin.kind === "region" ? pin.name : ""}`;
+    if (entry.host.dataset.crowded !== "true" && entry.host.offsetWidth > 0) {
+      widths.set(widthKey, entry.host.offsetWidth);
+    }
+    const width = widths.get(widthKey);
+    if (width === undefined) continue;
+    const point = map.project(toLngLat(pin.position));
+    boxes.push({
+      key: pin.key,
+      x: point.x + REGION_OFFSET_X,
+      y: point.y - REGION_LABEL_HEIGHT / 2,
+      width,
+      height: REGION_LABEL_HEIGHT,
+    });
+  }
+  const crowded = crowdedLabels(boxes);
+  for (const pin of regions) {
+    const entry = markers.get(pin.key);
+    if (entry === undefined) continue;
+    if (crowded.has(pin.key)) entry.host.dataset.crowded = "true";
+    else delete entry.host.dataset.crowded;
+  }
+}
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -273,6 +321,9 @@ export function MapCanvas({
     debounceMs,
     onPick,
   };
+  const pinsRef = useRef(pins);
+  pinsRef.current = pins;
+  const labelWidths = useRef(new Map<string, number>());
   const appliedViewport = useRef<string | null>(null);
   const programmaticCause = useRef<MapViewportCause | null>(null);
   const viewportRef = useRef(viewport);
@@ -409,6 +460,15 @@ export function MapCanvas({
         setPhase("ready");
         report("initial");
       });
+      created.on("zoomend", () => {
+        if (!loaded) return;
+        declutterRegions(
+          created,
+          pinsRef.current,
+          markers,
+          labelWidths.current,
+        );
+      });
       created.on("movestart", (event) => {
         if (event.originalEvent !== undefined) userMove = true;
         if (loaded) collapseAttribution(container);
@@ -486,7 +546,7 @@ export function MapCanvas({
           element: host,
           anchor: pin.kind === "region" ? "left" : "center",
           ...(pin.kind === "region"
-            ? { offset: [-6, 0] as [number, number] }
+            ? { offset: [REGION_OFFSET_X, 0] as [number, number] }
             : {}),
         });
         marker.setLngLat(toLngLat(pin.position)).addTo(map);
@@ -504,6 +564,13 @@ export function MapCanvas({
       );
     }
   }, [phase, pins]);
+
+  // After the pins' buttons are in their hosts, so their widths can be read.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (phase !== "ready" || map === null || hosts.size === 0) return;
+    declutterRegions(map, pins, markersRef.current, labelWidths.current);
+  }, [phase, pins, hosts]);
 
   const userLatitude = userLocation?.latitude ?? null;
   const userLongitude = userLocation?.longitude ?? null;
