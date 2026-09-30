@@ -1,5 +1,6 @@
 import type { ArticleId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
+import type { ShowcasePreview } from "@repo/core/domain/discovery/viewProjection";
 import { authorizeRole } from "../authority/access";
 import { type PhotoRefs, photoRefsOf, todayOf } from "../discovery/views";
 import type { ActorServiceArgs } from "../types";
@@ -7,7 +8,6 @@ import {
   type ArticleWithRequirements,
   requireArticle,
   resolveShowcases,
-  type ShowcaseState,
   showcasePhotoIds,
   showcaseStates,
   withRequirements,
@@ -21,11 +21,11 @@ export type ArticleForEditing = ArticleWithRequirements &
     photosTakenDown: boolean;
     /**
      * Every showcase in the article's order: a viewable one with its
-     * summary and standing (reference scene); one viewers cannot see with
-     * what is still stored of it (its name, or that it no longer exists) —
+     * summary and standing (reference scene); one viewers cannot see only
+     * as `{ ref, viewable: false }`, without information about its target —
      * the link stays until an editor removes it.
      */
-    showcases: readonly ShowcaseState[];
+    showcases: readonly ShowcasePreview[];
     /** Display refs of the article's photos and the viewable showcases' covers. */
     photos: PhotoRefs;
   }>;
@@ -50,8 +50,7 @@ export async function getArticleForEditing({
     await authorizeRole(ctx, actor, "edit_articles");
     return read.entity;
   });
-  const showcases = await showcaseStates(
-    container,
+  const showcases = showcaseStates(
     await resolveShowcases(container, article.content.showcases),
     todayOf(container),
   );

@@ -16,11 +16,13 @@ import {
   showcaseKey,
   showcaseNameText,
   showcasePagePath,
+  showcasePositionText,
+  type ViewableShowcaseItem,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 
 /** A viewer detail, opened beside the form so its unsaved input stays. */
-function DetailChip({ item }: { item: ShowcaseItem }) {
+function DetailChip({ item }: { item: ViewableShowcaseItem }) {
   return (
     <a
       className="chip-button"
@@ -34,7 +36,7 @@ function DetailChip({ item }: { item: ShowcaseItem }) {
   );
 }
 
-function StateLine({ item }: { item: ShowcaseItem }) {
+function StateLine({ item }: { item: ViewableShowcaseItem }) {
   return (
     <span className="am02-ref__state">
       {item.badge === null ? null : (
@@ -256,7 +258,9 @@ export function ShowcaseField({
   disabled?: boolean;
 }) {
   const [picking, setPicking] = useState(false);
-  const hidden = items.filter((item) => !item.viewable);
+  const hidden = items.flatMap((item, index) =>
+    item.viewable ? [] : [index + 1],
+  );
   const linked = new Set(items.map(showcaseKey));
   const move = (index: number) => {
     const next = [...items];
@@ -287,10 +291,10 @@ export function ShowcaseField({
           title="閲覧者が閲覧できない紹介先があります"
         >
           {`${hidden
-            .map((item) => `「${showcaseNameText(item)}」`)
+            .map((position) => `${position}番目`)
             .join(
               "・",
-            )}は記事に表示されません。結びつけを外すか、そのままにできます。再び閲覧できるようになると、記事に再び表示されます。保存と公開はできます。`}
+            )}の紹介先は記事に表示されません。結びつけを外すか、そのままにできます。再び閲覧できるようになると、記事に再び表示されます。保存と公開はできます。`}
         </Notice>
       )}
       {error === undefined ? null : (
@@ -305,20 +309,32 @@ export function ShowcaseField({
       ) : (
         <ol className="am02-refs">
           {items.map((item, index) => {
-            const name = showcaseNameText(item);
+            const name = item.viewable
+              ? showcaseNameText(item)
+              : showcasePositionText(index + 1);
             return (
               <li
                 key={showcaseKey(item)}
                 className="am02-ref"
                 {...(item.viewable ? {} : { "data-unviewable": "" })}
               >
-                <span className="am02-ref__text">
-                  <span className="am02-ref__kind">
-                    {`${index + 1} · ${SHOWCASE_KIND_LABEL[item.kind]}`}
+                {item.viewable ? (
+                  <span className="am02-ref__text">
+                    <span className="am02-ref__kind">
+                      {`${index + 1} · ${SHOWCASE_KIND_LABEL[item.kind]}`}
+                    </span>
+                    <span className="am02-ref__name">{name}</span>
+                    <StateLine item={item} />
                   </span>
-                  <span className="am02-ref__name">{name}</span>
-                  <StateLine item={item} />
-                </span>
+                ) : (
+                  <span className="am02-ref__text">
+                    <span className="am02-ref__name">{name}</span>
+                    <span className="am02-ref__state">
+                      <Badge tone="alert">閲覧できません</Badge>
+                      <span>記事に表示されません</span>
+                    </span>
+                  </span>
+                )}
                 <span className="am02-ref__ops">
                   {item.viewable ? <DetailChip item={item} /> : null}
                   <ChipButton

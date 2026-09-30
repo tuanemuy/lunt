@@ -1,11 +1,7 @@
 // Server-only: import from server components or server-function handlers
 // (dynamically), never from client components.
 
-import type {
-  ArticleContentFields,
-  ShowcaseState,
-  UnviewableShowcase,
-} from "@repo/core/application/article/articles";
+import type { ArticleContentFields } from "@repo/core/application/article/articles";
 import { createArticle } from "@repo/core/application/article/createArticle";
 import { getArticleForEditing } from "@repo/core/application/article/getArticleForEditing";
 import { listArticlesForEditing } from "@repo/core/application/article/listArticlesForEditing";
@@ -31,6 +27,7 @@ import type {
   OccasionSummary,
   PlaceSummary,
   RegionSummary,
+  ShowcasePreview,
   ShowcaseSummary,
 } from "@repo/core/domain/discovery/viewProjection";
 import { requireActor } from "./actor";
@@ -49,6 +46,7 @@ import {
   type ShowcaseCandidates,
   type ShowcaseItem,
   type ShowcaseKindValue,
+  type ViewableShowcaseItem,
 } from "./editorialView";
 import { dayText } from "./moderation";
 import { OPERATING_STATUS_LABEL } from "./placeView";
@@ -160,7 +158,7 @@ function listingItem(
   summary: ListingSummary,
   photos: PhotoRefs,
   today: string,
-): ShowcaseItem {
+): ViewableShowcaseItem {
   const { offering, operating } = summary.standing;
   const offeringWord =
     offering.phase === "available"
@@ -196,7 +194,10 @@ function listingItem(
   };
 }
 
-function placeItem(summary: PlaceSummary, photos: PhotoRefs): ShowcaseItem {
+function placeItem(
+  summary: PlaceSummary,
+  photos: PhotoRefs,
+): ViewableShowcaseItem {
   const { operating } = summary.standing;
   const label = OPERATING_STATUS_LABEL[operating];
   return {
@@ -215,7 +216,10 @@ function placeItem(summary: PlaceSummary, photos: PhotoRefs): ShowcaseItem {
   };
 }
 
-function regionItem(summary: RegionSummary, photos: PhotoRefs): ShowcaseItem {
+function regionItem(
+  summary: RegionSummary,
+  photos: PhotoRefs,
+): ViewableShowcaseItem {
   return {
     kind: "region",
     id: summary.regionId,
@@ -233,7 +237,7 @@ function occasionItem(
   summary: OccasionSummary,
   photos: PhotoRefs,
   today: string,
-): ShowcaseItem {
+): ViewableShowcaseItem {
   const { holding } = summary.standing;
   const holdingText = HOLDING_STATUS_TEXT[holding];
   const period = periodText(summary.period, today);
@@ -255,7 +259,7 @@ function summaryItem(
   showcase: ShowcaseSummary,
   photos: PhotoRefs,
   today: string,
-): ShowcaseItem {
+): ViewableShowcaseItem {
   switch (showcase.kind) {
     case "listing":
       return listingItem(showcase.summary, photos, today);
@@ -268,39 +272,17 @@ function summaryItem(
   }
 }
 
-/**
- * A showcase viewers cannot see, named by what is still stored of it; one
- * no longer stored is deleted. No read tells why viewers cannot see it.
- */
-function hiddenItem({ ref, stored }: UnviewableShowcase): ShowcaseItem {
-  return {
-    kind: ref.kind,
-    id: ref.id,
-    name: stored.exists ? stored.name : null,
-    viewable: false,
-    stateText: stored.exists
-      ? "閲覧者が閲覧できない状態です"
-      : "削除されています",
-    badge: {
-      text: stored.exists ? "閲覧できません" : "削除済み",
-      tone: "alert",
-    },
-    note: "記事に表示されません",
-    row: { meta: null, area: null },
-    photoUrl: null,
-  };
-}
-
 function showcaseItems(
   container: RequestContainer,
-  showcases: readonly ShowcaseState[],
+  showcases: readonly ShowcasePreview[],
   photos: PhotoRefs,
 ): readonly ShowcaseItem[] {
   const today = todayText(container);
-  return showcases.map((showcase) =>
-    showcase.viewable
-      ? summaryItem(showcase.showcase, photos, today)
-      : hiddenItem(showcase),
+  return showcases.map(
+    (showcase): ShowcaseItem =>
+      showcase.viewable
+        ? summaryItem(showcase.showcase, photos, today)
+        : { kind: showcase.ref.kind, id: showcase.ref.id, viewable: false },
   );
 }
 
@@ -446,7 +428,7 @@ async function candidatesOf(
   kind: ShowcaseKindValue,
   keyword: string,
   today: string,
-): Promise<ListPage<ShowcaseItem>> {
+): Promise<ListPage<ViewableShowcaseItem>> {
   const { candidates, photos } = await findSelectionCandidates({
     container,
     input: {
@@ -529,7 +511,9 @@ export async function loadArticlePreview(
         ? [summaryItem(showcase.showcase, output.photos, today)]
         : [],
     ),
-    hidden: output.unviewableShowcases.map(hiddenItem),
+    hidden: detail.showcases.flatMap((showcase, index) =>
+      showcase.viewable ? [] : [index + 1],
+    ),
     missing: output.missingRequirements,
   };
 }

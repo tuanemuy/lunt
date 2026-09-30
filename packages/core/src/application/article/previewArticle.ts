@@ -18,12 +18,7 @@ import {
   todayOf,
 } from "../discovery/views";
 import type { ActorServiceArgs } from "../types";
-import {
-  requireArticle,
-  resolveShowcases,
-  showcaseStates,
-  type UnviewableShowcase,
-} from "./articles";
+import { requireArticle, resolveShowcases } from "./articles";
 
 export type PreviewArticleInput = Readonly<{ articleId: ArticleId }>;
 
@@ -37,11 +32,6 @@ export type PreviewArticleOutput = Readonly<{
   preview: ArticlePreview;
   /** The showcases viewers cannot see, in the article's order; empty when all are shown. */
   hiddenShowcases: readonly ShowcaseRef[];
-  /**
-   * The same showcases, in the same order, each with what is still stored
-   * of it (its name, or that it no longer exists) so the screen can name it.
-   */
-  unviewableShowcases: readonly UnviewableShowcase[];
   /** In `title`, `photos`, `body` order; empty when publishable. */
   missingRequirements: readonly PublicationRequirement[];
   /** The current state — `published` when another editor published it meanwhile. */
@@ -80,18 +70,10 @@ export async function previewArticle({
     resolutions,
     today,
   );
-  const unviewable = await showcaseStates(
-    container,
-    resolutions.filter((resolution) => !resolution.viewable),
-    today,
-  );
   return {
     preview,
     hiddenShowcases: resolutions.flatMap((resolution) =>
       resolution.viewable ? [] : [resolution.ref],
-    ),
-    unviewableShowcases: unviewable.flatMap((showcase) =>
-      showcase.viewable ? [] : [showcase],
     ),
     missingRequirements: Article.missingRequirements(article.content),
     status: article.publication.status,

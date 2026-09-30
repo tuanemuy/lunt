@@ -17,10 +17,10 @@ import {
   articleTitleText,
   EDITORIAL_HOME,
   missingOf,
-  SHOWCASE_KIND_LABEL,
-  type ShowcaseItem,
   showcaseNameText,
   showcasePagePath,
+  showcasePositionText,
+  type ViewableShowcaseItem,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { useReconcile } from "@/presentation/reconcile";
@@ -41,7 +41,7 @@ const paragraphsOf = (body: string): readonly string[] =>
     .map((block) => block.trim())
     .filter((block) => block !== "");
 
-function ShowcaseRow({ item }: { item: ShowcaseItem }) {
+function ShowcaseRow({ item }: { item: ViewableShowcaseItem }) {
   return (
     <a className="content-row" href={showcasePagePath(item.kind, item.id)}>
       <div className="content-row__photo">
@@ -272,10 +272,7 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
             <p className="m-t-ui">{`表示されない紹介先 ${data.hidden.length}件`}</p>
             <p className="cm03-meta">
               {`${data.hidden
-                .map(
-                  (item) =>
-                    `${showcaseNameText(item)}（${SHOWCASE_KIND_LABEL[item.kind]}）`,
-                )
+                .map(showcasePositionText)
                 .join(
                   "・",
                 )}は、閲覧者が閲覧できないため、記事に表示されません。`}

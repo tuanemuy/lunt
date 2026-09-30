@@ -57,11 +57,7 @@ describe("getArticleForEditing", () => {
       (stored) => Listing.suspend(stored, k.tick()).entity,
     );
     const read = await k.get(E, article.id);
-    expect(read.showcases[0]).toEqual({
-      ref: refs.listing,
-      viewable: false,
-      stored: { exists: true, name: listing.content.name },
-    });
+    expect(read.showcases[0]).toEqual({ ref: refs.listing, viewable: false });
     expect(read.showcases[1]?.viewable).toBe(true);
     expect(read.article.content.showcases).toEqual([refs.listing, refs.place]);
     expect(read.article.publication.status).toBe("published");
@@ -74,7 +70,7 @@ describe("getArticleForEditing", () => {
     const article = await k.article({ showcases: [refs.listing] }, "draft", E);
     await k.world.deleteListing(listing);
     expect((await k.get(E, article.id)).showcases).toEqual([
-      { ref: refs.listing, viewable: false, stored: { exists: false } },
+      { ref: refs.listing, viewable: false },
     ]);
   });
 

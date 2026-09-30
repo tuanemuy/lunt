@@ -105,31 +105,48 @@ export const ARTICLE_LIST_PAGE_SIZE = 20;
 // ---------------------------------------------------------------- AM-02
 
 /**
- * A showcased target (紹介先) as AM-02 lists it, CM-03 shows it and the
- * selection (CF-02) offers it: its current state in the reference scene,
- * or the fact that viewers cannot see it.
+ * A showcased target (紹介先) viewers can see, as AM-02 lists it, CM-03
+ * shows it and the selection (CF-02) offers it: its current state in the
+ * reference scene.
  */
-export type ShowcaseItem = Readonly<{
+export type ViewableShowcaseItem = Readonly<{
   kind: ShowcaseKindValue;
   id: string;
-  /** `null` for a target that no longer exists or has no name. */
+  /** `null` for a target that has no name. */
   name: string | null;
-  /** Viewers can see it, so the article shows it. */
-  viewable: boolean;
+  viewable: true;
   /** The state line: ベーカリー 灯 · 提供中, 営業中, 開催予定 · 11月7日（土）… */
   stateText: string;
-  /** A state told apart (休業, 提供終了, 中止…, 閲覧できません); `null` when ordinary. */
+  /** A state told apart (休業, 提供終了, 中止…); `null` when ordinary. */
   badge: Readonly<{ text: string; tone: "neutral" | "alert" }> | null;
-  /** How the article treats it (記事には休業中として示されます / 記事に表示されません). */
+  /** How the article treats it (記事には休業中として示されます …). */
   note: string | null;
   /** The article page's row (content row): the second and third lines. */
   row: Readonly<{ meta: string | null; area: string | null }>;
   photoUrl: string | null;
 }>;
 
+/**
+ * A linked showcase viewers cannot see. The article keeps the link, but no
+ * read tells anything about its target (not even its name), so the screens
+ * name it by its position (`showcasePositionText`).
+ */
+export type HiddenShowcaseItem = Readonly<{
+  kind: ShowcaseKindValue;
+  id: string;
+  viewable: false;
+}>;
+
+/** A linked showcase in AM-02's form. */
+export type ShowcaseItem = ViewableShowcaseItem | HiddenShowcaseItem;
+
 /** The showcase's name, or what stands for it when there is none. */
-export const showcaseNameText = (item: ShowcaseItem): string =>
+export const showcaseNameText = (item: ViewableShowcaseItem): string =>
   item.name ?? `名称のない${SHOWCASE_KIND_LABEL[item.kind]}`;
+
+/** How a showcase is named by its 1-based position: 3番目の紹介先. */
+export const showcasePositionText = (position: number): string =>
+  `${position}番目の紹介先`;
 
 export const showcaseKey = (item: Pick<ShowcaseItem, "kind" | "id">): string =>
   `${item.kind}:${item.id}`;
@@ -155,7 +172,7 @@ export type ArticleEditorData = Readonly<{
 
 /** CF-02's candidates of one kind. */
 export type ShowcaseCandidates = Readonly<
-  Record<ShowcaseKindValue, ListPage<ShowcaseItem>>
+  Record<ShowcaseKindValue, ListPage<ViewableShowcaseItem>>
 >;
 
 // ---------------------------------------------------------------- CM-03
@@ -168,9 +185,9 @@ export type ArticlePreviewData = Readonly<{
   /** The photos in order; the first is the cover. */
   photos: readonly Readonly<{ photoId: string; url: string | null }>[];
   /** The showcases the article page shows, in order. */
-  shown: readonly ShowcaseItem[];
-  /** The showcases viewers cannot see, left out of the page. */
-  hidden: readonly ShowcaseItem[];
+  shown: readonly ViewableShowcaseItem[];
+  /** The 1-based positions of the showcases viewers cannot see, left out of the page. */
+  hidden: readonly number[];
   missing: readonly PublicationRequirementValue[];
 }>;
 
