@@ -149,6 +149,7 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
   const kindLabel = KIND_LABEL[data.target.kind];
   const operable = operableTarget(data.target);
   const subject = subjectOf(data.target);
+  const viewerLink = targetState.kind === "present" && targetState.viewable;
   const nextStep =
     subject === null
       ? "結果を添えて対応を終えます。"
@@ -436,9 +437,9 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
               運営による非公開の間も、写真は削除できます。追加の措置が要るかを判断して、結果を添えて対応を終えます。
             </Notice>
           ) : null}
-          {gone ? null : (
+          {gone || (!viewerLink && subject === null) ? null : (
             <LinkList>
-              {targetState.kind === "present" && targetState.viewable ? (
+              {viewerLink ? (
                 <li>
                   <ListRowLink
                     to={detailPath(operable.kind, operable.id)}
