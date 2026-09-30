@@ -12,6 +12,7 @@ import {
   catchError,
   expectBusinessError,
 } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { RegionContent, type RegionContentInput } from "../content";
 import { type PublishedRegion, Region, type RegionSnapshot } from "../region";
 
@@ -514,6 +515,16 @@ describe("Region.reconstruct / snapshot", () => {
       })),
     ],
   ] as const)("rejects %s", (_, snapshot) => {
+    expect(
+      isRehydrationError(catchError(() => Region.reconstruct(snapshot))),
+    ).toBe(true);
+  });
+
+  it.each(LINE_BREAK_CASES)("rejects a stored name with %s", (_label, c) => {
+    const snapshot = broken((s) => ({
+      ...s,
+      content: { ...s.content, name: `谷${c}中` },
+    }));
     expect(
       isRehydrationError(catchError(() => Region.reconstruct(snapshot))),
     ).toBe(true);

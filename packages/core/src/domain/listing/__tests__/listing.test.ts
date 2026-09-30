@@ -13,6 +13,7 @@ import {
   catchError,
   expectBusinessError,
 } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { CategoryCatalog } from "../categoryCatalog";
 import { ListingContent, type ListingContentInput } from "../content";
 import { Listing, type PublishedListing } from "../listing";
@@ -295,6 +296,17 @@ describe("Listing", () => {
     const broken = {
       ...snapshot,
       content: { ...snapshot.content, name: null },
+    };
+    expect(
+      isRehydrationError(catchError(() => Listing.reconstruct(broken))),
+    ).toBe(true);
+  });
+
+  it.each(LINE_BREAK_CASES)("refuses a stored name with %s", (_label, c) => {
+    const snapshot = Listing.snapshot(draft());
+    const broken = {
+      ...snapshot,
+      content: { ...snapshot.content, name: `りんご${c}飴` },
     };
     expect(
       isRehydrationError(catchError(() => Listing.reconstruct(broken))),

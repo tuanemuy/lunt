@@ -2,6 +2,7 @@ import { DateRange } from "@repo/core/domain/common/dateRange";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { OccasionContent } from "../content";
 import { Cancellation, HoldingStatus } from "../holdingStatus";
 import { HoldingStatusObserver } from "../holdingStatusObserver";
@@ -59,6 +60,18 @@ describe("values", () => {
       );
     }
     expect(OccasionName.create("あ".repeat(100))).toHaveLength(100);
+  });
+
+  it.each(LINE_BREAK_CASES)("refuses a name with %s inside", (_label, c) => {
+    expect(() => OccasionName.create(`秋の${c}市`)).toThrow(
+      expect.objectContaining({ code: "OCCASION_INVALID_NAME" }),
+    );
+  });
+
+  it.each(LINE_BREAK_CASES)("allows %s inside a description", (_label, c) => {
+    expect(OccasionDescription.create(`一行目${c}二行目`)).toBe(
+      `一行目${c}二行目`,
+    );
   });
 
   it("allows line breaks in a description of up to 2000 characters", () => {
@@ -242,6 +255,16 @@ describe("Occasion", () => {
       Occasion.reconstruct({
         ...snapshot,
         content: { ...snapshot.content, name: null },
+      }),
+    ).toThrow("Stored occasion violates invariants");
+  });
+
+  it.each(LINE_BREAK_CASES)("refuses a stored name with %s", (_label, c) => {
+    const snapshot = Occasion.snapshot(occasionFactory().published());
+    expect(() =>
+      Occasion.reconstruct({
+        ...snapshot,
+        content: { ...snapshot.content, name: `秋の${c}市` },
       }),
     ).toThrow("Stored occasion violates invariants");
   });

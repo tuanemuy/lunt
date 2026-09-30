@@ -5,6 +5,7 @@ import {
   catchError,
   expectBusinessError,
 } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { CategoryCatalog, INITIAL_CATEGORY_NAMES } from "../categoryCatalog";
 import { CategoryName } from "../values";
 
@@ -203,5 +204,18 @@ describe("CategoryCatalog", () => {
         ),
       ).toBe(true);
     }
+  });
+
+  it.each(LINE_BREAK_CASES)("refuses a stored name with %s", (_label, c) => {
+    const snapshot = CategoryCatalog.snapshot(opening());
+    const broken = {
+      ...snapshot,
+      categories: snapshot.categories.map((category) =>
+        category.id === SEE ? { ...category, name: `見${c}る` } : category,
+      ),
+    };
+    expect(
+      isRehydrationError(catchError(() => CategoryCatalog.reconstruct(broken))),
+    ).toBe(true);
   });
 });

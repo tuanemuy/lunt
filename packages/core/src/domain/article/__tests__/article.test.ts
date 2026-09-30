@@ -7,6 +7,7 @@ import {
   catchError,
   expectBusinessError,
 } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import {
   Article,
   type ArticleContentInput,
@@ -273,6 +274,17 @@ describe("Article", () => {
     const broken = {
       ...Article.snapshot(published()),
       content: { ...Article.snapshot(published()).content, photoIds: [] },
+    };
+    expect(
+      isRehydrationError(catchError(() => Article.reconstruct(broken))),
+    ).toBe(true);
+  });
+
+  it.each(LINE_BREAK_CASES)("rejects a stored title with %s", (_label, c) => {
+    const snapshot = Article.snapshot(published());
+    const broken = {
+      ...snapshot,
+      content: { ...snapshot.content, title: `路地の${c}話` },
     };
     expect(
       isRehydrationError(catchError(() => Article.reconstruct(broken))),

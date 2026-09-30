@@ -1,3 +1,4 @@
+import { LineBreak } from "@repo/core/domain/common/lineBreak";
 import { TextNormalization } from "@repo/core/domain/common/textNormalization";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { RegionErrorCode } from "./errorCode";
@@ -13,8 +14,6 @@ export type RegionDescription = string & {
   readonly [regionDescriptionBrand]: true;
 };
 
-const LINE_BREAK = /[\r\n\u2028\u2029]/u;
-
 const withinLength = (value: string, max: number): boolean => {
   const length = TextNormalization.characterCount(value);
   return length >= 1 && length <= max;
@@ -25,7 +24,10 @@ export const RegionName = {
   /** Throws `REGION_INVALID_NAME` unless 1–100 characters without a line break. */
   create: (input: string): RegionName => {
     const value = input.trim();
-    if (!withinLength(value, RegionName.maxLength) || LINE_BREAK.test(value)) {
+    if (
+      !withinLength(value, RegionName.maxLength) ||
+      LineBreak.contains(value)
+    ) {
       throw new BusinessRuleError(
         RegionErrorCode.InvalidName,
         "Invalid region name",

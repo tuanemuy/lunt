@@ -1,4 +1,5 @@
 import type { PhotoId } from "@repo/core/domain/common/ids";
+import { LineBreak } from "@repo/core/domain/common/lineBreak";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { ListingErrorCode } from "./errorCode";
 
@@ -17,15 +18,13 @@ export type ListingDescription = string & {
 /** A category's name: trimmed, non-empty, one line. */
 export type CategoryName = string & { readonly [categoryNameBrand]: true };
 
-const LINE_BREAK = /[\r\n\u2028\u2029]/u;
-
 const oneLine = <T extends string>(
   input: string,
   code: ListingErrorCode,
   label: string,
 ): T => {
   const value = input.trim();
-  if (value.length === 0 || LINE_BREAK.test(value)) {
+  if (value.length === 0 || LineBreak.contains(value)) {
     throw new BusinessRuleError(code, `Invalid ${label}`);
   }
   return value as T;

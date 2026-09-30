@@ -1,5 +1,6 @@
 import { Address } from "@repo/core/domain/common/address";
 import { GeoPoint } from "@repo/core/domain/common/geo";
+import { LineBreak } from "@repo/core/domain/common/lineBreak";
 import { TextNormalization } from "@repo/core/domain/common/textNormalization";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { OccasionErrorCode } from "./errorCode";
@@ -15,8 +16,6 @@ export type OccasionDescription = string & {
   readonly [occasionDescriptionBrand]: true;
 };
 
-const LINE_BREAK = /[\r\n\u2028\u2029]/u;
-
 const lengthWithin = (value: string, max: number): boolean => {
   const length = TextNormalization.characterCount(value);
   return length >= 1 && length <= max;
@@ -29,7 +28,7 @@ export const OccasionName = {
     const value = input.trim();
     if (
       !lengthWithin(value, OccasionName.maxLength) ||
-      LINE_BREAK.test(value)
+      LineBreak.contains(value)
     ) {
       throw new BusinessRuleError(
         OccasionErrorCode.InvalidName,

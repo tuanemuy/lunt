@@ -11,6 +11,7 @@ import {
   catchError,
   expectBusinessError,
 } from "../../common/__tests__/expectBusinessError";
+import { LINE_BREAK_CASES } from "../../common/__tests__/lineBreakCases";
 import { RegionContent, type RegionContentInput } from "../content";
 import { RegionDescription, RegionName } from "../values";
 
@@ -41,6 +42,13 @@ describe("RegionName (trimmed, 1–100 characters, one line)", () => {
     expect(RegionName.create("😀".repeat(100))).toHaveLength(200);
   });
 
+  it.each(LINE_BREAK_CASES)("rejects a name with %s inside", (_label, c) => {
+    expectBusinessError(
+      () => RegionName.create(`谷${c}中`),
+      "REGION_INVALID_NAME",
+    );
+  });
+
   it("length boundary holds for arbitrary padded text", () => {
     fc.assert(
       fc.property(
@@ -64,6 +72,10 @@ describe("RegionDescription (trimmed, 1–2000 characters)", () => {
   it("accepts line breaks and 2000 characters", () => {
     expect(RegionDescription.create(" 一行目\n二行目 ")).toBe("一行目\n二行目");
     expect(RegionDescription.create("あ".repeat(2000))).toHaveLength(2000);
+  });
+
+  it.each(LINE_BREAK_CASES)("accepts %s inside", (_label, c) => {
+    expect(RegionDescription.create(`下町${c}路地`)).toBe(`下町${c}路地`);
   });
 
   it("rejects blank and 2001 characters", () => {

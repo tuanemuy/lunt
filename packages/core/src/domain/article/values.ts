@@ -1,3 +1,4 @@
+import { LineBreak } from "@repo/core/domain/common/lineBreak";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import { TextNormalization } from "@repo/core/domain/common/textNormalization";
 import { BusinessRuleError } from "@repo/core/domain/error";
@@ -21,9 +22,6 @@ export type ShowcaseList = readonly ShowcaseRef[] & {
   readonly [showcaseListBrand]: true;
 };
 
-/** Every Unicode line terminator: LF, VT, FF, CR, NEL, LS, PS. */
-const LINE_BREAK = /[\n\v\f\r\u0085\u2028\u2029]/u;
-
 const withinLength = (value: string, max: number): boolean => {
   const length = TextNormalization.characterCount(value);
   return length >= 1 && length <= max;
@@ -36,7 +34,7 @@ export const ArticleTitle = {
     const value = input.trim();
     if (
       !withinLength(value, ArticleTitle.maxLength) ||
-      LINE_BREAK.test(value)
+      LineBreak.contains(value)
     ) {
       throw new BusinessRuleError(
         ArticleErrorCode.InvalidTitle,
