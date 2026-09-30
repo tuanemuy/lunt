@@ -1,5 +1,6 @@
 import { reassessApplicationPremises } from "../application/reassessApplicationPremises";
 import { withdrawApplicationsOfWithdrawnAccount } from "../application/withdrawApplicationsOfWithdrawnAccount";
+import { purgeBookmarksOnWithdrawal } from "../bookmark/purgeBookmarksOnWithdrawal";
 import { discardReleasedPhotos } from "../media/discardReleasedPhotos";
 import { deliverNotifications } from "../notification/deliverNotifications";
 import { purgeNotificationsOnWithdrawal } from "../notification/purgeNotificationsOnWithdrawal";
@@ -17,6 +18,7 @@ export type { EventConsumer } from "./consumer";
 export const consumers = {
   deliverNotifications,
   discardReleasedPhotos,
+  purgeBookmarksOnWithdrawal,
   purgeNotificationsOnWithdrawal,
   reassessApplicationPremises,
   sendTakedownOutcome,
@@ -36,12 +38,7 @@ export type ConsumerName = keyof typeof consumers & string;
  * takes on in that later stage (it is removed when they join the
  * consumer's own list).
  */
-export const deferredConsumers = {
-  purgeBookmarksOnWithdrawal: {
-    events: ["account.withdrawn"],
-    stage: "S4",
-  },
-} as const satisfies Readonly<
+export const deferredConsumers = {} as const satisfies Readonly<
   Record<string, Readonly<{ events: readonly LuntEventType[]; stage: string }>>
 >;
 
@@ -55,9 +52,9 @@ type DeferredConsumerName = keyof typeof deferredConsumers;
  * for any consumer added to a running system.
  */
 export const awaitingLaterStage: ReadonlySet<string> = new Set(
-  Object.values(deferredConsumers).flatMap(
-    (entry): readonly string[] => entry.events,
-  ),
+  Object.values<Readonly<{ events: readonly string[] }>>(
+    deferredConsumers,
+  ).flatMap((entry): readonly string[] => entry.events),
 );
 
 const noConsumerIsBothRegisteredAndDeferred: [
