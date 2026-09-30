@@ -16,6 +16,7 @@ import { findSelectionCandidates } from "@repo/core/application/discovery/findSe
 import type { PhotoRefs } from "@repo/core/application/discovery/views";
 import { ForbiddenError } from "@repo/core/application/errors";
 import type { Article } from "@repo/core/domain/article/article";
+import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
 import { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
@@ -68,6 +69,13 @@ const todayText = (container: RequestContainer): string =>
 /** See `requireEditorFn`. */
 export async function requireEditor(): Promise<void> {
   const { container, actor } = await actorAndContainer();
+  await assertEditor(container, actor);
+}
+
+async function assertEditor(
+  container: RequestContainer,
+  actor: Actor,
+): Promise<void> {
   const { roles } = await getMyAuthority({
     container,
     actor,
@@ -471,7 +479,8 @@ async function candidatesOf(
 export async function findShowcaseCandidates(
   keyword: string,
 ): Promise<ShowcaseCandidates> {
-  const { container } = await actorAndContainer();
+  const { container, actor } = await actorAndContainer();
+  await assertEditor(container, actor);
   const today = todayText(container);
   const [listing, place, region, occasion] = await Promise.all([
     candidatesOf(container, "listing", keyword, today),

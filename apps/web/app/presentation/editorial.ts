@@ -119,7 +119,10 @@ export const changeArticlePublicationFn = createServerFn({ method: "POST" })
     },
   );
 
-/** AM-02 CF-02: listings, places, regions and events viewers can see that match. */
+/**
+ * AM-02 CF-02: listings, places, regions and events viewers can see that
+ * match. Editors only (CS-05), like the screen it serves.
+ */
 export const findShowcaseCandidatesFn = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(z.object({ keyword: z.string().max(200) })))
