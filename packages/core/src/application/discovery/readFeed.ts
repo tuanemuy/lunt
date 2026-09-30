@@ -6,7 +6,6 @@ import type { ListingEntry } from "@repo/core/domain/discovery/entry";
 import {
   FeedComposer,
   type FeedItem,
-  FeedListingCandidate,
   type FeedPage,
 } from "@repo/core/domain/discovery/feedComposer";
 import type { FeedQuery } from "@repo/core/domain/discovery/ports/feedCandidateQueries";
@@ -60,40 +59,8 @@ export type ReadFeedOutput = Readonly<{
   photos: PhotoRefs;
 }>;
 
-/** Candidates are read in pages of this size (`FeedComposer`「ページ」). */
+/** Frame candidates are read in pages of this size. */
 const READ_LIMIT = Pagination.maxLimit;
-
-type Candidates = Readonly<{
-  listings: readonly ListingEntry[];
-  exhausted: boolean;
-  count: number;
-  pagesRead: number;
-}>;
-
-/** Reads the next candidate page and appends it. */
-async function readMore(
-  container: Pick<RequestContainer, "feedCandidateQueries">,
-  query: FeedQuery,
-  read: Candidates,
-): Promise<Candidates> {
-  const page = read.pagesRead + 1;
-  const next = await container.feedCandidateQueries.findListings(query, {
-    page,
-    limit: READ_LIMIT,
-  });
-  const seen = new Set(read.listings.map((entry) => entry.listing.id));
-  const listings = [
-    ...read.listings,
-    ...next.items.filter((entry) => !seen.has(entry.listing.id)),
-  ];
-  return {
-    listings,
-    exhausted:
-      next.items.length < READ_LIMIT || page * READ_LIMIT >= next.count,
-    count: next.count,
-    pagesRead: page,
-  };
-}
 
 /** The first `wanted` candidates of a frame kind, read in pages of 100. */
 async function readFrames<T>(
@@ -116,25 +83,27 @@ type Composed = Readonly<{
   occasions: ReadonlyMap<string, PublishedOccasion>;
 }>;
 
-async function compose(
+/**
+ * Composes the page from the head of the light candidates: one read of
+ * `requirement.listings`, read again from the head with twice the size
+ * only while `FeedComposer.page` cannot decide the order. The frames are
+ * read once, only when a slot falls on the page.
+ */
+async function composePage(
   container: Pick<RequestContainer, "feedCandidateQueries">,
   query: FeedQuery,
   pagination: Pagination,
-): Promise<Composed> {
-  const required = FeedComposer.requirement(pagination);
-  const start = required.listings - pagination.limit;
-  let read: Candidates = {
-    listings: [],
-    exhausted: false,
-    count: 0,
-    pagesRead: 0,
-  };
-  do {
-    read = await readMore(container, query, read);
-  } while (
-    !read.exhausted &&
-    read.listings.length < required.listings &&
-    start < read.count
+): Promise<
+  Readonly<{
+    page: FeedPage;
+    regions: readonly PublishedRegion[];
+    occasions: readonly PublishedOccasion[];
+  }>
+> {
+  let upTo = FeedComposer.requirement(pagination).listings;
+  let read = await container.feedCandidateQueries.findListingCandidates(
+    query,
+    upTo,
   );
   const framesPerKind = FeedComposer.framesNeeded(pagination, read.count);
   const [regions, occasions] = await Promise.all([
@@ -153,23 +122,67 @@ async function compose(
   for (;;) {
     const page = FeedComposer.page(
       {
-        listings: read.listings.map(FeedListingCandidate.of),
-        exhausted: read.exhausted,
+        listings: read.candidates,
+        exhausted:
+          read.candidates.length < upTo || read.candidates.length >= read.count,
         listingCount: read.count,
         frames,
       },
       pagination,
     );
-    if (page !== null) {
-      return {
-        page,
-        listings: new Map(read.listings.map((e) => [e.listing.id, e])),
-        regions: new Map(regions.map((region) => [region.id, region])),
-        occasions: new Map(occasions.map((o) => [o.id, o])),
-      };
-    }
-    read = await readMore(container, query, read);
+    if (page !== null) return { page, regions, occasions };
+    upTo *= 2;
+    read = await container.feedCandidateQueries.findListingCandidates(
+      query,
+      upTo,
+    );
   }
+}
+
+/**
+ * The page's listing entries, resolved by id (at most `limit`, so at most
+ * 100). A listing no longer viewable since the candidates were read drops
+ * out.
+ */
+async function listingEntries(
+  container: Pick<RequestContainer, "referenceQueries">,
+  page: FeedPage,
+): Promise<ReadonlyMap<string, ListingEntry>> {
+  const refs = page.items.flatMap((item) =>
+    item.kind === "listing"
+      ? [{ kind: "listing", id: item.listingId } as const]
+      : [],
+  );
+  if (refs.length === 0) return new Map();
+  const resolved = await container.referenceQueries.resolve(refs);
+  return new Map(
+    resolved.flatMap((resolution) =>
+      resolution.viewable && resolution.target.kind === "listing"
+        ? [[resolution.target.entry.listing.id, resolution.target.entry]]
+        : [],
+    ),
+  );
+}
+
+async function compose(
+  container: Pick<
+    RequestContainer,
+    "feedCandidateQueries" | "referenceQueries"
+  >,
+  query: FeedQuery,
+  pagination: Pagination,
+): Promise<Composed> {
+  const { page, regions, occasions } = await composePage(
+    container,
+    query,
+    pagination,
+  );
+  return {
+    page,
+    listings: await listingEntries(container, page),
+    regions: new Map(regions.map((region) => [region.id, region])),
+    occasions: new Map(occasions.map((o) => [o.id, o])),
+  };
 }
 
 const displayed = { kind: "displayed" } as const;

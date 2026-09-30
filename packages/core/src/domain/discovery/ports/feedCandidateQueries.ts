@@ -8,12 +8,19 @@ import type { PublishedOccasion } from "@repo/core/domain/occasion/occasion";
 import type { PublishedRegion } from "@repo/core/domain/region/region";
 import type { ResolvedCriteria } from "../browseCriteria";
 import type { ListingEntry } from "../entry";
+import type { FeedListingCandidate } from "../feedComposer";
 
 export type FeedQuery = Readonly<{
   criteria: ResolvedCriteria;
   /** Orders by distance from here when given, else newest first. */
   origin: GeoPoint | null;
   today: LocalDate;
+}>;
+
+/** The head of the feed listings' priority order, and their total. */
+export type FeedListingCandidates = Readonly<{
+  candidates: readonly FeedListingCandidate[];
+  count: number;
 }>;
 
 /**
@@ -28,6 +35,11 @@ export type FeedQuery = Readonly<{
  *   `BrowseCriteria.matchesListing`. Newest first (`firstPublishedAt`
  *   descending) without `origin`; with it, by the place's distance
  *   (`Geo.distanceMeters`), then newest first.
+ * - `findListingCandidates`: the first `upTo` (a positive integer, else
+ *   `COMMON_INVALID_INPUT`) of the same listings in the same order, in one
+ *   call, as light candidates: listing and place ids and the displayed
+ *   region (`FeedListingCandidate.of` of the listing's entry). `count` is
+ *   the total, as `findListings` counts it.
  * - `findRegionFrames`: viewable regions an affiliated place of which (any
  *   affiliation, not only the displayed one) has a listing `findListings`
  *   returns for the same criteria. Newest first without `origin`; with it,
@@ -46,6 +58,10 @@ export interface FeedCandidateQueries {
     query: FeedQuery,
     pagination: Pagination,
   ): Promise<PaginationResult<ListingEntry>>;
+  findListingCandidates(
+    query: FeedQuery,
+    upTo: number,
+  ): Promise<FeedListingCandidates>;
   findRegionFrames(
     query: FeedQuery,
     pagination: Pagination,

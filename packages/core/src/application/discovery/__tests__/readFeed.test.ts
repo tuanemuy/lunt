@@ -469,40 +469,6 @@ describe("readFeed", () => {
       ]);
     });
 
-    /** 150 listings of place A, then an older b1 of place B beyond them. */
-    async function pastOneCandidatePage(k: DiscoveryKit) {
-      const A = await k.w.place(locatedAt(north(100)));
-      const B = await k.w.place(locatedAt(north(1_000)));
-      const b1 = await k.w.available(B.id);
-      const as: ListingId[] = [];
-      for (let i = 0; i < 150; i += 1) as.push((await k.w.available(A.id)).id);
-      return { b1: b1.id, newestA: as.reverse() };
-    }
-
-    it("reads candidates past the first 100 until a listing of another place decides the second position (newest first)", async () => {
-      const k = await discoveryKit();
-      const { b1, newestA } = await pastOneCandidatePage(k);
-      const out = await read(k);
-      expect(listingIdsIn(out)).toEqual([
-        newestA[0],
-        b1,
-        ...newestA.slice(1, 19),
-      ]);
-      expect(out.listingCount).toBe(151);
-    });
-
-    it("reads candidates past the first 100 until a listing of another place decides the second position (nearest first)", async () => {
-      const k = await discoveryKit();
-      const { b1, newestA } = await pastOneCandidatePage(k);
-      const out = await read(k, { origin: ORIGIN });
-      expect(listingIdsIn(out)).toEqual([
-        newestA[0],
-        b1,
-        ...newestA.slice(1, 19),
-      ]);
-      expect(out.listingCount).toBe(151);
-    });
-
     it("readFeed#17 公開中の所属地域のない別々の店舗の掲載が、新しい順で並んでいる / 読む", async () => {
       const k = await discoveryKit();
       const newest = await distinctListings(k, 4);
@@ -645,7 +611,12 @@ describe("readFeed", () => {
   });
 
   describe("絞り込み", () => {
-    /** Prefecture A: 大阪府; town b: 銀座 (東京都); C: a place elsewhere (大手町). */
+    /**
+     * readFeed#25〜#27 name three prefectures, but the test area master has
+     * two (東京都, 大阪府). Substitute data, accepted by the Manager in P6:
+     * prefecture A is 大阪府, town b is 銀座 (東京都), and 「都道府県 C の店舗」
+     * is a place in 大手町 (東京都, outside town b).
+     */
     const PREFECTURE_A = { unit: "prefecture", prefectureCode: "27" } as const;
     const TOWN_B = { unit: "area", areaCode: "1040061" } as const;
 
@@ -818,6 +789,75 @@ describe("readFeed", () => {
       await k.retireCategory(K, M);
       const out = await read(k, { criteria: { areas: [], categoryIds: [M] } });
       expect(listingIdsIn(out)).toEqual([ofM.id, ofK.id]);
+    });
+  });
+
+  describe("候補の読み直し", () => {
+    /** 150 listings of place A, then an older b1 of place B beyond them. */
+    async function pastTheFirstRead(k: DiscoveryKit) {
+      const A = await k.w.place(locatedAt(north(100)));
+      const B = await k.w.place(locatedAt(north(1_000)));
+      const b1 = await k.w.available(B.id);
+      const as: ListingId[] = [];
+      for (let i = 0; i < 150; i += 1) as.push((await k.w.available(A.id)).id);
+      return { b1: b1.id, newestA: as.reverse() };
+    }
+
+    it("readFeed#32 新しい順で、店舗 A の掲載 a1〜a150 の後に、別の店舗 B の掲載 b1（最も古い） / 1ページ20件で読む", async () => {
+      const k = await discoveryKit();
+      const { b1, newestA } = await pastTheFirstRead(k);
+      const out = await read(k);
+      expect(listingIdsIn(out)).toEqual([
+        newestA[0],
+        b1,
+        ...newestA.slice(1, 19),
+      ]);
+      expect(out.listingCount).toBe(151);
+    });
+
+    it("readFeed#33 店舗 A（現在地から 100 m）の掲載 a1〜a150（a1 が最も新しい）と、店舗 B（1 km）の掲載 b1 / 現在地つきで、1ページ20件で読む", async () => {
+      const k = await discoveryKit();
+      const { b1, newestA } = await pastTheFirstRead(k);
+      const out = await read(k, { origin: ORIGIN });
+      expect(listingIdsIn(out)).toEqual([
+        newestA[0],
+        b1,
+        ...newestA.slice(1, 19),
+      ]);
+      expect(out.listingCount).toBe(151);
+    });
+
+    it("readFeed#34 同じ店舗・同じ地域の掲載が混ざった、フィード対象の掲載が 250 件。枠の候補は、地域とイベントが1件ずつ / 1ページ20件で 1〜13 ページ目を読み、別に 1ページ100件で 1〜3 ページ目を読む", async () => {
+      const k = await discoveryKit();
+      const R = await k.w.region({ name: "谷中" });
+      const places: Place[] = [];
+      for (let i = 0; i < 10; i += 1) {
+        const P = await k.w.place();
+        if (i < 6) await k.w.affiliate(P.id, [R.id]);
+        places.push(P);
+      }
+      for (const [i, P] of places.entries()) {
+        const n = i === 0 ? 70 : 20;
+        for (let j = 0; j < n; j += 1) await k.w.available(P.id);
+      }
+      await occasionWithParticipant(k);
+      const small = [];
+      for (let page = 1; page <= 13; page += 1) {
+        small.push(await read(k, { pagination: { page, limit: 20 } }));
+      }
+      const large = [];
+      for (let page = 1; page <= 3; page += 1) {
+        large.push(await read(k, { pagination: { page, limit: 100 } }));
+      }
+      expect(small.flatMap((p) => labels(p))).toEqual(
+        large.flatMap((p) => labels(p)),
+      );
+      expect(new Set(small.map((p) => p.listingCount))).toEqual(new Set([250]));
+      const last = small[12];
+      if (last === undefined) throw new Error("page 13");
+      expect(listingIdsIn(last)).toHaveLength(10);
+      expect(last.hasMore).toBe(false);
+      expect(small.flatMap(framesIn)).toHaveLength(2);
     });
   });
 });

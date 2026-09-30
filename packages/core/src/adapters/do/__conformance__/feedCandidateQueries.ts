@@ -1,4 +1,5 @@
 import type { AreaCode } from "@repo/core/domain/common/areaCode";
+import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import { GeoPoint } from "@repo/core/domain/common/geo";
 import type { CategoryId } from "@repo/core/domain/common/ids";
 import type { LocalDate } from "@repo/core/domain/common/localDate";
@@ -6,6 +7,7 @@ import {
   BrowseCriteria,
   type ResolvedCriteria,
 } from "@repo/core/domain/discovery/browseCriteria";
+import { FeedListingCandidate } from "@repo/core/domain/discovery/feedComposer";
 import { Listing } from "@repo/core/domain/listing/listing";
 import { Place } from "@repo/core/domain/place/place";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
@@ -1049,6 +1051,336 @@ export function describeFeedCandidateQueriesContract(
           }),
         ).rejects.toThrow("abort");
         expect(await listingIds(h)).toEqual([L.id]);
+      });
+    });
+
+    describe("findListingCandidates", () => {
+      const candidates = (
+        h: DiscoveryHarness,
+        options: QueryOptions = {},
+        upTo = 10,
+      ) => h.feedCandidateQueries.findListingCandidates(queryOf(options), upTo);
+
+      const candidateIds = async (
+        h: DiscoveryHarness,
+        options: QueryOptions = {},
+        upTo = 10,
+      ) =>
+        (await candidates(h, options, upTo)).candidates.map((c) => c.listingId);
+
+      it("feedCandidateQueries#74 フィード対象の掲載が1件もない / findListingCandidates を upTo: 10 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        await w.place();
+        expect(await candidates(h)).toEqual({ candidates: [], count: 0 });
+      });
+
+      it("feedCandidateQueries#75 別々の店舗のフィード対象の掲載 L1・L2・L3 の firstPublishedAt が T1 < T2 < T3 / origin: null・upTo: 10 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const made = [
+          await placeWithListing(w),
+          await placeWithListing(w),
+          await placeWithListing(w),
+        ];
+        expect(await candidates(h)).toEqual({
+          candidates: made
+            .map(({ P, L }) => ({
+              listingId: L.id,
+              placeId: P.id,
+              regionId: null,
+            }))
+            .reverse(),
+          count: 3,
+        });
+      });
+
+      it("feedCandidateQueries#76 フィード対象の掲載が5件 / upTo: 3 で呼ぶ。別に upTo: 5 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (let i = 0; i < 5; i += 1) await placeWithListing(w);
+        const three = await candidates(h, {}, 3);
+        const five = await candidates(h, {}, 5);
+        expect(three.candidates).toHaveLength(3);
+        expect(five.candidates).toHaveLength(5);
+        expect(three.candidates).toEqual(five.candidates.slice(0, 3));
+        expect([three.count, five.count]).toEqual([5, 5]);
+      });
+
+      it("feedCandidateQueries#77 フィード対象の掲載が3件 / upTo: 10 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        for (let i = 0; i < 3; i += 1) await placeWithListing(w);
+        const read = await candidates(h, {}, 10);
+        expect(read.candidates).toHaveLength(3);
+        expect(read.count).toBe(3);
+      });
+
+      it("feedCandidateQueries#78 営業中の店舗と休業中の店舗の提供中の掲載、参加に添えた掲載、提供開始前・提供終了・manualEnd.ended: true・一時非公開・運営による非公開の掲載、非公開の店舗と閉店した店舗の提供中の掲載がある / upTo: 100 で呼ぶ。別に、同じ query で findListings を limit: 100 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const resting = await w.place({ status: "temporarilyClosed" });
+        await w.available(P.id);
+        await w.available(resting.id);
+        const attached = await w.available(P.id);
+        const E = await w.occasion();
+        await w.participate(E.id, P.id, { listingIds: [attached.id] });
+        await w.upcoming(P.id);
+        await w.endedBySchedule(P.id);
+        await w.endedByHand(P.id);
+        await w.unpublished(P.id);
+        await w.suspendedListing(P.id);
+        const hidden = await w.place({ suspended: true });
+        const closed = await w.place({ status: "permanentlyClosed" });
+        await w.available(hidden.id);
+        await w.available(closed.id);
+        const light = await candidates(h, {}, 100);
+        const full = await listings(h, { pagination: { page: 1, limit: 100 } });
+        expect(light.candidates.map((c) => c.listingId)).toEqual(
+          listingIdsOf(full.items),
+        );
+        expect(light.count).toBe(full.count);
+        expect(light.count).toBe(3);
+      });
+
+      it("feedCandidateQueries#79 firstPublishedAt が同じフィード対象の掲載が2件 / origin: null で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const when = w.f.tick();
+        const first = w.f.published(P.id, {}, when);
+        const second = w.f.published(P.id, {}, when);
+        await w.store(second);
+        await w.store(first);
+        expect(await candidateIds(h)).toEqual([first.id, second.id]);
+      });
+
+      it("feedCandidateQueries#80 店舗 P が、公開中の地域 X・Y にこの順に所属し、代表地域に Y を選んでいる。P にフィード対象の掲載がある / findListingCandidates を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const X = await w.region();
+        const Y = await w.region();
+        const { P } = await placeWithListing(w);
+        await w.affiliate(P.id, [X.id, Y.id], Y.id);
+        const read = await candidates(h);
+        expect(read.candidates.map((c) => c.regionId)).toEqual([Y.id]);
+      });
+
+      it("feedCandidateQueries#81 店舗 P が X・Y・Z にこの順に所属し、代表地域は X。X は unpublished、Z は運営による非公開。P にフィード対象の掲載がある / findListingCandidates を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const X = await w.region({ state: "unpublished" });
+        const Y = await w.region();
+        const Z = await w.region({ state: "suspended" });
+        const { P } = await placeWithListing(w);
+        await w.affiliate(P.id, [X.id, Y.id, Z.id]);
+        const read = await candidates(h);
+        expect(read.candidates.map((c) => c.regionId)).toEqual([Y.id]);
+      });
+
+      it("feedCandidateQueries#82 店舗 P の PlaceAffiliations が保存されていない。店舗 Q の所属は空。店舗 R の所属地域は draft の地域だけ。どの店舗にもフィード対象の掲載がある / findListingCandidates を呼ぶ", async () => {
+        const { h, w } = await setup();
+        await placeWithListing(w);
+        const { P: Q } = await placeWithListing(w);
+        await w.affiliate(Q.id, []);
+        const draft = await w.region({ state: "draft" });
+        const { P: R } = await placeWithListing(w);
+        await w.affiliate(R.id, [draft.id]);
+        const read = await candidates(h);
+        expect(read.candidates.map((c) => c.regionId)).toEqual([
+          null,
+          null,
+          null,
+        ]);
+      });
+
+      it("feedCandidateQueries#83 所属地域と代表地域の違う店舗のフィード対象の掲載が、複数ある / upTo: 100 で呼ぶ。別に findListings を呼ぶ", async () => {
+        const { h, w } = await setup();
+        const X = await w.region();
+        const Y = await w.region();
+        const Z = await w.region({ state: "unpublished" });
+        const shapes: readonly (readonly [
+          readonly Region[],
+          Region | undefined,
+        ])[] = [
+          [[X, Y], Y],
+          [[Y, X], undefined],
+          [[Z, X], undefined],
+          [[Z], undefined],
+          [[], undefined],
+        ];
+        for (const [regions, representative] of shapes) {
+          const { P } = await placeWithListing(w);
+          await w.available(P.id);
+          if (regions.length > 0 || representative !== undefined) {
+            await w.affiliate(
+              P.id,
+              regions.map((r) => r.id),
+              representative?.id,
+            );
+          }
+        }
+        const light = await candidates(h, {}, 100);
+        const full = await listings(h, { pagination: { page: 1, limit: 100 } });
+        expect(light.candidates).toEqual(
+          full.items.map(FeedListingCandidate.of),
+        );
+        expect(light.candidates.map((c) => c.regionId)).toContain(Y.id);
+        expect(light.candidates.map((c) => c.regionId)).toContain(X.id);
+      });
+
+      it("feedCandidateQueries#84 所在地の areaCode が A の店舗のフィード対象の掲載 La と、B の店舗の掲載 Lb / areaCodes: {A} で呼ぶ。別に areaCodes を空の集合にして呼ぶ", async () => {
+        const { h, w } = await setup();
+        const Pa = await w.place({
+          profile: { address: SampleAddress.otemachi() },
+        });
+        const Pb = await w.place({
+          profile: { address: SampleAddress.ginza() },
+        });
+        const La = await w.available(Pa.id);
+        await w.available(Pb.id);
+        const inA = await candidates(h, {
+          criteria: criteriaOf({ areaCodes: [AREA_A] }),
+        });
+        expect(inA.candidates.map((c) => c.listingId)).toEqual([La.id]);
+        expect(inA.count).toBe(1);
+        expect(
+          await candidates(h, { criteria: criteriaOf({ areaCodes: [] }) }),
+        ).toEqual({ candidates: [], count: 0 });
+      });
+
+      it("feedCandidateQueries#85 categoryId が K1 のフィード対象の掲載 L1 と、K2 の掲載 L2 / categoryIds: {K1} で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const K1 = w.f.category();
+        const K2 = w.f.category();
+        const P = await w.place();
+        const L1 = await w.store(w.f.published(P.id, { categoryId: K1 }));
+        await w.store(w.f.published(P.id, { categoryId: K2 }));
+        const read = await candidates(h, {
+          criteria: criteriaOf({ categoryIds: [K1] }),
+        });
+        expect(read.candidates.map((c) => c.listingId)).toEqual([L1.id]);
+        expect(read.count).toBe(1);
+      });
+
+      it("feedCandidateQueries#86 カテゴリー K が廃止され、移行先は M。content.categoryId に K が保存されたままのフィード対象の掲載 L / categoryIds: {M, K} で呼ぶ。別に categoryIds: {M} で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const K = w.f.category();
+        const M = w.f.category();
+        const P = await w.place();
+        const L = await w.store(w.f.published(P.id, { categoryId: K }));
+        expect(
+          await candidateIds(h, {
+            criteria: criteriaOf({ categoryIds: [M, K] }),
+          }),
+        ).toEqual([L.id]);
+        expect(
+          await candidateIds(h, { criteria: criteriaOf({ categoryIds: [M] }) }),
+        ).toEqual([]);
+      });
+
+      const threeByDistance = async (w: DiscoveryWorld) => {
+        const { L: L1 } = await placeWithListing(w, north(100));
+        const { L: L2 } = await placeWithListing(w, north(500));
+        const { L: L3 } = await placeWithListing(w, north(2_000));
+        return [L1.id, L2.id, L3.id];
+      };
+
+      it("feedCandidateQueries#87 店舗 P1・P2・P3 の位置が、origin から 100 m・500 m・2 km。それぞれにフィード対象の掲載が1件。P3 の掲載が最も新しい / その origin で、upTo: 10 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const ids = await threeByDistance(w);
+        expect(await candidateIds(h, { origin: ORIGIN }, 10)).toEqual(ids);
+      });
+
+      it("feedCandidateQueries#88 上と同じ / その origin で、upTo: 2 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const ids = await threeByDistance(w);
+        const read = await candidates(h, { origin: ORIGIN }, 2);
+        expect(read.candidates.map((c) => c.listingId)).toEqual(
+          ids.slice(0, 2),
+        );
+        expect(read.count).toBe(3);
+      });
+
+      it("feedCandidateQueries#89 同じ店舗に、フィード対象の掲載 a1（先に公開）と a2（後に公開） / origin つきで呼ぶ", async () => {
+        const { h, w } = await setup();
+        const { P, L: a1 } = await placeWithListing(w, north(300));
+        const a2 = await w.available(P.id);
+        expect(await candidateIds(h, { origin: ORIGIN })).toEqual([
+          a2.id,
+          a1.id,
+        ]);
+      });
+
+      it("feedCandidateQueries#90 Geo.distanceMeters が同じになる2つの店舗に、firstPublishedAt が同じ掲載が1件ずつ / origin つきで呼ぶ", async () => {
+        const { h, w } = await setup();
+        const P = await w.place({ profile: { location: at(north(800)) } });
+        const Q = await w.place({ profile: { location: at(north(800)) } });
+        const when = w.f.tick();
+        const first = w.f.published(P.id, {}, when);
+        const second = w.f.published(Q.id, {}, when);
+        await w.store(second);
+        await w.store(first);
+        expect(await candidateIds(h, { origin: ORIGIN })).toEqual([
+          first.id,
+          second.id,
+        ]);
+      });
+
+      it("feedCandidateQueries#91 origin から 100 m の店舗 A にフィード対象の掲載 a1〜a5（a5 が最も新しい）、300 m の店舗 B に掲載 b1 / その origin で、upTo: 3 で呼ぶ", async () => {
+        const { h, w } = await setup();
+        const A = await w.place({ profile: { location: at(north(100)) } });
+        const B = await w.place({ profile: { location: at(north(300)) } });
+        await w.available(B.id);
+        const as = [];
+        for (let i = 0; i < 5; i += 1) as.push((await w.available(A.id)).id);
+        const read = await candidates(h, { origin: ORIGIN }, 3);
+        expect(read.candidates.map((c) => c.listingId)).toEqual(
+          [...as].reverse().slice(0, 3),
+        );
+        expect(read.count).toBe(6);
+      });
+
+      it("feedCandidateQueries#92 フィード対象の掲載 L と L2 / unpublish した L を save してコミットし、直後に呼ぶ", async () => {
+        const { h, w } = await setup();
+        const { L } = await placeWithListing(w);
+        const { L: L2 } = await placeWithListing(w);
+        await w.updateListing(
+          L,
+          (s) => Listing.unpublish(s, w.f.tick()).entity,
+        );
+        const read = await candidates(h);
+        expect(read.candidates.map((c) => c.listingId)).toEqual([L2.id]);
+        expect(read.count).toBe(1);
+      });
+
+      it("feedCandidateQueries#93 店舗 P が公開中の地域 X に所属し、P にフィード対象の掲載がある / X を unpublish して save してコミットし、直後に呼ぶ", async () => {
+        const { h, w } = await setup();
+        const { R: X } = await regionWithListing(w);
+        expect((await candidates(h)).candidates[0]?.regionId).toBe(X.id);
+        await w.unpublishRegion(X);
+        expect((await candidates(h)).candidates[0]?.regionId).toBeNull();
+      });
+
+      it("feedCandidateQueries#94 フィード対象の掲載がある / upTo を 0、-1、1.5 にして、それぞれ呼ぶ", async () => {
+        const { h, w } = await setup();
+        await placeWithListing(w);
+        for (const upTo of [0, -1, 1.5]) {
+          await expect(candidates(h, {}, upTo)).rejects.toMatchObject({
+            code: CommonErrorCode.InvalidInput,
+          });
+        }
+      });
+
+      it("feedCandidateQueries#95 draft の掲載 L（公開条件を満たす） / UnitOfWork の中で、publish した L を save した後に、fn が例外を投げる", async () => {
+        const { h, w } = await setup();
+        const P = await w.place();
+        const L = await w.draft(P.id);
+        await expect(
+          h.uow.run(async ({ listingRepository }) => {
+            const read = await listingRepository.findById(L.id);
+            if (read === null) throw new Error("missing");
+            await listingRepository.save(
+              Listing.publish(read.entity, w.f.tick()).entity,
+              read.expectedVersion,
+            );
+            throw new Error("abort");
+          }),
+        ).rejects.toThrow("abort");
+        expect(await candidates(h)).toEqual({ candidates: [], count: 0 });
       });
     });
   });

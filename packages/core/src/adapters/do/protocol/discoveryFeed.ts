@@ -8,13 +8,21 @@ import type { RegionRecord } from "./region";
  * empty list matches nothing. `categoryIds` are compared with the stored
  * category ids. Days are `YYYY-MM-DD`.
  */
-export type FeedQueryRecord = Readonly<{
+export type FeedCriteriaRecord = Readonly<{
   areaCodes: readonly string[] | null;
   categoryIds: readonly string[] | null;
   origin: Readonly<{ latitude: number; longitude: number }> | null;
   today: string;
-  page: number;
-  limit: number;
+}>;
+
+export type FeedQueryRecord = FeedCriteriaRecord &
+  Readonly<{ page: number; limit: number }>;
+
+/** A feed listing's id, its place's, and its displayed region (or `null`). */
+export type FeedCandidateRecord = Readonly<{
+  listingId: string;
+  placeId: string;
+  regionId: string | null;
 }>;
 
 type PageRecord<T> = Readonly<{ items: readonly T[]; count: number }>;
@@ -27,6 +35,11 @@ export type DiscoveryFeedQueries = {
   "discovery.findFeedListings": QuerySpec<
     FeedQueryRecord,
     PageRecord<ListingEntryRecord>
+  >;
+  /** The first `upTo` feed listings in priority order, and the total. */
+  "discovery.findFeedListingCandidates": QuerySpec<
+    FeedCriteriaRecord & Readonly<{ upTo: number }>,
+    Readonly<{ candidates: readonly FeedCandidateRecord[]; count: number }>
   >;
   "discovery.findFeedRegionFrames": QuerySpec<
     FeedQueryRecord,
