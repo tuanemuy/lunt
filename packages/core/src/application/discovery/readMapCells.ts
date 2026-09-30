@@ -34,7 +34,10 @@ export type ReadMapCellsInput = Readonly<{
 }>;
 
 export type ReadMapCellsOutput = Readonly<{
-  /** By row, then column; a place shows once whatever its region. */
+  /**
+   * By row, then column; a place shows once whatever its region. Places of
+   * the selected region are marked `affiliated` (clusters count them).
+   */
   cells: readonly PlaceCellView[];
   /**
    * Every region located inside the range that matches the area
@@ -98,15 +101,16 @@ export async function readMapCells({
     input.selectedRegionId === null
       ? null
       : await container.detailQueries.findRegion(input.selectedRegionId);
+  const selectedRegionId = selected?.id ?? null;
   const cells = (
     await container.explorationQueries.findPlaceCells({
       bounds,
       grid,
       criteria,
-      selectedRegionId: selected?.id ?? null,
+      selectedRegionId,
       today,
     })
-  ).map(placeCellView);
+  ).map((cell) => placeCellView(cell, selectedRegionId));
   const regions = (
     await regionsInBounds(
       container.explorationQueries,

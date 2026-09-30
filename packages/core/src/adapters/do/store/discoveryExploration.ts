@@ -22,7 +22,6 @@ import {
   idsParam,
   inOrder,
   isRegionViewable,
-  LISTING_VIEWABLE,
   OCCASION_OPEN,
   OCCASION_ORDER,
   OCCASION_VIEWABLE,
@@ -88,26 +87,45 @@ const placeInAreas = (areaCodes: readonly string[] | null): Clause =>
       );
 
 /**
- * `BrowseCriteria.matchesPlace` of place `p`: in the areas and, with a
- * category condition, one of its viewable listings `available` on `today`
- * in a chosen (stored) category.
+ * Above this many places inside the bounds, the category test runs as one
+ * set of place ids read through the category index; at or below it, as a
+ * per-place `EXISTS` through the location and place indexes. Both select
+ * the same places; the switch only keeps a whole-map read and a zoomed-in
+ * read each on their cheaper plan (the planner has no statistics to choose).
  */
-const placeMatches = (criteria: CriteriaRecord, today: string): Clause => {
+const CATEGORY_SET_ABOVE = 1_000;
+
+/**
+ * `BrowseCriteria.matchesPlace` of place `p` inside `bounds`: in the areas
+ * and, with a category condition, one of its viewable listings `available`
+ * on `today` in a chosen (stored) category.
+ */
+function placeMatches(
+  sql: SqlExec,
+  criteria: CriteriaRecord,
+  bounds: GeoBoundsRecord,
+  today: string,
+): Clause {
   const { categoryIds } = criteria;
-  const inCategories =
-    categoryIds === null
-      ? TRUE
-      : clause(
-          `EXISTS (SELECT 1 FROM listings l
-             WHERE l.place_id = p.id AND ${LISTING_VIEWABLE}
-               AND l.category_id IN (SELECT value FROM json_each(?))
-               AND (${LISTING_PHASE_SQL}) = 'available')`,
-          idsParam(categoryIds),
-          today,
-          today,
-        );
+  if (categoryIds === null) return placeInAreas(criteria.areaCodes);
+  const inside = insideBounds("p", bounds);
+  const many =
+    countOf(sql, `FROM places p WHERE ${inside.sql}`, ...inside.bindings) >
+    CATEGORY_SET_ABOVE;
+  const listingMatches = `l.category_id IN (SELECT value FROM json_each(?))
+    AND l.publication_status = 'published' AND l.suspended = 0
+    AND (${LISTING_PHASE_SQL}) = 'available'`;
+  const inCategories = clause(
+    many
+      ? `p.id IN (SELECT l.place_id FROM listings l WHERE ${listingMatches})`
+      : `EXISTS (SELECT 1 FROM listings l
+           WHERE l.place_id = p.id AND ${listingMatches})`,
+    idsParam(categoryIds),
+    today,
+    today,
+  );
   return joinClauses([placeInAreas(criteria.areaCodes), inCategories], "AND");
-};
+}
 
 type SpotRow = Readonly<{
   id: string;
@@ -126,17 +144,17 @@ type Spot = Readonly<{
 }>;
 
 /**
- * The shown (viewable, not permanently closed) places inside `bounds` that
- * match `criteria`, plus the selected region's affiliated ones when
- * `selectedRegionId` is a viewable region.
+ * The shown (viewable, not permanently closed) places `p` inside `bounds`
+ * that match `criteria`, plus — when `selected` is a viewable region — its
+ * affiliated ones; `affiliated` tells those apart (`null` without one).
  */
-function spotsInBounds(
+function placesInBounds(
   sql: SqlExec,
   bounds: GeoBoundsRecord,
   criteria: CriteriaRecord,
   selectedRegionId: string | null,
   today: string,
-): readonly Spot[] {
+): Readonly<{ where: Clause; affiliated: Clause | null }> {
   const selected =
     selectedRegionId !== null && isRegionViewable(sql, selectedRegionId)
       ? selectedRegionId
@@ -149,7 +167,7 @@ function spotsInBounds(
              WHERE sa.region_id = ? AND sa.place_id = p.id)`,
           selected,
         );
-  const matches = placeMatches(criteria, today);
+  const matches = placeMatches(sql, criteria, bounds, today);
   const where = joinClauses(
     [
       clause(`${PLACE_VIEWABLE} AND ${PLACE_DISCOVERABLE}`),
@@ -157,6 +175,24 @@ function spotsInBounds(
       affiliated === null ? matches : joinClauses([matches, affiliated], "OR"),
     ],
     "AND",
+  );
+  return { where, affiliated };
+}
+
+/** The spots of `placesInBounds`, for grouping or ordering by distance. */
+function spotsInBounds(
+  sql: SqlExec,
+  bounds: GeoBoundsRecord,
+  criteria: CriteriaRecord,
+  selectedRegionId: string | null,
+  today: string,
+): readonly Spot[] {
+  const { where, affiliated } = placesInBounds(
+    sql,
+    bounds,
+    criteria,
+    selectedRegionId,
+    today,
   );
   const flag = affiliated ?? clause("0");
   return sql
@@ -256,13 +292,6 @@ function byDistanceThenNewest(
     .map(({ spot }) => spot);
 }
 
-const newestSpotsFirst = (spots: readonly Spot[]): readonly Spot[] =>
-  [...spots].sort(
-    (a, b) =>
-      b.registeredAt.getTime() - a.registeredAt.getTime() ||
-      byCodePoint(a.id, b.id),
-  );
-
 const originFrom = (record: GeoPointRecord | null): GeoPoint | null =>
   record === null ? null : GeoPoint.create(record.latitude, record.longitude);
 
@@ -270,6 +299,31 @@ function findPlacesInBounds(
   sql: SqlExec,
   args: DiscoveryExplorationQueries["discovery.findPlacesInBounds"]["args"],
 ): Page<PlaceEntryRecord> {
+  const origin = originFrom(args.origin);
+  if (origin === null) {
+    const { where } = placesInBounds(
+      sql,
+      args.bounds,
+      args.criteria,
+      null,
+      args.today,
+    );
+    const from = `FROM places p WHERE ${where.sql}`;
+    const ids = sql
+      .exec<Readonly<{ id: string }> & SqlRow>(
+        `SELECT p.id ${from}
+           ORDER BY p.registered_at DESC, p.id LIMIT ? OFFSET ?`,
+        ...where.bindings,
+        args.limit,
+        offsetOf(args.page, args.limit),
+      )
+      .toArray()
+      .map((row) => row.id);
+    return {
+      items: inOrder(ids, placeEntries(sql, ids)),
+      count: countOf(sql, from, ...where.bindings),
+    };
+  }
   const spots = spotsInBounds(
     sql,
     args.bounds,
@@ -277,12 +331,7 @@ function findPlacesInBounds(
     null,
     args.today,
   );
-  const origin = originFrom(args.origin);
-  const ordered =
-    origin === null
-      ? newestSpotsFirst(spots)
-      : byDistanceThenNewest(origin, spots);
-  const ids = ordered
+  const ids = byDistanceThenNewest(origin, spots)
     .slice(offsetOf(args.page, args.limit), args.page * args.limit)
     .map((spot) => spot.id);
   return {
@@ -471,10 +520,13 @@ function findRegions(
       );
     }
     if (origin !== null) {
-      const nearest = (region: RegionRecord) =>
-        Math.min(
-          ...pointsOf(region).map((point) => Geo.distanceMeters(origin, point)),
-        );
+      const nearest = (region: RegionRecord) => {
+        let distance = Number.POSITIVE_INFINITY;
+        for (const point of pointsOf(region)) {
+          distance = Math.min(distance, Geo.distanceMeters(origin, point));
+        }
+        return distance;
+      };
       regions = regions
         .map((region) => ({ region, distance: nearest(region) }))
         .sort(

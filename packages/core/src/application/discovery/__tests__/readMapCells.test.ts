@@ -60,7 +60,11 @@ const ownCover = (place: Place) => {
     : { source: "own", photoId: photo.photoId, framing: null };
 };
 
-const placeSummary = (place: Place, region: Region | null = null) => ({
+const placeSummary = (
+  place: Place,
+  region: Region | null = null,
+  affiliated = false,
+) => ({
   placeId: place.id,
   cover: ownCover(place),
   name: place.profile.name,
@@ -68,6 +72,7 @@ const placeSummary = (place: Place, region: Region | null = null) => ({
   location: place.profile.location,
   region: region?.content.name ?? null,
   standing: { kind: "place", operating: place.operatingStatus },
+  affiliated,
 });
 
 const inA = { profile: { address: SampleAddress.otemachi() } };
@@ -299,12 +304,16 @@ describe("readMapCells", () => {
     const { R, P, M, criteria } = await selectedRegionWorld(k);
     const out = await read(k, { criteria, selectedRegionId: R.id });
     expect(out.cells).toEqual([
-      { kind: "single", column: 0, row: 0, place: placeSummary(P, R) },
+      { kind: "single", column: 0, row: 0, place: placeSummary(P, R, true) },
       {
         kind: "single",
         column: 3,
         row: 3,
-        place: expect.objectContaining({ placeId: M.id, region: null }),
+        place: expect.objectContaining({
+          placeId: M.id,
+          region: null,
+          affiliated: false,
+        }),
       },
     ]);
     expect(out.selectedRegion?.regionId).toBe(R.id);
@@ -326,6 +335,40 @@ describe("readMapCells", () => {
     const out = await read(k, { criteria, selectedRegionId: R.id });
     expect(out.selectedRegion).toBeNull();
     expect(shownIds(out.cells)).toEqual([M.id]);
+  });
+
+  it("marks a place of the selected region whose displayed region is another of its regions", async () => {
+    const k = await discoveryKit();
+    const R = await k.w.region({ name: "谷中", location: inCell(3, 0) });
+    const S = await k.w.region({ name: "根津", location: inCell(3, 1) });
+    const P = await placeAt(k.w, inCell(0, 0));
+    await k.w.affiliate(P.id, [R.id, S.id], S.id);
+    const spot = inCell(2, 2);
+    const Q = await placeAt(k.w, spot);
+    const T = await placeAt(k.w, spot);
+    await k.w.affiliate(Q.id, [S.id, R.id]);
+    const selected = await read(k, { selectedRegionId: R.id });
+    expect(selected.cells).toEqual([
+      { kind: "single", column: 0, row: 0, place: placeSummary(P, S, true) },
+      {
+        kind: "colocated",
+        column: 2,
+        row: 2,
+        location: spot,
+        places: [placeSummary(Q, S, true), placeSummary(T, null, false)],
+      },
+    ]);
+    const unselected = await read(k);
+    expect(unselected.cells).toEqual([
+      { kind: "single", column: 0, row: 0, place: placeSummary(P, S) },
+      {
+        kind: "colocated",
+        column: 2,
+        row: 2,
+        location: spot,
+        places: [placeSummary(Q, S), placeSummary(T)],
+      },
+    ]);
   });
 
   it("readMapCells#14 範囲と条件に合う店舗も地域もない / 読む", async () => {

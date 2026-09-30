@@ -75,7 +75,9 @@ export async function locateParticipants({
   const cells =
     bounds === null
       ? []
-      : MapClustering.cells(bounds, grid, places, null).map(placeCellView);
+      : MapClustering.cells(bounds, grid, places, null).map((cell) =>
+          placeCellView(cell, null),
+        );
   return {
     cells,
     extent,

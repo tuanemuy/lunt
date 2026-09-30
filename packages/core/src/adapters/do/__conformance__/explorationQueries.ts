@@ -14,7 +14,9 @@ import {
   type PlaceCell,
 } from "@repo/core/domain/discovery/mapClustering";
 import { Vicinity } from "@repo/core/domain/discovery/vicinity";
+import { CategoryCatalog } from "@repo/core/domain/listing/categoryCatalog";
 import { Listing } from "@repo/core/domain/listing/listing";
+import { CategoryName } from "@repo/core/domain/listing/values";
 import { Occasion } from "@repo/core/domain/occasion/occasion";
 import { Place } from "@repo/core/domain/place/place";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
@@ -387,6 +389,21 @@ export function describeExplorationQueriesContract(
         const M = w.f.category();
         const P = await placeAt(w, inCell(0, 0));
         await w.store(w.f.published(P.id, { categoryId: K }));
+        await h.uow.run(async ({ categoryCatalogRepository }) => {
+          const read = await categoryCatalogRepository.find();
+          const established = CategoryCatalog.establish(
+            read.entity,
+            [
+              { id: K, name: CategoryName.create("食べる") },
+              { id: M, name: CategoryName.create("味わう") },
+            ],
+            w.f.tick(),
+          ).entity;
+          await categoryCatalogRepository.save(
+            CategoryCatalog.retire(established, K, M, w.f.tick()).entity,
+            read.expectedVersion,
+          );
+        });
         expect(
           shownIds(
             await cellsOf(h, {
@@ -434,6 +451,43 @@ export function describeExplorationQueriesContract(
         expect(
           shownIds(await cellsOf(h, { criteria, today: day("2026-05-10") })),
         ).toEqual([P.id]);
+      });
+      it("the category condition selects the same places when more than 1,000 places are inside the bounds (the category-set plan)", async () => {
+        const { h, w } = await setup();
+        const K1 = w.f.category();
+        const places: Place[] = [];
+        for (let i = 0; i < 1_010; i += 1) {
+          places.push(
+            w.buildPlace({
+              profile: {
+                location: {
+                  latitude: 35.6 + (i % 101) * 0.001,
+                  longitude: 139.7 + Math.floor(i / 101) * 0.01,
+                },
+              },
+            }),
+          );
+        }
+        await insertPlaces(h, ...places);
+        const [a, b, c, d] = places;
+        if (!a || !b || !c || !d) throw new Error("four places");
+        await w.store(w.f.published(a.id, { categoryId: K1 }));
+        await w.store(w.f.published(b.id, { categoryId: K1 }));
+        await w.store(
+          w.f.published(c.id, {
+            categoryId: K1,
+            offering: period("2026-07-20", null),
+          }),
+        );
+        await w.store(w.f.unpublished(d.id, { categoryId: K1 }));
+        const criteria = criteriaOf({ categoryIds: [K1] });
+        const listed = await inBounds(h, {
+          criteria,
+          pagination: { page: 1, limit: 100 },
+        });
+        expect(listed.count).toBe(2);
+        expect(placeIdsOf(listed.items).sort()).toEqual([a.id, b.id].sort());
+        expect(placeCount(await cellsOf(h, { criteria }))).toBe(2);
       });
     });
 

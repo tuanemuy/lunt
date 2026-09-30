@@ -53,7 +53,10 @@
     "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5",
     // Application: an operator may stand in for a region's or occasion's
     // stewards this long after an application went under review (7 days).
-    "APPLICATION_PROXY_AFTER_MS": "604800000"
+    "APPLICATION_PROXY_AFTER_MS": "604800000",
+    // Discovery: the radius of the viewer's vicinity in metres, shared by
+    // the region list (VW-05) and the map's first range (VW-04).
+    "VICINITY_RADIUS_METERS": "3000"
   },
   // Photos (design.md D-09): key `photos/{photoId}`, served at /photos/{photoId}.
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-photos" }],

@@ -173,6 +173,12 @@ Maintenance: `pnpm area:import apps/web/scripts/areaSample.csv --out apps/web/pu
 
 Photos live in the R2 bucket bound as `PHOTOS` (`apps/web/wrangler.jsonc`, bucket `lunt-photos`) under the key `photos/{photoId}` (D-09). The Worker serves them at `/photos/{photoId}` (`apps/web/app/worker/photos.ts`: ETag and `If-None-Match`, `Cache-Control: max-age=60`, `nosniff`). Locally, `pnpm dev` keeps the bucket under `apps/web/.wrangler/state` (cleared by `pnpm dev:reset`). The record of each photo (consent, owner, state) is in the state object; unowned photos are removed by the daily `sweepUnownedPhotos` after `PHOTO_UNOWNED_RETENTION_MS` (default 7 days). A deployment creates the bucket (`wrangler r2 bucket create lunt-photos`).
 
+## Discovery settings
+
+| Variable | Kind | Meaning | Default |
+| --- | --- | --- | --- |
+| `VICINITY_RADIUS_METERS` | var | radius of the viewer's vicinity: the region list (VW-05) and the map's first range (VW-04) with the viewer's position | `3000` |
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.

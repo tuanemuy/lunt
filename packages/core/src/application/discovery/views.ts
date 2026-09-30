@@ -1,8 +1,8 @@
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
-import type { PhotoId } from "@repo/core/domain/common/ids";
+import type { PhotoId, RegionId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type { CoverPhoto } from "@repo/core/domain/discovery/entry";
+import type { CoverPhoto, PlaceEntry } from "@repo/core/domain/discovery/entry";
 import type { PlaceCell } from "@repo/core/domain/discovery/mapClustering";
 import {
   type ListingSummary,
@@ -61,16 +61,23 @@ export const occasionSummaryPhotoIds = (
 ): readonly PhotoId[] => [summary.cover.photoId];
 
 /**
- * A map cell as the screen shows it: a single place's or the colocated
- * places' summaries (operating status included, the displayed region
- * named), or a cluster's count and the extent to zoom into.
+ * A place on the map: its summary (operating status included, the
+ * displayed region named) and whether it belongs to the selected region —
+ * which the displayed region cannot tell when that is another of its
+ * regions. Always `false` without a selected region.
+ */
+export type MapPlaceSummary = PlaceSummary & Readonly<{ affiliated: boolean }>;
+
+/**
+ * A map cell as the screen shows it: a single place or the colocated
+ * places, or a cluster's count and the extent to zoom into.
  */
 export type PlaceCellView =
   | Readonly<{
       kind: "single";
       column: number;
       row: number;
-      place: PlaceSummary;
+      place: MapPlaceSummary;
     }>
   | Readonly<{
       kind: "cluster";
@@ -88,20 +95,35 @@ export type PlaceCellView =
       row: number;
       location: GeoPoint;
       /** Newest first. */
-      places: readonly PlaceSummary[];
+      places: readonly MapPlaceSummary[];
     }>;
 
-const displayedPlace = (
-  entry: Parameters<typeof ViewProjection.placeSummary>[0],
-): PlaceSummary => ViewProjection.placeSummary(entry, { kind: "displayed" });
+const mapPlace = (
+  entry: PlaceEntry,
+  selectedRegionId: RegionId | null,
+): MapPlaceSummary => ({
+  ...ViewProjection.placeSummary(entry, { kind: "displayed" }),
+  affiliated:
+    selectedRegionId !== null &&
+    entry.regions.some((region) => region.id === selectedRegionId),
+});
 
-/** A cell's places as summaries naming their displayed region. */
-export function placeCellView(cell: PlaceCell): PlaceCellView {
+/**
+ * A cell's places as summaries naming their displayed region, each marked
+ * when it belongs to `selectedRegionId`.
+ */
+export function placeCellView(
+  cell: PlaceCell,
+  selectedRegionId: RegionId | null,
+): PlaceCellView {
   switch (cell.kind) {
     case "single":
-      return { ...cell, place: displayedPlace(cell.place) };
+      return { ...cell, place: mapPlace(cell.place, selectedRegionId) };
     case "colocated":
-      return { ...cell, places: cell.places.map(displayedPlace) };
+      return {
+        ...cell,
+        places: cell.places.map((entry) => mapPlace(entry, selectedRegionId)),
+      };
     case "cluster":
       return cell;
   }

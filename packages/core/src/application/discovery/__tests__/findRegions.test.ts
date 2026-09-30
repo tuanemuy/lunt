@@ -104,9 +104,9 @@ describe("findRegions", () => {
 
   it("findRegions#4 現在地から設定値の半径の中に地域 R1・R2（R1 のほうが近い）、半径の外に地域 R3 がある / 条件なし、現在地つきで読む", async () => {
     const k = await discoveryKit();
-    const R2 = await k.w.region({ location: northOf(ORIGIN, RADIUS * 0.8) });
-    const R1 = await k.w.region({ location: northOf(ORIGIN, -RADIUS * 0.3) });
     await k.w.region({ location: northOf(ORIGIN, RADIUS * 1.5) });
+    const R1 = await k.w.region({ location: northOf(ORIGIN, -RADIUS * 0.3) });
+    const R2 = await k.w.region({ location: northOf(ORIGIN, RADIUS * 0.8) });
     const out = await find(k, { origin: ORIGIN });
     expect(out.focus).toBe("vicinity");
     expect(regionIds(out)).toEqual([R1.id, R2.id]);
@@ -115,12 +115,12 @@ describe("findRegions", () => {
 
   it("findRegions#5 地域 R4 の位置は現在地から遠いが、R4 に所属する休業中の店舗の位置は現在地のすぐ近く。地域 R5 の位置は、R4 の店舗より遠く、R4 の位置より近い。どちらも選択エリアにある / エリアを選び、現在地つきで読む", async () => {
     const k = await discoveryKit();
-    const R5 = await k.w.region({
-      location: northOf(ORIGIN, 2000),
-      content: IN_A,
-    });
     const R4 = await k.w.region({
       location: northOf(ORIGIN, 9000),
+      content: IN_A,
+    });
+    const R5 = await k.w.region({
+      location: northOf(ORIGIN, 2000),
       content: IN_A,
     });
     const resting = await placeAt(k.w, northOf(ORIGIN, -100), {
