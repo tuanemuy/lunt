@@ -833,6 +833,7 @@ describe("takeDownPhotosByClaim", () => {
       const claimId = await k.claim({ target, photoIds: [A] });
       const before = (await k.storedArticle(A1.id)).entity;
       if (before.publication.status !== "published") throw new Error("state");
+      expect(await k.container.referenceQueries.isViewable(target)).toBe(true);
       const mark = await k.mark();
       const output = await k.takeDown(await k.operator(), claimId, target, [
         A,

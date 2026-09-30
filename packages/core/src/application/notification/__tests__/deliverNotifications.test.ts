@@ -1790,7 +1790,8 @@ describe("deliverNotifications", () => {
       const w = await world(k);
       const L = await k.listing(w.P);
       const A = await k.article([L]);
-      // The operation's event carries the day it was observed, like the job's.
+      // The manager's ending raises no event of its own: the daily detection
+      // job raises the same listing.offering_ended, on the day it observes it.
       await k.consume(offeringEnded(k, L, "2026-09-30"));
       for (const who of [w.E1, w.E2]) {
         await expectReceived(k, who, [
@@ -2413,15 +2414,32 @@ describe("deliverNotifications (content matters)", () => {
       k.container,
       k.event(ListingEvents.deleted(L.id, k.tick())),
     );
-    expect(
-      new Set(
-        planned.map((p) =>
-          p.delivered.occurrence.to === "editors"
-            ? p.delivered.occurrence.articleId
-            : null,
-        ),
-      ),
-    ).toEqual(articles);
+    const announced = planned.flatMap((p) =>
+      p.delivered.occurrence.to === "editors"
+        ? [p.delivered.occurrence.articleId]
+        : [],
+    );
+    expect(announced).toHaveLength(101);
+    expect(new Set(announced)).toEqual(articles);
+  });
+
+  it("reaches a showcased listing of the place beyond its first page of listings", async () => {
+    const k = notificationKit();
+    const w = await world(k);
+    const listings: ListingRef[] = [];
+    for (let i = 0; i < 101; i += 1) listings.push(await k.listing(w.P));
+    const last = listings[100];
+    if (last === undefined) throw new Error("101 listings");
+    const A = await k.article([last]);
+    await k.consume(placeSuspended(k, w.P));
+    for (const who of [w.E1, w.E2]) {
+      await expectReceived(k, who, [
+        {
+          occurrence: showcaseChanged(A, last, "place_suspended"),
+          delivery: "direct",
+        },
+      ]);
+    }
   });
 
   it("announces no editors' change when no published article showcases the change", async () => {
