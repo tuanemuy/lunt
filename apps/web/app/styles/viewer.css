@@ -15,6 +15,15 @@
     );
   }
 
+  /* What is scrolled into view (focus, find, a control brought up) stops
+     above the fixed bottom nav instead of under it. */
+  :root:has(.bottom-nav) {
+    scroll-padding-bottom: calc(
+      var(--bottom-nav-height) +
+      env(safe-area-inset-bottom, 0px)
+    );
+  }
+
   .container {
     width: 100%;
     max-width: calc(1200px + 2 * var(--space-gutter));
@@ -163,6 +172,9 @@
     }
     .page {
       padding-bottom: var(--space-48);
+    }
+    :root:has(.bottom-nav) {
+      scroll-padding-bottom: 0;
     }
 
     .site-header {
