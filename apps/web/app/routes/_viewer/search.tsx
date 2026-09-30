@@ -86,8 +86,9 @@ function SearchPage() {
     case "results":
       return (
         <SearchFrame keyword={data.keyword} error={null}>
+          {/* Not the bare keyword: SearchForm, its sibling, is keyed by it. */}
           <Deferred
-            key={data.keyword}
+            key={`results:${data.keyword}`}
             promise={data.Results}
             fallback={<SearchSkeleton keyword={data.keyword} />}
           />
