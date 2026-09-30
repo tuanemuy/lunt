@@ -708,6 +708,11 @@
     cursor: default;
   }
 
+  /* The page behind the open picker does not scroll: a wheel over the
+     dialog outside the map would otherwise move the form away. */
+  :root:has(.m-dialog.position-picker[open]) {
+    overflow: hidden;
+  }
   .m-dialog.position-picker {
     width: 100%;
     max-width: none;
