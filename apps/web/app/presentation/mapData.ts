@@ -163,22 +163,24 @@ export async function loadParticipantCells(
 }
 
 /**
- * VW-08's first screen: the range of every participant (`null`: none,
- * CS-09), or `unavailable` for an occasion that is not viewable (CS-06).
- * Told apart here because an error reaches the browser only as its kind.
+ * VW-08's first screen: the occasion's name and the range of every
+ * participant (`null`: none, CS-09), or `unavailable` for an occasion that
+ * is not viewable (CS-06). Told apart here because an error reaches the
+ * browser only as its kind.
  */
 export async function loadParticipantsScreen(
   occasionId: string,
 ): Promise<
   | Readonly<{ kind: "unavailable" }>
-  | Readonly<{ kind: "ready"; extent: MapRange | null }>
+  | Readonly<{ kind: "ready"; occasionName: string; extent: MapRange | null }>
 > {
   try {
-    const { extent } = await loadParticipantCells(occasionId, null, {
-      columns: 1,
-      rows: 1,
-    });
-    return { kind: "ready", extent };
+    const { occasionName, extent } = await loadParticipantCells(
+      occasionId,
+      null,
+      { columns: 1, rows: 1 },
+    );
+    return { kind: "ready", occasionName, extent };
   } catch (error) {
     if (error instanceof NotFoundError || error instanceof BusinessRuleError) {
       return { kind: "unavailable" };

@@ -113,6 +113,8 @@ export type MapExtent = Readonly<{
 
 /** VW-08's cells for a range (`locateParticipants`). */
 export type ParticipantsRead = Readonly<{
+  /** The header's title. */
+  occasionName: string;
   cells: readonly MapCellItem[];
   /** The range holding every viewable participant; `null` without any. */
   extent: MapRange | null;
@@ -232,6 +234,7 @@ export function toParticipantsRead(
   output: LocateParticipantsOutput,
 ): ParticipantsRead {
   return {
+    occasionName: output.occasionName,
     cells: output.cells.map((cell) => mapCell(cell, output.photos)),
     extent: output.extent === null ? null : rangeOf(output.extent),
   };

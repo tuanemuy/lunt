@@ -16,6 +16,19 @@ declare module "@tanstack/react-router" {
 
 const HOME_HEADER: ViewerHeaderConfig = { type: "home" };
 
+/**
+ * A detail header's title named by the screen's loader data
+ * (`viewerTitle`, e.g. VW-08's event name) in place of the static one.
+ */
+function loaderTitle(data: unknown): string | undefined {
+  return typeof data === "object" &&
+    data !== null &&
+    "viewerTitle" in data &&
+    typeof data.viewerTitle === "string"
+    ? data.viewerTitle
+    : undefined;
+}
+
 export const Route = createFileRoute("/_viewer")({
   component: ViewerLayout,
 });
@@ -23,8 +36,16 @@ export const Route = createFileRoute("/_viewer")({
 function ViewerLayout() {
   const { header, tab } = useMatches({
     select: (matches) => {
-      const leaf = matches.at(-1)?.staticData;
-      return { header: leaf?.viewerHeader, tab: leaf?.viewerTab };
+      const leaf = matches.at(-1);
+      const header = leaf?.staticData.viewerHeader;
+      const title = loaderTitle(leaf?.loaderData);
+      return {
+        header:
+          header?.type === "detail" && title !== undefined
+            ? { ...header, title }
+            : header,
+        tab: leaf?.staticData.viewerTab,
+      };
     },
     structuralSharing: true,
   });

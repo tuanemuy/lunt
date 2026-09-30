@@ -70,6 +70,7 @@ describe("locateParticipants", () => {
       operating: "open",
     });
     expect(out.extent).toEqual(bounds(35, 139, 36, 140));
+    expect(out.occasionName).toBe(E.content.name);
   });
 
   it("locateParticipants#2 イベント E の参加店舗 P・Q が近い位置にあり、同じ区画に入る。離れた位置に S / E で読む", async () => {

@@ -2,6 +2,7 @@ import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import type { OccasionId } from "@repo/core/domain/common/ids";
 import { Geo, MapGrid } from "@repo/core/domain/discovery/geo";
 import { MapClustering } from "@repo/core/domain/discovery/mapClustering";
+import type { OccasionName } from "@repo/core/domain/occasion/values";
 import { NotFoundError } from "../errors";
 import type { ServiceArgs } from "../types";
 import { OCCASION_NOT_FOUND } from "./viewOccasion";
@@ -30,6 +31,8 @@ export type LocateParticipantsInput = Readonly<{
 export type ParticipantCellView = PlaceCellView;
 
 export type LocateParticipantsOutput = Readonly<{
+  /** The occasion's name, which the map's header shows. */
+  occasionName: OccasionName;
   /** By row, then column; empty without participants. */
   cells: readonly ParticipantCellView[];
   /** The range holding every viewable participant; `null` without any. */
@@ -79,6 +82,7 @@ export async function locateParticipants({
           placeCellView(cell, null),
         );
   return {
+    occasionName: occasion.content.name,
     cells,
     extent,
     photos: await photoRefsOf(container, cells.flatMap(placeCellPhotoIds)),

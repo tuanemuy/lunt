@@ -11,8 +11,9 @@ import { loadMapStyleFn } from "@/presentation/mapStyle";
 
 /**
  * VW-08 参加店舗マップ. Needs no login; the browse conditions and the
- * viewer's position never apply (the reference scene). An occasion that
- * is not viewable shows CS-06, one without viewable participants CS-09.
+ * viewer's position never apply (the reference scene). The header names
+ * the event (`viewerTitle`). An occasion that is not viewable shows CS-06
+ * under the fixed 参加店舗マップ, one without viewable participants CS-09.
  */
 export const Route = createFileRoute("/_viewer/events/$occasionId/map")({
   staticData: {
@@ -24,13 +25,21 @@ export const Route = createFileRoute("/_viewer/events/$occasionId/map")({
       loadMapStyleFn(),
       loadParticipantsScreenFn({ data: { occasionId: params.occasionId } }),
     ]);
-    return { styleUrl, screen };
+    return {
+      styleUrl,
+      screen,
+      ...(screen.kind === "ready" ? { viewerTitle: screen.occasionName } : {}),
+    };
   },
-  head: ({ match, params }) => {
+  head: ({ match, params, loaderData }) => {
     const config = match.context?.config;
-    if (!config) return { meta: [{ title: "参加店舗マップ — Lunt" }] };
+    const title =
+      loaderData?.screen.kind === "ready"
+        ? `${loaderData.screen.occasionName}の参加店舗マップ — Lunt`
+        : "参加店舗マップ — Lunt";
+    if (!config) return { meta: [{ title }] };
     const { meta, links } = buildHead(config, {
-      title: "参加店舗マップ — Lunt",
+      title,
       path: `/events/${encodeURIComponent(params.occasionId)}/map`,
     });
     return { meta, links };
