@@ -81,6 +81,8 @@ type BoardMemory = Readonly<{
 
 const boardMemory = entryMemory<BoardMemory>();
 
+const REGION_URL_CLEARED = { mapRegionUrlCleared: true } as const;
+
 const regionIdOf = (selection: MapSelection): string | null =>
   selection.kind === "region" ? selection.regionId : null;
 
@@ -179,6 +181,27 @@ export function MapBoard({
       extentKey: appliedExtent.current,
     });
   });
+
+  // The URL names the region DT-03 opened the map with only while it is
+  // selected, so that reloading after 選択をやめる does not select it
+  // again. Masked, not navigated: the region stays in the route's
+  // location, so the loader does not re-read and the map stays where it is.
+  // The history state mark makes the router commit the masked entry (it
+  // skips a location equal to the current one).
+  const urlRegion = useRef(regionId);
+  useEffect(() => {
+    const opened = urlRegion.current;
+    if (opened === null) return;
+    if (selection.kind === "region" && selection.regionId === opened) return;
+    urlRegion.current = null;
+    void navigate({
+      to: "/map",
+      search: { area, cat, region: opened },
+      state: (previous) => Object.assign({}, previous, REGION_URL_CLEARED),
+      mask: { to: "/map", search: { area, cat }, unmaskOnReload: true },
+      replace: true,
+    });
+  }, [selection, navigate, area, cat]);
 
   const runRead = useCallback((target: ReadTarget) => {
     const seq = ++readSeq.current;
