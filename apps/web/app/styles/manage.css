@@ -570,6 +570,11 @@
     border-color: var(--focus);
   }
 
+  /* What is scrolled into view (focus, in-page links, a control brought up)
+     stops above the dock instead of under it (`ManageDock` measures it). */
+  :root:has(.m-dock) {
+    scroll-padding-bottom: var(--m-dock-height, 0px);
+  }
   .m-dock {
     position: sticky;
     bottom: 0;
@@ -872,6 +877,9 @@
   }
 
   @media (min-width: 1024px) {
+    :root:has(.m-dock) {
+      scroll-padding-bottom: 0;
+    }
     .m-app {
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);

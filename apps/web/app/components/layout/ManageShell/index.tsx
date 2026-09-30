@@ -6,6 +6,7 @@ import { HomeLink } from "@/components/ui/HomeLink";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { ManageDock } from "./ManageDock";
 
 // Plain path: the account screens arrive in a later phase, and the router
 // only type-checks literal paths it already knows.
@@ -91,7 +92,7 @@ export function ManagePage({
         {children}
       </main>
       {hasActions || nav !== undefined ? (
-        <div className="m-dock">
+        <ManageDock>
           {hasActions ? (
             <div className="m-actions">
               {actionsNote === undefined ? null : (
@@ -101,7 +102,7 @@ export function ManagePage({
             </div>
           ) : null}
           {nav}
-        </div>
+        </ManageDock>
       ) : null}
     </>
   );
