@@ -42,6 +42,18 @@ export const articleEditPath = (articleId: string): string =>
 export const articlePreviewPath = (articleId: string): string =>
   `${articleEditPath(articleId)}/preview`;
 
+const ARTICLE_SCREEN =
+  /^\/editorial\/articles\/(?!new\/?$)[^/]+(?:\/preview)?\/?$/;
+
+/**
+ * Whether the area's role check stands in front of the screen at
+ * `pathname`. AM-02 and CM-03 of an article leave it to their read,
+ * which answers a missing article with CS-17 before the role's CS-05
+ * (`spec/pages/index.md` CS-17).
+ */
+export const editorialGuardsRole = (pathname: string): boolean =>
+  !ARTICLE_SCREEN.test(pathname);
+
 /** DT-05, a plain path (the viewer area). */
 export const articlePagePath = (articleId: string): string =>
   `/articles/${encodeURIComponent(articleId)}`;

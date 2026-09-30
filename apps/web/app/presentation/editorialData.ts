@@ -1,7 +1,11 @@
 // Server-only: import from server components or server-function handlers
 // (dynamically), never from client components.
 
-import type { ArticleContentFields } from "@repo/core/application/article/articles";
+import type {
+  ArticleContentFields,
+  ShowcaseState,
+  UnviewableShowcase,
+} from "@repo/core/application/article/articles";
 import { createArticle } from "@repo/core/application/article/createArticle";
 import { getArticleForEditing } from "@repo/core/application/article/getArticleForEditing";
 import { listArticlesForEditing } from "@repo/core/application/article/listArticlesForEditing";
@@ -20,7 +24,6 @@ import { Address } from "@repo/core/domain/common/address";
 import { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Pagination } from "@repo/core/domain/common/pagination";
-import { ContentRef, type ShowcaseRef } from "@repo/core/domain/common/refs";
 import { Version } from "@repo/core/domain/common/version";
 import type { SelectionScope } from "@repo/core/domain/discovery/selectionScope";
 import type {
@@ -28,7 +31,6 @@ import type {
   OccasionSummary,
   PlaceSummary,
   RegionSummary,
-  ShowcasePreview,
   ShowcaseSummary,
 } from "@repo/core/domain/discovery/viewProjection";
 import { requireActor } from "./actor";
@@ -267,58 +269,39 @@ function summaryItem(
 }
 
 /**
- * A showcase viewers cannot see. Its name comes from the content
- * directory (the editing read gives only the ref); a target the directory
- * no longer has is deleted.
+ * A showcase viewers cannot see, named by what is still stored of it; one
+ * no longer stored is deleted. No read tells why viewers cannot see it.
  */
-function hiddenItem(
-  ref: ShowcaseRef,
-  name: string | null,
-  exists: boolean,
-): ShowcaseItem {
+function hiddenItem({ ref, stored }: UnviewableShowcase): ShowcaseItem {
   return {
     kind: ref.kind,
     id: ref.id,
-    name,
+    name: stored.exists ? stored.name : null,
     viewable: false,
-    stateText: exists ? "閲覧者が閲覧できない状態です" : "削除されています",
-    badge: { text: exists ? "閲覧できません" : "削除済み", tone: "alert" },
+    stateText: stored.exists
+      ? "閲覧者が閲覧できない状態です"
+      : "削除されています",
+    badge: {
+      text: stored.exists ? "閲覧できません" : "削除済み",
+      tone: "alert",
+    },
     note: "記事に表示されません",
     row: { meta: null, area: null },
     photoUrl: null,
   };
 }
 
-async function hiddenNames(
+function showcaseItems(
   container: RequestContainer,
-  refs: readonly ShowcaseRef[],
-): Promise<ReadonlyMap<string, string | null>> {
-  if (refs.length === 0) return new Map();
-  const described = await container.contentDirectory.describe(
-    refs.slice(0, 100),
-  );
-  return new Map(
-    described.map((summary) => [ContentRef.key(summary.target), summary.name]),
-  );
-}
-
-async function showcaseItems(
-  container: RequestContainer,
-  showcases: readonly ShowcasePreview[],
+  showcases: readonly ShowcaseState[],
   photos: PhotoRefs,
-): Promise<readonly ShowcaseItem[]> {
+): readonly ShowcaseItem[] {
   const today = todayText(container);
-  const names = await hiddenNames(
-    container,
-    showcases.flatMap((showcase) => (showcase.viewable ? [] : [showcase.ref])),
+  return showcases.map((showcase) =>
+    showcase.viewable
+      ? summaryItem(showcase.showcase, photos, today)
+      : hiddenItem(showcase),
   );
-  return showcases.map((showcase) => {
-    if (showcase.viewable) {
-      return summaryItem(showcase.showcase, photos, today);
-    }
-    const key = ContentRef.key(showcase.ref);
-    return hiddenItem(showcase.ref, names.get(key) ?? null, names.has(key));
-  });
 }
 
 // ---------------------------------------------------------------- AM-02
@@ -358,7 +341,7 @@ export async function loadArticleEditor(
       photoId,
       url: urlOf(view.photos, photoId) ?? "",
     })),
-    showcases: await showcaseItems(container, view.showcases, view.photos),
+    showcases: showcaseItems(container, view.showcases, view.photos),
     status: publication.status,
     reason: publication.status === "unpublished" ? publication.reason : null,
     statusText: statusText(article),
@@ -529,11 +512,7 @@ export async function loadArticlePreview(
     input: { articleId },
   });
   const { detail } = output.preview;
-  const showcases = await showcaseItems(
-    container,
-    detail.showcases,
-    output.photos,
-  );
+  const today = todayText(container);
   return {
     articleId,
     status: output.status,
@@ -543,8 +522,12 @@ export async function loadArticlePreview(
       photoId,
       url: urlOf(output.photos, photoId),
     })),
-    shown: showcases.filter((item) => item.viewable),
-    hidden: showcases.filter((item) => !item.viewable),
+    shown: detail.showcases.flatMap((showcase) =>
+      showcase.viewable
+        ? [summaryItem(showcase.showcase, output.photos, today)]
+        : [],
+    ),
+    hidden: output.unviewableShowcases.map(hiddenItem),
     missing: output.missingRequirements,
   };
 }
