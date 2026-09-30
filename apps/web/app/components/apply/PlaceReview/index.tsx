@@ -5,7 +5,7 @@ import { addressText, type PlaceRevisionField } from "@/presentation/applyForm";
 import type { PlaceStateValues } from "@/presentation/applyView";
 import type { PlaceFormValues } from "@/presentation/placeForm";
 import { OPERATING_STATUS_LABEL } from "@/presentation/placeView";
-import { Compared, ReviewPhotos } from "../ApplyParts";
+import { ChangedNote, Compared, ReviewPhotos } from "../ApplyParts";
 
 const orNone = (text: string): string => (text.trim() === "" ? "なし" : text);
 
@@ -59,6 +59,9 @@ const LOCATION_REVIEW_TEXT = "地図で指定済み";
  */
 const LOCATION_CHANGED_REVIEW_TEXT = `${LOCATION_REVIEW_TEXT}（変更あり）`;
 
+/** The input step's 「変更」 note under the map: the position is set anew. */
+const LOCATION_CHANGED_NOTE_TEXT = `${LOCATION_REVIEW_TEXT}（現在の位置から変更）`;
+
 const REGISTRATION_FIELDS = [
   "photos",
   "name",
@@ -107,13 +110,31 @@ export function revisionReviewItems(
   }));
 }
 
-/** The current value a revision's 「変更」 note shows beside a field. */
-export function currentPlaceText(
-  current: PlaceStateValues,
-  field: PlaceRevisionField,
-): ReactNode {
-  const { values } = current;
-  return field === "photos"
-    ? `${values.photos.length}枚`
-    : placeValueText(current, field);
+/**
+ * A revision's 「変更」 note beside a field: the place's current value, or
+ * for the position the design's wording (「地図で指定済み」) with the current
+ * coordinates left to assistive technology.
+ */
+export function PlaceChangedNote({
+  current,
+  field,
+}: {
+  current: PlaceStateValues;
+  field: PlaceRevisionField;
+}) {
+  switch (field) {
+    case "location":
+      return (
+        <ChangedNote>
+          {LOCATION_CHANGED_NOTE_TEXT}
+          <span className="sr-only">
+            （現在の値: {placeValueText(current, field)}）
+          </span>
+        </ChangedNote>
+      );
+    case "photos":
+      return <ChangedNote current={`${current.values.photos.length}枚`} />;
+    default:
+      return <ChangedNote current={placeValueText(current, field)} />;
+  }
 }

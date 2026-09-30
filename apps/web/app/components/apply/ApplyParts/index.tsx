@@ -424,13 +424,25 @@ export function ReplyField({
   );
 }
 
-/** 「変更」 and the current value, after a field a revision changes. */
-export function ChangedNote({ current }: { current: ReactNode }) {
+/**
+ * 「変更」 and the current value, after a field a revision changes; or, for
+ * a value that does not read as text (a position), the `children` that say
+ * it changes.
+ */
+export function ChangedNote(
+  props:
+    | { current: ReactNode; children?: never }
+    | { current?: never; children: ReactNode },
+) {
   return (
     <p className="rq-was">
       <Badge tone="accent">変更</Badge>
       <span>
-        現在の値: <s>{current}</s>
+        {props.children ?? (
+          <>
+            現在の値: <s>{props.current}</s>
+          </>
+        )}
       </span>
     </p>
   );

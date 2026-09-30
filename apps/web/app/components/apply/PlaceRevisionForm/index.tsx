@@ -54,7 +54,6 @@ import { KeepOutcome } from "../ApplyOutcome";
 import {
   ApplyRefused,
   ApplyTitle,
-  ChangedNote,
   type FieldLink,
   ModeNotice,
   ReplyField,
@@ -64,7 +63,7 @@ import {
   SubmitFailureAlert,
   useScrollTopOn,
 } from "../ApplyParts";
-import { currentPlaceText, revisionReviewItems } from "../PlaceReview";
+import { PlaceChangedNote, revisionReviewItems } from "../PlaceReview";
 
 type Errors = Readonly<{ place: PlaceFieldErrors; reply?: string }>;
 
@@ -311,7 +310,7 @@ export function PlaceRevisionForm({ data }: { data: PlaceRevisionFormData }) {
 
   const note = (field: PlaceRevisionField) =>
     changed.includes(field) ? (
-      <ChangedNote current={currentPlaceText(current, field)} />
+      <PlaceChangedNote current={current} field={field} />
     ) : null;
 
   return (
