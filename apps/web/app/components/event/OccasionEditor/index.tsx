@@ -176,16 +176,20 @@ export function OccasionEditor({
       router.clearCache();
       return;
     }
-    setFailure({
-      state,
-      fields: occasionFieldErrors(state),
-      attempt,
-      savedFirst,
-    });
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
       await reconcile();
     }
+    // Set after the reconcile and inside the transition (a set after an
+    // await is not), so CS-08 lands in the commit that shows the event's
+    // current publication and holding state, never the stale copy.
+    const next: Failure = {
+      state,
+      fields: occasionFieldErrors(state),
+      attempt,
+      savedFirst,
+    };
+    startBusy(() => setFailure(next));
   };
 
   const save = () =>
@@ -193,8 +197,8 @@ export function OccasionEditor({
       begin();
       try {
         if (!(await saveValues("save"))) return;
-        setOutcome({ kind: "saved" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "saved" }));
       } catch (error) {
         await fail(error, "save");
       }
@@ -225,8 +229,8 @@ export function OccasionEditor({
         await transitionOccasionFn({
           data: { occasionId: data.occasionId, transition: "publish" },
         });
-        setOutcome({ kind: "published" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "published" }));
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -243,8 +247,8 @@ export function OccasionEditor({
         await transitionOccasionFn({
           data: { occasionId: data.occasionId, transition: kind },
         });
-        setOutcome(done);
         await reconcile();
+        startBusy(() => setOutcome(done));
       } catch (error) {
         await fail(error, kind);
       }

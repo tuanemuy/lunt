@@ -165,12 +165,6 @@ export function ListingEditor({
       router.clearCache();
       return;
     }
-    setFailure({
-      state,
-      fields: listingFieldErrors(state),
-      attempt,
-      savedFirst,
-    });
     if (state.kind === "premiseChanged" || savedFirst) {
       const repick =
         state.kind === "premiseChanged" &&
@@ -188,6 +182,16 @@ export function ListingEditor({
       }
       await reconcile();
     }
+    // Set after the reconcile and inside the transition (a set after an
+    // await is not), so CS-08 lands in the commit that shows the listing's
+    // current state line, never the stale copy.
+    const next: ListingFailure = {
+      state,
+      fields: listingFieldErrors(state),
+      attempt,
+      savedFirst,
+    };
+    startBusy(() => setFailure(next));
   };
 
   const save = () =>
@@ -233,8 +237,8 @@ export function ListingEditor({
         await transitionListingFn({
           data: { listingId: data.id, transition: "publish" },
         });
-        setOutcome({ kind: "published" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "published" }));
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -249,8 +253,8 @@ export function ListingEditor({
         await transitionListingFn({
           data: { listingId: data.id, transition: kind },
         });
-        setOutcome({ kind: "notice", ...NOTICES[kind] });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "notice", ...NOTICES[kind] }));
       } catch (error) {
         await fail(error, "operation");
       }

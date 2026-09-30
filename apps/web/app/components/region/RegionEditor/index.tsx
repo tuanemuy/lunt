@@ -258,11 +258,15 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
       router.clearCache();
       return;
     }
-    setFailure({ state, fields: regionFieldErrors(state), attempt });
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
       await reconcile();
     }
+    // Set after the reconcile and inside the transition (a set after an
+    // await is not), so CS-08's 「現在の公開状態」 and the state line land in
+    // the commit that shows the region as it is now, never the stale copy.
+    const next: Failure = { state, fields: regionFieldErrors(state), attempt };
+    startBusy(() => setFailure(next));
   };
 
   /** Saves the form as it is; the reply's version is the one the next save sends. */
@@ -285,8 +289,8 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
       begin();
       try {
         if (!(await saveValues())) return;
-        setOutcome({ kind: "saved" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "saved" }));
       } catch (error) {
         await fail(error, "save");
       }
@@ -315,8 +319,8 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
         await changeRegionPublicationFn({
           data: { regionId: data.regionId, change: "publish" },
         });
-        setOutcome({ kind: "published" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "published" }));
       } catch (error) {
         await fail(error, "publish", savedFirst);
       }
@@ -330,8 +334,8 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
         await changeRegionPublicationFn({
           data: { regionId: data.regionId, change: "unpublish" },
         });
-        setOutcome({ kind: "unpublished" });
         await reconcile();
+        startBusy(() => setOutcome({ kind: "unpublished" }));
       } catch (error) {
         await fail(error, "unpublish");
       }
