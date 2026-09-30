@@ -40,7 +40,7 @@ describe("editDraft", () => {
     expect(synced.base).toEqual({ name: "after" });
     expect(synced.version).toBe(4);
     expect(synced.resync).toBeNull();
-    expect(syncEditDraft(synced, () => ({ name: "later" }), 5)).toBe(synced);
+    expect(syncEditDraft(synced, () => ({ name: "older" }), 3)).toBe(synced);
   });
 
   it("a state change moves only the version and keeps unsaved values", () => {
@@ -84,9 +84,38 @@ describe("editDraft", () => {
   });
 
   it("a new operation drops a resync still waiting", () => {
-    const following = followDraft(startEditDraft({ name: "before" }, 3));
+    const following = followDraft(
+      typed(startEditDraft({ name: "before" }, 3), "mine"),
+    );
     const settled = settledDraft(following);
     expect(settled.resync).toBeNull();
     expect(syncEditDraft(settled, () => ({ name: "theirs" }), 4)).toBe(settled);
+  });
+
+  it("an unedited form takes a newer loader copy, content and version", () => {
+    // A navigation mounts the form on the cached copy, then the fresh one arrives.
+    const cached = startEditDraft({ name: "before publish" }, 3);
+    const synced = syncEditDraft(cached, () => ({ name: "published" }), 4);
+    expect(synced.values).toEqual({ name: "published" });
+    expect(synced.base).toEqual({ name: "published" });
+    expect(synced.version).toBe(4);
+    expect(isDirty(synced)).toBe(false);
+  });
+
+  it("an unedited form ignores a loader copy that is not newer", () => {
+    const draft = startEditDraft({ name: "current" }, 4);
+    expect(syncEditDraft(draft, () => ({ name: "older" }), 3)).toBe(draft);
+    expect(syncEditDraft(draft, () => ({ name: "same" }), 4)).toBe(draft);
+  });
+
+  it("an edited form keeps its values and version when a newer copy arrives", () => {
+    const edited = typed(startEditDraft({ name: "before" }, 3), "mine");
+    expect(syncEditDraft(edited, () => ({ name: "theirs" }), 4)).toBe(edited);
+  });
+
+  it("after a state change the loader's copy of that version changes nothing", () => {
+    const moved = movedDraft(startEditDraft({ name: "before" }, 3), 4);
+    expect(syncEditDraft(moved, () => ({ name: "before" }), 3)).toBe(moved);
+    expect(syncEditDraft(moved, () => ({ name: "before" }), 4)).toBe(moved);
   });
 });

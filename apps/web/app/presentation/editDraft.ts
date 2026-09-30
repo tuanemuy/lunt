@@ -1,9 +1,9 @@
 import { useState } from "react";
 
 /**
- * An edit form's state against a versioned target (SM-02, SM-04): what the
- * form holds, the content it started from, the version the next save sends,
- * and a pending resync with the loader's copy.
+ * An edit form's state against a versioned target (SM-02, SM-04, AM-02, …):
+ * what the form holds, the content it started from, the version the next
+ * save sends, and a pending resync with the loader's copy.
  *
  * The version the next save sends comes from the server's reply to the
  * editor's own save or state change, never from the loader right after
@@ -11,6 +11,13 @@ import { useState } from "react";
  * the fresh payload (`Deferred` adopts it in the same commit), so reading the
  * loader's data there still sees the copy from before the change. The fresh
  * payload is folded in when it arrives, by `syncEditDraft` during render.
+ *
+ * Without a resync waiting, a loader copy newer than the draft replaces an
+ * unedited form. A navigation shows the route's cached payload first and
+ * swaps in the fresh one without remounting the form, so a form seeded from
+ * the cached copy would otherwise send a version the server has moved past
+ * (a false CS-07). A form with unsaved edits keeps them and its version:
+ * saving them over someone else's change is the conflict CS-07 reports.
  */
 export type EditDraft<V> = Readonly<{
   values: V;
@@ -88,8 +95,9 @@ export const settledDraft = <V>(draft: EditDraft<V>): EditDraft<V> =>
   draft.resync === null ? draft : { ...draft, resync: null };
 
 /**
- * The draft after the loader's copy `fresh` at `version` arrived, or the
- * same draft when no resync waits for it.
+ * The draft after the loader's copy `fresh` at `version` arrived: the
+ * waiting resync applied, or, with none waiting, a newer copy taken by an
+ * unedited form. Otherwise the same draft.
  */
 export function syncEditDraft<V>(
   draft: EditDraft<V>,
@@ -97,7 +105,12 @@ export function syncEditDraft<V>(
   version: number,
 ): EditDraft<V> {
   const { resync } = draft;
-  if (resync === null || version < resync.atLeast) return draft;
+  if (resync === null) {
+    if (version <= draft.version || isDirty(draft)) return draft;
+    const content = fresh();
+    return { values: content, base: content, version, resync: null };
+  }
+  if (version < resync.atLeast) return draft;
   if (resync.mode === "version") return { ...draft, version, resync: null };
   const content = fresh();
   return {
