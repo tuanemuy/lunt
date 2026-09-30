@@ -24,11 +24,13 @@ import {
   pinLayer,
   pinSelected,
   viewportKey,
+  visibleBounds,
 } from "../geometry";
 import { DEFAULT_MAP_STYLE_URL, tintStyle } from "../mapStyle";
 import type {
   LngLat,
   MapBounds,
+  MapClusterZoom,
   MapPickedPoint,
   MapPin,
   MapViewport,
@@ -60,6 +62,11 @@ export type MapCanvasProps = {
    * the pins or presses Escape (選択をやめる). A cluster also zooms in.
    */
   onSelect?: (pin: MapPin | null) => void;
+  /**
+   * Given, a chosen cluster does not zoom at once: the route reads the
+   * range it will show and calls `zoomIn` (the move reports `cluster`).
+   */
+  onClusterZoom?: ((zoom: MapClusterZoom) => void) | undefined;
   /** A short note over the map, e.g. この範囲を探しています (再検索中). */
   status?: string | null | undefined;
   /** Other ways onward shown when the map cannot be drawn (CS-02). */
@@ -123,6 +130,40 @@ function readBounds(bounds: LngLatBounds): MapBounds {
     bounds.getEast(),
     bounds.getNorth(),
   );
+}
+
+/** Where `fitBounds` into a cluster's `extent` will take the map, before it moves. */
+function planFit(
+  map: MapLibreMap | null,
+  extent: MapBounds,
+): Omit<MapClusterZoom, "zoomIn"> | null {
+  if (map === null) return null;
+  const camera = map.cameraForBounds(toLngLatBounds(extent), {
+    padding: FIT_PADDING,
+    maxZoom: CLUSTER_MAX_ZOOM,
+  });
+  const center = camera?.center;
+  if (center === undefined || camera?.zoom === undefined) return null;
+  const point: LngLat = Array.isArray(center)
+    ? { longitude: center[0], latitude: center[1] }
+    : "lng" in center
+      ? { longitude: center.lng, latitude: center.lat }
+      : { longitude: center.lon, latitude: center.lat };
+  const canvas = map.getCanvas();
+  const size = { width: canvas.clientWidth, height: canvas.clientHeight };
+  const zoom = Math.min(camera.zoom, map.getMaxZoom());
+  return { bounds: visibleBounds(point, zoom, size), size };
+}
+
+/**
+ * Folds the compact attribution to its ⓘ button (MapLibre does so on the
+ * first drag only), so that after the viewer's first move or choice it no
+ * longer covers the pins at the bottom edge. It opens again from ⓘ.
+ */
+function collapseAttribution(container: HTMLElement | null): void {
+  container
+    ?.querySelector(".maplibregl-ctrl-attrib.maplibregl-compact-show")
+    ?.classList.remove("maplibregl-compact-show");
 }
 
 async function loadStyle(url: string): Promise<StyleSpecification | string> {
@@ -192,6 +233,7 @@ export function MapCanvas({
   followUserLocation = true,
   onViewportChange,
   onSelect,
+  onClusterZoom,
   status = null,
   unavailableActions,
   onUnavailable,
@@ -218,6 +260,7 @@ export function MapCanvas({
   const latest = useRef({
     onViewportChange,
     onSelect,
+    onClusterZoom,
     onUnavailable,
     debounceMs,
     onPick,
@@ -225,6 +268,7 @@ export function MapCanvas({
   latest.current = {
     onViewportChange,
     onSelect,
+    onClusterZoom,
     onUnavailable,
     debounceMs,
     onPick,
@@ -367,6 +411,7 @@ export function MapCanvas({
       });
       created.on("movestart", (event) => {
         if (event.originalEvent !== undefined) userMove = true;
+        if (loaded) collapseAttribution(container);
       });
       created.on("moveend", () => {
         if (!loaded) return;
@@ -545,11 +590,22 @@ export function MapCanvas({
 
   const choose = useCallback(
     (pin: MapPin) => {
+      collapseAttribution(containerRef.current);
       if (pin.kind === "cluster") {
-        moveTo(
-          { kind: "bounds", bounds: pin.extent, maxZoom: CLUSTER_MAX_ZOOM },
-          "cluster",
-        );
+        const target: MapViewport = {
+          kind: "bounds",
+          bounds: pin.extent,
+          maxZoom: CLUSTER_MAX_ZOOM,
+        };
+        const zoomIn = () => moveTo(target, "cluster");
+        const deferred = latest.current.onClusterZoom;
+        const planned =
+          deferred === undefined ? null : planFit(mapRef.current, pin.extent);
+        if (deferred !== undefined && planned !== null) {
+          deferred({ ...planned, zoomIn });
+        } else {
+          zoomIn();
+        }
       }
       latest.current.onSelect?.(pin);
     },

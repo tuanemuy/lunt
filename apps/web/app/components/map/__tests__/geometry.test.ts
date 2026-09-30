@@ -6,6 +6,7 @@ import {
   pinLayer,
   pinSelected,
   viewportKey,
+  visibleBounds,
 } from "../geometry";
 import type { MapPin } from "../types";
 
@@ -90,5 +91,28 @@ describe("pins", () => {
   it("draw the selected pin above the rest, and places above regions", () => {
     expect(pinLayer(place)).toBeGreaterThan(pinLayer(cluster));
     expect(pinLayer(cluster)).toBeGreaterThan(pinLayer(region));
+  });
+});
+
+describe("visibleBounds", () => {
+  it("spans the whole world's longitudes at zoom 0 on a 512 px map", () => {
+    const bounds = visibleBounds({ latitude: 0, longitude: 0 }, 0, {
+      width: 512,
+      height: 512,
+    });
+    expect(bounds.southWest.longitude).toBeCloseTo(-180);
+    expect(bounds.northEast.longitude).toBeCloseTo(180);
+    expect(bounds.northEast.latitude).toBeCloseTo(85.0511, 3);
+  });
+
+  it("halves the span with each zoom level, around the centre", () => {
+    const size = { width: 400, height: 300 };
+    const wide = visibleBounds(at, 14, size);
+    const near = visibleBounds(at, 15, size);
+    const span = (bounds: typeof wide) =>
+      bounds.northEast.longitude - bounds.southWest.longitude;
+    expect(span(near)).toBeCloseTo(span(wide) / 2);
+    expect(centerOf(near).longitude).toBeCloseTo(at.longitude);
+    expect(centerOf(near).latitude).toBeCloseTo(at.latitude, 3);
   });
 });

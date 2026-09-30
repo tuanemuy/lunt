@@ -42,6 +42,18 @@ export type MapViewportChange = Readonly<{
 }>;
 
 /**
+ * A cluster the viewer chose, before the map zooms into it: the range and
+ * the size the map will show once zoomed, and the zoom itself. A route
+ * that reads the range first (VW-08 keeps the view before the zoom while
+ * reading and on failure) calls `zoomIn` once it has the pins.
+ */
+export type MapClusterZoom = Readonly<{
+  bounds: MapBounds;
+  size: Readonly<{ width: number; height: number }>;
+  zoomIn: () => void;
+}>;
+
+/**
  * While a region is selected (`spec/pages/index.md` 「地図」), its places
  * are drawn as `member` and the others as `other`.
  */

@@ -77,3 +77,31 @@ export function pinLayer(pin: MapPin): number {
   if (pinSelected(pin) === true) return 3;
   return pin.kind === "region" ? 1 : 2;
 }
+
+/** MapLibre's world is 512 CSS pixels wide at zoom 0. */
+const WORLD_SIZE_AT_ZOOM_0 = 512;
+
+/**
+ * The range a map of `size` CSS pixels shows around `center` at `zoom`
+ * (Web Mercator, no rotation or pitch), clamped like `clampBounds`: what
+ * the map will report once it has moved there.
+ */
+export function visibleBounds(
+  center: LngLat,
+  zoom: number,
+  size: Readonly<{ width: number; height: number }>,
+): MapBounds {
+  const world = WORLD_SIZE_AT_ZOOM_0 * 2 ** zoom;
+  const x = ((center.longitude + 180) / 360) * world;
+  const sin = Math.sin((center.latitude * Math.PI) / 180);
+  const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * world;
+  const longitudeAt = (px: number) => (px / world) * 360 - 180;
+  const latitudeAt = (py: number) =>
+    (Math.atan(Math.sinh(Math.PI * (1 - (2 * py) / world))) * 180) / Math.PI;
+  return clampBounds(
+    longitudeAt(x - size.width / 2),
+    latitudeAt(y + size.height / 2),
+    longitudeAt(x + size.width / 2),
+    latitudeAt(y - size.height / 2),
+  );
+}

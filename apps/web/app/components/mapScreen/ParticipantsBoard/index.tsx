@@ -8,6 +8,7 @@ import {
 import { MapCanvas } from "@/components/map/MapCanvas";
 import type {
   LngLat,
+  MapClusterZoom,
   MapPin,
   MapViewport,
   MapViewportChange,
@@ -32,12 +33,18 @@ import {
 
 type Grid = Readonly<{ columns: number; rows: number }>;
 
-/** What a read regroups: the range the map shows and the grid for its size. */
-type ReadTarget = Readonly<{
-  bounds: MapRange;
-  grid: Grid;
-  cause: "open" | "zoom";
-}>;
+/**
+ * What a read regroups: the range the map shows (or, for a zoom, will
+ * show) and the grid for its size. A zoom moves the map only once read.
+ */
+type ReadTarget =
+  | Readonly<{ cause: "open"; bounds: MapRange; grid: Grid }>
+  | Readonly<{
+      cause: "zoom";
+      bounds: MapRange;
+      grid: Grid;
+      zoomIn: () => void;
+    }>;
 
 type ReadState =
   | Readonly<{ kind: "idle" }>
@@ -64,8 +71,9 @@ type ParticipantsBoardProps = {
 /**
  * VW-08 参加店舗マップ (EXP-10): every participant of the occasion from
  * the range holding them all, grouped like VW-04 — and regrouped only on
- * opening and after a cluster's zoom, never on the viewer's own moves.
- * The previous pins stay while a zoom reads (CS-01) or fails (CS-02).
+ * opening and for a cluster's zoom, never on the viewer's own moves.
+ * A zoom reads its range first: the view and pins before it stay while
+ * it reads (CS-01) or when it fails (CS-02), and the map zooms once read.
  * Coming back from a detail finds the range, the pins read so far and
  * the selection as they were (`spec/pages/browse.md` 画面群に共通).
  */
@@ -127,6 +135,7 @@ export function ParticipantsBoard({
                 },
           );
           setState({ kind: "idle" });
+          if (target.cause === "zoom") target.zoomIn();
         })
         .catch(() => {
           if (current === seq.current) setState({ kind: "failed", target });
@@ -138,17 +147,35 @@ export function ParticipantsBoard({
   const onViewportChange = useCallback(
     (change: MapViewportChange) => {
       setCamera({ center: change.center, zoom: change.zoom });
-      if (change.cause !== "initial" && change.cause !== "cluster") return;
+      if (change.cause !== "initial") return;
       if (change.size.width <= 0 || change.size.height <= 0) return;
       // Restored from the memory: the pins read before are shown as they were.
-      if (change.cause === "initial" && remembered !== undefined) return;
+      if (remembered !== undefined) return;
       runRead({
+        cause: "open",
         bounds: change.bounds,
         grid: gridOfSize(change.size),
-        cause: change.cause === "initial" ? "open" : "zoom",
       });
     },
     [runRead, remembered],
+  );
+
+  // The view before the zoom stays while the zoomed range is read (CS-01)
+  // and when the read fails (CS-02); the map zooms in once it has the pins.
+  const onClusterZoom = useCallback(
+    (zoom: MapClusterZoom) => {
+      if (zoom.size.width <= 0 || zoom.size.height <= 0) {
+        zoom.zoomIn();
+        return;
+      }
+      runRead({
+        cause: "zoom",
+        bounds: zoom.bounds,
+        grid: gridOfSize(zoom.size),
+        zoomIn: zoom.zoomIn,
+      });
+    },
+    [runRead],
   );
 
   const onSelect = (pin: MapPin | null) => {
@@ -189,6 +216,7 @@ export function ParticipantsBoard({
           status={status}
           onViewportChange={onViewportChange}
           onSelect={onSelect}
+          onClusterZoom={onClusterZoom}
           unavailableActions={back}
         />
         {state.kind === "failed" ? (
