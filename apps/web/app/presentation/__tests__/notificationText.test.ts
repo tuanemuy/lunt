@@ -28,7 +28,7 @@ const CASES: readonly (readonly [ShowcaseChange, string])[] = [
   ],
   [
     { showcase: listing, change: "place_suspended" },
-    "読みものの紹介先の掲載の店舗が運営による非公開になりました",
+    "読みものの紹介先の掲載の店舗が非公開になりました",
   ],
   [
     { showcase: listing, change: "place_closed" },
@@ -36,7 +36,7 @@ const CASES: readonly (readonly [ShowcaseChange, string])[] = [
   ],
   [
     { showcase: place, change: "suspended" },
-    "読みものの紹介先の店舗が運営による非公開になりました",
+    "読みものの紹介先の店舗が非公開になりました",
   ],
   [
     { showcase: place, change: "closed" },

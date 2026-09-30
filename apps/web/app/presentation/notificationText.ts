@@ -68,11 +68,11 @@ const SHOWCASE_CHANGE_TEXT: {
     unpublished: "掲載が一時非公開になりました",
     deleted: "掲載が削除されました",
     offering_ended: "掲載が提供終了になりました",
-    place_suspended: "掲載の店舗が運営による非公開になりました",
+    place_suspended: "掲載の店舗が非公開になりました",
     place_closed: "掲載の店舗が閉店しました",
   },
   place: {
-    suspended: "店舗が運営による非公開になりました",
+    suspended: "店舗が非公開になりました",
     closed: "店舗が閉店しました",
   },
   region: {
