@@ -59,6 +59,8 @@ type Failure = Readonly<{
   state: ErrorState;
   fields: ArticleFieldErrors;
   attempt: Attempt;
+  /** The publish saved the unsaved changes before it failed. */
+  savedFirst: boolean;
 }>;
 
 type Outcome =
@@ -182,7 +184,7 @@ function FailureAlert({
         >
           {unmet
             ? attempt === "publish"
-              ? "公開には、タイトル・写真・本文が必要です。次の項目が足りません。保存した内容は、公開していない状態のまま残っています。"
+              ? `公開には、タイトル・写真・本文が必要です。次の項目が足りません。${failure.savedFirst ? "保存した内容は、公開していない状態のまま残っています。" : ""}`
               : "公開中の読みものは、タイトル・写真・本文が揃った内容だけを保存できます。次の項目を直すか、先に公開を取り下げてから保存してください。"
             : Object.keys(fields).length === 0
               ? state.message
@@ -289,6 +291,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
       state,
       fields: articleFieldErrors(state, draftRef.current.values),
       attempt,
+      savedFirst,
     };
     startBusy(() => {
       setConfirming(false);
