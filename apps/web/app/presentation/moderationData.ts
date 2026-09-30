@@ -6,6 +6,7 @@ import { listApplicationsForSubject } from "@repo/core/application/application/l
 import { viewMembers } from "@repo/core/application/authority/viewMembers";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
+import { readArticle } from "@repo/core/application/discovery/readArticle";
 import { viewListing } from "@repo/core/application/discovery/viewListing";
 import { viewOccasion } from "@repo/core/application/discovery/viewOccasion";
 import { viewPlace } from "@repo/core/application/discovery/viewPlace";
@@ -23,7 +24,7 @@ import { getManagedPlace } from "@repo/core/application/place/getManagedPlace";
 import { getManagedRegion } from "@repo/core/application/region/getManagedRegion";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
-import type { PlaceId } from "@repo/core/domain/common/ids";
+import { ArticleId, type PlaceId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { ContentRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
@@ -62,7 +63,13 @@ import { requireOperator } from "./operatorAccess";
 import { OPERATING_STATUS_LABEL, placeStateText } from "./placeView";
 import { regionStateText } from "./regionView";
 import { inboxApplicationRow } from "./subjectApplications";
-import { listingIdOf, occasionIdOf, placeIdOf, regionIdOf } from "./targetIds";
+import {
+  listingIdOf,
+  occasionIdOf,
+  parseTargetId,
+  placeIdOf,
+  regionIdOf,
+} from "./targetIds";
 
 async function actorAndContainer() {
   const container = await getContainer();
@@ -229,7 +236,40 @@ async function viewOccasionTarget(
   };
 }
 
-/** RQ-07 (no login): a store, listing, region or event viewers can see. */
+/** RQ-07's article (DT-05) as viewers read it, or `null` when it is not published. */
+async function viewArticleTarget(
+  container: RequestContainer,
+  id: string,
+): Promise<ViewedClaimTarget | null> {
+  const output = await orNull(
+    readArticle({
+      container,
+      input: {
+        articleId: parseTargetId(ArticleId.create, id, "ARTICLE_NOT_FOUND"),
+      },
+    }),
+  );
+  if (output === null) return null;
+  const { article, photos } = output;
+  const [cover] = article.photos;
+  return {
+    target: {
+      kind: "article",
+      id: article.articleId,
+      name: article.title,
+      meta: "読みもの",
+      sub: null,
+      photoUrl:
+        cover === undefined ? null : (photos[cover.photoId]?.url ?? null),
+    },
+    photos: article.photos.map(({ photoId }) => ({
+      photoId,
+      url: photos[photoId]?.url ?? null,
+    })),
+  };
+}
+
+/** RQ-07 (no login): a store, listing, region, event or article viewers can see. */
 export async function loadTakedownPage(
   kind: string,
   id: string,
@@ -241,7 +281,9 @@ export async function loadTakedownPage(
       ? await viewRegionTarget(container, id)
       : kind === "occasion"
         ? await viewOccasionTarget(container, id)
-        : await viewTarget(container, kind, id);
+        : kind === "article"
+          ? await viewArticleTarget(container, id)
+          : await viewTarget(container, kind, id);
   if (viewed === null) return { kind: "unavailable" };
   return { kind: "form", target: viewed.target, photos: viewed.photos };
 }
@@ -445,7 +487,18 @@ async function claimTargetState(
       };
     }
     case "article":
-      return { state: { kind: "gone" }, placeName: null };
+      // An article has no suspension, and the operators have no read of
+      // its publication: OM-04 tells it apart only as viewable (公開中) or
+      // not (下書き・公開の取り下げ), which is what the screen states.
+      return {
+        state: {
+          kind: "present",
+          viewable,
+          stateText: viewable ? "公開中" : "未公開（下書き・公開の取り下げ）",
+          suspended: false,
+        },
+        placeName: null,
+      };
   }
 }
 

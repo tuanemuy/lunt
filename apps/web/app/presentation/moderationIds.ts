@@ -1,6 +1,7 @@
 // Server-only: import from server-function handlers (dynamically) or
 // server-only loaders, never from components.
 import {
+  ArticleId,
   InfoReportId,
   ListingId,
   OccasionId,
@@ -23,6 +24,8 @@ export function contentRefOf(kind: TakedownTargetKind, id: string): ContentRef {
       return { kind: "region", id: RegionId.create(id) };
     case "occasion":
       return { kind: "occasion", id: OccasionId.create(id) };
+    case "article":
+      return { kind: "article", id: ArticleId.create(id) };
   }
 }
 

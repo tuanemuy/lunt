@@ -19,15 +19,13 @@ export type ReportTargetKind = (typeof REPORT_TARGET_KINDS)[number];
 export const isReportTargetKind = (kind: string): kind is ReportTargetKind =>
   (REPORT_TARGET_KINDS as readonly string[]).includes(kind);
 
-/**
- * The targets a takedown claim can name in this stage (DT-01〜DT-04;
- * RQ-07). Articles (DT-05) join with their stage.
- */
+/** The targets a takedown claim can name (DT-01〜DT-05; RQ-07). */
 export const TAKEDOWN_TARGET_KINDS = [
   "place",
   "listing",
   "region",
   "occasion",
+  "article",
 ] as const;
 export type TakedownTargetKind = (typeof TAKEDOWN_TARGET_KINDS)[number];
 
@@ -46,7 +44,7 @@ const takedownTargetField = z.object({
   id: idField,
 });
 
-/** DT-01〜DT-04 of a target, a plain path (another area). */
+/** DT-01〜DT-05 of a target, a plain path (another area). */
 export function detailPath(kind: TakedownTargetKind, id: string): string {
   const segment = encodeURIComponent(id);
   switch (kind) {
@@ -58,6 +56,8 @@ export function detailPath(kind: TakedownTargetKind, id: string): string {
       return `/regions/${segment}`;
     case "occasion":
       return `/events/${segment}`;
+    case "article":
+      return `/articles/${segment}`;
   }
 }
 
@@ -79,7 +79,7 @@ export type ReportTargetRow<K extends TakedownTargetKind = ReportTargetKind> =
     kind: K;
     id: string;
     name: string;
-    /** 掲載 · 食べる, 店舗, 地域, イベント · 10月10日〜10月12日 */
+    /** 掲載 · 食べる, 店舗, 地域, イベント · 10月10日〜10月12日, 読みもの */
     meta: string;
     /** The listing's store, the store's or region's address, the event's region. */
     sub: string | null;
@@ -348,7 +348,7 @@ export type TakedownClaimData = Readonly<{
   status: "open" | "resolved";
   standing: ClaimantStandingValue;
   target: Readonly<{
-    kind: "place" | "listing" | "region" | "occasion" | "article";
+    kind: TakedownTargetKind;
     id: string;
     /** `null` when gone. */
     name: string | null;

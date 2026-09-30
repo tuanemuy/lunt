@@ -110,8 +110,8 @@ const FIELD_ANCHORS = [
 ] as const;
 
 /**
- * Whether a claimant may stand as the proprietor: a region or an event
- * takes photo rights holders only (RQ-07, from DT-03・DT-04), so the
+ * Whether a claimant may stand as the proprietor: a region, an event or an
+ * article takes photo rights holders only (RQ-07, from DT-03〜DT-05), so the
  * proprietor is shown but cannot be chosen and the rights holder starts
  * chosen.
  */
@@ -127,6 +127,8 @@ function standingHelp(kind: TakedownTargetRow["kind"]): string {
     case "region":
     case "occasion":
       return "地域・イベントは、写真の権利者として申し立てます。店舗本人は選べません。";
+    case "article":
+      return "読みものは、写真の権利者として申し立てます。店舗本人は選べません。";
   }
 }
 

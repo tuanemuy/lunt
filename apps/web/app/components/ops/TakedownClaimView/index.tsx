@@ -46,10 +46,21 @@ const KIND_LABEL = {
 
 type TargetKind = TakedownClaimData["target"]["kind"];
 
-/** The claim's target as the operations name it; articles join in S5. */
+/** The claim's target as the operations name it. */
 const operableTarget = (
   target: TakedownClaimData["target"],
-): Readonly<{ kind: TakedownTargetKind; id: string }> | null =>
+): Readonly<{ kind: TakedownTargetKind; id: string }> => ({
+  kind: target.kind,
+  id: target.id,
+});
+
+/** OM-03's kinds: every target but an article (OM-03 「読みものは対象にしない」). */
+const subjectOf = (
+  target: TakedownClaimData["target"],
+): Readonly<{
+  kind: Exclude<TakedownTargetKind, "article">;
+  id: string;
+}> | null =>
   target.kind === "article" ? null : { kind: target.kind, id: target.id };
 
 /** The word for a publication that lost its last photo (CF-08). */
@@ -137,6 +148,7 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
   const targetName = data.target.name ?? "（削除された対象）";
   const kindLabel = KIND_LABEL[data.target.kind];
   const operable = operableTarget(data.target);
+  const subject = subjectOf(data.target);
   const alreadyResolvedElsewhere =
     (photoOutcome?.kind === "failed" &&
       photoOutcome.error.code === CODE_ALREADY_RESOLVED) ||
@@ -145,7 +157,6 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
 
   const removeConfirmed = (photoId: string) => {
     const index = photos.findIndex((photo) => photo.photoId === photoId);
-    if (operable === null) return;
     setConfirmingPhoto(null);
     setPhotoOutcome(null);
     setOutcomeMissing(false);
@@ -221,7 +232,9 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
       ? "写真がなくなっても、店舗は公開を続けます"
       : data.target.kind === "listing"
         ? "写真がなくなるため、掲載は一時非公開になります。運営による非公開の間の掲載も同じです"
-        : `写真がなくなるため、${kindLabel}は公開の取り下げになります。運営による非公開の間の${kindLabel}も同じです`;
+        : data.target.kind === "article"
+          ? "写真がなくなるため、公開中の読みものは公開の取り下げになります"
+          : `写真がなくなるため、${kindLabel}は公開の取り下げになります。運営による非公開の間の${kindLabel}も同じです`;
 
   return (
     <ManagePage
@@ -421,28 +434,30 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
           ) : null}
           {gone ? null : (
             <LinkList>
-              {targetState.kind === "present" &&
-              targetState.viewable &&
-              operable !== null ? (
+              {targetState.kind === "present" && targetState.viewable ? (
                 <li>
                   <ListRowLink
                     to={detailPath(operable.kind, operable.id)}
-                    title={`閲覧者に見える${kindLabel}詳細`}
+                    title={
+                      operable.kind === "article"
+                        ? "閲覧者に見える記事"
+                        : `閲覧者に見える${kindLabel}詳細`
+                    }
                     meta={targetName}
                   />
                 </li>
               ) : null}
-              {operable !== null ? (
+              {subject !== null ? (
                 <li>
                   <ListRowLink
                     to="/ops/subjects/$kind/$id"
-                    params={{ kind: operable.kind, id: operable.id }}
+                    params={{ kind: subject.kind, id: subject.id }}
                     title="対象の運営"
                     meta={
                       data.standing === "proprietor"
                         ? "店舗本人の申立ては、掲載・店舗を非公開にしてから対応を終えられます"
-                        : operable.kind === "region" ||
-                            operable.kind === "occasion"
+                        : subject.kind === "region" ||
+                            subject.kind === "occasion"
                           ? `${kindLabel}の運営による非公開は、対象の運営で行います`
                           : "掲載と店舗の非公開は、対象の運営で行います"
                     }
