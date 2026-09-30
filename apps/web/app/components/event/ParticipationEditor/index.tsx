@@ -645,7 +645,7 @@ function ParticipationEditor({
               tone="paper"
               title="開催期間の外の参加日があります"
             >
-              {`開催期間は${period === null ? "決まっていません" : periodText(period)}です。開催期間の外になった参加日は、閲覧者に表示されていません。外してから保存できます。`}
+              {`${period === null ? "開催期間は決まっていません" : `開催期間は${periodText(period)}です`}。開催期間の外になった参加日は、閲覧者に表示されていません。外してから保存できます。`}
             </Notice>
           </div>
         ) : null}
