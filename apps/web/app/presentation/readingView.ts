@@ -134,11 +134,6 @@ export type ArticleDetailData = Readonly<{
   showcases: readonly ShowcaseItem[];
 }>;
 
-/** DT-05's screen: the article, or CS-06 when it is not viewable. */
-export type ArticleScreen =
-  | Readonly<{ kind: "ready"; article: ArticleDetailData }>
-  | Readonly<{ kind: "unavailable" }>;
-
 export function toArticleDetailData(
   output: ReadArticleOutput,
   today: string,

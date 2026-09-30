@@ -5,13 +5,12 @@ import { listArticles } from "@repo/core/application/discovery/listArticles";
 import { listArticlesShowcasing } from "@repo/core/application/discovery/listArticlesShowcasing";
 import { readArticle } from "@repo/core/application/discovery/readArticle";
 import { todayOf } from "@repo/core/application/discovery/views";
-import { NotFoundError } from "@repo/core/application/errors";
 import { ArticleId } from "@repo/core/domain/common/ids";
 import { ShowcaseRef } from "@repo/core/domain/common/refs";
 import {
   ARTICLE_SECTION_PAGE_SIZE,
   ARTICLES_PAGE_SIZE,
-  type ArticleScreen,
+  type ArticleDetailData,
   type ArticlesPage,
   type ShowcaseTarget,
   toArticleDetailData,
@@ -29,27 +28,18 @@ export async function loadArticlesPage(page: number): Promise<ArticlesPage> {
 }
 
 /**
- * DT-05's screen. An article that is a draft, unpublished or missing is
- * CS-06, told apart here because an error thrown inside the streamed
- * render reaches the browser redacted.
+ * DT-05's article. `NotFoundError` (`ARTICLE_NOT_FOUND`) when it is a
+ * draft, unpublished or missing: the route answers CS-06 with HTTP 404.
  */
-export async function loadArticleScreen(
+export async function loadArticleDetail(
   articleId: string,
-): Promise<ArticleScreen> {
+): Promise<ArticleDetailData> {
   const container = await getContainer();
-  try {
-    const output = await readArticle({
-      container,
-      input: { articleId: ArticleId.create(articleId) },
-    });
-    return {
-      kind: "ready",
-      article: toArticleDetailData(output, todayOf(container)),
-    };
-  } catch (error) {
-    if (error instanceof NotFoundError) return { kind: "unavailable" };
-    throw error;
-  }
+  const output = await readArticle({
+    container,
+    input: { articleId: ArticleId.create(articleId) },
+  });
+  return toArticleDetailData(output, todayOf(container));
 }
 
 /**

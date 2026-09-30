@@ -20,16 +20,18 @@ export function ArticlesSkeleton() {
   );
 }
 
-/** DT-05's CS-01: the cover, the title and the first lines of the body. */
+/** DT-05's CS-01 (the route's pending view): the cover, the title and the first lines of the body. */
 export function ArticleSkeleton() {
   return (
-    <div className="loading" role="status">
-      <p className="loading__text">読みものを読み込んでいます</p>
-      <Skeleton className="reading-skeleton--photo" />
-      <Skeleton className="reading-skeleton--name" />
-      <Skeleton className="reading-skeleton--line" />
-      <Skeleton className="reading-skeleton--line" />
-      <Skeleton className="reading-skeleton--line-short" />
+    <div className="container article-page">
+      <div className="loading" role="status">
+        <p className="loading__text">読みものを読み込んでいます</p>
+        <Skeleton className="reading-skeleton--photo" />
+        <Skeleton className="reading-skeleton--name" />
+        <Skeleton className="reading-skeleton--line" />
+        <Skeleton className="reading-skeleton--line" />
+        <Skeleton className="reading-skeleton--line-short" />
+      </div>
     </div>
   );
 }

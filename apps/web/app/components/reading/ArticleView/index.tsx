@@ -12,7 +12,6 @@ import { Photo } from "@/components/ui/Photo";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   type ArticleDetailData,
-  type ArticleScreen,
   type ShowcaseItem,
   showcaseItemKey,
 } from "@/presentation/readingView";
@@ -69,7 +68,14 @@ export function ArticleUnavailable() {
   );
 }
 
-function Article({ article }: { article: ArticleDetailData }) {
+/**
+ * DT-05 記事 (`spec/pages/detail.md`): the article's title, photos in
+ * registration order and body as written (line breaks kept), then the
+ * viewable showcased targets in the editor's order (reference scene; the
+ * section is left out without one), the way back to VW-09 and the
+ * takedown claim (RQ-07, 「詳細の手続きの入口」). No save toggle.
+ */
+export function ArticleView({ article }: { article: ArticleDetailData }) {
   const [cover, ...rest] = article.photos;
   return (
     <div className="container article-page">
@@ -140,21 +146,5 @@ function Article({ article }: { article: ArticleDetailData }) {
         </div>
       </article>
     </div>
-  );
-}
-
-/**
- * DT-05 記事 (`spec/pages/detail.md`): the article's title, photos in
- * registration order and body as written (line breaks kept), then the
- * viewable showcased targets in the editor's order (reference scene; the
- * section is left out without one), the way back to VW-09 and the
- * takedown claim (RQ-07, 「詳細の手続きの入口」). No save toggle. An
- * article that is not published is CS-06.
- */
-export function ArticleView({ screen }: { screen: ArticleScreen }) {
-  return screen.kind === "ready" ? (
-    <Article article={screen.article} />
-  ) : (
-    <ArticleUnavailable />
   );
 }

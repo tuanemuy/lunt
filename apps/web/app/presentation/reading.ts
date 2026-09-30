@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 import { PAGINATION_MAX_PAGE } from "./pagination";
-import { type ArticlesPage, SHOWCASE_KINDS } from "./readingView";
+import {
+  type ArticleDetailData,
+  type ArticlesPage,
+  SHOWCASE_KINDS,
+} from "./readingView";
 import { validateInput } from "./validator";
 
 const idField = z.string().trim().min(1).max(128);
@@ -18,6 +22,19 @@ export const listArticlesFn = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<ArticlesPage> => {
     const { loadArticlesPage } = await import("./readingData");
     return loadArticlesPage(data.page);
+  });
+
+/**
+ * DT-05: the article as viewers read it. `NotFoundError`
+ * (`ARTICLE_NOT_FOUND`) when it is a draft, unpublished or missing — the
+ * route answers CS-06 with HTTP 404 (`orNotFound`).
+ */
+export const loadArticleDetailFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ articleId: idField })))
+  .handler(async ({ data }): Promise<ArticleDetailData> => {
+    const { loadArticleDetail } = await import("./readingData");
+    return loadArticleDetail(data.articleId);
   });
 
 export const showcasingPageSchema = z.object({
