@@ -23,7 +23,6 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import {
   followDraft,
   isDirty,
-  movedDraft,
   reloadDraft,
   savedDraft,
   settledDraft,
@@ -208,10 +207,9 @@ export function OccasionEditor({
           if (!(await saveValues("publish"))) return;
           savedFirst = true;
         }
-        const reply = await transitionOccasionFn({
+        await transitionOccasionFn({
           data: { occasionId: data.occasionId, transition: "publish" },
         });
-        setDraft((current) => movedDraft(current, reply.version));
         setOutcome({ kind: "published" });
         await reconcile();
       } catch (error) {
@@ -227,10 +225,9 @@ export function OccasionEditor({
       setConfirming(null);
       begin();
       try {
-        const reply = await transitionOccasionFn({
+        await transitionOccasionFn({
           data: { occasionId: data.occasionId, transition: kind },
         });
-        setDraft((current) => movedDraft(current, reply.version));
         setOutcome(done);
         await reconcile();
       } catch (error) {

@@ -16,7 +16,6 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import {
   followDraft,
   isDirty,
-  movedDraft,
   reloadDraft,
   savedDraft,
   settledDraft,
@@ -300,10 +299,9 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
           if (!(await saveValues())) return;
           savedFirst = true;
         }
-        const moved = await changeRegionPublicationFn({
+        await changeRegionPublicationFn({
           data: { regionId: data.regionId, change: "publish" },
         });
-        setDraft((current) => movedDraft(current, moved.version));
         setOutcome({ kind: "published" });
         await reconcile();
       } catch (error) {
@@ -316,10 +314,9 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
       setConfirming(false);
       begin();
       try {
-        const moved = await changeRegionPublicationFn({
+        await changeRegionPublicationFn({
           data: { regionId: data.regionId, change: "unpublish" },
         });
-        setDraft((current) => movedDraft(current, moved.version));
         setOutcome({ kind: "unpublished" });
         await reconcile();
       } catch (error) {

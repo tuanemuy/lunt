@@ -6,18 +6,22 @@ import { useState } from "react";
  * save sends, and a pending resync with the loader's copy.
  *
  * The version the next save sends comes from the server's reply to the
- * editor's own save or state change, never from the loader right after
- * `useReconcile()`: the reconcile resolves before the island re-renders with
- * the fresh payload (`Deferred` adopts it in the same commit), so reading the
- * loader's data there still sees the copy from before the change. The fresh
- * payload is folded in when it arrives, by `syncEditDraft` during render.
+ * editor's own save or version-checked change, never from the loader right
+ * after `useReconcile()`: the reconcile resolves before the island
+ * re-renders with the fresh payload (`Deferred` adopts it in the same
+ * commit), so reading the loader's data there still sees the copy from
+ * before the change. The fresh payload is folded in when it arrives, by
+ * `syncEditDraft` during render.
  *
- * Without a resync waiting, a loader copy newer than the draft replaces an
- * unedited form. A navigation shows the route's cached payload first and
- * swaps in the fresh one without remounting the form, so a form seeded from
- * the cached copy would otherwise send a version the server has moved past
- * (a false CS-07). A form with unsaved edits keeps them and its version:
- * saving them over someone else's change is the conflict CS-07 reports.
+ * Without a resync waiting, a loader copy newer than the draft is followed
+ * (`follow`): an unedited form takes its content and version together; an
+ * edited form keeps its values and takes the version only when the content
+ * is still the one it started from. Otherwise the form keeps its version, so
+ * saving the edits over someone else's change is the conflict CS-07 reports.
+ * This covers a navigation, which shows the route's cached payload first and
+ * swaps in the fresh one without remounting the form, and the editor's own
+ * publication changes, which do not check the version: taking their reply's
+ * version alone would let the next save overwrite an edit saved before them.
  */
 export type EditDraft<V> = Readonly<{
   values: V;
@@ -26,7 +30,7 @@ export type EditDraft<V> = Readonly<{
   /**
    * Take the loader's copy once it has reached `atLeast`: its content and
    * version (`restart`), its content unless the form was edited since
-   * (`content`), or only its version (`version`).
+   * (`content`), or follow it as a newer copy (`version`).
    */
   resync: Readonly<{
     mode: "restart" | "content" | "version";
@@ -66,7 +70,12 @@ export const savedDraft = <V>(
   resync: { mode: "content", atLeast: version },
 });
 
-/** The editor's own state change went through at `version`; the content did not change. */
+/**
+ * The editor's own change that the server checked against the draft's
+ * version went through at `version`: the content is still the draft's base,
+ * so only the version moves. After a change that does not check the version
+ * (publication), leave the draft alone: the reconcile's copy is followed.
+ */
 export const movedDraft = <V>(
   draft: EditDraft<V>,
   version: number,
@@ -82,8 +91,8 @@ export const reloadDraft = <V>(draft: EditDraft<V>): EditDraft<V> => ({
 });
 
 /**
- * Keep the unsaved values but follow the loader's version once it moves
- * past the draft (a CS-08 whose change the editor then shows).
+ * Keep the unsaved values and follow the loader's copy once it moves past
+ * the draft (a CS-08 whose change the editor then shows).
  */
 export const followDraft = <V>(draft: EditDraft<V>): EditDraft<V> => ({
   ...draft,
@@ -95,9 +104,25 @@ export const settledDraft = <V>(draft: EditDraft<V>): EditDraft<V> =>
   draft.resync === null ? draft : { ...draft, resync: null };
 
 /**
+ * A newer loader copy: an unedited form takes it whole; an edited one keeps
+ * its values and takes the version only when nobody changed the content.
+ */
+function follow<V>(
+  draft: EditDraft<V>,
+  content: V,
+  version: number,
+): EditDraft<V> {
+  if (!isDirty(draft)) {
+    return { values: content, base: content, version, resync: null };
+  }
+  if (same(content, draft.base)) return { ...draft, version, resync: null };
+  return draft.resync === null ? draft : { ...draft, resync: null };
+}
+
+/**
  * The draft after the loader's copy `fresh` at `version` arrived: the
- * waiting resync applied, or, with none waiting, a newer copy taken by an
- * unedited form. Otherwise the same draft.
+ * waiting resync applied, or, with none waiting, a newer copy followed.
+ * Otherwise the same draft.
  */
 export function syncEditDraft<V>(
   draft: EditDraft<V>,
@@ -106,12 +131,10 @@ export function syncEditDraft<V>(
 ): EditDraft<V> {
   const { resync } = draft;
   if (resync === null) {
-    if (version <= draft.version || isDirty(draft)) return draft;
-    const content = fresh();
-    return { values: content, base: content, version, resync: null };
+    return version <= draft.version ? draft : follow(draft, fresh(), version);
   }
   if (version < resync.atLeast) return draft;
-  if (resync.mode === "version") return { ...draft, version, resync: null };
+  if (resync.mode === "version") return follow(draft, fresh(), version);
   const content = fresh();
   return {
     values:

@@ -27,7 +27,7 @@ describe("useEditDraft", () => {
     expect(draft.values).toEqual({ name: "published" });
   });
 
-  it("keeps the user's edits and their version when a newer copy arrives", () => {
+  it("keeps the user's edits and their version when a newer copy changed the content", () => {
     const { result, rerender } = renderDraft({ version: 3, name: "before" });
     act(() => {
       const [, setDraft] = result.current;
@@ -37,6 +37,36 @@ describe("useEditDraft", () => {
     const [draft] = result.current;
     expect(draft.version).toBe(3);
     expect(draft.values).toEqual({ name: "mine" });
+  });
+
+  it("after an unchecked publish, shows the content someone saved before it", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "before" });
+    // Someone saves (4), then this editor publishes (5); the reconcile brings 5.
+    rerender({ data: { version: 5, name: "theirs" } });
+    expect(result.current[0].version).toBe(5);
+    expect(result.current[0].values).toEqual({ name: "theirs" });
+  });
+
+  it("with edits made before an unchecked publish, keeps the old version so the next save conflicts", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "before" });
+    act(() => {
+      const [, setDraft] = result.current;
+      setDraft((draft) => ({ ...draft, values: { name: "mine" } }));
+    });
+    rerender({ data: { version: 5, name: "theirs" } });
+    expect(result.current[0].version).toBe(3);
+    expect(result.current[0].values).toEqual({ name: "mine" });
+  });
+
+  it("with edits, takes the version of a publish that changed no content", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "before" });
+    act(() => {
+      const [, setDraft] = result.current;
+      setDraft((draft) => ({ ...draft, values: { name: "mine" } }));
+    });
+    rerender({ data: { version: 4, name: "before" } });
+    expect(result.current[0].version).toBe(4);
+    expect(result.current[0].values).toEqual({ name: "mine" });
   });
 
   it("after its own save, keeps the reply's version over the older loader copy", () => {

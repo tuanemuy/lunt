@@ -21,7 +21,6 @@ import { TextLink } from "@/components/ui/TextButton";
 import {
   followDraft,
   isDirty,
-  movedDraft,
   reloadDraft,
   savedDraft,
   settledDraft,
@@ -148,10 +147,6 @@ export function ListingEditor({
     });
     setDraft((current) => savedDraft(current, submitted, saved.version));
   };
-  const moved = (reply: Readonly<{ version: number }> | null) => {
-    if (reply !== null)
-      setDraft((current) => movedDraft(current, reply.version));
-  };
 
   const fail = async (
     error: unknown,
@@ -229,11 +224,9 @@ export function ListingEditor({
           await saveValues();
           savedFirst = true;
         }
-        moved(
-          await transitionListingFn({
-            data: { listingId: data.id, transition: "publish" },
-          }),
-        );
+        await transitionListingFn({
+          data: { listingId: data.id, transition: "publish" },
+        });
         setOutcome({ kind: "published" });
         await reconcile();
       } catch (error) {
@@ -247,11 +240,9 @@ export function ListingEditor({
       begin();
       setOutcome(null);
       try {
-        moved(
-          await transitionListingFn({
-            data: { listingId: data.id, transition: kind },
-          }),
-        );
+        await transitionListingFn({
+          data: { listingId: data.id, transition: kind },
+        });
         setOutcome({ kind: "notice", ...NOTICES[kind] });
         await reconcile();
       } catch (error) {

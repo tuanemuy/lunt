@@ -53,10 +53,9 @@ describe("editDraft", () => {
 
   it("a save then a publish ends at the publish's version with the saved content", () => {
     const edited = typed(startEditDraft({ name: "before" }, 3), "after");
-    const published = movedDraft(savedDraft(edited, { name: "after" }, 4), 5);
-    expect(published.version).toBe(5);
-    expect(published.values).toEqual({ name: "after" });
-    const synced = syncEditDraft(published, () => ({ name: "after" }), 5);
+    const saved = savedDraft(edited, { name: "after" }, 4);
+    // The publish does not check the version; its reply leaves the draft alone.
+    const synced = syncEditDraft(saved, () => ({ name: "after" }), 5);
     expect(synced.version).toBe(5);
     expect(isDirty(synced)).toBe(false);
   });
@@ -74,13 +73,24 @@ describe("editDraft", () => {
     expect(isDirty(synced)).toBe(false);
   });
 
-  it("following keeps the values and takes the newer version", () => {
+  it("following keeps the values and takes the newer version of unchanged content", () => {
+    const following = followDraft(
+      typed(startEditDraft({ name: "before" }, 3), "mine"),
+    );
+    const synced = syncEditDraft(following, () => ({ name: "before" }), 4);
+    expect(synced.values).toEqual({ name: "mine" });
+    expect(synced.version).toBe(4);
+    expect(synced.resync).toBeNull();
+  });
+
+  it("following keeps the values and the old version when the content changed", () => {
     const following = followDraft(
       typed(startEditDraft({ name: "before" }, 3), "mine"),
     );
     const synced = syncEditDraft(following, () => ({ name: "theirs" }), 4);
     expect(synced.values).toEqual({ name: "mine" });
-    expect(synced.version).toBe(4);
+    expect(synced.version).toBe(3);
+    expect(synced.resync).toBeNull();
   });
 
   it("a new operation drops a resync still waiting", () => {
@@ -108,9 +118,26 @@ describe("editDraft", () => {
     expect(syncEditDraft(draft, () => ({ name: "same" }), 4)).toBe(draft);
   });
 
-  it("an edited form keeps its values and version when a newer copy arrives", () => {
+  it("an edited form keeps its values and version when a newer copy changed the content", () => {
     const edited = typed(startEditDraft({ name: "before" }, 3), "mine");
     expect(syncEditDraft(edited, () => ({ name: "theirs" }), 4)).toBe(edited);
+  });
+
+  it("an edited form takes a newer version whose content is unchanged", () => {
+    const edited = typed(startEditDraft({ name: "before" }, 3), "mine");
+    const synced = syncEditDraft(edited, () => ({ name: "before" }), 4);
+    expect(synced.values).toEqual({ name: "mine" });
+    expect(synced.version).toBe(4);
+    expect(isDirty(synced)).toBe(true);
+  });
+
+  it("after an unchecked state change, an unedited form takes someone else's earlier save with the new version", () => {
+    // Loaded at 3; someone saves (4); the editor publishes (5, no version check).
+    const loaded = startEditDraft({ name: "before" }, 3);
+    const synced = syncEditDraft(loaded, () => ({ name: "theirs" }), 5);
+    expect(synced.values).toEqual({ name: "theirs" });
+    expect(synced.base).toEqual({ name: "theirs" });
+    expect(synced.version).toBe(5);
   });
 
   it("after a state change the loader's copy of that version changes nothing", () => {

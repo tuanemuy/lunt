@@ -14,7 +14,6 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import {
   followDraft,
   isDirty,
-  movedDraft,
   reloadDraft,
   savedDraft,
   settledDraft,
@@ -298,10 +297,9 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
           await saveValues();
           savedFirst = true;
         }
-        const moved = await changeArticlePublicationFn({
+        await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "publish" },
         });
-        setDraft((current) => movedDraft(current, moved.version));
         setOutcome({
           kind: "published",
           title: articleTitleText(draftRef.current.values.title.trim() || null),
@@ -317,10 +315,9 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
       setConfirming(false);
       begin();
       try {
-        const moved = await changeArticlePublicationFn({
+        await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "unpublish" },
         });
-        setDraft((current) => movedDraft(current, moved.version));
         setOutcome({ kind: "unpublished", title });
         await reconcile();
       } catch (error) {
