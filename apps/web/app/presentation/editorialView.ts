@@ -238,6 +238,25 @@ export const articleFormValuesOf = (
   showcases: data.showcases,
 });
 
+/**
+ * The form's values with each linked showcase as the loader's latest copy
+ * shows it. A showcase's state and viewability change without anyone
+ * saving the article, so an edited form must not keep showing the ones it
+ * started from; one picked since the last save keeps its candidate row.
+ */
+export function withCurrentShowcases(
+  values: ArticleFormValues,
+  current: readonly ShowcaseItem[],
+): ArticleFormValues {
+  const byKey = new Map(current.map((item) => [showcaseKey(item), item]));
+  return {
+    ...values,
+    showcases: values.showcases.map(
+      (item) => byKey.get(showcaseKey(item)) ?? item,
+    ),
+  };
+}
+
 /** The content the transport takes (`createArticleFn`, `reviseArticleFn`). */
 export type ArticleContentPayload = Readonly<{
   title: string;

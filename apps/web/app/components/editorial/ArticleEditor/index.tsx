@@ -37,6 +37,7 @@ import {
   EDITORIAL_HOME,
   missingOf,
   toArticleContent,
+  withCurrentShowcases,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { useReconcile } from "@/presentation/reconcile";
@@ -229,10 +230,14 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
     strict: false,
     select: (search) => search.created === true,
   });
-  const [draft, setDraft] = useEditDraft(data, articleFormValuesOf);
+  const [draft, setDraft] = useEditDraft(
+    data,
+    articleFormValuesOf,
+    toArticleContent,
+  );
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const { values } = draft;
+  const values = withCurrentShowcases(draft.values, data.showcases);
   const dirty = isDirty(draft);
   const [outcome, setOutcome] = useState<Outcome | null>(
     created ? { kind: "saved" } : null,
