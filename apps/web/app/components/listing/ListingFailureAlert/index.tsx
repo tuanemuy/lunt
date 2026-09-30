@@ -26,6 +26,11 @@ type ListingFailureAlertProps = {
   placeId: string;
   /** An operator standing in for an absent steward (CS-15 on `forbidden`). */
   proxy: boolean;
+  /**
+   * 一時非公開 is offered, so a published listing's save that lacks the
+   * publish conditions may point to it (not while 運営による非公開, CF-08).
+   */
+  unpublishable?: boolean;
   /** 最新の内容を読み直す (CS-07). */
   onReload: () => void;
   /** もう一度 (CS-02): resubmits the form or reruns the operation. */
@@ -74,6 +79,7 @@ function FailureAlert({
   failure,
   placeId,
   proxy,
+  unpublishable = true,
   onReload,
   retry,
   busy,
@@ -155,7 +161,9 @@ function FailureAlert({
         {unmet
           ? attempt === "publish"
             ? `写真・名称・カテゴリーは、掲載を公開するための条件です。次の項目を直してください。${failure.savedFirst === true ? "内容は保存しました。" : ""}`
-            : "公開中の掲載は、写真・名称・カテゴリーの公開の条件を満たす内容だけを保存できます。次の項目を直すか、先に一時非公開にしてから保存してください。"
+            : unpublishable
+              ? "公開中の掲載は、写真・名称・カテゴリーの公開の条件を満たす内容だけを保存できます。次の項目を直すか、先に一時非公開にしてから保存してください。"
+              : "公開中の掲載は、写真・名称・カテゴリーの公開の条件を満たす内容だけを保存できます。次の項目を直してください。"
           : listed.length === 0
             ? state.message
             : "次の項目を直してください。"}

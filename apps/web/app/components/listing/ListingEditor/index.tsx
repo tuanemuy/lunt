@@ -540,6 +540,7 @@ export function ListingEditor({
             failure={failure}
             placeId={data.place.id}
             proxy={proxy}
+            unpublishable={!data.suspended}
             busy={busy}
             onReload={() =>
               startBusy(async () => {
