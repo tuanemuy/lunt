@@ -253,7 +253,8 @@ function photoSource(
     : { src: ref.url, framing: toFraming(framing) };
 }
 
-function listingCard(
+/** A listing card of a summary, worded against `today`. */
+export function listingCard(
   summary: ListingSummary,
   refs: PhotoRefs,
   today: string,
@@ -341,7 +342,8 @@ function occasionRow(
   };
 }
 
-function placeRow(summary: PlaceSummary, refs: PhotoRefs): PlaceRowItem {
+/** A place row of a summary. */
+export function placeRow(summary: PlaceSummary, refs: PhotoRefs): PlaceRowItem {
   return {
     placeId: summary.placeId,
     name: summary.name,

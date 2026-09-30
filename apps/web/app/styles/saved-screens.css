@@ -1,0 +1,127 @@
+/*
+  The save toggle (CF-04) on DT-01 / DT-02 and the cards, and VW-10 保存,
+  after the 「保存の操作」 and 「VW-10 保存（画面固有）」 blocks of
+  spec/design/pages.
+*/
+@layer components {
+  /* CF-04: in the top-right corner of the DetailHero photo and of a card */
+  .hero__media .save-button,
+  .card .save-button {
+    position: absolute;
+    top: var(--space-8);
+    right: var(--space-8);
+  }
+  /* A place without photos: the toggle at the end of the name's line */
+  .hero__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-12);
+  }
+  .save-button[aria-busy="true"] {
+    cursor: progress;
+  }
+  /* A card's failed save or removal (CS-02), under the card */
+  .save-failure {
+    margin-top: var(--space-4);
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--focus);
+  }
+
+  /* VW-10 (29 保存: 縦 gap 24・padding 21, DiscoverCard 2 列 + ContentRow) */
+  .saved {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding-block: var(--space-21);
+  }
+  .saved__title {
+    font-family: var(--font-display);
+    font-size: var(--text-page);
+    line-height: var(--leading-page);
+    letter-spacing: var(--tracking-display);
+    color: var(--ink);
+  }
+  .saved-list {
+    list-style: none;
+  }
+  .saved-list > .saved-list__wide {
+    grid-column: 1 / -1;
+  }
+
+  /* A place: ContentRow 21:165 + the toggle */
+  .saved-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+  .saved-row .content-row {
+    flex: 1;
+  }
+  .saved-row--removed .content-row__photo img {
+    opacity: 0.55;
+  }
+
+  /* A save that is not viewable: neither its name nor its photo */
+  .card--unavailable .card__photo,
+  .saved-row--unavailable .content-row__photo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+  }
+  .card__unavailable-icon {
+    opacity: 0.4;
+  }
+  .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .card__note {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--muted);
+  }
+
+  /* Removed here: stays in its row until the screen is opened again */
+  .card--removed .card__photo img {
+    opacity: 0.55;
+  }
+  .card__removed {
+    font-size: var(--text-small);
+    line-height: var(--leading-small);
+    color: var(--secondary);
+    font-weight: var(--weight-medium);
+  }
+
+  .list-end {
+    padding-block: var(--space-8);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .saved-skeleton {
+    width: 100%;
+  }
+  .saved-skeleton__card {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .saved-skeleton__name {
+    width: 120px;
+    height: 24px;
+  }
+
+  @media (min-width: 1024px) {
+    .saved {
+      padding-block: var(--space-32) var(--space-0);
+    }
+    .saved-list > .saved-list__row {
+      grid-column: span 2;
+    }
+  }
+}

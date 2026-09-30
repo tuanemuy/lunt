@@ -1,3 +1,10 @@
+"use client";
+
+import {
+  SaveButton,
+  SaveFailureNotice,
+  useSaveToggle,
+} from "@/components/bookmark/SaveToggle";
 import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -7,6 +14,7 @@ import {
   type ListingDetailData,
   listingHeroOf,
 } from "@/presentation/detailView";
+import type { SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { ListingCards } from "../ListingCard";
 import { ListingHeroText } from "../ListingHero";
@@ -36,7 +44,7 @@ function PlaceNotice({ data }: { data: ListingDetailData }) {
  * 「詳細の手続きの入口」 of DT-01 (`spec/pages/index.md`): the revision
  * application (RQ-04) for a listing of a place without a steward, the
  * report (RQ-08) for one with a steward, and the takedown claim (RQ-07)
- * always. The save toggle (CF-04) joins with its stage.
+ * always. The save toggle (CF-04) sits on the hero photo.
  */
 function ListingProcedures({ data }: { data: ListingDetailData }) {
   const { listingId } = data;
@@ -72,17 +80,33 @@ function ListingProcedures({ data }: { data: ListingDetailData }) {
  * listing is attached to (DT-04, discovery scene) and the other listings
  * (discovery scene). A section with nothing to show is left out
  * (「対象が1件もない区分は、区分ごと表示しない」); articles have none before
- * their stage. The procedures close it (`ListingProcedures`).
+ * their stage. The save toggle (CF-04) sits on the hero photo, and its
+ * failure under the hero text; the procedures close it
+ * (`ListingProcedures`).
  */
-export function ListingDetail({ data }: { data: ListingDetailData }) {
+export function ListingDetail({
+  data,
+  saveState,
+}: {
+  data: ListingDetailData;
+  saveState: SaveState;
+}) {
   const { offering, place } = data;
   const hasOthers = data.otherListings.length > 0;
+  const save = useSaveToggle({
+    target: { kind: "listing", id: data.listingId },
+    saveState,
+  });
   return (
     <div className="container detail-page">
       <div className="detail detail--split">
-        <DetailPhotos photos={data.photos} />
+        <DetailPhotos
+          photos={data.photos}
+          overlay={<SaveButton state={save} label="この掲載を保存" />}
+        />
         <div className="detail__main">
           <ListingHeroText hero={listingHeroOf(data)} />
+          <SaveFailureNotice state={save} />
 
           {offering.phase === "ended" ? (
             <Notice

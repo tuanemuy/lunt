@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
+import { deviceMerger } from "@/presentation/deviceSaveStore";
 import { devSignInFn } from "@/presentation/devSession";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 
@@ -24,6 +25,7 @@ export function DevSignInForm({ next }: { next: string | undefined }) {
         const result = await devSignInFn({
           data: { email, ...(next === undefined ? {} : { next }) },
         });
+        await deviceMerger.merge();
         await router.invalidate({ sync: true });
         router.history.push(result.next);
         return { email, error: null };

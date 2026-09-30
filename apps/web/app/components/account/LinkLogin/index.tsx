@@ -13,6 +13,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { deviceMerger } from "@/presentation/deviceSaveStore";
 import { classifyError } from "@/presentation/errorState";
 import { completeLoginByLinkFn } from "@/presentation/login";
 import {
@@ -52,6 +53,7 @@ export function LinkLogin({ token }: { token: string | undefined }) {
         });
         rememberLoginReturn(undefined);
         setState({ kind: "success" });
+        await deviceMerger.merge();
         await router.invalidate({ sync: true });
         router.history.replace(result.next);
       } catch (error) {

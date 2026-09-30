@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Photo } from "@/components/ui/Photo";
 import type { DetailPhoto } from "@/presentation/detailView";
 
@@ -6,9 +7,17 @@ const HERO_RATIO = 348 / 290;
 /**
  * The DetailHero photo and, after it, the rest in registration order
  * (「写真は、登録された順にすべて見られる」). The first is the cover. A place
- * without photos shows none (`spec/pages/index.md` 「公開中の対象の状態」).
+ * without photos shows none (`spec/pages/index.md` 「公開中の対象の状態」),
+ * nor its `overlay`: the screen places that itself.
  */
-export function DetailPhotos({ photos }: { photos: readonly DetailPhoto[] }) {
+export function DetailPhotos({
+  photos,
+  overlay,
+}: {
+  photos: readonly DetailPhoto[];
+  /** Drawn over the cover's top-right corner. */
+  overlay?: ReactNode;
+}) {
   const [cover, ...rest] = photos;
   if (cover === undefined) return null;
   return (
@@ -21,6 +30,7 @@ export function DetailPhotos({ photos }: { photos: readonly DetailPhoto[] }) {
           className="hero__photo"
           priority
         />
+        {overlay}
       </div>
       {rest.length === 0 ? null : (
         <ul className="detail-gallery" aria-label="ほかの写真">

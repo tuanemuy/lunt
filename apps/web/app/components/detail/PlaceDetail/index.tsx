@@ -1,3 +1,10 @@
+"use client";
+
+import {
+  SaveButton,
+  SaveFailureNotice,
+  useSaveToggle,
+} from "@/components/bookmark/SaveToggle";
 import { ButtonLink } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -8,6 +15,7 @@ import { infoReportPath, takedownPath } from "@/presentation/applyView";
 import type { PlaceDetailPage } from "@/presentation/detail";
 import type { PlaceDetailData } from "@/presentation/detailView";
 import { OPERATING_STATUS_TEXT } from "@/presentation/placeView";
+import type { SaveState } from "@/presentation/savedView";
 import { DetailPhotos } from "../DetailPhotos";
 import { OccasionRows, RegionRows } from "../RelatedRows";
 import { PlaceListings } from "./PlaceListings";
@@ -79,7 +87,7 @@ function PlaceMap({ data }: { data: PlaceDetailData }) {
  * applications of a place without a steward (RQ-02, RQ-04) or the report
  * for one with a steward (RQ-08) — the affiliation and leave application
  * (RQ-05) among the former; the takedown claim (RQ-07) always. The save
- * toggle (CF-04, stage 4) joins with its stage.
+ * toggle (CF-04) sits on the hero photo.
  */
 function PlaceProcedures({ data }: { data: PlaceDetailData }) {
   const { placeId } = data;
@@ -142,16 +150,35 @@ function PlaceProcedures({ data }: { data: PlaceDetailData }) {
  * have none before their stage. The procedures close it
  * (`PlaceProcedures`).
  */
-export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
+export function PlaceDetail({
+  page,
+  saveState,
+}: {
+  page: PlaceDetailPage;
+  saveState: SaveState;
+}) {
   const { place: data, listings } = page;
   const [displayed] = data.regions;
+  const save = useSaveToggle({
+    target: { kind: "place", id: data.placeId },
+    saveState,
+  });
+  const saveButton = <SaveButton state={save} label="このお店を保存" />;
+  const hasPhotos = data.photos.length > 0;
   return (
     <div className="container detail-page">
       <div className="detail detail--split">
-        <DetailPhotos photos={data.photos} />
+        <DetailPhotos photos={data.photos} overlay={saveButton} />
         <div className="detail__main">
           <div className="hero__text">
-            <h1 className="hero__name">{data.name}</h1>
+            {hasPhotos ? (
+              <h1 className="hero__name">{data.name}</h1>
+            ) : (
+              <div className="hero__title-row">
+                <h1 className="hero__name">{data.name}</h1>
+                {saveButton}
+              </div>
+            )}
             {displayed === undefined ? null : (
               <p className="hero__place">{displayed.name}</p>
             )}
@@ -166,6 +193,8 @@ export function PlaceDetail({ page }: { page: PlaceDetailPage }) {
               <p className="hero__description">{data.description}</p>
             )}
           </div>
+
+          <SaveFailureNotice state={save} />
 
           <OperatingNotice data={data} />
 

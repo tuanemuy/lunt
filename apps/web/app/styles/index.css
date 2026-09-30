@@ -15,6 +15,7 @@
 @import "./application-screens.css";
 @import "./moderation-screens.css";
 @import "./event-screens.css";
+@import "./saved-screens.css";
 @import "./map.css";
 
 /* The browser's default 250ms cross-fade makes the skeleton → content reveal

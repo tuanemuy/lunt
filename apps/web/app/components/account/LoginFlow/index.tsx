@@ -21,6 +21,7 @@ import { Field, Input } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
 import { TextButton } from "@/components/ui/TextButton";
+import { deviceMerger } from "@/presentation/deviceSaveStore";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
   completeLoginByCodeFn,
@@ -412,6 +413,7 @@ function CodeStep({
         });
         rememberLoginReturn(undefined);
         onSuccess();
+        await deviceMerger.merge();
         await router.invalidate({ sync: true });
         router.history.push(result.next);
         return { code, error: null };
