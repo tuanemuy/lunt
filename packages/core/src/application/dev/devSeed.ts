@@ -4,17 +4,23 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import {
   type AccountId,
+  ArticleId,
   type CategoryId,
   InvitationId,
   ListingId,
-  type OccasionId,
+  OccasionId,
   PhotoId,
   PlaceId,
   RegionId,
 } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
-import type { StewardedRef } from "@repo/core/domain/common/refs";
+import type { ShowcaseKind, StewardedRef } from "@repo/core/domain/common/refs";
 import type { OfferingInput } from "@repo/core/domain/listing/content";
+import type { ArticleContentFields, ShowcaseInput } from "../article/articles";
+import { createArticle } from "../article/createArticle";
+import { publishArticle } from "../article/publishArticle";
+import { reviseArticle } from "../article/reviseArticle";
+import { unpublishArticle } from "../article/unpublishArticle";
 import { acceptInvitation } from "../authority/acceptInvitation";
 import { establishFirstOperator } from "../authority/establishFirstOperator";
 import { grantRole } from "../authority/grantRole";
@@ -225,10 +231,53 @@ export type SeedOccasion = SeedContent &
  */
 export type SeedPlaceListing = SeedListing & Readonly<{ place: string }>;
 
+/** A showcased target (紹介先), by the key of one of the fixture's (or `onto`'s) targets. */
+export type SeedShowcase =
+  | Readonly<{ listing: string }>
+  | Readonly<{ place: string }>
+  | Readonly<{ region: string }>
+  | Readonly<{ occasion: string }>;
+
+/** Article content; a field left out is empty on create and kept on a revision. */
+type SeedArticleContent = Readonly<{
+  title?: string | null | undefined;
+  body?: string | null | undefined;
+  /** Photo labels; each becomes a new photo registered by the editor who saves it. */
+  photos?: readonly string[] | undefined;
+  /** In display order. */
+  showcases?: readonly SeedShowcase[] | undefined;
+}>;
+
+/** A save by `reviseArticle` after the article reached its publication (before an unpublication). */
+export type SeedArticleRevision = SeedArticleContent &
+  Readonly<{
+    /** An editor; default: the article's `by`. */
+    by?: string | undefined;
+  }>;
+
+/**
+ * An article (読みもの), created after everything else (so creating it
+ * notifies nobody and later states of its showcases do not notify its
+ * editors), in the order listed — which is the order of first publication:
+ * - `draft`: saved by `createArticle`, never published.
+ * - `published`: then published by `publishArticle`.
+ * - `unpublished`: published, then unpublished by `unpublishArticle` once
+ *   every article is in place.
+ */
+export type SeedArticle = SeedArticleContent &
+  Readonly<{
+    key: string;
+    /** The editor (in `accounts`, holding the editor role) who creates, publishes and unpublishes it. */
+    by: string;
+    state: SeedPublication;
+    revisions?: readonly SeedArticleRevision[] | undefined;
+  }>;
+
 /**
  * An environment an earlier seed filled, to seed more into (a test case's
- * additional listings, a volume of places): nothing is opened, the
- * categories are the active ones, and the listed deletions come first.
+ * additional listings or articles, a volume of places): nothing is opened,
+ * the categories are the active ones, and the listed deletions and
+ * unpublications come first.
  */
 export type SeedOnto = Readonly<{
   /** A current operator's address (in `accounts`); acts where the first operator would. */
@@ -237,9 +286,17 @@ export type SeedOnto = Readonly<{
   places?: Readonly<Record<string, string>> | undefined;
   /** Keys of regions that exist, with their ids, usable wherever a region key is. */
   regions?: Readonly<Record<string, string>> | undefined;
+  /** Keys of listings that exist, with their ids, usable as showcases. */
+  listings?: Readonly<Record<string, string>> | undefined;
+  /** Keys of occasions that exist, with their ids, usable as showcases. */
+  occasions?: Readonly<Record<string, string>> | undefined;
   /** Listings to delete, each by `by` (in `accounts`) or else the operator. */
   deleteListings?:
     | readonly Readonly<{ id: string; by?: string | undefined }>[]
+    | undefined;
+  /** Published articles to unpublish, each by `by` (an editor in `accounts`). */
+  unpublishArticles?:
+    | readonly Readonly<{ id: string; by: string }>[]
     | undefined;
 }>;
 
@@ -251,6 +308,7 @@ type SeedContents = Readonly<{
   regions?: readonly SeedRegion[] | undefined;
   affiliations?: readonly SeedAffiliation[] | undefined;
   occasions?: readonly SeedOccasion[] | undefined;
+  articles?: readonly SeedArticle[] | undefined;
 }>;
 
 /**
@@ -261,7 +319,8 @@ type SeedContents = Readonly<{
  * participations. The states that would stand in the way of later steps
  * (unpublished, ended or suspended listings, suspended places, unpublished
  * or suspended regions, cancelled, unpublished or suspended occasions,
- * detached region links) are applied last.
+ * detached region links) are applied after those, then the occasions
+ * already over are recorded, and the articles come last.
  */
 export type SeedFixture = SeedContents &
   (
@@ -292,6 +351,7 @@ export type DevSeedResult = Readonly<{
   listings: Readonly<Record<string, ListingId>>;
   regions: Readonly<Record<string, RegionId>>;
   occasions: Readonly<Record<string, OccasionId>>;
+  articles: Readonly<Record<string, ArticleId>>;
 }>;
 
 type Accounts = Map<string, AccountId>;
@@ -345,7 +405,7 @@ function strictlyIncreasing(clock: Clock): Clock {
 function lookup<T>(
   ids: Readonly<Record<string, T>>,
   key: string,
-  kind: "PLACE" | "LISTING" | "REGION",
+  kind: "PLACE" | "LISTING" | "REGION" | "OCCASION",
   known: Readonly<Record<string, T>> = {},
 ): T {
   const id = ids[key] ?? known[key];
@@ -367,8 +427,10 @@ function lookup<T>(
  * create, go through the development paths that do what their approval
  * will (`devEstablishAffiliation`, `devEstablishParticipation`). Photos
  * are generated (`seedPhotoPng`) and registered with consent by the
- * account that uses them. Ends with a run of `recordEndedOccasions`, as
- * the daily job would have recorded the occasions already over. Not
+ * account that uses them. Then a run of `recordEndedOccasions`, as the
+ * daily job would have recorded the occasions already over, and last the
+ * articles through the editors' own usecases (`createArticle`,
+ * `publishArticle`, `reviseArticle`, `unpublishArticle`). Not
  * idempotent: run it once on an empty state, then only with `onto` (which
  * opens nothing and refers to what the earlier run answered). Refused
  * unless the development tools are on.
@@ -406,6 +468,8 @@ export async function devSeed({
 
   const knownPlaces: Record<string, PlaceId> = {};
   const knownRegions: Record<string, RegionId> = {};
+  const knownListings: Record<string, ListingId> = {};
+  const knownOccasions: Record<string, OccasionId> = {};
   let operator: Actor;
   let categories: Record<string, CategoryId>;
   if (input.onto === undefined) {
@@ -439,11 +503,24 @@ export async function devSeed({
     for (const [key, id] of Object.entries(onto.regions ?? {})) {
       knownRegions[key] = RegionId.create(id);
     }
+    for (const [key, id] of Object.entries(onto.listings ?? {})) {
+      knownListings[key] = ListingId.create(id);
+    }
+    for (const [key, id] of Object.entries(onto.occasions ?? {})) {
+      knownOccasions[key] = OccasionId.create(id);
+    }
     for (const listing of onto.deleteListings ?? []) {
       await deleteListing({
         container,
         actor: listing.by === undefined ? operator : actorOf(listing.by),
         input: { listingId: ListingId.create(listing.id) },
+      });
+    }
+    for (const article of onto.unpublishArticles ?? []) {
+      await unpublishArticle({
+        container,
+        actor: actorOf(article.by),
+        input: { articleId: ArticleId.create(article.id) },
       });
     }
     categories = Object.fromEntries(
@@ -808,7 +885,7 @@ export async function devSeed({
         occasionId: occasion.id,
         placeId,
         listingIds: (participation.listings ?? []).map((key) =>
-          lookup(listings, key, "LISTING"),
+          lookup(listings, key, "LISTING", knownListings),
         ),
         dates: (participation.dates ?? []).map((day) =>
           LocalDate.parse(resolveDate(day, today)),
@@ -847,6 +924,99 @@ export async function devSeed({
     await recordEndedOccasions(container, container.clock.now());
   }
 
+  /** The showcase's id as a caller names it (`ShowcaseInput`): one the generator minted. */
+  const showcaseInput = (showcase: SeedShowcase): ShowcaseInput => {
+    const target = (): Readonly<{ kind: ShowcaseKind; id: string }> => {
+      if ("listing" in showcase) {
+        const key = showcase.listing;
+        return {
+          kind: "listing",
+          id: lookup(listings, key, "LISTING", knownListings),
+        };
+      }
+      if ("place" in showcase) {
+        const key = showcase.place;
+        return { kind: "place", id: lookup(places, key, "PLACE", knownPlaces) };
+      }
+      if ("region" in showcase) {
+        const key = showcase.region;
+        return {
+          kind: "region",
+          id: lookup(regions, key, "REGION", knownRegions),
+        };
+      }
+      const key = showcase.occasion;
+      return {
+        kind: "occasion",
+        id: lookup(occasions, key, "OCCASION", knownOccasions),
+      };
+    };
+    const { kind, id } = target();
+    const generated = container.idGenerator.parse(id);
+    if (generated === null) {
+      throw new NotFoundError(
+        "SEED_SHOWCASE_ID_INVALID",
+        `${kind} ${id} is not an id the generator mints`,
+      );
+    }
+    return { kind, id: generated };
+  };
+  const articleContent = async (
+    fixture: SeedArticleContent,
+    by: Actor,
+    kept: ArticleContentFields,
+  ): Promise<ArticleContentFields> => ({
+    title: fixture.title === undefined ? kept.title : (fixture.title ?? ""),
+    body: fixture.body === undefined ? kept.body : (fixture.body ?? ""),
+    photoIds:
+      fixture.photos === undefined
+        ? kept.photoIds
+        : await newPhotos(fixture.photos, by),
+    showcases:
+      fixture.showcases === undefined
+        ? kept.showcases
+        : fixture.showcases.map(showcaseInput),
+  });
+
+  const articles: Record<string, ArticleId> = {};
+  const unpublishing: (() => Promise<unknown>)[] = [];
+  for (const fixture of input.articles ?? []) {
+    const by = actorOf(fixture.by);
+    let content = await articleContent(fixture, by, {
+      title: "",
+      body: "",
+      photoIds: [],
+      showcases: [],
+    });
+    const { article: created } = await createArticle({
+      container,
+      actor: by,
+      input: { articleId: container.idGenerator.next(), content },
+    });
+    articles[fixture.key] = created.id;
+    const ref = { articleId: created.id };
+    let version =
+      fixture.state === "draft"
+        ? created.version
+        : (await publishArticle({ container, actor: by, input: ref })).version;
+    for (const revision of fixture.revisions ?? []) {
+      const editor = revision.by === undefined ? by : actorOf(revision.by);
+      content = await articleContent(revision, editor, content);
+      const { article: revised } = await reviseArticle({
+        container,
+        actor: editor,
+        input: { ...ref, version, content },
+      });
+      version = revised.version;
+    }
+    if (fixture.state === "unpublished") {
+      unpublishing.push(() =>
+        unpublishArticle({ container, actor: by, input: ref }),
+      );
+    }
+  }
+  for (const step of unpublishing) await step();
+
   return {
     accounts: Object.fromEntries(accounts),
     categories,
@@ -854,6 +1024,7 @@ export async function devSeed({
     listings,
     regions,
     occasions,
+    articles,
   };
 }
 

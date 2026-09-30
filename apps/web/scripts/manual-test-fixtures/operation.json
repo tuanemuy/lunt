@@ -197,5 +197,26 @@
       "photos": ["hozukiichi-1.jpg"],
       "publication": "published"
     }
+  ],
+  "articles": [
+    {
+      "key": "谷中で過ごす休日",
+      "by": "editor1@example.com",
+      "title": "谷中で過ごす休日",
+      "photos": ["kyujitsu.jpg"],
+      "body": "谷中で休日を過ごすためのお店を紹介します",
+      "showcases": [
+        {
+          "listing": "季節のフルーツサンド"
+        }
+      ],
+      "state": "published"
+    },
+    {
+      "key": "根津の古書店めぐり",
+      "by": "editor2@example.com",
+      "title": "根津の古書店めぐり",
+      "state": "draft"
+    }
   ]
 }

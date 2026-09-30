@@ -1,0 +1,165 @@
+{
+  "accounts": [
+    "operator1@example.com",
+    "editor1@example.com",
+    "editor2@example.com",
+    "owner1@example.com",
+    "user2@example.com"
+  ],
+  "operators": ["operator1@example.com"],
+  "editors": ["editor1@example.com", "editor2@example.com"],
+  "places": [
+    {
+      "key": "喫茶ひだまり",
+      "name": "喫茶ひだまり",
+      "address": { "postalCode": "110-0001", "town": "谷中", "rest": "3-2-1" },
+      "location": { "latitude": 35.7255, "longitude": 139.7662 },
+      "members": [{ "appoint": "owner1@example.com" }],
+      "listings": [
+        {
+          "key": "季節のフルーツサンド",
+          "name": "季節のフルーツサンド",
+          "category": "食べる",
+          "photos": ["target-1.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "ブレンドコーヒー",
+          "name": "ブレンドコーヒー",
+          "category": "食べる",
+          "photos": ["target-1.jpg"],
+          "state": "published"
+        },
+        {
+          "key": "冬季限定ぜんざい",
+          "name": "冬季限定ぜんざい",
+          "category": "食べる",
+          "photos": ["target-1.jpg"],
+          "state": "ended"
+        },
+        {
+          "key": "夏限定かき氷",
+          "name": "夏限定かき氷",
+          "category": "食べる",
+          "photos": ["target-1.jpg"],
+          "offering": { "kind": "period", "start": null, "end": "today" },
+          "state": "published"
+        },
+        {
+          "key": "試作のプリン",
+          "name": "試作のプリン",
+          "category": "食べる",
+          "state": "draft"
+        },
+        {
+          "key": "抹茶パフェ",
+          "name": "抹茶パフェ",
+          "category": "食べる",
+          "photos": ["target-1.jpg"],
+          "state": "unpublished"
+        }
+      ]
+    },
+    {
+      "key": "パン工房こむぎ",
+      "name": "パン工房こむぎ",
+      "address": { "postalCode": "110-0001", "town": "谷中", "rest": "3-4-5" },
+      "location": { "latitude": 35.7258, "longitude": 139.7668 },
+      "members": [{ "appoint": "owner1@example.com" }]
+    },
+    {
+      "key": "和菓子まるや",
+      "name": "和菓子まるや",
+      "address": { "postalCode": "110-0005", "town": "上野", "rest": "2-3-4" },
+      "location": { "latitude": 35.7088, "longitude": 139.7735 },
+      "operatingStatus": "permanentlyClosed"
+    }
+  ],
+  "regions": [
+    {
+      "key": "谷中ぶらり",
+      "name": "谷中ぶらり",
+      "address": { "postalCode": "110-0001", "town": "谷中", "rest": "3-13-5" },
+      "location": { "latitude": 35.7265, "longitude": 139.7672 },
+      "photos": ["target-1.jpg"],
+      "publication": "published"
+    },
+    {
+      "key": "上野さくら通り",
+      "name": "上野さくら通り",
+      "address": { "postalCode": "110-0005", "town": "上野", "rest": "4-1-1" },
+      "location": { "latitude": 35.7095, "longitude": 139.7745 },
+      "publication": "draft"
+    },
+    {
+      "key": "根津さんぽ",
+      "name": "根津さんぽ",
+      "address": { "postalCode": "113-0031", "town": "根津", "rest": "1-2-3" },
+      "location": { "latitude": 35.7185, "longitude": 139.7638 },
+      "photos": ["target-1.jpg"],
+      "publication": "unpublished"
+    }
+  ],
+  "occasions": [
+    {
+      "key": "谷中あかりまつり",
+      "name": "谷中あかりまつり",
+      "period": { "start": "today+10", "end": "today+12" },
+      "address": { "postalCode": "110-0001", "town": "谷中", "rest": "3-10-1" },
+      "location": { "latitude": 35.7263, "longitude": 139.767 },
+      "photos": ["target-1.jpg"],
+      "publication": "published"
+    },
+    {
+      "key": "谷中ジャズの夕べ",
+      "name": "谷中ジャズの夕べ",
+      "period": { "start": "today+20", "end": "today+21" },
+      "address": { "postalCode": "110-0001", "town": "谷中", "rest": "3-8-2" },
+      "location": { "latitude": 35.726, "longitude": 139.7665 },
+      "photos": ["target-1.jpg"],
+      "publication": "published",
+      "cancelled": true
+    },
+    {
+      "key": "根津つつじ市",
+      "name": "根津つつじ市",
+      "period": { "start": "today", "end": "today" },
+      "address": { "postalCode": "113-0031", "town": "根津", "rest": "1-28-9" },
+      "location": { "latitude": 35.7195, "longitude": 139.7655 },
+      "photos": ["target-1.jpg"],
+      "publication": "published"
+    }
+  ],
+  "articles": [
+    {
+      "key": "A1",
+      "by": "editor1@example.com",
+      "title": "谷中で過ごす休日",
+      "photos": ["kyujitsu-1.jpg", "kyujitsu-2.jpg"],
+      "body": "谷中の路地を歩いて、喫茶店でひと休み。",
+      "showcases": [
+        { "listing": "季節のフルーツサンド" },
+        { "place": "喫茶ひだまり" },
+        { "place": "パン工房こむぎ" },
+        { "region": "谷中ぶらり" }
+      ],
+      "state": "published"
+    },
+    {
+      "key": "A2",
+      "by": "editor2@example.com",
+      "title": "根津の古書店めぐり",
+      "body": "根津には古書店が点在しています。",
+      "state": "draft"
+    },
+    {
+      "key": "A3",
+      "by": "editor2@example.com",
+      "title": "夏の夜のあかり",
+      "photos": ["akari-photo.jpg"],
+      "body": "灯りに照らされた谷中の夜。",
+      "showcases": [{ "occasion": "谷中あかりまつり" }],
+      "state": "unpublished"
+    }
+  ]
+}

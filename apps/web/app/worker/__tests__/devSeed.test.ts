@@ -137,29 +137,57 @@ describe("handleDevSeedRequest", () => {
     const read = (name: string): unknown =>
       JSON.parse(readFileSync(new URL(name, dir), "utf8"));
 
-    it("is one of the twelve documents' fixtures", () => {
-      expect(files).toHaveLength(12);
+    it("is one of the thirteen documents' fixtures", () => {
+      expect(files).toHaveLength(13);
     });
 
     it.each(
       readdirSync(new URL("sets/", dir)).filter((name) =>
         name.endsWith(".json"),
       ),
-    )("sets/%s adds listings to one of its document's places", (name) => {
-      const places = new Set(
-        seedFixtureSchema.parse(read(name)).places?.map((place) => place.key),
-      );
+    )("sets/%s adds listings or articles onto its document's data", (name) => {
+      const fixture = seedFixtureSchema.parse(read(name));
+      const keys = {
+        place: (fixture.places ?? []).map((place) => place.key),
+        listing: [
+          ...(fixture.places ?? []).flatMap((place) => place.listings ?? []),
+          ...(fixture.listings ?? []),
+        ].map((listing) => listing.key),
+        region: (fixture.regions ?? []).map((region) => region.key),
+        occasion: (fixture.occasions ?? []).map((occasion) => occasion.key),
+      };
       const sets = Object.values(
         read(`sets/${name}`) as Record<
           string,
-          { place: string; by: string; count: number; name: string }
+          | { place: string; by: string; count: number; name: string }
+          | { by: string; articles: unknown[] }
         >,
       );
       expect(sets.length).toBeGreaterThan(0);
       for (const set of sets) {
-        expect(places).toContain(set.place);
-        expect(set.count).toBeLessThanOrEqual(200);
-        expect(set.name).toMatch(/\{n{1,3}\}/);
+        if ("articles" in set) {
+          const onto = seedFixtureSchema.parse({
+            accounts: [set.by],
+            onto: { operator: set.by },
+            articles: set.articles.map((article) => ({
+              ...(article as object),
+              by: set.by,
+            })),
+          });
+          expect("editors" in fixture ? (fixture.editors ?? []) : []).toContain(
+            set.by,
+          );
+          for (const showcase of (onto.articles ?? []).flatMap(
+            (article) => article.showcases ?? [],
+          )) {
+            const [[kind, key] = []] = Object.entries(showcase);
+            expect(keys[kind as keyof typeof keys]).toContain(key);
+          }
+        } else {
+          expect(keys.place).toContain(set.place);
+          expect(set.count).toBeLessThanOrEqual(200);
+          expect(set.name).toMatch(/\{n{1,3}\}/);
+        }
       }
     });
 
@@ -190,6 +218,9 @@ describe("handleDevSeedRequest", () => {
       );
       expect(Object.keys(result.occasions)).toEqual(
         (parsed.data.occasions ?? []).map((occasion) => occasion.key),
+      );
+      expect(Object.keys(result.articles)).toEqual(
+        (parsed.data.articles ?? []).map((article) => article.key),
       );
     });
   });

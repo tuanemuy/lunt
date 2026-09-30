@@ -556,5 +556,67 @@
         }
       ]
     }
+  ],
+  "articles": [
+    {
+      "key": "A1",
+      "by": "editor@example.com",
+      "title": "大手町で朝ごはん",
+      "photos": ["article-A1.jpg"],
+      "body": "朝のモーニングで一日を始めます。",
+      "showcases": [
+        {
+          "occasion": "E1"
+        },
+        {
+          "listing": "L1"
+        },
+        {
+          "region": "R1"
+        },
+        {
+          "place": "S1"
+        }
+      ],
+      "state": "published"
+    },
+    {
+      "key": "A2",
+      "by": "editor@example.com",
+      "title": "銀座の花と歩く",
+      "photos": ["article-A2.jpg"],
+      "body": "花束を抱えて歩く午後。",
+      "showcases": [
+        {
+          "listing": "L3"
+        },
+        {
+          "place": "S2"
+        },
+        {
+          "listing": "L7"
+        },
+        {
+          "place": "S4"
+        },
+        {
+          "occasion": "E3"
+        }
+      ],
+      "state": "published"
+    },
+    {
+      "key": "A3",
+      "by": "editor@example.com",
+      "title": "日本橋の蔵探訪",
+      "photos": ["article-A3.jpg"],
+      "body": "蔵で甘酒をいただきます。",
+      "showcases": [
+        {
+          "place": "S7"
+        }
+      ],
+      "state": "draft"
+    }
   ]
 }

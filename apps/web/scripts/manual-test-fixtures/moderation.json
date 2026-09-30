@@ -250,5 +250,23 @@
         }
       ]
     }
+  ],
+  "articles": [
+    {
+      "key": "谷中で過ごす休日",
+      "by": "editor1@example.com",
+      "title": "谷中で過ごす休日",
+      "photos": ["kyujitsu-1.jpg"],
+      "body": "谷中の路地を歩いて、喫茶店でひと休み。",
+      "showcases": [
+        {
+          "listing": "季節のフルーツサンド"
+        },
+        {
+          "place": "喫茶ひだまり"
+        }
+      ],
+      "state": "published"
+    }
   ]
 }

@@ -5,5 +5,87 @@
     "category": "食べる",
     "name": "テスト用の掲載 X{n}",
     "count": 8
+  },
+  "reads-S1": {
+    "by": "editor@example.com",
+    "articles": [
+      {
+        "key": "朝の喫茶",
+        "title": "朝の喫茶",
+        "photos": ["reads-S1-1.jpg"],
+        "body": "朝の喫茶を紹介します。",
+        "showcases": [
+          {
+            "place": "S1"
+          }
+        ],
+        "state": "published"
+      },
+      {
+        "key": "喫茶の器",
+        "title": "喫茶の器",
+        "photos": ["reads-S1-2.jpg"],
+        "body": "喫茶の器を紹介します。",
+        "showcases": [
+          {
+            "place": "S1"
+          }
+        ],
+        "state": "published"
+      },
+      {
+        "key": "喫茶の常連",
+        "title": "喫茶の常連",
+        "photos": ["reads-S1-3.jpg"],
+        "body": "喫茶の常連を紹介します。",
+        "showcases": [
+          {
+            "place": "S1"
+          }
+        ],
+        "state": "published"
+      }
+    ]
+  },
+  "reads-R1": {
+    "by": "editor@example.com",
+    "articles": [
+      {
+        "key": "大手町の朝",
+        "title": "大手町の朝",
+        "photos": ["reads-R1-1.jpg"],
+        "body": "大手町の朝を紹介します。",
+        "showcases": [
+          {
+            "region": "R1"
+          }
+        ],
+        "state": "published"
+      },
+      {
+        "key": "大手町の路地",
+        "title": "大手町の路地",
+        "photos": ["reads-R1-2.jpg"],
+        "body": "大手町の路地を紹介します。",
+        "showcases": [
+          {
+            "region": "R1"
+          }
+        ],
+        "state": "published"
+      },
+      {
+        "key": "大手町の灯り",
+        "title": "大手町の灯り",
+        "photos": ["reads-R1-3.jpg"],
+        "body": "大手町の灯りを紹介します。",
+        "showcases": [
+          {
+            "region": "R1"
+          }
+        ],
+        "state": "published"
+      }
+    ]
   }
 }

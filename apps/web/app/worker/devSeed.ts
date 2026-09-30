@@ -146,6 +146,36 @@ const occasion = z
   })
   .strict();
 
+const articleContent = {
+  title: z.string().max(200).nullable().optional(),
+  body: z.string().max(25_000).nullable().optional(),
+  photos: labels.optional(),
+  showcases: z
+    .array(
+      z.union([
+        z.object({ listing: key }).strict(),
+        z.object({ place: key }).strict(),
+        z.object({ region: key }).strict(),
+        z.object({ occasion: key }).strict(),
+      ]),
+    )
+    .max(50)
+    .optional(),
+};
+
+const article = z
+  .object({
+    ...articleContent,
+    key,
+    by: email,
+    state: z.enum(["draft", "published", "unpublished"]),
+    revisions: z
+      .array(z.object({ ...articleContent, by: email.optional() }).strict())
+      .max(10)
+      .optional(),
+  })
+  .strict();
+
 const unique = (keys: readonly string[]): boolean =>
   new Set(keys).size === keys.length;
 
@@ -162,6 +192,7 @@ const contents = {
   regions: z.array(region).max(50).optional(),
   affiliations: z.array(affiliation).max(100).optional(),
   occasions: z.array(occasion).max(50).optional(),
+  articles: z.array(article).max(50).optional(),
 };
 
 const fresh = z
@@ -183,9 +214,15 @@ const onto = z
         operator: email,
         places: keyedIds,
         regions: keyedIds,
+        listings: keyedIds,
+        occasions: keyedIds,
         deleteListings: z
           .array(z.object({ id, by: email.optional() }).strict())
           .max(200)
+          .optional(),
+        unpublishArticles: z
+          .array(z.object({ id, by: email }).strict())
+          .max(50)
           .optional(),
       })
       .strict(),
@@ -201,16 +238,21 @@ export const seedFixtureSchema = z.union([fresh, onto]).refine((fixture) => {
       ...Object.keys(("onto" in fixture && fixture.onto.places) || {}),
     ]) &&
     unique([
-      ...places.flatMap((p) => p.listings ?? []).map((l) => l.key),
-      ...(fixture.listings ?? []).map((l) => l.key),
-    ]) &&
-    unique([
       ...(fixture.regions ?? []).map((r) => r.key),
       ...Object.keys(("onto" in fixture && fixture.onto.regions) || {}),
     ]) &&
-    unique((fixture.occasions ?? []).map((o) => o.key))
+    unique([
+      ...places.flatMap((p) => p.listings ?? []).map((l) => l.key),
+      ...(fixture.listings ?? []).map((l) => l.key),
+      ...Object.keys(("onto" in fixture && fixture.onto.listings) || {}),
+    ]) &&
+    unique([
+      ...(fixture.occasions ?? []).map((o) => o.key),
+      ...Object.keys(("onto" in fixture && fixture.onto.occasions) || {}),
+    ]) &&
+    unique((fixture.articles ?? []).map((a) => a.key))
   );
-}, "Place, listing, region and occasion keys must each be unique") satisfies z.ZodType<SeedFixture>;
+}, "Place, listing, region, occasion and article keys must each be unique") satisfies z.ZodType<SeedFixture>;
 
 /**
  * `POST /__dev/seed` — the development tool that seeds a manual-test

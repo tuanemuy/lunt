@@ -3,9 +3,12 @@
 // posts scripts/manual-test-fixtures/<document>.json to POST /__dev/seed
 // (DEV_TOOLS=1, an empty state) and writes the ids it answers to
 // .wrangler/seed-<document>-<port>.json. Onto that seeded state:
-//   ... <document> --add <set>      a listing set of sets/<document>.json
-//   ... <document> --remove <set>   deletes what --add <set> created
+//   ... <document> --add <set>      a listing or article set of sets/<document>.json
+//   ... <document> --remove <set>   deletes the listings (unpublishes the articles) --add <set> created
 //   ... <document> --volume <N>     N more places, each with listings
+// In two steps, for a check made before any article exists:
+//   ... <document> --articles hold  the document without its articles
+//   ... <document> --articles add   then its articles onto that state
 // See docs/manual_test.md.
 import {
   existsSync,
@@ -25,7 +28,7 @@ const documents = readdirSync(fixturesDir)
 
 const usage = () => {
   console.error(
-    `Usage: node apps/web/scripts/seedManualTest.mjs <${documents.join("|")}> [--add <set> | --remove <set> | --volume <N>] [--port 3000]`,
+    `Usage: node apps/web/scripts/seedManualTest.mjs <${documents.join("|")}> [--add <set> | --remove <set> | --volume <N> | --articles <hold|add>] [--port 3000]`,
   );
   process.exit(2);
 };
@@ -46,7 +49,9 @@ for (let i = 0; i < args.length; i++) {
 }
 const port = options.port ?? "3000";
 const [document] = positional;
-const modes = ["add", "remove", "volume"].filter((m) => m in options);
+const modes = ["add", "remove", "volume", "articles"].filter(
+  (m) => m in options,
+);
 const unknown = Object.keys(options).filter(
   (o) => o !== "port" && !modes.includes(o),
 );
@@ -55,7 +60,8 @@ if (
   !documents.includes(document) ||
   positional.length !== 1 ||
   modes.length > 1 ||
-  unknown.length > 0
+  unknown.length > 0 ||
+  ("articles" in options && !["hold", "add"].includes(options.articles))
 ) {
   usage();
 }
@@ -108,6 +114,7 @@ const pages = {
   listings: "listings",
   regions: "regions",
   occasions: "events",
+  articles: "articles",
 };
 const printPages = (ids) => {
   for (const [kind, path] of Object.entries(pages)) {
@@ -118,6 +125,14 @@ const printPages = (ids) => {
 };
 
 const [operator] = fixture.operators;
+// Everything an article may showcase, by the keys the base seed answered.
+const ontoBase = (base) => ({
+  operator,
+  places: base.places ?? {},
+  listings: base.listings ?? {},
+  regions: base.regions ?? {},
+  occasions: base.occasions ?? {},
+});
 
 if ("add" in options || "remove" in options) {
   const name = options.add ?? options.remove;
@@ -131,7 +146,16 @@ if ("add" in options || "remove" in options) {
     process.exit(2);
   }
   const suffix = `-set-${name}`;
-  if ("add" in options) {
+  if ("add" in options && set.articles !== undefined) {
+    const ids = await post({
+      accounts: [operator, set.by],
+      onto: ontoBase(baseIds()),
+      articles: set.articles.map((article) => ({ ...article, by: set.by })),
+    });
+    printPages({ articles: ids.articles });
+    console.log(`${name}: ${Object.keys(ids.articles).length} articles`);
+    save(suffix, { by: set.by, articles: ids.articles });
+  } else if ("add" in options) {
     const base = baseIds();
     const listings = Array.from({ length: set.count }, (_, i) => {
       const n = String(i + 1);
@@ -162,19 +186,21 @@ if ("add" in options || "remove" in options) {
       process.exit(1);
     }
     const added = readJson(file);
+    const articleIds = Object.values(added.articles ?? {});
+    const listingIds = Object.values(added.listings ?? {});
     await post({
       accounts: [operator, added.by],
       onto: {
         operator,
-        deleteListings: Object.values(added.listings).map((id) => ({
-          id,
-          by: added.by,
-        })),
+        deleteListings: listingIds.map((id) => ({ id, by: added.by })),
+        unpublishArticles: articleIds.map((id) => ({ id, by: added.by })),
       },
     });
     rmSync(file);
     console.log(
-      `${name}: deleted ${Object.keys(added.listings).length} listings`,
+      articleIds.length > 0
+        ? `${name}: unpublished ${articleIds.length} articles (articles are never deleted)`
+        : `${name}: deleted ${listingIds.length} listings`,
     );
   }
 } else if ("volume" in options) {
@@ -279,6 +305,22 @@ if ("add" in options || "remove" in options) {
     `volume: ${Object.keys(result.places).length} places, ${Object.keys(result.listings).length} listings, ${affiliations.length} affiliations`,
   );
   save("-volume", result);
+} else if (options.articles === "hold") {
+  const { articles: _held, ...held } = fixture;
+  const ids = await post(held);
+  console.log(JSON.stringify(ids, null, 2));
+  printPages(ids);
+  save("", ids);
+} else if (options.articles === "add") {
+  const base = baseIds();
+  const articles = fixture.articles ?? [];
+  const ids = await post({
+    accounts: [operator, ...new Set(articles.map((article) => article.by))],
+    onto: ontoBase(base),
+    articles,
+  });
+  printPages({ articles: ids.articles });
+  save("", { ...base, articles: ids.articles });
 } else {
   const ids = await post(fixture);
   console.log(JSON.stringify(ids, null, 2));

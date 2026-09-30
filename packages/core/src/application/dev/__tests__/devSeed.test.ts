@@ -1,7 +1,7 @@
 import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { ForbiddenError, NotFoundError } from "@repo/core/application/errors";
-import { ListingId } from "@repo/core/domain/common/ids";
+import { ArticleId, ListingId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import { Pagination } from "@repo/core/domain/common/pagination";
 import { describe, expect, it } from "vitest";
@@ -749,6 +749,149 @@ describe("devSeed (development tool)", () => {
     ).toEqual(["食べる", "買う", "体験", "見る"]);
     const events = (await t.storedEvents()).map((event) => event.type);
     expect(events.filter((type) => type === "listing.deleted")).toHaveLength(1);
+  });
+
+  it("seeds articles last through the editors' usecases, then more onto the same state", async () => {
+    const t = createTestContainer({ start: START });
+    const { container } = t;
+    const first = await devSeed({
+      container,
+      input: {
+        accounts: [
+          "op1@example.com",
+          "ed1@example.com",
+          "ed2@example.com",
+          "owner-x@example.com",
+        ],
+        operators: ["op1@example.com"],
+        editors: ["ed1@example.com", "ed2@example.com"],
+        places: [
+          {
+            key: "P1",
+            name: "喫茶ひだまり",
+            address: AREA,
+            location: NEAR,
+            members: [{ appoint: "owner-x@example.com" }],
+            listings: [
+              {
+                key: "L1",
+                name: "季節のフルーツサンド",
+                category: "食べる",
+                photos: ["sand.jpg"],
+                state: "unpublished",
+              },
+            ],
+          },
+        ],
+        regions: [
+          {
+            key: "R1",
+            name: "谷中ぶらり",
+            address: AREA,
+            location: NEAR,
+            photos: ["yanaka.jpg"],
+            publication: "published",
+          },
+        ],
+        articles: [
+          {
+            key: "A1",
+            by: "ed1@example.com",
+            title: "谷中で過ごす休日",
+            body: "谷中の路地を歩いて、喫茶店でひと休み。",
+            photos: ["kyujitsu-1.jpg", "kyujitsu-2.jpg"],
+            showcases: [{ listing: "L1" }, { place: "P1" }, { region: "R1" }],
+            state: "published",
+          },
+          {
+            key: "A2",
+            by: "ed2@example.com",
+            title: "根津の古書店めぐり",
+            body: "根津には古書店が点在しています。",
+            state: "draft",
+          },
+          {
+            key: "A3",
+            by: "ed2@example.com",
+            title: "夏の夜のあかり",
+            body: "灯り",
+            photos: ["akari-photo.jpg"],
+            state: "unpublished",
+            revisions: [
+              { by: "ed1@example.com", body: "灯りに照らされた谷中の夜。" },
+            ],
+          },
+        ],
+      },
+    });
+    expect(Object.keys(first.articles)).toEqual(["A1", "A2", "A3"]);
+    const stored = (id: string | undefined) =>
+      container.unitOfWorkProvider.run(async (ctx) => {
+        if (id === undefined) throw new Error("no id");
+        return (await ctx.articleRepository.findById(ArticleId.create(id)))
+          ?.entity;
+      });
+    const [a1, a2, a3] = await Promise.all(
+      ["A1", "A2", "A3"].map((key) => stored(first.articles[key])),
+    );
+    expect(a1?.publication.status).toBe("published");
+    expect(a1?.content.photos.items).toHaveLength(2);
+    expect(a1?.content.showcases).toEqual([
+      { kind: "listing", id: first.listings.L1 },
+      { kind: "place", id: first.places.P1 },
+      { kind: "region", id: first.regions.R1 },
+    ]);
+    expect(a2?.publication.status).toBe("draft");
+    expect(a2?.content.photos.items).toEqual([]);
+    expect(a3?.publication.status).toBe("unpublished");
+    expect(a3?.content.body).toBe("灯りに照らされた谷中の夜。");
+    const firstPublished = (article: typeof a1) =>
+      article?.publication.status === "published" ||
+      article?.publication.status === "unpublished"
+        ? (article.publication.firstPublishedAt?.getTime() ?? Number.NaN)
+        : Number.NaN;
+    expect(firstPublished(a1)).toBeLessThan(firstPublished(a3));
+    const L1 = first.listings.L1 ?? "";
+    const listing = await container.unitOfWorkProvider.run((ctx) =>
+      ctx.listingRepository.findById(ListingId.create(L1)),
+    );
+    expect(listing?.entity.publication.status).toBe("unpublished");
+
+    const more = await devSeed({
+      container,
+      input: {
+        accounts: ["op1@example.com", "ed1@example.com"],
+        onto: {
+          operator: "op1@example.com",
+          places: { P1: first.places.P1 ?? "" },
+          listings: { L1 },
+          unpublishArticles: [
+            { id: first.articles.A1 ?? "", by: "ed1@example.com" },
+          ],
+        },
+        articles: [
+          {
+            key: "B1",
+            by: "ed1@example.com",
+            title: "朝の喫茶",
+            body: "朝の喫茶店。",
+            photos: ["asa.jpg"],
+            showcases: [{ place: "P1" }, { listing: "L1" }],
+            state: "published",
+          },
+        ],
+      },
+    });
+    expect(Object.keys(more.articles)).toEqual(["B1"]);
+    expect((await stored(first.articles.A1))?.publication.status).toBe(
+      "unpublished",
+    );
+    const b1 = await stored(more.articles.B1);
+    expect(b1?.publication.status).toBe("published");
+    expect(b1?.content.showcases.map((ref) => ref.id)).toEqual([
+      first.places.P1,
+      L1,
+    ]);
   });
 
   it("refuses a representative region for a place without a steward", async () => {
