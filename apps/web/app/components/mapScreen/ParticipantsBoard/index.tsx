@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  entryMemory,
+  useHistoryEntryKey,
+} from "@/components/explore/entryMemory";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import type {
+  LngLat,
   MapPin,
   MapViewport,
   MapViewportChange,
@@ -39,6 +44,16 @@ type ReadState =
   | Readonly<{ kind: "loading"; target: ReadTarget }>
   | Readonly<{ kind: "failed"; target: ReadTarget }>;
 
+/** What the board had, kept per history entry for the way back from a detail. */
+type BoardMemory = Readonly<{
+  extentKey: string;
+  camera: Readonly<{ center: LngLat; zoom: number }>;
+  read: ParticipantsRead;
+  selection: MapSelection;
+}>;
+
+const boardMemory = entryMemory<BoardMemory>();
+
 type ParticipantsBoardProps = {
   styleUrl: string;
   occasionId: string;
@@ -51,20 +66,44 @@ type ParticipantsBoardProps = {
  * the range holding them all, grouped like VW-04 — and regrouped only on
  * opening and after a cluster's zoom, never on the viewer's own moves.
  * The previous pins stay while a zoom reads (CS-01) or fails (CS-02).
+ * Coming back from a detail finds the range, the pins read so far and
+ * the selection as they were (`spec/pages/browse.md` 画面群に共通).
  */
 export function ParticipantsBoard({
   styleUrl,
   occasionId,
   extent,
 }: ParticipantsBoardProps) {
-  const [viewport] = useState<MapViewport>(() => ({
-    kind: "bounds",
-    bounds: extent,
-  }));
-  const [read, setRead] = useState<ParticipantsRead | null>(null);
+  const entry = useHistoryEntryKey();
+  const extentKey = JSON.stringify(extent);
+  const [remembered] = useState(() => {
+    const kept = boardMemory.recall(entry, "participants");
+    return kept?.extentKey === extentKey ? kept : undefined;
+  });
+  const [viewport] = useState<MapViewport>(() =>
+    remembered === undefined
+      ? { kind: "bounds", bounds: extent }
+      : { kind: "center", ...remembered.camera },
+  );
+  const [read, setRead] = useState<ParticipantsRead | null>(
+    remembered?.read ?? null,
+  );
   const [state, setState] = useState<ReadState>({ kind: "idle" });
-  const [selection, setSelection] = useState<MapSelection>(NO_SELECTION);
+  const [selection, setSelection] = useState<MapSelection>(
+    remembered?.selection ?? NO_SELECTION,
+  );
+  const [camera, setCamera] = useState(remembered?.camera ?? null);
   const seq = useRef(0);
+
+  useEffect(() => {
+    if (camera === null || read === null) return;
+    boardMemory.remember(entry, "participants", {
+      extentKey,
+      camera,
+      read,
+      selection,
+    });
+  }, [entry, extentKey, camera, read, selection]);
 
   const runRead = useCallback(
     (target: ReadTarget) => {
@@ -98,15 +137,18 @@ export function ParticipantsBoard({
 
   const onViewportChange = useCallback(
     (change: MapViewportChange) => {
+      setCamera({ center: change.center, zoom: change.zoom });
       if (change.cause !== "initial" && change.cause !== "cluster") return;
       if (change.size.width <= 0 || change.size.height <= 0) return;
+      // Restored from the memory: the pins read before are shown as they were.
+      if (change.cause === "initial" && remembered !== undefined) return;
       runRead({
         bounds: change.bounds,
         grid: gridOfSize(change.size),
         cause: change.cause === "initial" ? "open" : "zoom",
       });
     },
-    [runRead],
+    [runRead, remembered],
   );
 
   const onSelect = (pin: MapPin | null) => {
