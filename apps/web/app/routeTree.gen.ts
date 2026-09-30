@@ -24,6 +24,7 @@ import { Route as Char91__devChar93ErrorsKindRouteImport } from './routes/[__dev
 import { Route as Char91__devChar93IdpAuthorizeRouteImport } from './routes/[__dev]/idp/authorize'
 import { Route as Char91__devChar93UiIndexRouteImport } from './routes/[__dev]/ui/index'
 import { Route as Char91__devChar93UiManageRouteImport } from './routes/[__dev]/ui/manage'
+import { Route as Char91__devChar93UiMapRouteImport } from './routes/[__dev]/ui/map'
 import { Route as AccountInvitationsInvitationIdRouteImport } from './routes/_account/invitations/$invitationId'
 import { Route as AccountLoginIndexRouteImport } from './routes/_account/login/index'
 import { Route as AccountLoginLinkRouteImport } from './routes/_account/login/link'
@@ -162,6 +163,11 @@ const Char91__devChar93UiManageRoute =
     path: '/__dev/ui/manage',
     getParentRoute: () => rootRouteImport,
   } as any)
+const Char91__devChar93UiMapRoute = Char91__devChar93UiMapRouteImport.update({
+  id: '/__dev/ui/map',
+  path: '/__dev/ui/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AccountInvitationsInvitationIdRoute =
   AccountInvitationsInvitationIdRouteImport.update({
     id: '/invitations/$invitationId',
@@ -518,6 +524,7 @@ export interface FileRoutesByFullPath {
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
@@ -590,6 +597,7 @@ export interface FileRoutesByTo {
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
   '/login/link': typeof AccountLoginLinkRoute
   '/me/notifications': typeof AccountMeNotificationsRoute
@@ -666,6 +674,7 @@ export interface FileRoutesById {
   '/__dev/errors/$kind': typeof Char91__devChar93ErrorsKindRoute
   '/__dev/idp/authorize': typeof Char91__devChar93IdpAuthorizeRoute
   '/__dev/ui/manage': typeof Char91__devChar93UiManageRoute
+  '/__dev/ui/map': typeof Char91__devChar93UiMapRoute
   '/_account/invitations/$invitationId': typeof AccountInvitationsInvitationIdRoute
   '/_account/login/link': typeof AccountLoginLinkRoute
   '/_account/me/notifications': typeof AccountMeNotificationsRoute
@@ -741,6 +750,7 @@ export interface FileRouteTypes {
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/__dev/ui/map'
     | '/invitations/$invitationId'
     | '/login/link'
     | '/me/notifications'
@@ -813,6 +823,7 @@ export interface FileRouteTypes {
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/__dev/ui/map'
     | '/invitations/$invitationId'
     | '/login/link'
     | '/me/notifications'
@@ -888,6 +899,7 @@ export interface FileRouteTypes {
     | '/__dev/errors/$kind'
     | '/__dev/idp/authorize'
     | '/__dev/ui/manage'
+    | '/__dev/ui/map'
     | '/_account/invitations/$invitationId'
     | '/_account/login/link'
     | '/_account/me/notifications'
@@ -965,6 +977,7 @@ export interface RootRouteChildren {
   Char91__devChar93ErrorsKindRoute: typeof Char91__devChar93ErrorsKindRoute
   Char91__devChar93IdpAuthorizeRoute: typeof Char91__devChar93IdpAuthorizeRoute
   Char91__devChar93UiManageRoute: typeof Char91__devChar93UiManageRoute
+  Char91__devChar93UiMapRoute: typeof Char91__devChar93UiMapRoute
   Char91__devChar93UiIndexRoute: typeof Char91__devChar93UiIndexRoute
 }
 
@@ -1073,6 +1086,13 @@ declare module '@tanstack/react-router' {
       path: '/__dev/ui/manage'
       fullPath: '/__dev/ui/manage'
       preLoaderRoute: typeof Char91__devChar93UiManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev/ui/map': {
+      id: '/__dev/ui/map'
+      path: '/__dev/ui/map'
+      fullPath: '/__dev/ui/map'
+      preLoaderRoute: typeof Char91__devChar93UiMapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_account/invitations/$invitationId': {
@@ -1761,6 +1781,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91__devChar93ErrorsKindRoute: Char91__devChar93ErrorsKindRoute,
   Char91__devChar93IdpAuthorizeRoute: Char91__devChar93IdpAuthorizeRoute,
   Char91__devChar93UiManageRoute: Char91__devChar93UiManageRoute,
+  Char91__devChar93UiMapRoute: Char91__devChar93UiMapRoute,
   Char91__devChar93UiIndexRoute: Char91__devChar93UiIndexRoute,
 }
 export const routeTree = rootRouteImport

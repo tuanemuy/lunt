@@ -179,6 +179,14 @@ Photos live in the R2 bucket bound as `PHOTOS` (`apps/web/wrangler.jsonc`, bucke
 | --- | --- | --- | --- |
 | `VICINITY_RADIUS_METERS` | var | radius of the viewer's vicinity: the region list (VW-05) and the map's first range (VW-04) with the viewer's position | `3000` |
 
+## Map tiles
+
+VW-04 and VW-08 draw the map with MapLibre GL JS over public vector tiles (`.spec-implement/design.md` D-13). `MAP_STYLE_URL` (var) is the MapLibre style the browser loads; the default is OpenFreeMap's Positron, `https://tiles.openfreemap.org/styles/positron`: OpenStreetMap data, no API key, no registration and no request limit (https://openfreemap.org, terms at https://openfreemap.org/tos/). Attribution is required: it comes from the tiles' TileJSON and the map's attribution control shows 「OpenFreeMap © OpenMapTiles Data from OpenStreetMap」. With the default style, the map redraws it in the MapCanvas colours with Japanese labels (`apps/web/app/components/map/mapStyle.ts`); any other style is used as it is, so a replacement must carry its own attribution in its sources.
+
+The browser fetches the style, tiles, glyphs and sprites from the style's host (`tiles.openfreemap.org` by default) and runs MapLibre's worker from the app's own assets. The app sets no Content-Security-Policy today; one added later must allow that host in `connect-src` and `img-src`, and `worker-src 'self' blob:`. If the style or every tile fails, the map shows 「地図を表示できませんでした」 with a retry, and the screen's lists keep working.
+
+`/__dev/ui/map` shows the map parts with sample pins (`?tiles=broken` for the fallback, `?at=35.69,139.77` for a stand-in position).
+
 ## Schema
 
 `adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration.

@@ -1,0 +1,528 @@
+"use client";
+
+import type {
+  LngLatBounds,
+  Map as MapLibreMap,
+  MapOptions,
+  Marker,
+  StyleSpecification,
+} from "maplibre-gl";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { cx } from "../../ui/cx";
+import { TextButton } from "../../ui/TextButton";
+import {
+  clampBounds,
+  pinCount,
+  pinLayer,
+  pinSelected,
+  viewportKey,
+} from "../geometry";
+import { DEFAULT_MAP_STYLE_URL, tintStyle } from "../mapStyle";
+import type {
+  LngLat,
+  MapBounds,
+  MapPin,
+  MapViewport,
+  MapViewportCause,
+  MapViewportChange,
+} from "../types";
+
+export type MapCanvasProps = {
+  /** A MapLibre style URL (`loadMapStyleFn` gives the configured one). */
+  styleUrl: string;
+  viewport: MapViewport;
+  pins: readonly MapPin[];
+  /** The region's accessible name (e.g. 地図, 参加店舗の地図). */
+  label: string;
+  /** Draws the viewer's position; `null` or absent draws nothing. */
+  userLocation?: LngLat | null | undefined;
+  /**
+   * Moves to `userLocation` whenever a new position arrives. Off when the
+   * route opens the vicinity through `viewport` instead.
+   */
+  followUserLocation?: boolean;
+  /**
+   * The range once the map has settled: right after it first shows
+   * (`initial`) and each time a move stops, after `debounceMs`.
+   */
+  onViewportChange?: (change: MapViewportChange) => void;
+  /**
+   * A pin was chosen, or `null` when the viewer taps the map away from
+   * the pins or presses Escape (選択をやめる). A cluster also zooms in.
+   */
+  onSelect?: (pin: MapPin | null) => void;
+  /** A short note over the map, e.g. この範囲を探しています (再検索中). */
+  status?: string | null | undefined;
+  /** Other ways onward shown when the map cannot be drawn (CS-02). */
+  unavailableActions?: ReactNode;
+  /** The map could not be drawn (style or tiles unreachable, no WebGL). */
+  onUnavailable?: () => void;
+  debounceMs?: number;
+  className?: string;
+};
+
+type Phase = "loading" | "ready" | "unavailable";
+
+type MarkerEntry = { marker: Marker; host: HTMLElement; kind: MapPin["kind"] };
+
+const FIT_PADDING = 48;
+const DEFAULT_MAX_ZOOM = 16;
+const CLUSTER_MAX_ZOOM = 18;
+const LOCATION_MIN_ZOOM = 14;
+const LOAD_TIMEOUT_MS = 20_000;
+
+const JA_LOCALE: Readonly<Record<string, string>> = {
+  "Map.Title": "地図の表示範囲",
+  "Marker.Title": "地図のピン",
+  "NavigationControl.ZoomIn": "拡大",
+  "NavigationControl.ZoomOut": "縮小",
+  "NavigationControl.ResetBearing": "北を上にする",
+  "AttributionControl.ToggleAttribution": "地図の出典を表示",
+  "AttributionControl.MapFeedback": "地図への意見",
+};
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function toLngLat(point: LngLat): [number, number] {
+  return [point.longitude, point.latitude];
+}
+
+function toLngLatBounds(
+  bounds: MapBounds,
+): [[number, number], [number, number]] {
+  return [toLngLat(bounds.southWest), toLngLat(bounds.northEast)];
+}
+
+function readBounds(bounds: LngLatBounds): MapBounds {
+  return clampBounds(
+    bounds.getWest(),
+    bounds.getSouth(),
+    bounds.getEast(),
+    bounds.getNorth(),
+  );
+}
+
+async function loadStyle(url: string): Promise<StyleSpecification | string> {
+  if (url !== DEFAULT_MAP_STYLE_URL) return url;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Map style: HTTP ${response.status}`);
+  return tintStyle((await response.json()) as StyleSpecification);
+}
+
+function PinButton({
+  pin,
+  onChoose,
+}: {
+  pin: MapPin;
+  onChoose: (pin: MapPin) => void;
+}) {
+  const choose = () => onChoose(pin);
+  if (pin.kind === "region") {
+    return (
+      <button
+        type="button"
+        className="map-region"
+        aria-pressed={pin.selected}
+        aria-label={pin.label}
+        onClick={choose}
+      >
+        <span className="map-region__dot" aria-hidden="true" />
+        <span className="map-region__name">{pin.name}</span>
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={cx(
+        "map-pin",
+        pin.emphasis === "member" && "map-pin--member",
+        pin.emphasis === "other" && "map-pin--other",
+      )}
+      data-kind={pin.kind === "target" ? pin.target : pin.kind}
+      aria-pressed={pinSelected(pin)}
+      aria-label={pin.label}
+      onClick={choose}
+    >
+      {pinCount(pin)}
+    </button>
+  );
+}
+
+/**
+ * Lunt/MapCanvas over MapLibre GL JS and public vector tiles (design.md
+ * D-13): pins, clusters and regions as focusable buttons over the tiles,
+ * the viewer's position, and the range reported once a move settles.
+ * Data-agnostic: the route turns its cells and targets into `pins`.
+ *
+ * MapLibre loads in the browser only (the server renders the loading
+ * state). Rotation and pitch are off; arrow keys pan and +/− zoom while
+ * the map has focus.
+ */
+export function MapCanvas({
+  styleUrl,
+  viewport,
+  pins,
+  label,
+  userLocation = null,
+  followUserLocation = true,
+  onViewportChange,
+  onSelect,
+  status = null,
+  unavailableActions,
+  onUnavailable,
+  debounceMs = 400,
+  className,
+}: MapCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markersRef = useRef(new Map<string, MarkerEntry>());
+  const meMarkerRef = useRef<Marker | null>(null);
+  const markerClassRef = useRef<typeof Marker | null>(null);
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [attempt, setAttempt] = useState(0);
+  const [hosts, setHosts] = useState<ReadonlyMap<string, HTMLElement>>(
+    () => new Map(),
+  );
+  const helpId = useId();
+
+  // Handlers and props the long-lived map listeners read at call time.
+  const latest = useRef({
+    onViewportChange,
+    onSelect,
+    onUnavailable,
+    debounceMs,
+  });
+  latest.current = { onViewportChange, onSelect, onUnavailable, debounceMs };
+  const appliedViewport = useRef<string | null>(null);
+  const programmaticCause = useRef<MapViewportCause | null>(null);
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+
+  const moveTo = useCallback((target: MapViewport, cause: MapViewportCause) => {
+    const map = mapRef.current;
+    if (map === null) return;
+    programmaticCause.current = cause;
+    const duration = prefersReducedMotion() ? 0 : 300;
+    if (target.kind === "bounds") {
+      map.fitBounds(toLngLatBounds(target.bounds), {
+        padding: FIT_PADDING,
+        maxZoom: target.maxZoom ?? DEFAULT_MAX_ZOOM,
+        duration,
+      });
+    } else {
+      map.easeTo({
+        center: toLngLat(target.center),
+        zoom: target.zoom,
+        duration,
+      });
+    }
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a retry (`attempt`) recreates the map
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === null) return;
+    let disposed = false;
+    let loaded = false;
+    let map: MapLibreMap | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let userMove = false;
+    let tileLoads = 0;
+    let tileErrors = 0;
+    const markers = markersRef.current;
+
+    const fail = (reason: unknown) => {
+      if (disposed) return;
+      console.warn("[map] could not be drawn", reason);
+      disposed = true;
+      clearTimeout(loadTimeout);
+      map?.remove();
+      map = null;
+      mapRef.current = null;
+      meMarkerRef.current = null;
+      markers.clear();
+      setHosts(new Map());
+      setPhase("unavailable");
+      latest.current.onUnavailable?.();
+    };
+
+    const report = (cause: MapViewportCause) => {
+      if (map === null) return;
+      const canvas = map.getCanvas();
+      const center = map.getCenter();
+      latest.current.onViewportChange?.({
+        bounds: readBounds(map.getBounds()),
+        center: { latitude: center.lat, longitude: center.lng },
+        zoom: map.getZoom(),
+        size: { width: canvas.clientWidth, height: canvas.clientHeight },
+        cause,
+      });
+    };
+
+    setPhase("loading");
+    const loadTimeout = setTimeout(() => fail("timed out"), LOAD_TIMEOUT_MS);
+
+    (async () => {
+      if (import.meta.env.SSR) return;
+      const [{ maplibre: maplibregl }, style] = await Promise.all([
+        import("./loadMaplibre"),
+        loadStyle(styleUrl),
+      ]);
+      if (disposed) return;
+      markerClassRef.current = maplibregl.Marker;
+      const initial = viewportRef.current;
+      const options: MapOptions = {
+        container,
+        style,
+        locale: JA_LOCALE,
+        attributionControl: { compact: true },
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
+        maxPitch: 0,
+        renderWorldCopies: false,
+        ...(initial.kind === "bounds"
+          ? {
+              bounds: toLngLatBounds(initial.bounds),
+              fitBoundsOptions: {
+                padding: FIT_PADDING,
+                maxZoom: initial.maxZoom ?? DEFAULT_MAX_ZOOM,
+              },
+            }
+          : { center: toLngLat(initial.center), zoom: initial.zoom }),
+      };
+      const created = new maplibregl.Map(options);
+      map = created;
+      mapRef.current = created;
+      appliedViewport.current = viewportKey(initial);
+      created.touchZoomRotate.disableRotation();
+      created.keyboard.disableRotation();
+      created.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        "bottom-right",
+      );
+      created.getCanvas().setAttribute("aria-describedby", helpId);
+
+      // Before the first render a missing style fails the map at once;
+      // tiles fail it only when none arrived at all (offline, host down).
+      // Later tile errors leave the map as it is.
+      created.on("error", (event) => {
+        if (loaded) return;
+        if ("tile" in event) tileErrors++;
+        else fail(event.error);
+      });
+      created.on("sourcedata", (event) => {
+        if (event.tile !== undefined) tileLoads++;
+      });
+      created.once("load", () => {
+        clearTimeout(loadTimeout);
+        if (disposed) return;
+        if (tileErrors > 0 && tileLoads === 0) {
+          fail("no tile could be loaded");
+          return;
+        }
+        loaded = true;
+        setPhase("ready");
+        report("initial");
+      });
+      created.on("movestart", (event) => {
+        if (event.originalEvent !== undefined) userMove = true;
+      });
+      created.on("moveend", () => {
+        if (!loaded) return;
+        // Keyboard pans and resizes carry no original event, so any move
+        // this component did not start counts as the viewer's.
+        const cause: MapViewportCause = userMove
+          ? "user"
+          : (programmaticCause.current ?? "user");
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          userMove = false;
+          programmaticCause.current = null;
+          report(cause);
+        }, latest.current.debounceMs);
+      });
+      created.on("click", (event) => {
+        const target = event.originalEvent.target;
+        if (
+          target instanceof Element &&
+          target.closest(".maplibregl-marker") !== null
+        ) {
+          return;
+        }
+        latest.current.onSelect?.(null);
+      });
+    })().catch(fail);
+
+    return () => {
+      disposed = true;
+      clearTimeout(loadTimeout);
+      clearTimeout(timer);
+      map?.remove();
+      mapRef.current = null;
+      meMarkerRef.current = null;
+      markers.clear();
+    };
+  }, [styleUrl, attempt, helpId]);
+
+  const key = viewportKey(viewport);
+  useEffect(() => {
+    if (phase !== "ready" || appliedViewport.current === key) return;
+    appliedViewport.current = key;
+    moveTo(viewportRef.current, "viewport");
+  }, [phase, key, moveTo]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClassRef.current;
+    if (phase !== "ready" || map === null || MarkerClass === null) return;
+    const markers = markersRef.current;
+    const wanted = new Set(pins.map((pin) => pin.key));
+    let changed = false;
+    for (const [pinKey, entry] of markers) {
+      const pin = pins.find((candidate) => candidate.key === pinKey);
+      if (!wanted.has(pinKey) || pin?.kind !== entry.kind) {
+        entry.marker.remove();
+        markers.delete(pinKey);
+        changed = true;
+      }
+    }
+    for (const pin of pins) {
+      let entry = markers.get(pin.key);
+      if (entry === undefined) {
+        const host = document.createElement("div");
+        host.className = "map__marker";
+        const marker = new MarkerClass({
+          element: host,
+          anchor: pin.kind === "region" ? "left" : "center",
+          ...(pin.kind === "region"
+            ? { offset: [-6, 0] as [number, number] }
+            : {}),
+        });
+        marker.setLngLat(toLngLat(pin.position)).addTo(map);
+        entry = { marker, host, kind: pin.kind };
+        markers.set(pin.key, entry);
+        changed = true;
+      } else {
+        entry.marker.setLngLat(toLngLat(pin.position));
+      }
+      entry.host.style.zIndex = String(pinLayer(pin));
+    }
+    if (changed) {
+      setHosts(
+        new Map([...markers].map(([pinKey, { host }]) => [pinKey, host])),
+      );
+    }
+  }, [phase, pins]);
+
+  const userLatitude = userLocation?.latitude ?? null;
+  const userLongitude = userLocation?.longitude ?? null;
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClassRef.current;
+    if (phase !== "ready" || map === null || MarkerClass === null) return;
+    if (userLatitude === null || userLongitude === null) {
+      meMarkerRef.current?.remove();
+      meMarkerRef.current = null;
+      return;
+    }
+    const here: LngLat = { latitude: userLatitude, longitude: userLongitude };
+    if (meMarkerRef.current === null) {
+      const dot = document.createElement("div");
+      dot.className = "map-me";
+      dot.setAttribute("role", "img");
+      dot.setAttribute("aria-label", "現在地");
+      meMarkerRef.current = new MarkerClass({ element: dot })
+        .setLngLat(toLngLat(here))
+        .addTo(map);
+    } else {
+      meMarkerRef.current.setLngLat(toLngLat(here));
+    }
+    if (followUserLocation) {
+      moveTo(
+        {
+          kind: "center",
+          center: here,
+          zoom: Math.max(map.getZoom(), LOCATION_MIN_ZOOM),
+        },
+        "location",
+      );
+    }
+  }, [phase, userLatitude, userLongitude, followUserLocation, moveTo]);
+
+  const choose = useCallback(
+    (pin: MapPin) => {
+      if (pin.kind === "cluster") {
+        moveTo(
+          { kind: "bounds", bounds: pin.extent, maxZoom: CLUSTER_MAX_ZOOM },
+          "cluster",
+        );
+      }
+      latest.current.onSelect?.(pin);
+    },
+    [moveTo],
+  );
+
+  return (
+    <section
+      className={cx("map", className)}
+      aria-label={label}
+      data-phase={phase}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") latest.current.onSelect?.(null);
+      }}
+    >
+      <div ref={containerRef} className="map__canvas" />
+      <p id={helpId} className="sr-only">
+        矢印キーで地図を動かし、＋と−で縮尺を変えます。ピンは Tab
+        キーで選べます。
+      </p>
+      {pins.map((pin) => {
+        const host = hosts.get(pin.key);
+        return host === undefined
+          ? null
+          : createPortal(
+              <PinButton pin={pin} onChoose={choose} />,
+              host,
+              pin.key,
+            );
+      })}
+      {phase === "loading" ? (
+        <div className="map__loading" role="status">
+          <span className="skeleton map__skeleton" aria-hidden="true" />
+          <span className="sr-only">地図を読み込んでいます</span>
+        </div>
+      ) : null}
+      {phase === "ready" && status !== null ? (
+        <p className="map__status" role="status">
+          {status}
+        </p>
+      ) : null}
+      {phase === "unavailable" ? (
+        <div className="map__unavailable" role="alert">
+          <p className="map__unavailable-title">地図を表示できませんでした</p>
+          <p className="map__unavailable-text">
+            通信状況を確認して、もう一度お試しください。
+          </p>
+          <div className="map__unavailable-actions">
+            <TextButton onClick={() => setAttempt((n) => n + 1)}>
+              もう一度読み込む
+            </TextButton>
+            {unavailableActions}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}

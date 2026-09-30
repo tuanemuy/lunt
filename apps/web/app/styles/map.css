@@ -1,0 +1,217 @@
+/*
+  MapCanvas (Lunt/MapCanvas 32:2, MapPin 22:22, the region label 51:3277) of
+  VW-04 and VW-08 over MapLibre GL JS. The design places pins on a still
+  sheet; here MapLibre positions each pin's host (`.map__marker`) and the
+  pins keep the design's look.
+*/
+@layer components {
+  .map {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .map__loading {
+    position: absolute;
+    inset: 0;
+  }
+  .map__skeleton {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-0);
+  }
+
+  /* MapPin: 44×44, line border, pill. Selected=true: accent ground, surface text. */
+  .map-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-touch);
+    min-height: var(--size-touch);
+    padding: var(--space-8);
+    border: var(--border-1) solid var(--line);
+    border-radius: var(--radius-999);
+    background: var(--white);
+    font-size: var(--text-ui);
+    line-height: var(--leading-ui);
+    font-weight: var(--weight-medium);
+    color: var(--ink);
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-overlay);
+    transition:
+      background-color var(--transition-default),
+      color var(--transition-default);
+  }
+  .map-pin[aria-pressed="true"] {
+    background: var(--green);
+    color: var(--white);
+  }
+  .map-pin:active {
+    background: var(--light);
+  }
+  .map-pin[aria-pressed="true"]:active {
+    background: var(--ink);
+  }
+  /* A region is selected: its places get the accent border, the others recede. */
+  .map-pin--member {
+    border: var(--border-2) solid var(--green);
+  }
+  .map-pin--other {
+    background: var(--paper);
+    color: var(--muted);
+  }
+
+  /* A region: one point and its name; the touch target is 44 high. */
+  .map-region {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--size-touch);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--ink);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: var(--radius-2);
+  }
+  .map-region__dot {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border: var(--border-2) solid var(--white);
+    border-radius: var(--radius-999);
+    background: var(--green);
+    box-shadow: var(--shadow-overlay);
+  }
+  .map-region__name {
+    border-radius: var(--radius-999);
+    padding: 0 var(--space-8);
+    background: color-mix(in oklch, var(--white), transparent 15%);
+    transition: background-color var(--transition-default);
+  }
+  .map-region[aria-pressed="true"] .map-region__name {
+    background: var(--green);
+    color: var(--white);
+  }
+
+  /* The viewer's position. */
+  .map-me {
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--white);
+    border-radius: var(--radius-999);
+    background: var(--focus);
+    box-shadow: 0 0 0 6px oklch(57.7% 0.13 40.7 / 0.2);
+    pointer-events: none;
+  }
+
+  /* 再検索中 and similar: a short note over the map, the previous result stays. */
+  .map__status {
+    position: absolute;
+    left: 50%;
+    top: var(--space-12);
+    z-index: 3;
+    transform: translateX(-50%);
+    padding: var(--space-4) var(--space-12);
+    border-radius: var(--radius-999);
+    background: var(--white);
+    box-shadow: var(--shadow-overlay);
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* The map cannot be drawn (CS-02): the box keeps its size; lists still work. */
+  .map__unavailable {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    padding: var(--space-21);
+    text-align: center;
+  }
+  .map__unavailable-title {
+    font-family: var(--font-display);
+    font-size: var(--text-section);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-display);
+    color: var(--ink);
+  }
+  .map__unavailable-text {
+    font-size: var(--text-meta);
+    line-height: var(--leading-meta);
+    color: var(--secondary);
+  }
+  .map__unavailable-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: var(--space-8);
+  }
+
+  @media (hover: hover) {
+    .map-pin:not([aria-pressed="true"]):hover {
+      background: var(--paper);
+    }
+    .map-pin[aria-pressed="true"]:hover {
+      background: var(--ink);
+    }
+    .map-region:not([aria-pressed="true"]):hover .map-region__name {
+      background: var(--white);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .map {
+      height: 480px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .map {
+      height: 560px;
+    }
+  }
+}
+
+/*
+  MapLibre's own stylesheet loads with the map, unlayered; these overrides
+  stay unlayered too, so their higher specificity decides.
+*/
+.map > .map__canvas {
+  position: absolute;
+  inset: 0;
+}
+.map .maplibregl-canvas:focus-visible {
+  outline: var(--border-2) solid var(--focus);
+  outline-offset: calc(-1 * var(--border-2));
+}
+.map .maplibregl-ctrl-group {
+  border-radius: var(--radius-8);
+  background: var(--white);
+  box-shadow: var(--shadow-overlay);
+}
+.map .maplibregl-ctrl-group button {
+  width: var(--size-touch);
+  height: var(--size-touch);
+}
+.map .maplibregl-ctrl-attrib {
+  font-family: var(--font-base);
+  font-size: var(--text-small);
+  line-height: var(--leading-small);
+  color: var(--secondary);
+}
+.map .maplibregl-ctrl-attrib a {
+  color: inherit;
+}

@@ -386,7 +386,7 @@ The server side is `docs/backend_implementation_example.md` (7. Error design). O
 - Component classes follow the HTML designs' names: the management shell `m-*` in `apps/web/app/styles/manage.css`, shared parts in `apps/web/app/styles/components.css`, and screen-specific rules (`my-*`, `my02-*`, `om07-*`, …) in `apps/web/app/styles/pages.css`. Copy a design's block from `spec/design/pages/*.html`, map its `m-btn` / `m-link` / `m-notice` / `m-heading` to `Button` / `TextButton` / `Notice variant="manage"` / `SectionTitle variant="manage"`, and add only the screen's own rules to `pages.css`.
 - Fonts are self-hosted with `@fontsource/noto-sans-jp` / `@fontsource/noto-serif-jp`, imported in `apps/web/app/styles/index.css`.
 - Icons are the design's glyphs drawn in `currentColor`: `<Icon name="chevron" />` (`apps/web/app/components/ui/Icon/index.tsx`); the control around it carries the accessible name.
-- `/__dev/ui` and `/__dev/ui/manage` show the parts and the management frame (`apps/web/app/routes/[__dev]/ui/index.tsx`, `apps/web/app/routes/[__dev]/ui/manage.tsx`).
+- `/__dev/ui` and `/__dev/ui/manage` show the parts and the management frame (`apps/web/app/routes/[__dev]/ui/index.tsx`, `apps/web/app/routes/[__dev]/ui/manage.tsx`); `/__dev/ui/map` shows the map parts (`apps/web/app/components/map/`: `MapCanvas`, `useCurrentLocation`, `CurrentLocationChip`, `LocationFeedback`) over the real tiles.
 
 ## 9. Development tools
 

@@ -56,7 +56,11 @@
     "APPLICATION_PROXY_AFTER_MS": "604800000",
     // Discovery: the radius of the viewer's vicinity in metres, shared by
     // the region list (VW-05) and the map's first range (VW-04).
-    "VICINITY_RADIUS_METERS": "3000"
+    "VICINITY_RADIUS_METERS": "3000",
+    // Map tiles (VW-04, VW-08): a MapLibre style URL. OpenFreeMap needs no
+    // API key; a replacement's sources must carry its attribution, which
+    // the map shows (docs/runtime_cloudflare_do.md 「Map tiles」).
+    "MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/positron"
   },
   // Photos (design.md D-09): key `photos/{photoId}`, served at /photos/{photoId}.
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-photos" }],
