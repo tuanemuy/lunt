@@ -1,6 +1,5 @@
 import type { RequestContainer } from "@repo/core/application/di/types";
 import {
-  awaitingLaterStage,
   type ConsumerRegistry,
   consumers,
   type EventConsumer,
@@ -13,7 +12,6 @@ import {
   consumeEventMessage,
   createFanOutDispatcher,
   type EventMessage,
-  MAX_MESSAGES_PER_BATCH,
 } from "../eventDelivery";
 
 function event(n: number, type = "probe.pinged"): DomainEvent {
@@ -124,25 +122,7 @@ describe("createFanOutDispatcher", () => {
     expect(outcome?.kind).toBe("failure");
   });
 
-  it("marks processed, without a message, an event only a later stage's consumer subscribes to", async () => {
-    const sent: EventMessage[][] = [];
-    const dispatch = createFanOutDispatcher(
-      {},
-      async (messages) => {
-        sent.push([...messages]);
-      },
-      MAX_MESSAGES_PER_BATCH,
-      new Set(["probe.pinged"]),
-    );
-
-    const outcomes = await dispatch([event(1)]);
-
-    expect(outcomes).toEqual([{ kind: "success", id: "event-1" }]);
-    expect(sent).toEqual([]);
-  });
-
-  it("delivers authority.stewardship_vacated, whose consumer landed in stage 2, instead of listing it as awaiting a later stage", () => {
-    expect(awaitingLaterStage.has("authority.stewardship_vacated")).toBe(false);
+  it("routes authority.stewardship_vacated to reassessApplicationPremises", () => {
     expect(subscribersOf(consumers, "authority.stewardship_vacated")).toEqual([
       "reassessApplicationPremises",
     ]);

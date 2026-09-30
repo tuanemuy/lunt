@@ -27,60 +27,36 @@ export const consumers = {
 
 export type ConsumerName = keyof typeof consumers & string;
 
-/**
- * Consumers `spec/flows/index.md` 「ドメインイベントと消費者」 names that
- * land with a later stage (`spec/domains/index.md` 「開発の順序との対応」),
- * with the events they will subscribe to. Listing them keeps the
- * coverage check below honest while a stage is partial: an event whose
- * only consumers are listed here is relayed to nobody until the consumer
- * is registered, and the entry is removed as it moves to `consumers`. An
- * entry named `<consumer>@<stage>` lists the events a registered consumer
- * takes on in that later stage (it is removed when they join the
- * consumer's own list).
- */
-export const deferredConsumers = {} as const satisfies Readonly<
-  Record<string, Readonly<{ events: readonly LuntEventType[]; stage: string }>>
->;
-
-type DeferredConsumerName = keyof typeof deferredConsumers;
-
-/**
- * Event types a later stage's consumer will subscribe to. While no
- * registered consumer subscribes to one, the relay marks it processed
- * without a message (`createFanOutDispatcher`): the stage that brings the
- * consumer starts from the events stored after it lands, the same as
- * for any consumer added to a running system.
- */
-export const awaitingLaterStage: ReadonlySet<string> = new Set(
-  Object.values<Readonly<{ events: readonly string[] }>>(
-    deferredConsumers,
-  ).flatMap((entry): readonly string[] => entry.events),
-);
-
-const noConsumerIsBothRegisteredAndDeferred: [
-  Extract<ConsumerName, DeferredConsumerName>,
-] extends [never]
-  ? true
-  : Extract<ConsumerName, DeferredConsumerName> = true;
-void noConsumerIsBothRegisteredAndDeferred;
+type ConsumerLedger = Readonly<Record<string, EventConsumer>>;
 
 // Mapped per name: with no consumer registered, a bare
-// `(typeof consumers)[never] extends EventConsumer<infer T>` would infer
-// `T` as its constraint and count every event as subscribed.
-type SubscribedType =
-  | {
-      [K in ConsumerName]: (typeof consumers)[K] extends EventConsumer<infer T>
-        ? T
-        : never;
-    }[ConsumerName]
-  | (typeof deferredConsumers)[DeferredConsumerName]["events"][number];
+// `R[never] extends EventConsumer<infer T>` would infer `T` as its
+// constraint and count every event as subscribed.
+type SubscribedTypeOf<R extends ConsumerLedger> = {
+  [K in keyof R]: R[K] extends EventConsumer<infer T> ? T : never;
+}[keyof R];
 
-/** Event types no consumer subscribes to — must stay empty. */
-export type UnsubscribedEventType = Exclude<LuntEventType, SubscribedType>;
+/** Event types no consumer in `R` subscribes to. */
+export type UnsubscribedEventTypeOf<R extends ConsumerLedger> = Exclude<
+  LuntEventType,
+  SubscribedTypeOf<R>
+>;
 
-const everyEventHasAConsumer: [UnsubscribedEventType] extends [never]
+/**
+ * `true` when every event type has a consumer in `R`, otherwise the
+ * event types left without one — so assigning `true` to it fails to
+ * compile and the error names them.
+ */
+export type EveryEventSubscribed<R extends ConsumerLedger> = [
+  UnsubscribedEventTypeOf<R>,
+] extends [never]
   ? true
-  : UnsubscribedEventType = true;
+  : UnsubscribedEventTypeOf<R>;
+
+/** Event types no registered consumer subscribes to — must stay empty. */
+export type UnsubscribedEventType = UnsubscribedEventTypeOf<typeof consumers>;
+
+const everyEventHasAConsumer: EveryEventSubscribed<typeof consumers> = true;
 void everyEventHasAConsumer;
 
 export type ConsumerRegistry = Readonly<

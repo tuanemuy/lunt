@@ -32,7 +32,7 @@ packages/core/src/
 │   ├── events/
 │   │   ├── buildDecoder.ts            buildEventDecoder
 │   │   ├── registry.ts                LuntDomainEvent + eventDecoders          ← aggregator
-│   │   └── consumers.ts               defineConsumer, consumers, deferredConsumers ← aggregator
+│   │   └── consumers.ts               defineConsumer, consumers                ← aggregator
 │   ├── workers/
 │   │   ├── dailyJobs.ts               DailyJob, runDailyJobs, drainPages
 │   │   ├── dailyJobRegistry.ts        dailyJobs                              ← aggregator
@@ -98,7 +98,7 @@ Every shared registry is split per domain. A domain owns its fragment files; the
 | `application/{d}/services.ts` | `application/di/types.ts` | `RequestContainer` intersection |
 | `application/di/{d}.ts` | `application/di/container.ts` | `LuntEnv` intersection + `...create{D}Services(env, deps)` |
 | `application/{d}/eventDecoders.ts` | `application/events/registry.ts` | `LuntDomainEvent` union + `eventDecoders` spread |
-| consumers (in `application/{d}/`) | `application/events/consumers.ts` | `consumers` (or `deferredConsumers` until the stage lands) |
+| consumers (in `application/{d}/`) | `application/events/consumers.ts` | `consumers` |
 | daily jobs (in `application/{d}/`) | `application/workers/dailyJobRegistry.ts` | `dailyJobs` array |
 | `adapters/do/protocol/{d}.ts` | `adapters/do/protocol/queries.ts`, `adapters/do/protocol/commands.ts` | `QueryCatalog` intersection, `WriteCommand` union |
 | `adapters/do/store/{d}.ts` | `adapters/do/store/queries.ts`, `adapters/do/store/commands.ts`, `adapters/do/store/schema.ts` | handler spreads `satisfies`, `MIGRATIONS` |
@@ -128,7 +128,7 @@ export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand>
 3. Container: `application/{d}/services.ts` (`{D}Services`) → intersect into `RequestContainer`; `application/di/{d}.ts` (`{D}Env`, `create{D}Services`) → intersect `{D}Env` into `LuntEnv` and spread the call in `createRequestContainer`; `application/{d}/__tests__/testServices.ts` → spread in `createTestContainer`.
 4. Store: `adapters/do/protocol/{d}.ts` (`{D}Queries`, `{D}Command`) → add to `QueryCatalog` / `WriteCommand`; `adapters/do/store/{d}.ts` → spread handlers in `store/queries.ts` / `store/commands.ts` and `...{D}_MIGRATIONS` in `MIGRATIONS`; `adapters/do/repositories/{d}.ts` → spread in `createRepositories`.
 5. Migration versions are global, not per domain: reserve the next free number (the list is in the `MIGRATIONS` JSDoc: 1 core, 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox — the next free one is 9) and add it to that JSDoc. `applyMigrations` runs every version an object has not recorded, lowest first, so a reserved lower number that lands after a higher one still runs; a migration may therefore depend only on versions below it. Never edit an applied migration.
-6. Events (when the domain has any): `domain/{d}/events.ts`, `application/{d}/eventDecoders.ts` → add to `LuntDomainEvent` and `eventDecoders`; give every event type at least one consumer or a `deferredConsumers` entry (compile-time check in `application/events/consumers.ts`).
+6. Events (when the domain has any): `domain/{d}/events.ts`, `application/{d}/eventDecoders.ts` → add to `LuntDomainEvent` and `eventDecoders`; give every event type at least one consumer (compile-time check in `application/events/consumers.ts`).
 7. Daily jobs: append to `dailyJobs` in `application/workers/dailyJobRegistry.ts`.
 8. Tests: a conformance suite per new port plus its two runners (section 6).
 
@@ -502,7 +502,7 @@ export const eventDecoders = {
 A consumer is a usecase subscribed to event types, registered by name in `application/events/consumers.ts`. The name keys the queue message and the consumer's receipts, so renaming one is a data migration. Consumers must be idempotent on their own (receipts only save a repeat) and read current state rather than trusting event order.
 
 ```ts
-// application/events/consumers.ts — registering one (none is registered yet in P1)
+// application/events/consumers.ts — registering one
 export const consumers = {
   purgeNotificationsOnWithdrawal: defineConsumer(["account.withdrawn"], async (container, event) => {
     // … event is narrowed to AccountWithdrawnEvent; run the usecase with `container`
@@ -510,7 +510,7 @@ export const consumers = {
 } satisfies Readonly<Record<string, EventConsumer>>;
 ```
 
-Every event type needs at least one subscriber; `UnsubscribedEventType` must stay `never` or the file does not compile. A consumer that belongs to a later stage is listed in `deferredConsumers` (name, events, stage) and moved to `consumers` when it lands — a name may not be in both.
+Every event type needs at least one subscriber: `EveryEventSubscribed<typeof consumers>` must be `true`, or the file does not compile and the error names the event types without a consumer (`UnsubscribedEventType`). The relay fails and retries an event no registered consumer subscribes to.
 
 ### Daily jobs
 

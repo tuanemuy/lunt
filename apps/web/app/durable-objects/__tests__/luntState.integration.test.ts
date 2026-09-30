@@ -247,7 +247,7 @@ describe("LuntStateObject", () => {
     );
   });
 
-  it("marks processed an event only a later stage's consumer subscribes to", async () => {
+  it("marks a production event processed once its consumers' messages are queued", async () => {
     const name = freshName();
     const stub = env.LUNT_STATE.get(env.LUNT_STATE.idFromName(name));
     const provider = new DoUnitOfWorkProvider(asClient(stub), UuidV7Generator);

@@ -24,17 +24,12 @@ export const MAX_MESSAGES_PER_BATCH = 100;
  * delivered only when every batch carrying one of its messages was
  * accepted; a partially delivered event is retried whole, and the
  * consumers that already received it skip it through their receipts.
- *
- * An event no registered consumer subscribes to fails (and is retried)
- * unless its type is in `awaiting` — types only a later stage's consumer
- * subscribes to (`awaitingLaterStage`), which are delivered to nobody and
- * count as processed.
+ * An event no registered consumer subscribes to fails and is retried.
  */
 export function createFanOutDispatcher(
   registry: ConsumerRegistry,
   sendBatch: (messages: readonly EventMessage[]) => Promise<void>,
   batchSize: number = MAX_MESSAGES_PER_BATCH,
-  awaiting: ReadonlySet<string> = new Set(),
 ): EventDispatcher {
   return async (events) => {
     const messages: EventMessage[] = [];
@@ -42,7 +37,6 @@ export function createFanOutDispatcher(
     for (const event of events) {
       const subscribers = subscribersOf(registry, event.type);
       if (subscribers.length === 0) {
-        if (awaiting.has(event.type)) continue;
         unrouted.set(
           event.id,
           new Error(`No consumer subscribes to ${event.type}`),

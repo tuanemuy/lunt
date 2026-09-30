@@ -98,14 +98,9 @@ describe("purgeBookmarksOnWithdrawal", () => {
   });
 
   it("is registered for account.withdrawn", async () => {
-    const { consumers, deferredConsumers } = await import(
-      "../../events/consumers"
-    );
+    const { consumers } = await import("../../events/consumers");
     expect(consumers.purgeBookmarksOnWithdrawal.events).toEqual([
       "account.withdrawn",
     ]);
-    expect(Object.keys(deferredConsumers)).not.toContain(
-      "purgeBookmarksOnWithdrawal",
-    );
   });
 });
