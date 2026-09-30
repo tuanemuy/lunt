@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { ManageSection } from "@/components/layout/ManageShell";
 import { FramedPhoto } from "@/components/photo/FramedPhoto";
+import { PositionMap } from "@/components/place/PositionMap";
 import { Badge } from "@/components/ui/Badge";
 import { Row, RowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
@@ -57,15 +58,51 @@ function Thumbs({ photos }: { photos: readonly ContentPhoto[] }) {
 
 type Variant = "my" | "cm";
 
+type PositionContent = Extract<ContentValue, { kind: "position" }>;
+
+/**
+ * 位置: the point on a still map (MY-05 / CM-01 design) above its
+ * coordinates, which stay as the readable value and as the fallback when
+ * the map cannot be drawn. A revision's 現在 side is the text alone, so
+ * only the position it asks for is drawn.
+ */
+function PositionValue({
+  value,
+  withMap,
+}: {
+  value: PositionContent;
+  withMap: boolean;
+}): ReactNode {
+  const { latitude, longitude } = value;
+  const point = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  if (!withMap) return value.text;
+  return (
+    <span className="content-position">
+      <PositionMap
+        className="content-position__map"
+        point={point}
+        name="申請の位置"
+        mark={value.mark}
+      />
+      <span>{value.text}</span>
+    </span>
+  );
+}
+
 /** One value of the content, drawn by its kind. */
 export function ValueView({
   value,
   variant = "cm",
+  withMap = true,
 }: {
   value: ContentValue;
   variant?: Variant;
+  /** Off: a position is its coordinates alone (a revision's 現在 side). */
+  withMap?: boolean;
 }): ReactNode {
   switch (value.kind) {
+    case "position":
+      return <PositionValue value={value} withMap={withMap} />;
     case "photos":
       return <Thumbs photos={value.photos} />;
     case "quote":
@@ -173,7 +210,7 @@ export function CompareList({
               <span className="my05-cmp">
                 <span className="my05-cmp__label">現在</span>
                 <span className="my05-cmp__old">
-                  <ValueView value={row.current} />
+                  <ValueView value={row.current} withMap={false} />
                 </span>
                 <span className="my05-cmp__label">申請</span>
                 <span className="my05-cmp__new">
@@ -195,7 +232,7 @@ export function CompareList({
             <div className="cm01-diff__side">
               <span className="cm01-diff__label">現在の値</span>
               <span className="cm01-diff__value">
-                <ValueView value={row.current} />
+                <ValueView value={row.current} withMap={false} />
               </span>
             </div>
             <div className="cm01-diff__side" data-side="new">

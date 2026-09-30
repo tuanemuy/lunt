@@ -1,8 +1,6 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { MapCanvas } from "@/components/map/MapCanvas";
-import type { MapPin, MapViewport } from "@/components/map/types";
 import { useMapStyleUrl } from "@/components/map/useMapStyleUrl";
 import { Button } from "@/components/ui/Button";
 import {
@@ -11,13 +9,9 @@ import {
   Input,
   RequirementMark,
 } from "@/components/ui/Field";
+import { PositionMap } from "../PositionMap";
 import { PositionPicker } from "./PositionPicker";
-import {
-  formatCoordinate,
-  POINT_ZOOM,
-  parsePosition,
-  positionText,
-} from "./position";
+import { formatCoordinate, parsePosition } from "./position";
 
 /** The field's value: the form's two texts, as the transport takes them. */
 export type PositionValue = Readonly<{ latitude: string; longitude: string }>;
@@ -38,8 +32,6 @@ type PositionFieldProps = PositionValue & {
   error?: string | undefined;
   disabled?: boolean;
 };
-
-const NO_PINS: readonly MapPin[] = [];
 
 /**
  * CF-09 位置の指定: the chosen point on a still map, and 「地図で位置を
@@ -71,13 +63,6 @@ export function PositionField({
   );
   const typedButInvalid =
     point === null && (latitude.trim() !== "" || longitude.trim() !== "");
-  const viewport = useMemo<MapViewport | null>(
-    () =>
-      point === null
-        ? null
-        : { kind: "center", center: point, zoom: POINT_ZOOM },
-    [point],
-  );
   const describedBy = [error === undefined ? null : errorId, helpId]
     .filter((value) => value !== null)
     .join(" ");
@@ -92,31 +77,19 @@ export function PositionField({
         {legend}
         <RequirementMark requirement={requirement} />
       </legend>
-      {point === null || viewport === null ? (
+      {point === null ? (
         <div
           className="position-field__map position-field__empty"
           aria-invalid={error === undefined ? undefined : true}
         >
           <span>位置はまだ指定していません</span>
         </div>
-      ) : styleUrl === null ? (
-        <div className="map position-field__map" role="status">
-          <span className="skeleton map__skeleton" aria-hidden="true" />
-          <span className="sr-only">地図を読み込んでいます</span>
-        </div>
       ) : (
-        <MapCanvas
+        <PositionMap
           className="position-field__map"
-          styleUrl={styleUrl}
-          label={`${legend}の地図（${positionText(point)}）`}
-          viewport={viewport}
-          pins={NO_PINS}
-          picked={{
-            position: point,
-            label: `${legend}: ${positionText(point)}`,
-            mark,
-          }}
-          interactive={false}
+          point={point}
+          name={legend}
+          mark={mark}
           onUnavailable={() => setCoordinatesOpen(true)}
         />
       )}

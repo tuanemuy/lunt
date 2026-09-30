@@ -265,6 +265,32 @@
   .cm01-dl dd > .m-rows {
     align-self: stretch;
   }
+
+  /*
+    位置 (the design's `.m-map` + `.m-pin`, `.my05-map`): a still MapCanvas,
+    200px high on CM-01 and 160px on MY-05, with the coordinates below.
+    `.map.…` outranks map.css, which loads after this sheet.
+  */
+  .content-position {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    align-self: stretch;
+    min-width: 0;
+  }
+  .content-position__map,
+  .map.content-position__map {
+    height: 200px;
+    border-radius: var(--radius-2);
+  }
+  .my-dl .content-position__map,
+  .my-dl .map.content-position__map {
+    height: 160px;
+  }
+  .my05-cmp:has(.content-position) {
+    align-self: stretch;
+    align-items: start;
+  }
   .cm01-notes {
     display: flex;
     flex-direction: column;

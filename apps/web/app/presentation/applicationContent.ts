@@ -35,6 +35,18 @@ export type AttachedLine = Readonly<{
 export type ContentValue =
   | Readonly<{ kind: "text"; text: string; sub?: string }>
   | Readonly<{ kind: "quote"; text: string }>
+  /**
+   * A point on a small still map with its pin (`mark`: 店); `text` is the
+   * coordinates, kept beside it as the readable value and the one a
+   * revision's before / after differ in.
+   */
+  | Readonly<{
+      kind: "position";
+      latitude: number;
+      longitude: number;
+      mark: string;
+      text: string;
+    }>
   | Readonly<{ kind: "photos"; photos: readonly ContentPhoto[] }>
   | Readonly<{ kind: "listings"; listings: readonly AttachedLine[] }>;
 

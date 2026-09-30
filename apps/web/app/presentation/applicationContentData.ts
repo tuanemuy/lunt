@@ -65,8 +65,13 @@ const photos = (
   ),
 });
 
-const locationText = (location: GeoPoint): string =>
-  `緯度 ${location.latitude} / 経度 ${location.longitude}`;
+const placePosition = (location: GeoPoint): ContentValue => ({
+  kind: "position",
+  latitude: location.latitude,
+  longitude: location.longitude,
+  mark: "店",
+  text: `緯度 ${location.latitude} / 経度 ${location.longitude}`,
+});
 
 const addressValue = (address: Address): ContentValue => ({
   kind: "text",
@@ -80,7 +85,7 @@ function profileRows(profile: PlaceProfileView): readonly ContentRow[] {
     { label: "写真", value: photos(profile.photos) },
     { label: "名称", value: text(profile.name) },
     { label: "所在地", value: addressValue(profile.address) },
-    { label: "位置", value: text(locationText(profile.location)) },
+    { label: "位置", value: placePosition(profile.location) },
     { label: "営業時間", value: text(profile.businessHours) },
     { label: "紹介", value: text(profile.description) },
     { label: "連絡先", value: text(profile.contact) },
@@ -126,8 +131,8 @@ function placeCompared(change: PlaceChangeView): ComparedRow {
     case "location":
       return {
         label,
-        current: text(locationText(change.current)),
-        proposed: text(locationText(change.proposed)),
+        current: placePosition(change.current),
+        proposed: placePosition(change.proposed),
       };
     case "operatingStatus":
       return {
