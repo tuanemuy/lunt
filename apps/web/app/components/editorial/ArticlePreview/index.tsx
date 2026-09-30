@@ -64,11 +64,11 @@ function ShowcaseRow({ item }: { item: ShowcaseItem }) {
 
 /**
  * CM-03 公開前の確認 of an article (EDT-03): the saved content as viewers
- * would see it — the article page (photos, body, 紹介先) and the frame in
- * 読む and the feed — with the showcases viewers cannot see named as left
- * out, and the publish shared with AM-02 (CF-08). Leaving without
- * publishing changes nothing; an article without showcases can be
- * published.
+ * would see it — the article page (photos, body, 紹介先, in DT-05's
+ * order) and the frame in 読む and the feed — with the showcases viewers
+ * cannot see named as left out, and the publish shared with AM-02 (CF-08).
+ * Leaving without publishing changes nothing; an article without
+ * showcases can be published.
  */
 export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
   const router = useRouter();
@@ -231,6 +231,17 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
               <p className="feature__name">{title}</p>
             </div>
           </div>
+          {rest.length === 0 ? null : (
+            <ul className="cm03-article__photos">
+              {rest.map((photo) => (
+                <li key={photo.photoId}>
+                  {photo.url === null ? null : (
+                    <img src={photo.url} alt="" loading="lazy" />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           {data.body === null ? (
             <p className="cm03-missing">本文が入力されていません</p>
           ) : (
@@ -242,17 +253,6 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
                 </p>
               ))}
             </div>
-          )}
-          {rest.length === 0 ? null : (
-            <ul className="cm03-article__photos">
-              {rest.map((photo) => (
-                <li key={photo.photoId}>
-                  {photo.url === null ? null : (
-                    <img src={photo.url} alt="" loading="lazy" />
-                  )}
-                </li>
-              ))}
-            </ul>
           )}
           {data.shown.length === 0 ? null : (
             <>
