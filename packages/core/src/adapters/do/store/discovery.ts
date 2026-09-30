@@ -41,10 +41,22 @@ import type { Migration } from "./schema";
 /**
  * Discovery keeps no state of its own: every read is computed from Place's,
  * Listing's, Region's, Occasion's and Authority's tables (their store
- * modules document the columns), so it has no migration. Migration 13
- * stays reserved for Discovery should a read ever need an index.
+ * modules document the columns). Migration 13 adds only indexes for its
+ * reads: `idx_listings_newest_viewable` lets the newest-first listing
+ * pages (the feed without an origin, a region's listings) walk the
+ * viewable listings in order instead of sorting every one.
  */
-export const DISCOVERY_MIGRATIONS: readonly Migration[] = [];
+export const DISCOVERY_MIGRATIONS: readonly Migration[] = [
+  {
+    version: 13,
+    name: "discovery read indexes",
+    statements: [
+      `CREATE INDEX idx_listings_newest_viewable
+         ON listings (first_published_at DESC, id)
+         WHERE publication_status = 'published' AND suspended = 0`,
+    ],
+  },
+];
 
 /*
  * The SQL forms of `VisibilityPolicy` over `places p`, `listings l`,
@@ -895,3 +907,26 @@ export const discoveryQueryHandlers: QueryHandlersOf<DiscoveryQueries> = {
 };
 
 export const discoveryCommandHandlers: CommandHandlersOf<DiscoveryCommand> = {};
+
+export {
+  byCodePoint,
+  countOf,
+  idsParam,
+  inOrder,
+  isRegionViewable,
+  LISTING_COLUMNS,
+  LISTING_DISCOVERABLE,
+  LISTING_VIEWABLE,
+  type ListingRow,
+  listingEntries,
+  OCCASION_OPEN,
+  OCCASION_ORDER,
+  OCCASION_VIEWABLE,
+  offsetOf,
+  PLACE_DISCOVERABLE,
+  PLACE_VIEWABLE,
+  placeEntries,
+  R_COLUMNS,
+  REGION_VIEWABLE,
+  viewableListings,
+};

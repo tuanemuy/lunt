@@ -9,6 +9,7 @@ import type { LocalDate } from "@repo/core/domain/common/localDate";
 import type { PlaceEntry } from "@repo/core/domain/discovery/entry";
 import type { DetailQueries } from "@repo/core/domain/discovery/ports/detailQueries";
 import type { ExplorationQueries } from "@repo/core/domain/discovery/ports/explorationQueries";
+import type { FeedCandidateQueries } from "@repo/core/domain/discovery/ports/feedCandidateQueries";
 import type { KeywordSearchQueries } from "@repo/core/domain/discovery/ports/keywordSearchQueries";
 import type { ReferenceQueries } from "@repo/core/domain/discovery/ports/referenceQueries";
 import { ViewProjection } from "@repo/core/domain/discovery/viewProjection";
@@ -48,6 +49,7 @@ export type DiscoveryHarness = ConformanceHarness &
     referenceQueries: ReferenceQueries;
     explorationQueries: ExplorationQueries;
     keywordSearchQueries: KeywordSearchQueries;
+    feedCandidateQueries: FeedCandidateQueries;
   }>;
 
 export type DiscoveryHarnessFactory = () => Promise<DiscoveryHarness>;

@@ -2,6 +2,7 @@ import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGe
 import type { DiscoveryHarness } from "../__conformance__/discoveryFixtures";
 import { DoDetailQueries } from "../detailQueries";
 import { DoExplorationQueries } from "../explorationQueries";
+import { DoFeedCandidateQueries } from "../feedCandidateQueries";
 import { DoKeywordSearchQueries } from "../keywordSearchQueries";
 import { DoReferenceQueries } from "../referenceQueries";
 import { createNodeHarness } from "./nodeHarness";
@@ -17,6 +18,10 @@ export async function createNodeDiscoveryHarness(): Promise<DiscoveryHarness> {
     referenceQueries: new DoReferenceQueries(h.state.client, idGenerator),
     explorationQueries: new DoExplorationQueries(h.state.client, idGenerator),
     keywordSearchQueries: new DoKeywordSearchQueries(
+      h.state.client,
+      idGenerator,
+    ),
+    feedCandidateQueries: new DoFeedCandidateQueries(
       h.state.client,
       idGenerator,
     ),

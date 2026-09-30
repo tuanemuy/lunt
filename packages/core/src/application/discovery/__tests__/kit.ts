@@ -45,6 +45,7 @@ export async function discoveryKit(options: TestContainerOptions = {}) {
     referenceQueries: container.referenceQueries,
     explorationQueries: container.explorationQueries,
     keywordSearchQueries: container.keywordSearchQueries,
+    feedCandidateQueries: container.feedCandidateQueries,
   };
   const w = discoveryWorld(harness);
 

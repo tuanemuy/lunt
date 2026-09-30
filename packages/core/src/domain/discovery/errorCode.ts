@@ -6,6 +6,8 @@
 export const DiscoveryErrorCode = {
   /** `MapGrid.create`: columns and rows must be positive integers. */
   InvalidMapGrid: "DISCOVERY_INVALID_MAP_GRID",
+  /** `Vicinity.create`: the radius must be a positive finite number. */
+  InvalidVicinity: "DISCOVERY_INVALID_VICINITY",
 } as const;
 
 export type DiscoveryErrorCode =

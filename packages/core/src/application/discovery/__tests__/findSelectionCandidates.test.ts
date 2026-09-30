@@ -1,6 +1,5 @@
 import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
 import { period } from "@repo/core/adapters/do/__conformance__/listingFixtures";
-import { SearchKeyword } from "@repo/core/domain/common/searchKeyword";
 import type { SelectionScope } from "@repo/core/domain/discovery/selectionScope";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
@@ -8,6 +7,7 @@ import {
   findSelectionCandidates,
   type SelectionCandidates,
 } from "../findSelectionCandidates";
+import { searchByKeyword } from "../searchByKeyword";
 import { type DiscoveryKit, discoveryKit } from "./kit";
 
 const find = (
@@ -197,23 +197,25 @@ describe("findSelectionCandidates", () => {
     ]);
   });
 
-  it.todo(
-    "findSelectionCandidates#7 上と同じ / 範囲を place（vacantOnly: false）にして「山田」で探す。別に、searchByKeyword の店舗の種類を「山田」で読む",
-  ); // S4: searchByKeyword
-
-  it("place candidates list the same places and count as the keyword search's place read (KeywordSearchQueries.searchPlaces, which searchByKeyword uses)", async () => {
+  it("findSelectionCandidates#7 上と同じ / 範囲を place（vacantOnly: false）にして「山田」で探す。別に、searchByKeyword の店舗の種類を「山田」で読む", async () => {
     const k = await discoveryKit();
     await namedPlaces(k);
     await k.w.place({ profile: { name: "喫茶山田屋" } });
+    await k.w.place({ profile: { name: "山田" } });
     const { candidates } = await find(k, PLACES, "山田");
-    const port = await k.container.keywordSearchQueries.searchPlaces(
-      { keyword: SearchKeyword.create("山田"), vacantOnly: false },
-      { page: 1, limit: 10 },
-    );
+    const { results } = await searchByKeyword({
+      container: k.container,
+      input: {
+        keyword: "山田",
+        kinds: "place",
+        pagination: { page: 1, limit: 10 },
+      },
+    });
+    expect(candidates.count).toBe(3);
     expect(idsOf(candidates)).toEqual(
-      port.items.map(({ entry }) => entry.place.id),
+      results.place?.items.map((item) => item.placeId),
     );
-    expect(candidates.count).toBe(port.count);
+    expect(candidates.count).toBe(results.place?.count);
   });
 
   it("findSelectionCandidates#8 キーワードに一致する、休業中の店舗、閉店した店舗、非公開の店舗がある / 範囲を place にして探す", async () => {

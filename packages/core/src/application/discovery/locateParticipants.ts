@@ -1,18 +1,17 @@
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import type { OccasionId } from "@repo/core/domain/common/ids";
 import { Geo, MapGrid } from "@repo/core/domain/discovery/geo";
-import {
-  MapClustering,
-  type PlaceCell,
-} from "@repo/core/domain/discovery/mapClustering";
-import {
-  type PlaceSummary,
-  ViewProjection,
-} from "@repo/core/domain/discovery/viewProjection";
+import { MapClustering } from "@repo/core/domain/discovery/mapClustering";
 import { NotFoundError } from "../errors";
 import type { ServiceArgs } from "../types";
 import { OCCASION_NOT_FOUND } from "./viewOccasion";
-import { type PhotoRefs, photoRefsOf, placeSummaryPhotoIds } from "./views";
+import {
+  type PhotoRefs,
+  type PlaceCellView,
+  photoRefsOf,
+  placeCellPhotoIds,
+  placeCellView,
+} from "./views";
 
 type LatLng = Readonly<{ latitude: number; longitude: number }>;
 
@@ -28,30 +27,7 @@ export type LocateParticipantsInput = Readonly<{
 }>;
 
 /** A map cell with its places as summaries (operating status included). */
-export type ParticipantCellView =
-  | Readonly<{
-      kind: "single";
-      column: number;
-      row: number;
-      place: PlaceSummary;
-    }>
-  | Readonly<{
-      kind: "cluster";
-      column: number;
-      row: number;
-      count: number;
-      /** Always 0 here: no region is selected on the participants' map. */
-      affiliatedCount: number;
-      extent: GeoBounds;
-    }>
-  | Readonly<{
-      kind: "colocated";
-      column: number;
-      row: number;
-      location: GeoPoint;
-      /** Newest first. */
-      places: readonly PlaceSummary[];
-    }>;
+export type ParticipantCellView = PlaceCellView;
 
 export type LocateParticipantsOutput = Readonly<{
   /** By row, then column; empty without participants. */
@@ -60,31 +36,6 @@ export type LocateParticipantsOutput = Readonly<{
   extent: GeoBounds | null;
   photos: PhotoRefs;
 }>;
-
-const summaryOf = (entry: Parameters<typeof ViewProjection.placeSummary>[0]) =>
-  ViewProjection.placeSummary(entry, { kind: "displayed" });
-
-function cellView(cell: PlaceCell): ParticipantCellView {
-  switch (cell.kind) {
-    case "single":
-      return { ...cell, place: summaryOf(cell.place) };
-    case "colocated":
-      return { ...cell, places: cell.places.map(summaryOf) };
-    case "cluster":
-      return cell;
-  }
-}
-
-const cellPhotoIds = (cell: ParticipantCellView) => {
-  switch (cell.kind) {
-    case "single":
-      return placeSummaryPhotoIds(cell.place);
-    case "colocated":
-      return cell.places.flatMap(placeSummaryPhotoIds);
-    case "cluster":
-      return [];
-  }
-};
 
 const boundsOf = (input: NonNullable<LocateParticipantsInput["bounds"]>) =>
   GeoBounds.create(
@@ -124,10 +75,10 @@ export async function locateParticipants({
   const cells =
     bounds === null
       ? []
-      : MapClustering.cells(bounds, grid, places, null).map(cellView);
+      : MapClustering.cells(bounds, grid, places, null).map(placeCellView);
   return {
     cells,
     extent,
-    photos: await photoRefsOf(container, cells.flatMap(cellPhotoIds)),
+    photos: await photoRefsOf(container, cells.flatMap(placeCellPhotoIds)),
   };
 }

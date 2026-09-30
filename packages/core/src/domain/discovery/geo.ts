@@ -109,6 +109,42 @@ function extentOf(points: readonly GeoPoint[]): GeoBounds | null {
   return first === undefined ? null : extentOfSome([first, ...rest]);
 }
 
+/** `distanceMeters(vicinity.center, point) <= vicinity.radiusMeters`. */
+const within = (
+  vicinity: Readonly<{ center: GeoPoint; radiusMeters: number }>,
+  point: GeoPoint,
+): boolean => distanceMeters(vicinity.center, point) <= vicinity.radiusMeters;
+
+const degrees = (value: number): number => (value * 180) / Math.PI;
+
+/**
+ * The rectangle around a vicinity's circle: `d = radius / R`; south and
+ * north are the centre's latitude ∓ d, west and east its longitude ∓
+ * `asin(sin d / cos φ)` — clamped to the valid coordinate range.
+ */
+function boundsOf(
+  vicinity: Readonly<{ center: GeoPoint; radiusMeters: number }>,
+): GeoBounds {
+  const { latitude, longitude } = vicinity.center;
+  const d = vicinity.radiusMeters / EARTH_RADIUS_METERS;
+  const dLat = degrees(d);
+  const ratio = Math.sin(d) / Math.cos(radians(latitude));
+  const dLng =
+    ratio >= 1 || !Number.isFinite(ratio) ? 180 : degrees(Math.asin(ratio));
+  const clamp = (value: number, limit: number) =>
+    Math.max(-limit, Math.min(limit, value));
+  return GeoBounds.create(
+    GeoPoint.create(clamp(latitude - dLat, 90), clamp(longitude - dLng, 180)),
+    GeoPoint.create(clamp(latitude + dLat, 90), clamp(longitude + dLng, 180)),
+  );
+}
+
+/** A range holding all of Japan: south-west 20, 122; north-east 46, 154. */
+const JAPAN: GeoBounds = GeoBounds.create(
+  GeoPoint.create(20, 122),
+  GeoPoint.create(46, 154),
+);
+
 /**
  * Distances and range tests between `GeoPoint`s and `GeoBounds`
  * (`spec/domains/discovery.md` 「Geo」). Every store follows these
@@ -118,7 +154,10 @@ export const Geo = {
   distanceMeters,
   /** Both coordinates inside the rectangle, edges included. */
   contains: GeoBounds.contains,
+  within,
   cellOf,
   extentOf,
   extentOfSome,
+  boundsOf,
+  JAPAN,
 };

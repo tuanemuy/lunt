@@ -2,6 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import type { DiscoveryHarness } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
 import { DoDetailQueries } from "@repo/core/adapters/do/detailQueries";
 import { DoExplorationQueries } from "@repo/core/adapters/do/explorationQueries";
+import { DoFeedCandidateQueries } from "@repo/core/adapters/do/feedCandidateQueries";
 import { DoKeywordSearchQueries } from "@repo/core/adapters/do/keywordSearchQueries";
 import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
 import { DoReferenceQueries } from "@repo/core/adapters/do/referenceQueries";
@@ -33,5 +34,6 @@ export async function createDiscoveryDoHarness(): Promise<DiscoveryHarness> {
     referenceQueries: new DoReferenceQueries(client, UuidV7Generator),
     explorationQueries: new DoExplorationQueries(client, UuidV7Generator),
     keywordSearchQueries: new DoKeywordSearchQueries(client, UuidV7Generator),
+    feedCandidateQueries: new DoFeedCandidateQueries(client, UuidV7Generator),
   };
 }

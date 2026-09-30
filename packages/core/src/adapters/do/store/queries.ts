@@ -11,6 +11,8 @@ import { areaQueryHandlers } from "./area";
 import { authorityQueryHandlers } from "./authority";
 import { bookmarkQueryHandlers } from "./bookmark";
 import { discoveryQueryHandlers } from "./discovery";
+import { discoveryExplorationQueryHandlers } from "./discoveryExploration";
+import { discoveryFeedQueryHandlers } from "./discoveryFeed";
 import { listingQueryHandlers } from "./listing";
 import { mediaQueryHandlers } from "./media";
 import { moderationQueryHandlers } from "./moderation";
@@ -39,6 +41,8 @@ export const queryHandlers = {
   ...placeQueryHandlers,
   ...listingQueryHandlers,
   ...discoveryQueryHandlers,
+  ...discoveryExplorationQueryHandlers,
+  ...discoveryFeedQueryHandlers,
   ...regionQueryHandlers,
   ...occasionQueryHandlers,
   ...bookmarkQueryHandlers,
