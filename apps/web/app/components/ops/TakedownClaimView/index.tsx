@@ -149,6 +149,10 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
   const kindLabel = KIND_LABEL[data.target.kind];
   const operable = operableTarget(data.target);
   const subject = subjectOf(data.target);
+  const nextStep =
+    subject === null
+      ? "結果を添えて対応を終えます。"
+      : "対象の運営へ進むか、結果を添えて対応を終えます。";
   const alreadyResolvedElsewhere =
     (photoOutcome?.kind === "failed" &&
       photoOutcome.error.code === CODE_ALREADY_RESOLVED) ||
@@ -479,7 +483,7 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
                   title="申立人が示した写真は、すでに対象から外されています"
                 >
                   {photos.length === 0
-                    ? "対象に写真は残っていないため、削除する写真はありません。対象の運営へ進むか、結果を添えて対応を終えます。"
+                    ? `対象に写真は残っていないため、削除する写真はありません。${nextStep}`
                     : "残る写真を確かめて、削除が要るかを判断します。"}
                 </Notice>
               ) : null}
@@ -490,7 +494,7 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
                     tone="paper"
                     title="対象に写真がありません"
                   >
-                    削除する写真はありません。対象の運営へ進むか、結果を添えて対応を終えます。
+                    {`削除する写真はありません。${nextStep}`}
                   </Notice>
                 )
               ) : (
