@@ -35,6 +35,7 @@ export async function mergeDeviceBookmarks({
   input: MergeDeviceBookmarksInput;
 }>): Promise<void> {
   const signedIn = requireSignedIn(actor);
+  BookmarkMerge.assertWithinLimit(input.bookmarks);
   const device = input.bookmarks.map(DeviceBookmark.create);
   const bookmarks = BookmarkMerge.plan(signedIn, device, container.clock.now());
   await container.unitOfWorkProvider.run(({ bookmarkRepository }) =>

@@ -131,7 +131,18 @@ export class DoBookmarkRepository implements BookmarkRepository {
           `Stored bookmark has unknown target kind: ${record.kind}`,
         );
       }
-      return BookmarkRef.create(record.kind, record.id);
+      try {
+        return BookmarkRef.create(record.kind, record.id);
+      } catch (error) {
+        if (isRehydrationError(error)) {
+          throw new SystemError(
+            SystemErrorCode.DataIntegrityError,
+            "Stored bookmark target violates invariants",
+            error,
+          );
+        }
+        throw error;
+      }
     });
   }
 }

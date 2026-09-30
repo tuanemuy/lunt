@@ -26,7 +26,7 @@ const isDeviceSave = (value: unknown): value is DeviceSave => {
     typeof id === "string" &&
     id.trim().length > 0 &&
     typeof savedAt === "number" &&
-    Number.isFinite(savedAt)
+    !Number.isNaN(new Date(savedAt).getTime())
   );
 };
 
@@ -41,19 +41,26 @@ const isDeviceSave = (value: unknown): value is DeviceSave => {
  * only after its merge succeeded — resending a batch is harmless.
  */
 export const DeviceSaves = {
-  /** Reads a stored list, dropping malformed entries and duplicate targets. */
+  /**
+   * Reads a stored list, dropping malformed entries (including times a
+   * `Date` cannot hold, which would fail every merge) and keeping the
+   * newest of duplicate targets, as `BookmarkMerge` does.
+   */
   parse: (raw: unknown): readonly DeviceSave[] => {
     if (!Array.isArray(raw)) return [];
-    const seen = new Set<string>();
-    const result: DeviceSave[] = [];
+    const newest = new Map<string, DeviceSave>();
     for (const value of raw) {
       if (!isDeviceSave(value)) continue;
       const key = `${value.kind}:${value.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push({ kind: value.kind, id: value.id, savedAt: value.savedAt });
+      const seen = newest.get(key);
+      if (seen !== undefined && seen.savedAt >= value.savedAt) continue;
+      newest.set(key, {
+        kind: value.kind,
+        id: value.id,
+        savedAt: value.savedAt,
+      });
     }
-    return result;
+    return [...newest.values()];
   },
 
   has: (list: readonly DeviceSave[], ref: BookmarkRef): boolean =>

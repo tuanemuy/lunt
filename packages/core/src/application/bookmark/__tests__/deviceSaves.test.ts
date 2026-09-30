@@ -32,17 +32,19 @@ describe("DeviceSaves", () => {
     ]);
   });
 
-  it("parses a stored list, dropping malformed entries and duplicates", () => {
+  it("parses a stored list, dropping malformed entries and keeping the newest duplicate", () => {
     expect(
       DeviceSaves.parse([
         { ...L, savedAt: 1 },
         { ...L, savedAt: 2 },
+        { ...L, savedAt: 1 },
         { kind: "region", id: "r", savedAt: 1 },
         { kind: "place", id: " ", savedAt: 1 },
         { kind: "place", id: "p", savedAt: "x" },
+        { kind: "place", id: "p", savedAt: 1e16 },
         null,
       ]),
-    ).toEqual([{ ...L, savedAt: 1 }]);
+    ).toEqual([{ ...L, savedAt: 2 }]);
     expect(DeviceSaves.parse("nope")).toEqual([]);
   });
 

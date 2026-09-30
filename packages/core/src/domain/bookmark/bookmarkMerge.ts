@@ -15,17 +15,21 @@ const maxDeviceBookmarks = 100;
  * 0–100 device saves per merge (`COMMON_INVALID_INPUT` above); the device
  * sends more in runs of 100.
  */
-function plan(
-  actor: Actor,
-  device: readonly DeviceBookmark[],
-  now: Date,
-): readonly Bookmark[] {
+function assertWithinLimit(device: readonly unknown[]): void {
   if (device.length > maxDeviceBookmarks) {
     throw new BusinessRuleError(
       CommonErrorCode.InvalidInput,
       `At most ${maxDeviceBookmarks} device bookmarks per merge`,
     );
   }
+}
+
+function plan(
+  actor: Actor,
+  device: readonly DeviceBookmark[],
+  now: Date,
+): readonly Bookmark[] {
+  assertWithinLimit(device);
   const newest = new Map<string, DeviceBookmark>();
   for (const saved of device) {
     const key = ContentRef.key(saved.target);
@@ -39,4 +43,4 @@ function plan(
   );
 }
 
-export const BookmarkMerge = { maxDeviceBookmarks, plan };
+export const BookmarkMerge = { maxDeviceBookmarks, assertWithinLimit, plan };
