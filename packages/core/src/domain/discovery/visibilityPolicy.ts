@@ -94,7 +94,7 @@ export const VisibilityPolicy = {
   isArticleViewable,
   /** `isArticleViewable` as a guard to the published variant. */
   viewableArticle: (article: Article): article is PublishedArticle =>
-    article.publication.status === "published",
+    isArticleViewable(article),
   /** `isRegionViewable` as a guard to the published variant. */
   viewableRegion: (region: Region): region is PublishedRegion =>
     region.publication.status === "published" && isRegionViewable(region),

@@ -612,6 +612,7 @@ describe("readFeed", () => {
       }
       await occasionWithParticipant(k);
       await occasionWithParticipant(k);
+      const articles = [await k.w.article(), await k.w.article()];
       const pages = [];
       for (const page of [1, 2, 3]) {
         pages.push(await read(k, { pagination: { page, limit: 10 } }));
@@ -621,8 +622,11 @@ describe("readFeed", () => {
       expect(listingIdsIn(whole)).toHaveLength(30);
       expect(consecutiveConflicts(whole, placeOf)).toBe(false);
       const frames = framesIn(whole);
-      expect(frames).toHaveLength(5);
+      expect(frames).toHaveLength(6);
       expect(new Set(frames).size).toBe(frames.length);
+      expect(frames.filter((frame) => frame.startsWith("article:"))).toEqual(
+        articles.map((article) => `article:${article.id}`).reverse(),
+      );
     });
 
     it("readFeed#24 フィード対象の掲載が5件 / 1ページ20件で2ページ目を読む", async () => {

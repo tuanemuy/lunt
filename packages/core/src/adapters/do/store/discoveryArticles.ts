@@ -13,11 +13,12 @@ import {
   articleRowToRecord,
 } from "./article";
 import {
-  byCodePoint,
   countOf,
   idsParam,
   isViewable,
   offsetOf,
+  rank,
+  scoredPage,
 } from "./discovery";
 import type { QueryHandlersOf } from "./queries";
 
@@ -25,10 +26,13 @@ import type { QueryHandlersOf } from "./queries";
  * Discovery's article reads over Article's tables (`store/article.ts`
  * documents them). `isArticleViewable` is `publication_status =
  * 'published'` (articles have no suspension); 「新しい順」 is
- * `first_published_at DESC, id`, which `idx_articles_published` walks in
- * order. Showcased targets are looked up through the reverse index
- * `article_showcases`. Pages pick their ids first and read the (long) rows
- * of that page only, so a deep offset does not step through bodies.
+ * `first_published_at DESC, id`. The published list walks
+ * `idx_articles_published` in that order — named with `INDEXED BY`, since
+ * without statistics (no ANALYZE) the planner prefers the status index and
+ * sorts every published article. A target's articles start from
+ * `idx_article_showcases_target` and sort only that target's articles. Pages
+ * pick their ids first and read the (long) rows of that page only, so a
+ * deep offset does not step through bodies.
  */
 
 /** `VisibilityPolicy.isArticleViewable` over `articles a`. */
@@ -38,6 +42,31 @@ const A_COLUMNS = articleColumnsOf("a");
 
 const NEWEST = "a.first_published_at DESC, a.id";
 
+const PUBLISHED_FROM = `FROM articles a INDEXED BY idx_articles_published
+  WHERE ${ARTICLE_VIEWABLE}`;
+
+/** Binds `target_kind`, `target_id`. `ShowcaseList` holds a target once, so no article repeats. */
+const SHOWCASING_FROM = `FROM article_showcases s
+  JOIN articles a ON a.id = s.article_id
+  WHERE s.target_kind = ? AND s.target_id = ? AND ${ARTICLE_VIEWABLE}`;
+
+/**
+ * The statements whose plans the Node plan test pins: one page of ids
+ * (binds `LIMIT`, `OFFSET` after the `from` bindings) and the count.
+ */
+export const DISCOVERY_ARTICLE_PLANS = {
+  publishedIds: `SELECT a.id ${PUBLISHED_FROM}
+    ORDER BY ${NEWEST} LIMIT ? OFFSET ?`,
+  publishedCount: `SELECT COUNT(*) AS n ${PUBLISHED_FROM}`,
+  showcasingIds: `SELECT a.id ${SHOWCASING_FROM}
+    ORDER BY ${NEWEST} LIMIT ? OFFSET ?`,
+  showcasingCount: `SELECT COUNT(*) AS n ${SHOWCASING_FROM}`,
+} as const;
+
+/** The whole rows of the ids `idsSql` selects, newest first. */
+const rowsOf = (idsSql: string) => `SELECT ${A_COLUMNS} FROM articles a
+  WHERE a.id IN (${idsSql}) ORDER BY ${NEWEST}`;
+
 type Page<T> = Readonly<{ items: readonly T[]; count: number }>;
 
 function findArticles(
@@ -45,19 +74,16 @@ function findArticles(
   page: number,
   limit: number,
 ): Page<ArticleRecord> {
-  const from = `FROM articles a WHERE ${ARTICLE_VIEWABLE}`;
   return {
     items: sql
       .exec<ArticleRow>(
-        `SELECT ${A_COLUMNS} FROM articles a WHERE a.id IN (
-           SELECT a.id ${from} ORDER BY ${NEWEST} LIMIT ? OFFSET ?)
-         ORDER BY ${NEWEST}`,
+        rowsOf(DISCOVERY_ARTICLE_PLANS.publishedIds),
         limit,
         offsetOf(page, limit),
       )
       .toArray()
       .map(articleRowToRecord),
-    count: countOf(sql, from),
+    count: countOf(sql, PUBLISHED_FROM),
   };
 }
 
@@ -78,15 +104,10 @@ function findArticlesShowcasing(
 ): Page<ArticleRecord> {
   const { ref, page, limit } = args;
   if (!isViewable(sql, ref)) return { items: [], count: 0 };
-  const from = `FROM articles a WHERE ${ARTICLE_VIEWABLE}
-    AND a.id IN (SELECT s.article_id FROM article_showcases s
-                   WHERE s.target_kind = ? AND s.target_id = ?)`;
   return {
     items: sql
       .exec<ArticleRow>(
-        `SELECT ${A_COLUMNS} FROM articles a WHERE a.id IN (
-           SELECT a.id ${from} ORDER BY ${NEWEST} LIMIT ? OFFSET ?)
-         ORDER BY ${NEWEST}`,
+        rowsOf(DISCOVERY_ARTICLE_PLANS.showcasingIds),
         ref.kind,
         ref.id,
         limit,
@@ -94,7 +115,7 @@ function findArticlesShowcasing(
       )
       .toArray()
       .map(articleRowToRecord),
-    count: countOf(sql, from, ref.kind, ref.id),
+    count: countOf(sql, SHOWCASING_FROM, ref.kind, ref.id),
   };
 }
 
@@ -143,37 +164,19 @@ function searchArticles(
          FROM articles a WHERE ${ARTICLE_VIEWABLE}`,
     )
     .toArray();
-  const ranked = rows
-    .flatMap((row) => {
-      const relevance = KeywordRelevance.relevance(
+  const ranked = rank(
+    rows.map((row) => ({
+      id: row.id,
+      relevance: KeywordRelevance.relevance(
         Article.searchableTextOf({ title: row.title, body: row.body }),
         keyword,
-      );
-      return relevance >= 1
-        ? [{ id: row.id, relevance, newest: Number(row.first_published_at) }]
-        : [];
-    })
-    .sort(
-      (a, b) =>
-        b.relevance - a.relevance ||
-        b.newest - a.newest ||
-        byCodePoint(a.id, b.id),
-    );
-  const slice = ranked.slice(
-    offsetOf(args.page, args.limit),
-    args.page * args.limit,
+      ),
+      newest: Number(row.first_published_at),
+    })),
   );
-  const found = publishedArticles(
-    sql,
-    slice.map((hit) => hit.id),
+  return scoredPage(ranked, args.page, args.limit, (ids) =>
+    publishedArticles(sql, ids),
   );
-  return {
-    items: slice.flatMap((hit) => {
-      const entry = found.get(hit.id);
-      return entry === undefined ? [] : [{ entry, relevance: hit.relevance }];
-    }),
-    count: ranked.length,
-  };
 }
 
 export const discoveryArticleQueryHandlers: QueryHandlersOf<DiscoveryArticleQueries> =

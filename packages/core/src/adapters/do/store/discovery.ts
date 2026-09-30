@@ -957,5 +957,7 @@ export {
   placeEntries,
   R_COLUMNS,
   REGION_VIEWABLE,
+  rank,
+  scoredPage,
   viewableListings,
 };

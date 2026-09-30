@@ -50,7 +50,10 @@ export type ParticipantEntry = Readonly<{
   listings: readonly PublishedListing[];
 }>;
 
-/** What a viewable reference resolves to (articles join in stage 5). */
+/**
+ * What a viewable reference resolves to. Articles are not showcased or
+ * bookmarked, so none resolves to one.
+ */
 export type ResolvedTarget =
   | Readonly<{ kind: "listing"; entry: ListingEntry }>
   | Readonly<{ kind: "place"; entry: PlaceEntry }>

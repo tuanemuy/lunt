@@ -297,12 +297,14 @@ export function describeKeywordSearchQueriesContract(
         );
         const R = await w.region({ content: { description: long } });
         const E = await w.occasion({ description: long });
+        const A = await w.article({ title: "社名", body: long });
         const text = "㍿".repeat(30);
         expect(keyword(text).terms.join("").length).toBeGreaterThan(100);
         expect(await places(h, text)).toEqual({ items: [], count: 0 });
         expect(idsOf(await listings(h, text), listingIdOf)).toEqual([L.id]);
         expect(idsOf(await regions(h, text), idOf)).toEqual([R.id]);
         expect(idsOf(await occasions(h, text), idOf)).toEqual([E.id]);
+        expect(idsOf(await articles(h, text), idOf)).toEqual([A.id]);
       });
     });
 

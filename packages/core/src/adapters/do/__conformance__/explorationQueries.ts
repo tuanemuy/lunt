@@ -89,10 +89,7 @@ const criteriaOf = (
 const placeIdsOf = (entries: readonly Readonly<{ place: Place }>[]) =>
   entries.map((entry) => entry.place.id);
 
-/**
- * `ExplorationQueries` contract (`spec/testcases/ports/explorationQueries.md`).
- * The article list (`findArticles`) rows stay `todo` until stage 5.
- */
+/** `ExplorationQueries` contract (`spec/testcases/ports/explorationQueries.md`). */
 export function describeExplorationQueriesContract(
   makeHarness: DiscoveryHarnessFactory,
 ): void {
