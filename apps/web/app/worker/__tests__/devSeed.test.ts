@@ -145,51 +145,75 @@ describe("handleDevSeedRequest", () => {
       readdirSync(new URL("sets/", dir)).filter((name) =>
         name.endsWith(".json"),
       ),
-    )("sets/%s adds listings or articles onto its document's data", (name) => {
-      const fixture = seedFixtureSchema.parse(read(name));
-      const keys = {
-        place: (fixture.places ?? []).map((place) => place.key),
-        listing: [
-          ...(fixture.places ?? []).flatMap((place) => place.listings ?? []),
-          ...(fixture.listings ?? []),
-        ].map((listing) => listing.key),
-        region: (fixture.regions ?? []).map((region) => region.key),
-        occasion: (fixture.occasions ?? []).map((occasion) => occasion.key),
-      };
-      const sets = Object.values(
-        read(`sets/${name}`) as Record<
-          string,
-          | { place: string; by: string; count: number; name: string }
-          | { by: string; articles: unknown[] }
-        >,
-      );
-      expect(sets.length).toBeGreaterThan(0);
-      for (const set of sets) {
-        if ("articles" in set) {
-          const onto = seedFixtureSchema.parse({
-            accounts: [set.by],
-            onto: { operator: set.by },
-            articles: set.articles.map((article) => ({
-              ...(article as object),
-              by: set.by,
-            })),
-          });
-          expect("editors" in fixture ? (fixture.editors ?? []) : []).toContain(
-            set.by,
-          );
-          for (const showcase of (onto.articles ?? []).flatMap(
-            (article) => article.showcases ?? [],
-          )) {
-            const [[kind, key] = []] = Object.entries(showcase);
-            expect(keys[kind as keyof typeof keys]).toContain(key);
+    )(
+      "sets/%s adds listings, articles or relations onto its document's data",
+      (name) => {
+        const fixture = seedFixtureSchema.parse(read(name));
+        const keys = {
+          place: (fixture.places ?? []).map((place) => place.key),
+          listing: [
+            ...(fixture.places ?? []).flatMap((place) => place.listings ?? []),
+            ...(fixture.listings ?? []),
+          ].map((listing) => listing.key),
+          region: (fixture.regions ?? []).map((region) => region.key),
+          occasion: (fixture.occasions ?? []).map((occasion) => occasion.key),
+        };
+        const sets = Object.values(
+          read(`sets/${name}`) as Record<
+            string,
+            | { place: string; by: string; count: number; name: string }
+            | { by: string; articles: unknown[] }
+            | { affiliations?: unknown[]; participations?: unknown[] }
+          >,
+        );
+        expect(sets.length).toBeGreaterThan(0);
+        for (const set of sets) {
+          if ("affiliations" in set || "participations" in set) {
+            const onto = seedFixtureSchema.parse({
+              accounts: fixture.accounts,
+              onto: { operator: fixture.accounts[0] },
+              affiliations: set.affiliations ?? [],
+              participations: set.participations ?? [],
+            });
+            for (const affiliation of onto.affiliations ?? []) {
+              expect(keys.place).toContain(affiliation.place);
+              for (const region of affiliation.regions) {
+                expect(keys.region).toContain(region);
+              }
+            }
+            for (const participation of onto.participations ?? []) {
+              expect(keys.place).toContain(participation.place);
+              expect(keys.occasion).toContain(participation.occasion);
+              expect(fixture.accounts).toContain(participation.by);
+            }
+          } else if ("articles" in set) {
+            const onto = seedFixtureSchema.parse({
+              accounts: [set.by],
+              onto: { operator: set.by },
+              articles: set.articles.map((article) => ({
+                ...(article as object),
+                by: set.by,
+              })),
+            });
+            expect(
+              "editors" in fixture ? (fixture.editors ?? []) : [],
+            ).toContain(set.by);
+            for (const showcase of (onto.articles ?? []).flatMap(
+              (article) => article.showcases ?? [],
+            )) {
+              const [[kind, key] = []] = Object.entries(showcase);
+              expect(keys[kind as keyof typeof keys]).toContain(key);
+            }
+          } else if ("place" in set) {
+            expect(keys.place).toContain(set.place);
+            expect(set.count).toBeLessThanOrEqual(200);
+            expect(set.name).toMatch(/\{n{1,3}\}/);
+          } else {
+            expect.unreachable(`${name}: a set of no known kind`);
           }
-        } else {
-          expect(keys.place).toContain(set.place);
-          expect(set.count).toBeLessThanOrEqual(200);
-          expect(set.name).toMatch(/\{n{1,3}\}/);
         }
-      }
-    });
+      },
+    );
 
     it.each(files)("%s is a fixture and seeds an empty state", async (name) => {
       const parsed = seedFixtureSchema.safeParse(read(name));
