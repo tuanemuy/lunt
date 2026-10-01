@@ -15,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { TextButton, TextLink } from "@/components/ui/TextButton";
@@ -720,305 +721,309 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={sending}
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
-            }
-            retry={
-              <Button variant="secondary" disabled={sending} onClick={send}>
-                もう一度提出
-              </Button>
-            }
-          />
-        )}
-        <ModeNotice mode={mode} reapplied="店舗・地域・種類" />
-
-        <div className="m-field">
-          <p className="m-field__label">申請者</p>
-          {place === null ? (
-            <p className="m-field__help">
-              申請者は、選んだ店舗で決まります。管理する店舗は店舗管理者として、管理者のいない店舗は個人として申請します。
-            </p>
-          ) : (
-            <>
-              <p className="rq05-applicant">
-                {steward ? (
-                  <>
-                    <Badge tone="accent">店舗管理者として</Badge>
-                    <span>{place.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <Badge>個人として</Badge>
-                    <span>
-                      店舗に管理者がいないため、個人として申請します。
-                    </span>
-                  </>
-                )}
-              </p>
-              {fromRegion ? (
-                <p className="m-field__help">
-                  申請者は、選んだ店舗で決まります。管理する店舗は店舗管理者として、管理者のいない店舗は個人として申請します。
-                </p>
-              ) : null}
-            </>
-          )}
-        </div>
-
-        <div className="m-field" id="rq05-place">
-          <p className="m-field__label" id="rq05-place-label">
-            申請する店舗
-          </p>
-          {fromRegion && resubmit === null ? (
-            <div className="rq05-search">
-              {data.managed.length === 0 ? null : (
-                <>
-                  <p className="rq05-caption">
-                    管理する店舗（店舗管理者として申請）
-                  </p>
-                  <CandidateRadios
-                    name="rq05-place"
-                    labelledBy="rq05-place-label"
-                    items={data.managed.map(placeCandidate(onPreset))}
-                    value={place?.placeId ?? null}
-                    disabled={sending}
-                    invalid={errors.place !== undefined}
-                    onChange={(id) => {
-                      const next = data.managed.find(
-                        (item) => item.placeId === id,
-                      );
-                      if (next !== undefined) choosePlace(next);
-                    }}
-                  />
-                </>
-              )}
-              <p className="rq05-caption">
-                管理者のいない店舗（個人として申請）
-              </p>
-              <KeywordSearch<PlaceOption>
-                key={restored.count}
-                initial={restored.place}
-                keep={keepPlaceSearch}
-                label="管理者のいない店舗をキーワードで探す"
-                placeholder="店舗名・住所で探す"
-                disabled={sending}
-                search={async (keyword) =>
-                  preset === null
-                    ? []
-                    : (
-                        await findMembershipPlacesFn({
-                          data: { regionId: preset.regionId, keyword },
-                        })
-                      ).items
-                }
-              >
-                {(items) => (
-                  <CandidateRadios
-                    name="rq05-place"
-                    labelledBy="rq05-place-label"
-                    items={items.map(placeCandidate(onPreset))}
-                    value={place?.placeId ?? null}
-                    disabled={sending}
-                    invalid={errors.place !== undefined}
-                    onChange={(id) => {
-                      const next = items.find((item) => item.placeId === id);
-                      if (next !== undefined) choosePlace(next);
-                    }}
-                  />
-                )}
-              </KeywordSearch>
-              {errors.place === undefined ? null : (
-                <p className="m-field__error">{errors.place}</p>
-              )}
-              <p className="m-field__help">
-                選んだ店舗は、ほかの候補を選んで選び直せます。
-              </p>
-            </div>
-          ) : place === null ? null : (
-            <TargetRow
-              name={place.name}
-              meta={place.meta}
-              sub={place.sub}
-              photoUrl={place.photoUrl}
-              href={placeHref(place)}
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={sending}
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
+              }
+              retry={
+                <Button variant="secondary" disabled={sending} onClick={send}>
+                  もう一度提出
+                </Button>
+              }
             />
           )}
-        </div>
+          <ModeNotice mode={mode} reapplied="店舗・地域・種類" />
 
-        {mineShown.length === 0 ? null : (
-          <MyActiveApplications placeName={placeName} items={mineShown} />
-        )}
-
-        {data.kindFixed ? (
           <div className="m-field">
-            <p className="m-field__label">申請の種類</p>
-            <p className="rq05-fixed">{MEMBERSHIP_KIND_LABEL[data.kind]}</p>
+            <p className="m-field__label">申請者</p>
+            {place === null ? (
+              <p className="m-field__help">
+                申請者は、選んだ店舗で決まります。管理する店舗は店舗管理者として、管理者のいない店舗は個人として申請します。
+              </p>
+            ) : (
+              <>
+                <p className="rq05-applicant">
+                  {steward ? (
+                    <>
+                      <Badge tone="accent">店舗管理者として</Badge>
+                      <span>{place.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Badge>個人として</Badge>
+                      <span>
+                        店舗に管理者がいないため、個人として申請します。
+                      </span>
+                    </>
+                  )}
+                </p>
+                {fromRegion ? (
+                  <p className="m-field__help">
+                    申請者は、選んだ店舗で決まります。管理する店舗は店舗管理者として、管理者のいない店舗は個人として申請します。
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
-        ) : (
-          <ChoiceGroup<MembershipKind>
-            legend="申請の種類"
-            name="rq05-kind"
-            requirement="required"
-            value={kind}
-            onChange={chooseKind}
-            choices={[
-              { value: "affiliation", label: "所属" },
-              { value: "leave", label: "離脱", disabled: !canLeave },
-            ]}
-            {...(canLeave
-              ? {}
-              : {
-                  help: `${placeName}は、${steward ? "" : "閲覧者に表示されている"}どの地域にも所属していません。離脱は選べません。`,
-                })}
-          />
-        )}
 
-        {resubmit !== null ? (
-          <div className="m-field">
-            <p className="m-field__label">{regionLabel}</p>
-            {region === null ? null : (
+          <div className="m-field" id="rq05-place">
+            <p className="m-field__label" id="rq05-place-label">
+              申請する店舗
+            </p>
+            {fromRegion && resubmit === null ? (
+              <div className="rq05-search">
+                {data.managed.length === 0 ? null : (
+                  <>
+                    <p className="rq05-caption">
+                      管理する店舗（店舗管理者として申請）
+                    </p>
+                    <CandidateRadios
+                      name="rq05-place"
+                      labelledBy="rq05-place-label"
+                      items={data.managed.map(placeCandidate(onPreset))}
+                      value={place?.placeId ?? null}
+                      disabled={sending}
+                      invalid={errors.place !== undefined}
+                      onChange={(id) => {
+                        const next = data.managed.find(
+                          (item) => item.placeId === id,
+                        );
+                        if (next !== undefined) choosePlace(next);
+                      }}
+                    />
+                  </>
+                )}
+                <p className="rq05-caption">
+                  管理者のいない店舗（個人として申請）
+                </p>
+                <KeywordSearch<PlaceOption>
+                  key={restored.count}
+                  initial={restored.place}
+                  keep={keepPlaceSearch}
+                  label="管理者のいない店舗をキーワードで探す"
+                  placeholder="店舗名・住所で探す"
+                  disabled={sending}
+                  search={async (keyword) =>
+                    preset === null
+                      ? []
+                      : (
+                          await findMembershipPlacesFn({
+                            data: { regionId: preset.regionId, keyword },
+                          })
+                        ).items
+                  }
+                >
+                  {(items) => (
+                    <CandidateRadios
+                      name="rq05-place"
+                      labelledBy="rq05-place-label"
+                      items={items.map(placeCandidate(onPreset))}
+                      value={place?.placeId ?? null}
+                      disabled={sending}
+                      invalid={errors.place !== undefined}
+                      onChange={(id) => {
+                        const next = items.find((item) => item.placeId === id);
+                        if (next !== undefined) choosePlace(next);
+                      }}
+                    />
+                  )}
+                </KeywordSearch>
+                {errors.place === undefined ? null : (
+                  <p className="m-field__error">{errors.place}</p>
+                )}
+                <p className="m-field__help">
+                  選んだ店舗は、ほかの候補を選んで選び直せます。
+                </p>
+              </div>
+            ) : place === null ? null : (
               <TargetRow
-                name={region.name}
-                meta={region.meta}
-                photoUrl={region.photoUrl}
-                href={regionHref(region)}
+                name={place.name}
+                meta={place.meta}
+                sub={place.sub}
+                photoUrl={place.photoUrl}
+                href={placeHref(place)}
               />
             )}
           </div>
-        ) : kind === "leave" ? (
-          <fieldset className="m-field" id="rq05-region">
-            <legend className="m-field__label">
-              {regionLabel}
-              <span className="m-field__req">必須</span>
-            </legend>
-            <CandidateRadios
-              name="rq05-region-leave"
-              items={leaveChoices.map(regionCandidate)}
-              value={region?.regionId ?? null}
-              disabled={sending}
-              invalid={errors.region !== undefined}
-              onChange={(id) => {
-                const next = leaveChoices.find((item) => item.regionId === id);
-                if (next === undefined) return;
-                setRegion(next);
-                setErrors((current) => ({ ...current, region: undefined }));
-              }}
+
+          {mineShown.length === 0 ? null : (
+            <MyActiveApplications placeName={placeName} items={mineShown} />
+          )}
+
+          {data.kindFixed ? (
+            <div className="m-field">
+              <p className="m-field__label">申請の種類</p>
+              <p className="rq05-fixed">{MEMBERSHIP_KIND_LABEL[data.kind]}</p>
+            </div>
+          ) : (
+            <ChoiceGroup<MembershipKind>
+              legend="申請の種類"
+              name="rq05-kind"
+              requirement="required"
+              value={kind}
+              onChange={chooseKind}
+              choices={[
+                { value: "affiliation", label: "所属" },
+                { value: "leave", label: "離脱", disabled: !canLeave },
+              ]}
+              {...(canLeave
+                ? {}
+                : {
+                    help: `${placeName}は、${steward ? "" : "閲覧者に表示されている"}どの地域にも所属していません。離脱は選べません。`,
+                  })}
             />
-            {errors.region === undefined ? null : (
-              <p className="m-field__error">{errors.region}</p>
-            )}
-            <p className="m-field__help">
-              {steward
-                ? `${placeName}が所属している地域です。閲覧者に表示されていない地域との所属も、状態とともに示します。`
-                : `${placeName}が所属している地域のうち、閲覧者に表示されている地域です。`}
-            </p>
-          </fieldset>
-        ) : (
-          <fieldset className="m-field" id="rq05-region">
-            <legend className="m-field__label">
-              {region !== null && regionRefusal !== null
-                ? "所属する地域"
-                : regionLabel}
-              <span className="m-field__req">必須</span>
-            </legend>
-            {region === null ? null : (
-              <div className="rq05-picked">
+          )}
+
+          {resubmit !== null ? (
+            <div className="m-field">
+              <p className="m-field__label">{regionLabel}</p>
+              {region === null ? null : (
                 <TargetRow
                   name={region.name}
                   meta={region.meta}
-                  {...(region.regionId === preset?.regionId && fromRegion
-                    ? { sub: "地域の詳細から選んだ地域" }
-                    : {})}
                   photoUrl={region.photoUrl}
                   href={regionHref(region)}
                 />
-                {regionRefusal === null ? null : (
-                  <>
-                    <p className="m-field__error">
-                      {`${regionRefusal.reason}下の候補から別の地域を選ぶか、店舗を選び直してください。`}
-                    </p>
-                    {regionRefusal.go?.kind === "affiliationStatus" ? (
-                      <TextLink
-                        to={affiliationStatusPath(place?.placeId ?? "")}
-                      >
-                        {`${placeName}の所属地域の状況を見る`}
-                      </TextLink>
-                    ) : regionRefusal.go?.kind === "application" ? (
-                      <TextLink
-                        to={applicationPath(regionRefusal.go.applicationId)}
-                      >
-                        申請の詳細を見る
-                      </TextLink>
-                    ) : null}
-                  </>
-                )}
-                {regionRefusal === null && !picking && place !== null ? (
-                  <div>
-                    <Button
-                      variant="secondary"
-                      fit
-                      disabled={sending}
-                      onClick={() => setPicking(true)}
-                    >
-                      地域を選び直す
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            )}
-            {place === null ? (
+              )}
+            </div>
+          ) : kind === "leave" ? (
+            <fieldset className="m-field" id="rq05-region">
+              <legend className="m-field__label">
+                {regionLabel}
+                <span className="m-field__req">必須</span>
+              </legend>
+              <CandidateRadios
+                name="rq05-region-leave"
+                items={leaveChoices.map(regionCandidate)}
+                value={region?.regionId ?? null}
+                disabled={sending}
+                invalid={errors.region !== undefined}
+                onChange={(id) => {
+                  const next = leaveChoices.find(
+                    (item) => item.regionId === id,
+                  );
+                  if (next === undefined) return;
+                  setRegion(next);
+                  setErrors((current) => ({ ...current, region: undefined }));
+                }}
+              />
+              {errors.region === undefined ? null : (
+                <p className="m-field__error">{errors.region}</p>
+              )}
               <p className="m-field__help">
-                店舗を選ぶと、地域を選び直せます。
+                {steward
+                  ? `${placeName}が所属している地域です。閲覧者に表示されていない地域との所属も、状態とともに示します。`
+                  : `${placeName}が所属している地域のうち、閲覧者に表示されている地域です。`}
               </p>
-            ) : region === null || regionRefusal !== null || picking ? (
-              <>
-                {region !== null ? (
-                  <p className="m-field__label">別の地域を選ぶ</p>
-                ) : null}
-                {joinSearch}
-                {picking && region !== null ? (
-                  <TextButton onClick={() => setPicking(false)}>
-                    選び直さずに戻る
-                  </TextButton>
-                ) : null}
-              </>
-            ) : null}
-            {errors.region === undefined || region !== null ? null : (
-              <p className="m-field__error">{errors.region}</p>
-            )}
-            <p className="m-field__help">
-              公開中の地域から選びます。地域の詳細で、まちの様子を確かめられます。
-            </p>
-          </fieldset>
-        )}
+            </fieldset>
+          ) : (
+            <fieldset className="m-field" id="rq05-region">
+              <legend className="m-field__label">
+                {region !== null && regionRefusal !== null
+                  ? "所属する地域"
+                  : regionLabel}
+                <span className="m-field__req">必須</span>
+              </legend>
+              {region === null ? null : (
+                <div className="rq05-picked">
+                  <TargetRow
+                    name={region.name}
+                    meta={region.meta}
+                    {...(region.regionId === preset?.regionId && fromRegion
+                      ? { sub: "地域の詳細から選んだ地域" }
+                      : {})}
+                    photoUrl={region.photoUrl}
+                    href={regionHref(region)}
+                  />
+                  {regionRefusal === null ? null : (
+                    <>
+                      <p className="m-field__error">
+                        {`${regionRefusal.reason}下の候補から別の地域を選ぶか、店舗を選び直してください。`}
+                      </p>
+                      {regionRefusal.go?.kind === "affiliationStatus" ? (
+                        <TextLink
+                          to={affiliationStatusPath(place?.placeId ?? "")}
+                        >
+                          {`${placeName}の所属地域の状況を見る`}
+                        </TextLink>
+                      ) : regionRefusal.go?.kind === "application" ? (
+                        <TextLink
+                          to={applicationPath(regionRefusal.go.applicationId)}
+                        >
+                          申請の詳細を見る
+                        </TextLink>
+                      ) : null}
+                    </>
+                  )}
+                  {regionRefusal === null && !picking && place !== null ? (
+                    <div>
+                      <Button
+                        variant="secondary"
+                        fit
+                        disabled={sending}
+                        onClick={() => setPicking(true)}
+                      >
+                        地域を選び直す
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+              {place === null ? (
+                <p className="m-field__help">
+                  店舗を選ぶと、地域を選び直せます。
+                </p>
+              ) : region === null || regionRefusal !== null || picking ? (
+                <>
+                  {region !== null ? (
+                    <p className="m-field__label">別の地域を選ぶ</p>
+                  ) : null}
+                  {joinSearch}
+                  {picking && region !== null ? (
+                    <TextButton onClick={() => setPicking(false)}>
+                      選び直さずに戻る
+                    </TextButton>
+                  ) : null}
+                </>
+              ) : null}
+              {errors.region === undefined || region !== null ? null : (
+                <p className="m-field__error">{errors.region}</p>
+              )}
+              <p className="m-field__help">
+                公開中の地域から選びます。地域の詳細で、まちの様子を確かめられます。
+              </p>
+            </fieldset>
+          )}
 
-        {kind === "leave" ? (
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="承認されるまで、所属は続きます"
-          >
-            {`離脱の申請は、地域の運営者が確かめます。承認されるまで、${placeName}は${region?.name ?? "選んだ地域"}に所属したままです。`}
-          </Notice>
-        ) : null}
+          {kind === "leave" ? (
+            <Notice
+              variant="manage"
+              tone="paper"
+              title="承認されるまで、所属は続きます"
+            >
+              {`離脱の申請は、地域の運営者が確かめます。承認されるまで、${placeName}は${region?.name ?? "選んだ地域"}に所属したままです。`}
+            </Notice>
+          ) : null}
 
-        {resubmit === null ? null : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
-            disabled={sending}
-            help="再提出では、店舗・地域・申請の種類は変えられません。回答を添えて、追加の確認に答えます。"
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
-          />
-        )}
+          {resubmit === null ? null : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={sending}
+              help="再提出では、店舗・地域・申請の種類は変えられません。回答を添えて、追加の確認に答えます。"
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+        </HydrationGate>
       </form>
     </ManagePage>
   );
