@@ -1,5 +1,6 @@
 import type { ErrorState } from "./errorState";
 import type { PhotoItem } from "./placeView";
+import type { ShowcaseItem as ArticleShowcaseItem } from "./readingView";
 import type { ListPage } from "./regionView";
 
 /*
@@ -121,8 +122,6 @@ export type ViewableShowcaseItem = Readonly<{
   badge: Readonly<{ text: string; tone: "neutral" | "alert" }> | null;
   /** How the article treats it (記事には休業中として示されます …). */
   note: string | null;
-  /** The article page's row (content row): the second and third lines. */
-  row: Readonly<{ meta: string | null; area: string | null }>;
   photoUrl: string | null;
 }>;
 
@@ -180,12 +179,14 @@ export type ShowcaseCandidates = Readonly<
 export type ArticlePreviewData = Readonly<{
   articleId: string;
   status: ArticleStatusValue;
+  /** The stored version, to tell a publish of the viewer's own from another editor's. */
+  version: number;
   title: string | null;
   body: string | null;
   /** The photos in order; the first is the cover. */
   photos: readonly Readonly<{ photoId: string; url: string | null }>[];
-  /** The showcases the article page shows, in order. */
-  shown: readonly ViewableShowcaseItem[];
+  /** The showcases the article page shows, in order, as DT-05 shows them. */
+  shown: readonly ArticleShowcaseItem[];
   /** The 1-based positions of the showcases viewers cannot see, left out of the page. */
   hidden: readonly number[];
   missing: readonly PublicationRequirementValue[];

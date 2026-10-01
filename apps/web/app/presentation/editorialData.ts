@@ -17,7 +17,7 @@ import type { PhotoRefs } from "@repo/core/application/discovery/views";
 import { ForbiddenError } from "@repo/core/application/errors";
 import type { Article } from "@repo/core/domain/article/article";
 import type { Actor } from "@repo/core/domain/common/actor";
-import { Address } from "@repo/core/domain/common/address";
+import type { Address } from "@repo/core/domain/common/address";
 import { ArticleId, PhotoId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { Pagination } from "@repo/core/domain/common/pagination";
@@ -52,6 +52,7 @@ import {
 import { dayText } from "./moderation";
 import { OPERATING_STATUS_LABEL } from "./placeView";
 import type { PublishPremise } from "./publishPremise";
+import { showcaseItem } from "./readingView";
 import type { ListPage } from "./regionView";
 import { parseTargetId } from "./targetIds";
 import { parseGeneratedId } from "./validator";
@@ -198,7 +199,6 @@ function listingItem(
           : closed
             ? `記事には店舗の${OPERATING_STATUS_LABEL[operating]}とともに示されます`
             : null,
-    row: { meta: summary.placeName, area: summary.region },
     photoUrl: coverUrl(photos, summary.cover),
   };
 }
@@ -220,7 +220,6 @@ function placeItem(
       operating === "open"
         ? null
         : `記事には${operating === "temporarilyClosed" ? "休業中" : "閉店"}として示されます`,
-    row: { meta: localityText(summary.address), area: summary.region },
     photoUrl: coverUrl(photos, summary.cover),
   };
 }
@@ -237,7 +236,6 @@ function regionItem(
     stateText: `${localityText(summary.address)} · 公開`,
     badge: null,
     note: null,
-    row: { meta: summary.tagline, area: localityText(summary.address) },
     photoUrl: coverUrl(photos, summary.cover),
   };
 }
@@ -259,7 +257,6 @@ function occasionItem(
     stateText: `${holdingText} · ${period}`,
     badge: told ? { text: holdingText, tone: "neutral" } : null,
     note: told ? `記事には${holdingText}として示されます` : null,
-    row: { meta: period, area: Address.text(summary.venue.address) },
     photoUrl: coverUrl(photos, summary.cover),
   };
 }
@@ -526,6 +523,7 @@ export async function loadArticlePreview(
   return {
     articleId,
     status: output.status,
+    version: output.version,
     title: detail.title,
     body: detail.body,
     photos: detail.photos.map(({ photoId }) => ({
@@ -534,7 +532,7 @@ export async function loadArticlePreview(
     })),
     shown: detail.showcases.flatMap((showcase) =>
       showcase.viewable
-        ? [summaryItem(showcase.showcase, output.photos, today)]
+        ? [showcaseItem(showcase.showcase, output.photos, today)]
         : [],
     ),
     hidden: detail.showcases.flatMap((showcase, index) =>

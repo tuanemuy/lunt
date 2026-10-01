@@ -6,6 +6,7 @@ import {
 import type { ArticleId } from "@repo/core/domain/common/ids";
 import { PhotoSet } from "@repo/core/domain/common/photoSet";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
+import type { Version } from "@repo/core/domain/common/version";
 import {
   type ArticlePreview,
   ViewProjection,
@@ -36,6 +37,8 @@ export type PreviewArticleOutput = Readonly<{
   missingRequirements: readonly PublicationRequirement[];
   /** The current state — `published` when another editor published it meanwhile. */
   status: ArticleStatus;
+  /** The stored article's version: the one `publishArticle` answered tells it has not changed since. */
+  version: Version;
   /** Display refs of the article's photos and the viewable showcases' covers. */
   photos: PhotoRefs;
 }>;
@@ -77,6 +80,7 @@ export async function previewArticle({
     ),
     missingRequirements: Article.missingRequirements(article.content),
     status: article.publication.status,
+    version: article.version,
     photos: await photoRefsOf(container, [
       ...PhotoSet.photoIds(article.content.photos),
       ...preview.detail.showcases.flatMap((showcase) =>

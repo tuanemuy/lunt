@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "@tanstack/react-router";
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { ManageBody, ManagePage } from "@/components/layout/ManageShell";
+import { ShowcaseRow } from "@/components/reading/ShowcaseRow";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
@@ -17,12 +18,14 @@ import {
   articleTitleText,
   EDITORIAL_HOME,
   missingOf,
-  showcaseNameText,
-  showcasePagePath,
   showcasePositionText,
-  type ViewableShowcaseItem,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import {
+  isOwnPublication,
+  rememberOwnPublication,
+} from "@/presentation/ownPublication";
+import { showcaseItemKey } from "@/presentation/readingView";
 import { useReconcile } from "@/presentation/reconcile";
 import {
   EditorialTitle,
@@ -34,33 +37,15 @@ const HEADING = "公開前プレビュー";
 
 type Outcome = "published" | "missing" | "lostAccess";
 
+// Session storage does not change under the screen; it is read once.
+const subscribeNever = () => () => {};
+
 /** One paragraph per blank-line-separated block; single line breaks stay. */
 const paragraphsOf = (body: string): readonly string[] =>
   body
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter((block) => block !== "");
-
-function ShowcaseRow({ item }: { item: ViewableShowcaseItem }) {
-  return (
-    <a className="content-row" href={showcasePagePath(item.kind, item.id)}>
-      <div className="content-row__photo">
-        {item.photoUrl === null ? null : (
-          <img src={item.photoUrl} alt="" loading="lazy" />
-        )}
-      </div>
-      <div className="content-row__body">
-        <p className="content-row__name">{showcaseNameText(item)}</p>
-        {item.row.meta === null ? null : (
-          <p className="content-row__meta">{item.row.meta}</p>
-        )}
-        {item.row.area === null ? null : (
-          <p className="content-row__area">{item.row.area}</p>
-        )}
-      </div>
-    </a>
-  );
-}
 
 /**
  * CM-03 公開前の確認 of an article (EDT-03): the saved content as viewers
@@ -78,15 +63,23 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
   const [publishing, startPublish] = useTransition();
   const title = articleTitleText(data.title);
   const alreadyPublished = data.status === "published";
+  // Reopened after the viewer's own publish (the browser's back from
+  // DT-05): CS-13, not 「ほかの編集担当者がすでに公開しています」.
+  const ownPublish = useSyncExternalStore(
+    subscribeNever,
+    () => alreadyPublished && isOwnPublication(data.articleId, data.version),
+    () => false,
+  );
   const [cover, ...rest] = data.photos;
 
   const publish = () =>
     startPublish(async () => {
       setFailure(null);
       try {
-        await changeArticlePublicationFn({
+        const published = await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "publish" },
         });
+        rememberOwnPublication(data.articleId, published.version);
         setOutcome("published");
         await reconcile();
       } catch (error) {
@@ -117,7 +110,7 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
   if (outcome === "lostAccess") {
     return <NotEditorPanel heading={HEADING} lost />;
   }
-  if (outcome === "published") {
+  if (outcome === "published" || (outcome === null && ownPublish)) {
     return (
       <ManagePage title={<EditorialTitle heading={HEADING} />}>
         <FocusOnMount>
@@ -257,9 +250,9 @@ export function ArticlePreview({ data }: { data: ArticlePreviewData }) {
           {data.shown.length === 0 ? null : (
             <>
               <p className="cm03-label">紹介したお店と街</p>
-              <ul className="m-rows">
+              <ul className="targets__list">
                 {data.shown.map((item) => (
-                  <li key={`${item.kind}:${item.id}`}>
+                  <li key={showcaseItemKey(item)}>
                     <ShowcaseRow item={item} />
                   </li>
                 ))}

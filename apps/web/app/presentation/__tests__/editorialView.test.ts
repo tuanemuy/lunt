@@ -28,7 +28,6 @@ const viewable = (id: string, stateText: string): ShowcaseItem => ({
   stateText,
   badge: null,
   note: null,
-  row: { meta: null, area: null },
   photoUrl: null,
 });
 
