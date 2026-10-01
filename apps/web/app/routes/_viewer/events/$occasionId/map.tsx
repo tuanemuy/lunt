@@ -68,12 +68,12 @@ function ParticipantsPage() {
       <ParticipantsFrame>
         <Feedback
           kind="empty"
-          title="このイベントは、いまは見られません。"
+          title="このイベントは見られません。"
           body={
             <>
-              ほかのイベントや街から、
+              公開が終わったか、表示できなくなっています。
               <br />
-              寄り道を探してみてください。
+              ほかのイベントを探してみてください。
             </>
           }
           action={

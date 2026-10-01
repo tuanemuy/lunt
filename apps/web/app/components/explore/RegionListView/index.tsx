@@ -163,12 +163,12 @@ function RegionListUnavailable() {
       <Feedback
         kind="error"
         icon="region"
-        title="このまちは表示できません。"
+        title="この街は見られません。"
         body={
           <>
-            公開が終わったか、
+            公開が終わったか、表示できなくなっています。
             <br />
-            見られなくなっています。
+            ほかの街を探してみてください。
           </>
         }
         action={

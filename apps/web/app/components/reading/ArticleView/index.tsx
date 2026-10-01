@@ -44,12 +44,12 @@ export function ArticleUnavailable() {
         kind="empty"
         icon="book"
         headingLevel="h1"
-        title="この読みものは、いまは読めません。"
+        title="この読みものは見られません。"
         body={
           <>
-            ほかの読みものや街から、
+            公開が終わったか、表示できなくなっています。
             <br />
-            寄り道を探してみてください。
+            ほかの読みものを探してみてください。
           </>
         }
         action={
