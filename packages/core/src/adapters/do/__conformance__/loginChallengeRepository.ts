@@ -504,26 +504,6 @@ export function describeLoginChallengeRepositoryContract(
       });
     });
 
-    describe("countClosedBefore", () => {
-      it("counts what deleteClosedBefore(T) removes: redeemed, exhausted and expired, not the usable or the one expiring at T", async () => {
-        const h = await makeHarness();
-        await expect(countClosedBefore(h, T)).resolves.toBe(0);
-        const next = challengeFactory();
-        const later = new Date(T.getTime() + 60 * MINUTE);
-        await store(h, next({ expiresAt: later }), redeemedByLink);
-        await store(h, next({ expiresAt: later }), exhausted);
-        await insert(
-          h,
-          next({ expiresAt: new Date(T.getTime() - 1) }),
-          next({ expiresAt: T }),
-          next({ expiresAt: later }),
-        );
-        await expect(countClosedBefore(h, T)).resolves.toBe(3);
-        await deleteClosedBefore(h, T);
-        await expect(countClosedBefore(h, T)).resolves.toBe(0);
-      });
-    });
-
     describe("可視性と UnitOfWork", () => {
       it("loginChallengeRepository#30 insert(C1) 済み / UnitOfWork の中で、使用した C1 を save してコミットし、直後に別の UnitOfWork で findById・findByLinkTokenDigest", async () => {
         const h = await makeHarness();
@@ -607,6 +587,43 @@ export function describeLoginChallengeRepositoryContract(
           }),
         ).rejects.toBeInstanceOf(ConflictError);
         expect(await findById(h, C2)).toBeNull();
+      });
+    });
+
+    describe("countClosedBefore", () => {
+      /** The five challenges of #36 and #37, stored. */
+      async function storeFive(h: ConformanceHarness) {
+        const next = challengeFactory();
+        const later = new Date(T.getTime() + 60 * MINUTE);
+        const redeemed = next({ expiresAt: later });
+        const closed = next({ expiresAt: later });
+        const expired = next({ expiresAt: new Date(T.getTime() - 1) });
+        const atT = next({ expiresAt: T });
+        const usable = next({ expiresAt: later });
+        await store(h, redeemed, redeemedByLink);
+        await store(h, closed, exhausted);
+        await insert(h, expired, atT, usable);
+        return [redeemed, closed, expired, atT, usable] as const;
+      }
+
+      it("loginChallengeRepository#35 空 / countClosedBefore(T)", async () => {
+        const h = await makeHarness();
+        await expect(countClosedBefore(h, T)).resolves.toBe(0);
+      });
+
+      it("loginChallengeRepository#36 redeemed（expiresAt が T より後）、exhausted（expiresAt が T より後）、expiresAt が T より前の pending が1件ずつ。ほかに、expiresAt が T と等しい pending と、T より後の pending が1件ずつ / countClosedBefore(T) の後、findById で5件を読む", async () => {
+        const h = await makeHarness();
+        const five = await storeFive(h);
+        await expect(countClosedBefore(h, T)).resolves.toBe(3);
+        const found = await Promise.all(five.map((c) => findById(h, c)));
+        expect(found.map((f) => f?.entity.id)).toEqual(five.map((c) => c.id));
+      });
+
+      it("loginChallengeRepository#37 前の行と同じ5件で、deleteClosedBefore(T) を実行した後 / countClosedBefore(T)", async () => {
+        const h = await makeHarness();
+        await storeFive(h);
+        await deleteClosedBefore(h, T);
+        await expect(countClosedBefore(h, T)).resolves.toBe(0);
       });
     });
   });
