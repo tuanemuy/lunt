@@ -364,7 +364,7 @@ export function RegistrationForm({ data }: { data: RegistrationFormData }) {
     <ManagePage
       title={title}
       actions={
-        <>
+        <HydrationGate>
           <Button
             type="submit"
             form="registration-form"
@@ -388,7 +388,7 @@ export function RegistrationForm({ data }: { data: RegistrationFormData }) {
               申請の詳細に戻る
             </ButtonLink>
           )}
-        </>
+        </HydrationGate>
       }
       {...(resubmit !== null
         ? {

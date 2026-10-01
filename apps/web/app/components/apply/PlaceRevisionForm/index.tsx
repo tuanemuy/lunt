@@ -318,7 +318,7 @@ export function PlaceRevisionForm({ data }: { data: PlaceRevisionFormData }) {
     <ManagePage
       title={title}
       actions={
-        <>
+        <HydrationGate>
           <Button
             type="submit"
             form="revision-form"
@@ -346,7 +346,7 @@ export function PlaceRevisionForm({ data }: { data: PlaceRevisionFormData }) {
               申請の詳細に戻る
             </ButtonLink>
           )}
-        </>
+        </HydrationGate>
       }
       {...(resubmit !== null
         ? {

@@ -683,7 +683,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
     <ManagePage
       title={title}
       actions={
-        <>
+        <HydrationGate>
           <Button
             type="submit"
             form="rq05-form"
@@ -696,7 +696,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
                 : "この内容で再提出する"}
           </Button>
           {cancel}
-        </>
+        </HydrationGate>
       }
       {...(resubmit !== null
         ? {

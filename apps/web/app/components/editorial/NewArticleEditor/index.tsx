@@ -138,11 +138,13 @@ export function NewArticleEditor() {
     <ManagePage
       title={<EditorialTitle heading="新しい読みもの" />}
       actions={
-        <div className="am02-actions">
-          <Button type="submit" form="article-form" disabled={saving}>
-            {saving ? "保存しています…" : "下書きとして保存"}
-          </Button>
-        </div>
+        <HydrationGate>
+          <div className="am02-actions">
+            <Button type="submit" form="article-form" disabled={saving}>
+              {saving ? "保存しています…" : "下書きとして保存"}
+            </Button>
+          </div>
+        </HydrationGate>
       }
       {...(dirty
         ? {

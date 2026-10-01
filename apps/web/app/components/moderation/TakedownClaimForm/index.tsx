@@ -249,14 +249,14 @@ export function TakedownClaimForm({
     <ManagePage
       title={<ReportTitle heading={HEADING} />}
       actions={
-        <>
+        <HydrationGate>
           <Button type="submit" form={FORM_ID} disabled={sending}>
             {sending ? "送っています…" : "申し立てる"}
           </Button>
           <ButtonLink variant="secondary" to={back}>
             やめる
           </ButtonLink>
-        </>
+        </HydrationGate>
       }
       {...(dirty
         ? { actionsNote: "入力した内容は、送らずに画面を離れると残りません。" }

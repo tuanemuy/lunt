@@ -232,9 +232,11 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
       frame={frame}
       heading="店舗情報を編集"
       actions={
-        <Button type="submit" form="shop-form" disabled={saving}>
-          {saving ? "保存しています…" : "変更を保存"}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="shop-form" disabled={saving}>
+            {saving ? "保存しています…" : "変更を保存"}
+          </Button>
+        </HydrationGate>
       }
       {...(dirty
         ? {

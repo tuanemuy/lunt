@@ -337,7 +337,7 @@ export function StewardshipForm({ data }: { data: StewardshipFormData }) {
     <ManagePage
       title={title}
       actions={
-        <>
+        <HydrationGate>
           <Button
             type="submit"
             form="claim-form"
@@ -369,7 +369,7 @@ export function StewardshipForm({ data }: { data: StewardshipFormData }) {
               マイページに戻る
             </ButtonLink>
           )}
-        </>
+        </HydrationGate>
       }
       {...(resubmit !== null
         ? {

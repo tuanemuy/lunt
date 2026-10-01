@@ -128,9 +128,11 @@ export function NewRegionEditor({ lists }: { lists: AreaLists }) {
       }
       nav={<RegisterNav />}
       actions={
-        <Button type="submit" form="region-form" disabled={registering}>
-          {registering ? "登録しています…" : "登録する"}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="region-form" disabled={registering}>
+            {registering ? "登録しています…" : "登録する"}
+          </Button>
+        </HydrationGate>
       }
       {...(dirty
         ? {

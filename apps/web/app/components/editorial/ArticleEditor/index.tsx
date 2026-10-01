@@ -433,7 +433,7 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
   return (
     <ManagePage
       title={<EditorialTitle heading={HEADING} />}
-      actions={actions}
+      actions={<HydrationGate>{actions}</HydrationGate>}
       {...(dirty
         ? {
             actionsNote: published

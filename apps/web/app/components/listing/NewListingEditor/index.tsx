@@ -130,9 +130,11 @@ export function NewListingEditor({
       frame={frame}
       heading="掲載を追加"
       actions={
-        <Button type="submit" form="listing-form" disabled={saving}>
-          {saving ? "保存しています…" : "下書きを保存"}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="listing-form" disabled={saving}>
+            {saving ? "保存しています…" : "下書きを保存"}
+          </Button>
+        </HydrationGate>
       }
       actionsNote={
         JSON.stringify(values) === JSON.stringify(EMPTY_LISTING_FORM)

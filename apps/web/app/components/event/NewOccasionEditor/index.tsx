@@ -132,9 +132,11 @@ export function NewOccasionEditor({ lists }: { lists: AreaLists }) {
       }
       nav={<RegisterNav />}
       actions={
-        <Button type="submit" form="event-form" disabled={registering}>
-          {registering ? "登録しています…" : "登録する"}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="event-form" disabled={registering}>
+            {registering ? "登録しています…" : "登録する"}
+          </Button>
+        </HydrationGate>
       }
       {...(dirty
         ? {

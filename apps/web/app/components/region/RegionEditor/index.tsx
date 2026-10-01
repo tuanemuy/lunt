@@ -512,7 +512,7 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
     <RegionPage
       frame={frame}
       heading={HEADING}
-      actions={actions}
+      actions={<HydrationGate>{actions}</HydrationGate>}
       {...(dirty
         ? {
             actionsNote: published

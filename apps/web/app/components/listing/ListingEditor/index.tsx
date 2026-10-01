@@ -518,14 +518,16 @@ export function ListingEditor({
       frame={frame}
       heading="掲載を編集"
       actions={
-        published ? (
-          saveButton
-        ) : (
-          <>
-            {previewLink}
-            {saveButton}
-          </>
-        )
+        <HydrationGate>
+          {published ? (
+            saveButton
+          ) : (
+            <>
+              {previewLink}
+              {saveButton}
+            </>
+          )}
+        </HydrationGate>
       }
       {...(dirty
         ? {

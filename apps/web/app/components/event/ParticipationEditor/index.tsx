@@ -581,9 +581,11 @@ function ParticipationEditor({
     <Page
       heading={heading}
       actions={
-        <Button type="submit" form="cm04-form" disabled={busy || cannotSave}>
-          {busy ? "保存しています…" : submitLabel}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="cm04-form" disabled={busy || cannotSave}>
+            {busy ? "保存しています…" : submitLabel}
+          </Button>
+        </HydrationGate>
       }
       {...(dirty && !cannotSave
         ? {

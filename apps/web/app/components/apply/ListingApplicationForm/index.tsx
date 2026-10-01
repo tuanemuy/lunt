@@ -615,7 +615,7 @@ export function ListingApplicationForm({ apply }: { apply: ListingApplyData }) {
     <ManagePage
       title={title}
       actions={
-        <>
+        <HydrationGate>
           <Button
             type="submit"
             form="listing-apply-form"
@@ -651,7 +651,7 @@ export function ListingApplicationForm({ apply }: { apply: ListingApplyData }) {
               やめる
             </ButtonLink>
           )}
-        </>
+        </HydrationGate>
       }
       {...(resubmit !== null
         ? {

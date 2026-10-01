@@ -454,7 +454,7 @@ export function OccasionEditor({
     <EventPage
       frame={frame}
       heading="イベント情報を編集"
-      actions={actions}
+      actions={<HydrationGate>{actions}</HydrationGate>}
       {...(dirty
         ? {
             actionsNote:

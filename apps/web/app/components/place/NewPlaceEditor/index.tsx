@@ -174,9 +174,11 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
       title={title}
       nav={<ProxyNav />}
       actions={
-        <Button type="submit" form="shop-form" disabled={registering}>
-          {registering ? "登録しています…" : "登録する"}
-        </Button>
+        <HydrationGate>
+          <Button type="submit" form="shop-form" disabled={registering}>
+            {registering ? "登録しています…" : "登録する"}
+          </Button>
+        </HydrationGate>
       }
       {...(dirty
         ? {
