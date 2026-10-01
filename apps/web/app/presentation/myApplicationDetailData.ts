@@ -143,7 +143,7 @@ function nextSteps(view: MyApplicationView): readonly NextStep[] {
                 {
                   href: `/me/applications/${encodeURIComponent(view.registrationId)}`,
                   title: "店舗の登録申請を見る",
-                  meta: "否認の理由を確かめ、管理権限の申請を併せて登録を再申請できます",
+                  meta: "登録申請の結果（否認なら理由）を確かめ、管理権限の申請を併せて登録を再申請できます",
                 },
               ]),
           {
