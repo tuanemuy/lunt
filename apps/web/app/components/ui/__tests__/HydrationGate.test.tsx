@@ -37,7 +37,7 @@ describe("HydrationGate", () => {
 
   it("opens the controls once the island has hydrated", async () => {
     const container = document.createElement("div");
-    document.body.append(container);
+    document.body.appendChild(container);
     container.innerHTML = renderToString(<NameForm />);
     const root = await act(async () => hydrateRoot(container, <NameForm />));
     const fieldset = container.querySelector("fieldset");
