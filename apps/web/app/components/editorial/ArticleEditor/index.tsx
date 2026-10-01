@@ -43,6 +43,7 @@ import {
   withCurrentShowcases,
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { rememberOwnPublication } from "@/presentation/ownPublication";
 import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import { ArticleFormFields } from "../ArticleFormFields";
@@ -355,9 +356,10 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
           });
           savedFirst = true;
         }
-        await changeArticlePublicationFn({
+        const published = await changeArticlePublicationFn({
           data: { articleId: data.articleId, change: "publish" },
         });
+        rememberOwnPublication(data.articleId, published.version);
         await reconcile();
         startBusy(() => setOutcome({ kind: "published" }));
       } catch (error) {
