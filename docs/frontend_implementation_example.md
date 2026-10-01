@@ -232,7 +232,7 @@ const [state, grant, granting] = useActionState(
 
 ### In-item changes and single operations
 
-Stage 1 has no in-item optimistic change; when one comes, the leaf owns its server function, its item-local `useOptimistic` and its error UI (`AGENTS.md`, Frontend). A single confirmed operation without a list uses `useTransition` and shows its result in place: MY-07's withdrawal (`WithdrawalPanel`) and the development sign-out (`apps/web/app/components/dev/DevSignOutButton/index.tsx`).
+An in-item optimistic change lets the leaf own its server function, its item-local `useOptimistic` and its error UI (`AGENTS.md`, Frontend) — e.g. the save toggle (`apps/web/app/components/bookmark/SaveToggle/index.tsx`). A single confirmed operation without a list uses `useTransition` and shows its result in place: MY-07's withdrawal (`WithdrawalPanel`) and the development sign-out (`apps/web/app/components/dev/DevSignOutButton/index.tsx`).
 
 ### Forms
 
