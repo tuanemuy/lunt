@@ -16,6 +16,7 @@ import { ChipButton } from "@/components/ui/ChipButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Field, Textarea } from "@/components/ui/Field";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { TextLink } from "@/components/ui/TextButton";
@@ -248,9 +249,11 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
       {...(open
         ? {
             actions: (
-              <Button onClick={startFinishing} disabled={finishing}>
-                {finishing ? "対応を終えています…" : "対応を終える"}
-              </Button>
+              <HydrationGate>
+                <Button onClick={startFinishing} disabled={finishing}>
+                  {finishing ? "対応を終えています…" : "対応を終える"}
+                </Button>
+              </HydrationGate>
             ),
             ...(outcomeText !== ""
               ? {
@@ -555,28 +558,32 @@ export function TakedownClaimView({ data }: { data: TakedownClaimData }) {
                 措置を行わないことを結果に書いて、対応を終えます。
               </Notice>
             ) : null}
-            <Field
-              id="om04-outcome"
-              label="行った措置、または措置を行わないこと"
-              requirement="required"
-              help="対応を終えると、この結果が申立人にメールで届きます。送った結果は変えられません。"
-              {...(outcomeMissing ? { error: "結果を入力してください。" } : {})}
-            >
-              {(control) => (
-                <Textarea
-                  {...control}
-                  className="om04-result"
-                  rows={4}
-                  placeholder="例: 申し立てられた写真を削除しました。"
-                  value={outcomeText}
-                  onChange={(event) => {
-                    const text = event.currentTarget.value;
-                    setOutcomeText(text);
-                    if (text.trim() !== "") setOutcomeMissing(false);
-                  }}
-                />
-              )}
-            </Field>
+            <HydrationGate>
+              <Field
+                id="om04-outcome"
+                label="行った措置、または措置を行わないこと"
+                requirement="required"
+                help="対応を終えると、この結果が申立人にメールで届きます。送った結果は変えられません。"
+                {...(outcomeMissing
+                  ? { error: "結果を入力してください。" }
+                  : {})}
+              >
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    className="om04-result"
+                    rows={4}
+                    placeholder="例: 申し立てられた写真を削除しました。"
+                    value={outcomeText}
+                    onChange={(event) => {
+                      const text = event.currentTarget.value;
+                      setOutcomeText(text);
+                      if (text.trim() !== "") setOutcomeMissing(false);
+                    }}
+                  />
+                )}
+              </Field>
+            </HydrationGate>
           </ManageSection>
         ) : (
           <ManageSection id="om04-result-done" title="添えた結果">

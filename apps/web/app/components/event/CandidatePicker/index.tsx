@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { ChipButton, ChipLink } from "@/components/ui/ChipButton";
 import { Field, Input } from "@/components/ui/Field";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Row } from "@/components/ui/Rows";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import type { CandidateItem, CandidatePage } from "@/presentation/occasionView";
@@ -112,39 +113,41 @@ export function CandidateSearch({
       : undefined;
   return (
     <search className="em-search">
-      <Field
-        id={id}
-        label={label}
-        help={help}
-        {...(fieldError === undefined ? {} : { error: fieldError })}
-      >
-        {(control) => (
-          <div className="m-inline">
-            <Input
-              {...control}
-              type="search"
-              value={keyword}
-              placeholder={placeholder}
-              disabled={disabled}
-              autoFocus={autoFocus}
-              onChange={(event) => setKeyword(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  run();
-                }
-              }}
-            />
-            <Button
-              variant="secondary"
-              disabled={disabled || searching}
-              onClick={run}
-            >
-              {searching ? "探しています…" : "探す"}
-            </Button>
-          </div>
-        )}
-      </Field>
+      <HydrationGate>
+        <Field
+          id={id}
+          label={label}
+          help={help}
+          {...(fieldError === undefined ? {} : { error: fieldError })}
+        >
+          {(control) => (
+            <div className="m-inline">
+              <Input
+                {...control}
+                type="search"
+                value={keyword}
+                placeholder={placeholder}
+                disabled={disabled}
+                autoFocus={autoFocus}
+                onChange={(event) => setKeyword(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    run();
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                disabled={disabled || searching}
+                onClick={run}
+              >
+                {searching ? "探しています…" : "探す"}
+              </Button>
+            </div>
+          )}
+        </Field>
+      </HydrationGate>
       <div role="status" aria-busy={searching}>
         {result.kind === "failed" && fieldError === undefined ? (
           <p className="m-field__error">
