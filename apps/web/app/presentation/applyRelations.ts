@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   CandidateRefusal,
   MembershipEntry,
+  MyActiveApplicationItem,
   ParticipationChoice,
   ParticipationEntry,
   ParticipationListings,
@@ -205,6 +206,18 @@ export const findMembershipPlacesFn = createServerFn({ method: "GET" })
       return findMembershipPlaces(data.regionId, data.keyword);
     },
   );
+
+/**
+ * RQ-05 from DT-03: the viewer's applications in progress about the store
+ * chosen to apply for as an individual (REG-03).
+ */
+export const listMyApplicationsAboutPlaceFn = createServerFn({ method: "GET" })
+  .middleware([errorResponseMiddleware])
+  .validator(validateInput(z.object({ placeId: idField })))
+  .handler(async ({ data }): Promise<readonly MyActiveApplicationItem[]> => {
+    const { myApplicationsAboutPlace } = await import("./applyRelationsData");
+    return myApplicationsAboutPlace(data.placeId);
+  });
 
 /**
  * RQ-05: the refusal a submission met, read afresh (「受け付けない事情」);

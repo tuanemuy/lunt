@@ -9,6 +9,10 @@ import {
   getMyApplication,
   type MyApplicationView,
 } from "@repo/core/application/application/getMyApplication";
+import {
+  listMyActiveApplicationsAboutPlace,
+  type MyActiveApplication,
+} from "@repo/core/application/application/listMyActiveApplicationsAboutPlace";
 import { prepareReapplication } from "@repo/core/application/application/prepareReapplication";
 import { getContainer } from "@repo/core/application/di/containerStore";
 import type { RequestContainer } from "@repo/core/application/di/types";
@@ -49,6 +53,8 @@ import type {
 import type { Publication } from "@repo/core/domain/common/publication";
 import type { RegionSummary } from "@repo/core/domain/discovery/viewProjection";
 import { requireActor } from "./actor";
+import { subjectTitle } from "./applicationSubjects";
+import { APPLICATION_KIND_TITLE } from "./applicationWords";
 import { applicationIdOf } from "./applyData";
 import type {
   ActingAs,
@@ -57,6 +63,7 @@ import type {
   MembershipEntry,
   MembershipFormData,
   MembershipKind,
+  MyActiveApplicationItem,
   OccasionOption,
   ParticipationChoice,
   ParticipationEntry,
@@ -758,6 +765,7 @@ export async function loadMembershipPage(
           managed: [],
           region: await readRegion(container, content.regionId, regionName),
           affiliated: [],
+          mine: [],
         },
       };
     }
@@ -902,6 +910,10 @@ async function membershipForm(
       // wrong reason for another kind.
       region: kind === opened.kind ? region : null,
       affiliated: leaving,
+      mine:
+        actingAs === "individual"
+          ? await myActiveApplications(container, actor, placeId)
+          : [],
     },
   };
 }
@@ -947,8 +959,44 @@ async function regionOpening(
       managed,
       region,
       affiliated: [],
+      mine: [],
     },
   };
+}
+
+/** 所属の申請 · 白波横丁: the kind, and what it is about besides the store. */
+function activeItem(app: MyActiveApplication): MyActiveApplicationItem {
+  const others = app.subjects.filter(({ ref }) => ref.kind !== "place");
+  const kind = APPLICATION_KIND_TITLE[app.kind];
+  return {
+    applicationId: app.id,
+    title: others.length === 0 ? kind : `${kind} · ${subjectTitle(others)}`,
+    status: app.status.kind,
+  };
+}
+
+async function myActiveApplications(
+  container: RequestContainer,
+  actor: Actor,
+  placeId: PlaceId,
+): Promise<readonly MyActiveApplicationItem[]> {
+  const items = await listMyActiveApplicationsAboutPlace({
+    container,
+    actor,
+    input: { placeId },
+  });
+  return items.map(activeItem);
+}
+
+/**
+ * `listMyApplicationsAboutPlaceFn`: the viewer's applications in progress
+ * about a store chosen on the screen (DT-03's opening), as an individual.
+ */
+export async function myApplicationsAboutPlace(
+  rawPlaceId: string,
+): Promise<readonly MyActiveApplicationItem[]> {
+  const { container, actor } = await actorAndContainer();
+  return myActiveApplications(container, actor, placeIdOf(rawPlaceId));
 }
 
 /**

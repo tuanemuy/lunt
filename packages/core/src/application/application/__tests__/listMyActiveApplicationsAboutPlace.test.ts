@@ -5,8 +5,16 @@ import { listMyActiveApplicationsAboutPlace } from "../listMyActiveApplicationsA
 import { type ReviewKit, reviewKit } from "./reviewKit";
 import { type StewardSeatKit, stewardSeatKit } from "./stewardSeatKit";
 
-const placeRef = (id: PlaceId) => ({ kind: "place", id }) as const;
-const regionRef = (id: RegionId) => ({ kind: "region", id }) as const;
+const place = (id: PlaceId, name: string) => ({
+  ref: { kind: "place", id },
+  name,
+  notYet: false,
+});
+const region = (id: RegionId, name: string) => ({
+  ref: { kind: "region", id },
+  name,
+  notYet: false,
+});
 
 /** Place p2 without a steward, regions X and Y, and the individual A. */
 async function unmanaged() {
@@ -39,28 +47,28 @@ describe("listMyActiveApplicationsAboutPlace", () => {
       {
         id: a1.id,
         kind: "affiliation",
-        subjects: [placeRef(p2), regionRef(X)],
+        subjects: [place(p2, "山田珈琲店"), region(X, "X")],
         status: expect.objectContaining({ kind: "underReview" }),
         version: a1.version,
       },
       {
         id: a2.id,
         kind: "affiliation",
-        subjects: [placeRef(p2), regionRef(Y)],
+        subjects: [place(p2, "山田珈琲店"), region(Y, "Y")],
         status: expect.objectContaining({ kind: "returned" }),
         version: expect.any(Number),
       },
       {
         id: a3.id,
         kind: "revision",
-        subjects: [placeRef(p2)],
+        subjects: [place(p2, "山田珈琲店")],
         status: expect.objectContaining({ kind: "underReview" }),
         version: a3.version,
       },
     ]);
   });
 
-  it("the actor's own active applications about the place come with kind, subjects and status; closed ones, others' and other places' are left out", async () => {
+  it("the actor's own active applications about the place come with kind, named subjects and status; closed ones, others' and other places' are left out", async () => {
     const k = await reviewKit();
     const A = await k.person("A");
     const B = await k.person("B");
@@ -83,14 +91,21 @@ describe("listMyActiveApplicationsAboutPlace", () => {
       {
         id: a3.id,
         kind: "revision",
-        subjects: [placeRef(p2)],
+        subjects: [place(p2, "山田珈琲店")],
         status: expect.objectContaining({ kind: "underReview" }),
         version: a3.version,
       },
       {
         id: returned.id,
         kind: "listingRevision",
-        subjects: [placeRef(p2), { kind: "listing", id: l1 }],
+        subjects: [
+          place(p2, "山田珈琲店"),
+          {
+            ref: { kind: "listing", id: l1 },
+            name: expect.any(String),
+            notYet: false,
+          },
+        ],
         status: expect.objectContaining({ kind: "returned" }),
         version: expect.any(Number),
       },

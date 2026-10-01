@@ -1,3 +1,4 @@
+import type { ApplicationStatusKind } from "@repo/core/domain/application/status";
 import type { ApplyMode, ApplyRefusal } from "./applyView";
 import type { OfferingStatus } from "./listingView";
 import type { AttachedListingItem, PeriodView } from "./occasionView";
@@ -81,6 +82,18 @@ export type PlaceOption = Readonly<{
   refusal: CandidateRefusal | null;
 }>;
 
+/**
+ * An application in progress (確認中・差し戻し) the viewer made as an
+ * individual about the store (`listMyActiveApplicationsAboutPlace`), to
+ * check before applying again (REG-03). Opens its MY-05.
+ */
+export type MyActiveApplicationItem = Readonly<{
+  applicationId: string;
+  /** 所属の申請 · 白波横丁. */
+  title: string;
+  status: ApplicationStatusKind;
+}>;
+
 /** RQ-05 の入力・再提出. */
 export type MembershipFormData = Readonly<{
   mode: ApplyMode;
@@ -97,6 +110,8 @@ export type MembershipFormData = Readonly<{
   region: RegionOption | null;
   /** The regions `place` is affiliated with that its applicant may leave; empty when none or not read. */
   affiliated: readonly RegionOption[];
+  /** The viewer's applications in progress about `place` when they apply for it as an individual; empty otherwise. */
+  mine: readonly MyActiveApplicationItem[];
 }>;
 
 /** An event to take part in. */

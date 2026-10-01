@@ -4,6 +4,7 @@ import { useRouter } from "@tanstack/react-router";
 import {
   type MouseEvent,
   useCallback,
+  useEffect,
   useRef,
   useState,
   useTransition,
@@ -15,7 +16,9 @@ import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
 import { Notice } from "@/components/ui/Notice";
+import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { TextButton, TextLink } from "@/components/ui/TextButton";
+import { STATUS_LABEL, STATUS_TONE } from "@/presentation/applicationWords";
 import { resubmitApplicationFn } from "@/presentation/apply";
 import {
   APPLICATION_ID_CONFLICT,
@@ -27,6 +30,7 @@ import {
   checkMembershipFn,
   findMembershipPlacesFn,
   findMembershipRegionsFn,
+  listMyApplicationsAboutPlaceFn,
   submitAffiliationChangeFn,
 } from "@/presentation/applyRelations";
 import {
@@ -35,6 +39,7 @@ import {
   MEMBERSHIP_KIND_LABEL,
   type MembershipFormData,
   type MembershipKind,
+  type MyActiveApplicationItem,
   type PlaceOption,
   type RegionOption,
   type RelationRefusal,
@@ -126,6 +131,45 @@ function fieldLinks(errors: Errors, regionLabel: string): readonly FieldLink[] {
 }
 
 /**
+ * REG-03: what the viewer has already applied for about the store, as an
+ * individual and still in progress, each opening its MY-05 — to check
+ * before applying again.
+ */
+function MyActiveApplications({
+  placeName,
+  items,
+}: {
+  placeName: string;
+  items: readonly MyActiveApplicationItem[];
+}) {
+  return (
+    <div className="m-field">
+      <p className="m-field__label">{`${placeName}について出している申請`}</p>
+      <LinkList>
+        {items.map((item) => (
+          <li key={item.applicationId}>
+            <ListRowLink
+              to="/me/applications/$applicationId"
+              params={{ applicationId: item.applicationId }}
+              title={item.title}
+              meta="申請を見る"
+              end={
+                <Badge tone={STATUS_TONE[item.status]}>
+                  {STATUS_LABEL[item.status]}
+                </Badge>
+              }
+            />
+          </li>
+        ))}
+      </LinkList>
+      <p className="m-field__help">
+        確認中・差し戻しの申請です。重ねて申請する前に、申請の詳細で状況を確かめられます。
+      </p>
+    </div>
+  );
+}
+
+/**
  * RQ-05 所属・離脱の申請 (REG-01〜REG-03, APP-02, APP-04): the store — its
  * steward applies as the store, anyone else as an individual for a store
  * without a steward — the kind, and the region: for 所属 a published one
@@ -166,6 +210,15 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
     startRegion(data.kind),
   );
   const [picking, setPicking] = useState(false);
+  // The viewer's applications in progress about the store, as an
+  // individual: read with the screen for the store the entry names, and
+  // for a store chosen here (DT-03).
+  const [mine, setMine] = useState<
+    Readonly<{
+      placeId: string | null;
+      items: readonly MyActiveApplicationItem[];
+    }>
+  >({ placeId: data.place?.placeId ?? null, items: data.mine });
   const [reply, setReply] = useState("");
   const [stage, setStage] = useState<"input" | "review">("input");
   const [errors, setErrors] = useState<Errors>({});
@@ -224,6 +277,30 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
       placeSearch: placeSearch.current,
     });
   };
+
+  const individualPlace =
+    resubmit === null && place?.actingAs === "individual"
+      ? place.placeId
+      : null;
+  useEffect(() => {
+    if (individualPlace === null || individualPlace === mine.placeId) return;
+    let live = true;
+    listMyApplicationsAboutPlaceFn({ data: { placeId: individualPlace } })
+      .then((items) => {
+        if (live) setMine({ placeId: individualPlace, items });
+      })
+      .catch(() => {
+        // Only a help for checking: applying still refuses a duplicate.
+        if (live) setMine({ placeId: individualPlace, items: [] });
+      });
+    return () => {
+      live = false;
+    };
+  }, [individualPlace, mine.placeId]);
+  const mineShown =
+    individualPlace !== null && individualPlace === mine.placeId
+      ? mine.items
+      : [];
 
   const kindLabel = MEMBERSHIP_KIND_LABEL[kind];
   const regionLabel = kind === "leave" ? "離脱する地域" : "所属する地域";
@@ -775,6 +852,10 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
             />
           )}
         </div>
+
+        {mineShown.length === 0 ? null : (
+          <MyActiveApplications placeName={placeName} items={mineShown} />
+        )}
 
         {data.kindFixed ? (
           <div className="m-field">
