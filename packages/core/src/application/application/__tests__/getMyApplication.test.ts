@@ -75,6 +75,7 @@ describe("getMyApplication", () => {
       companion: null,
       registrationId: null,
       reflected: null,
+      approver: "operator",
     });
   });
 
@@ -481,5 +482,35 @@ describe("getMyApplication", () => {
     const A = await k.person("A");
 
     await expectCode(k.mine(A, absentApplicationId(k)), NotFoundError);
+  });
+
+  it("names who decides it now: the stewards, or the operators for a region or occasion without one", async () => {
+    const k = await stewardSeatKit();
+    const staffed = await k.addRegion({ name: "X" });
+    await k.regionSteward(staffed, "R");
+    const vacant = await k.addRegion({ name: "Y" });
+    const e1 = await k.addOccasion({ name: "秋祭り" });
+    const p1 = await k.place("山田珈琲店");
+    const S = await k.manager(p1, "S");
+    const toStaffed = await k.affiliateAsPlace(S, {
+      placeId: p1,
+      regionId: staffed,
+    });
+    const toVacant = await k.affiliateAsPlace(S, {
+      placeId: p1,
+      regionId: vacant,
+    });
+    const toEvent = await k.participationApp(S, {
+      placeId: p1,
+      occasionId: e1,
+      listingIds: [],
+      dates: [],
+    });
+
+    expect((await k.mine(S, toStaffed.id)).approver).toBe("steward");
+    expect((await k.mine(S, toVacant.id)).approver).toBe("operator");
+    expect((await k.mine(S, toEvent.id)).approver).toBe("operator");
+    await k.organizer(e1, "E");
+    expect((await k.mine(S, toEvent.id)).approver).toBe("steward");
   });
 });

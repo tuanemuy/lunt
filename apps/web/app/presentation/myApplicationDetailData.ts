@@ -32,11 +32,12 @@ const subjectOfKind = (
 };
 
 /**
- * Who decides each kind (the approver seat), as the applicant reads it:
- * the operators, or the region's / event's stewards (the operators stand
- * in for them, which the applicant need not tell apart).
+ * Who decides the application now, as the applicant reads it: the
+ * operators, or the region's / event's stewards — the operators when the
+ * region or event has none (不在の代行).
  */
 export function approverText(view: MyApplicationView): string {
+  if (view.approver === "operator") return "サービス運営者";
   switch (view.kind) {
     case "registration":
     case "revision":

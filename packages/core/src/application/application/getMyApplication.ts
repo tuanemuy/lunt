@@ -2,6 +2,8 @@ import {
   Application,
   type ApplicationKind,
 } from "@repo/core/domain/application/application";
+import type { ApproverSeatKind } from "@repo/core/domain/application/approverSeat";
+import { Stewardship } from "@repo/core/domain/authority/stewardship";
 import type { ApplicationId } from "@repo/core/domain/common/ids";
 import { LocalDate } from "@repo/core/domain/common/localDate";
 import type { ContentRef } from "@repo/core/domain/common/refs";
@@ -52,6 +54,12 @@ export type MyApplicationView = Readonly<{
   registrationId: ApplicationId | null;
   /** Where an approved application landed (`Application.reflectedRef`); `null` until approved. */
   reflected: ContentRef | null;
+  /**
+   * Who decides it now: its seat (`Application.approverSeat`), except that
+   * the operators decide for a region or occasion without a steward
+   * (不在の代行).
+   */
+  approver: ApproverSeatKind;
 }>;
 
 /**
@@ -78,7 +86,20 @@ export async function getMyApplication({
     const found = await requireApplication(ctx, input.applicationId);
     const app = found.entity;
     await requireHandledBy(ctx, actor, app);
+    const seat = Application.approverSeat(app);
+    const stewardship =
+      seat.kind === "steward"
+        ? Stewardship.orVacant(
+            (await ctx.stewardshipRepository.findById(seat.target))?.entity ??
+              null,
+            seat.target,
+          )
+        : null;
     return {
+      approver:
+        stewardship === null || Stewardship.isVacant(stewardship)
+          ? ("operator" as const)
+          : ("steward" as const),
       app,
       source: await readContentSource(ctx, app, LocalDate.fromInstant(now)),
       reads: await readSummaryReads(ctx, [app]),
@@ -103,5 +124,6 @@ export async function getMyApplication({
     registrationId: registrationIdOf(source),
     reflected:
       app.status.kind === "approved" ? Application.reflectedRef(app) : null,
+    approver: read.approver,
   };
 }
