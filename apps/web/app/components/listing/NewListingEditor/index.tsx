@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { classifyError } from "@/presentation/errorState";
 import { createListingDraftFn } from "@/presentation/listing";
 import {
@@ -148,47 +149,49 @@ export function NewListingEditor({
           save();
         }}
       >
-        <ManageStatus tone="neutral">{`新規 · ${place.name}`}</ManageStatus>
-        {taken === null ? null : (
-          <Alert
-            title="この下書きは、すでに保存されていました"
-            actions={
-              <ButtonLink
-                variant="secondary"
-                to="/manage/places/$placeId/listings/$listingId"
-                params={{ placeId: place.id, listingId: taken }}
-              >
-                保存された下書きを開く
-              </ButtonLink>
+        <HydrationGate>
+          <ManageStatus tone="neutral">{`新規 · ${place.name}`}</ManageStatus>
+          {taken === null ? null : (
+            <Alert
+              title="この下書きは、すでに保存されていました"
+              actions={
+                <ButtonLink
+                  variant="secondary"
+                  to="/manage/places/$placeId/listings/$listingId"
+                  params={{ placeId: place.id, listingId: taken }}
+                >
+                  保存された下書きを開く
+                </ButtonLink>
+              }
+            >
+              通信が途切れる前の保存が届いていました。そのあとに変えた内容は保存していません。保存された下書きを開いて、続きを編集してください。
+            </Alert>
+          )}
+          {failure === null ? null : (
+            <ListingFailureAlert
+              failure={failure}
+              placeId={place.id}
+              proxy={proxy}
+              busy={saving}
+              onReload={() => setFailure(null)}
+              retry={
+                <Button type="submit" variant="secondary" disabled={saving}>
+                  もう一度保存
+                </Button>
+              }
+            />
+          )}
+          <ListingFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
             }
-          >
-            通信が途切れる前の保存が届いていました。そのあとに変えた内容は保存していません。保存された下書きを開いて、続きを編集してください。
-          </Alert>
-        )}
-        {failure === null ? null : (
-          <ListingFailureAlert
-            failure={failure}
-            placeId={place.id}
-            proxy={proxy}
-            busy={saving}
-            onReload={() => setFailure(null)}
-            retry={
-              <Button type="submit" variant="secondary" disabled={saving}>
-                もう一度保存
-              </Button>
-            }
+            errors={failure?.fields ?? {}}
+            categories={categories}
+            place={place}
+            disabled={saving}
           />
-        )}
-        <ListingFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={failure?.fields ?? {}}
-          categories={categories}
-          place={place}
-          disabled={saving}
-        />
+        </HydrationGate>
       </form>
     </ShopPage>
   );

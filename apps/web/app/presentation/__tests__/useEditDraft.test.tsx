@@ -117,6 +117,22 @@ describe("useEditDraft", () => {
     expect(result.current[0].base).toEqual({ name: "shown" });
   });
 
+  it("keeps what was typed before the loader's fresh copy arrived, whatever that copy brings", () => {
+    const { result, rerender } = renderDraft({ version: 3, name: "cached" });
+    act(() => {
+      const [, setDraft] = result.current;
+      setDraft((draft) => ({ ...draft, values: { name: "typed early" } }));
+    });
+    rerender({ data: { version: 3, name: "cached" } });
+    expect(result.current[0].values).toEqual({ name: "typed early" });
+    rerender({ data: { version: 4, name: "cached" } });
+    expect(result.current[0].values).toEqual({ name: "typed early" });
+    expect(result.current[0].version).toBe(4);
+    rerender({ data: { version: 5, name: "theirs" } });
+    expect(result.current[0].values).toEqual({ name: "typed early" });
+    expect(result.current[0].version).toBe(4);
+  });
+
   it("settles when the caller builds the data afresh on every render", () => {
     let renders = 0;
     const { result, rerender } = renderHook(

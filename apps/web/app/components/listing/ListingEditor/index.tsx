@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
@@ -535,225 +536,229 @@ export function ListingEditor({
           save();
         }}
       >
-        {resumed ? <FocusOnMount>{statusLine}</FocusOnMount> : statusLine}
-        {failure === null ? null : (
-          <ListingFailureAlert
-            failure={failure}
-            placeId={data.place.id}
-            proxy={proxy}
-            unpublishable={!data.suspended}
-            busy={busy}
-            onReload={() =>
-              startBusy(async () => {
-                setDraft(reloadDraft);
-                await reconcile();
-                setFailure(null);
-              })
-            }
-            retry={
-              failure.attempt === "save" ? (
-                <Button type="submit" variant="secondary" disabled={busy}>
-                  もう一度保存
-                </Button>
-              ) : failure.attempt === "publish" ? (
-                <Button variant="secondary" disabled={busy} onClick={publish}>
-                  もう一度公開
-                </Button>
-              ) : undefined
-            }
-          />
-        )}
-        <div role="status">
-          {outcome?.kind === "notice" ? (
-            <Notice variant="manage" title={outcome.title}>
-              {outcome.body}
-            </Notice>
-          ) : null}
-        </div>
-        {copiedFrom === null ? null : (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title={
-                copiedFrom.name === null
-                  ? "複製した下書きです"
-                  : `「${copiedFrom.name}」を複製した下書きです`
+        <HydrationGate>
+          {resumed ? <FocusOnMount>{statusLine}</FocusOnMount> : statusLine}
+          {failure === null ? null : (
+            <ListingFailureAlert
+              failure={failure}
+              placeId={data.place.id}
+              proxy={proxy}
+              unpublishable={!data.suspended}
+              busy={busy}
+              onReload={() =>
+                startBusy(async () => {
+                  setDraft(reloadDraft);
+                  await reconcile();
+                  setFailure(null);
+                })
               }
-            >
-              名称・紹介文・カテゴリー・写真を引き継ぎました。提供期間と開催日は引き継いでいません。元の掲載は変わっていません。
-            </Notice>
-          </div>
-        )}
-        {data.photosTakenDown ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="申立てにより、掲載の写真が削除されました"
-              actions={
-                <a className="text-button" href="#photos">
-                  写真を登録する
-                </a>
+              retry={
+                failure.attempt === "save" ? (
+                  <Button type="submit" variant="secondary" disabled={busy}>
+                    もう一度保存
+                  </Button>
+                ) : failure.attempt === "publish" ? (
+                  <Button variant="secondary" disabled={busy} onClick={publish}>
+                    もう一度公開
+                  </Button>
+                ) : undefined
               }
-            >
-              {data.publication.reason === "photoTakedown"
-                ? "写真がなくなったため、この掲載は一時非公開になっています。写真を登録して保存し、再公開すると、閲覧者に表示されます。"
-                : "写真を登録して保存すると、この表示は消えます。"}
-            </Notice>
-          </div>
-        ) : null}
-        {data.suspended ? (
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="運営により非公開になっています"
-          >
-            閲覧者には表示されていません。解除できるのはサービス運営者だけです。そのほかの編集と提供状態の操作は、いつもどおり行えます。
-          </Notice>
-        ) : null}
-        {data.place.suspended ? (
-          <Notice variant="manage" tone="paper" title="この店舗は非公開です">
-            店舗の非公開が解除されるまで、店舗と掲載は閲覧者に表示されません。操作は、これまでどおり行えます。
-          </Notice>
-        ) : null}
-
-        <ListingFormFields
-          values={values}
-          onChange={(change) =>
-            setDraft((current) => ({
-              ...current,
-              values: { ...current.values, ...change },
-            }))
-          }
-          errors={failure?.fields ?? {}}
-          categories={categories}
-          place={data.place}
-          disabled={busy}
-        />
-
-        <hr className="m-divider" />
-        <section className="m-section" aria-labelledby="sm04-publish">
-          <SectionTitle variant="manage" id="sm04-publish">
-            公開
-          </SectionTitle>
-          <div className="sm04-state">
-            <Badge
-              tone={published ? "accent" : unpublished ? "muted" : "neutral"}
-            >
-              {publicationLabel(data.publication)}
-            </Badge>
-            {data.suspended ? (
-              <Badge tone="alert">運営による非公開</Badge>
+            />
+          )}
+          <div role="status">
+            {outcome?.kind === "notice" ? (
+              <Notice variant="manage" title={outcome.title}>
+                {outcome.body}
+              </Notice>
             ) : null}
-            <span className="sm04-state__text">
-              {viewable
-                ? "保存した内容は、閲覧者への表示にすぐ反映します。"
-                : "閲覧者には表示されていません。"}
-            </span>
           </div>
-          {viewable ? (
-            <div className="sm04-links">
-              <TextLink to={listingPagePath(data.id)}>
-                閲覧者に見える掲載ページ
-              </TextLink>
-              <TextLink to={placePagePath(data.place.id)}>店舗ページ</TextLink>
+          {copiedFrom === null ? null : (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title={
+                  copiedFrom.name === null
+                    ? "複製した下書きです"
+                    : `「${copiedFrom.name}」を複製した下書きです`
+                }
+              >
+                名称・紹介文・カテゴリー・写真を引き継ぎました。提供期間と開催日は引き継いでいません。元の掲載は変わっていません。
+              </Notice>
+            </div>
+          )}
+          {data.photosTakenDown ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="申立てにより、掲載の写真が削除されました"
+                actions={
+                  <a className="text-button" href="#photos">
+                    写真を登録する
+                  </a>
+                }
+              >
+                {data.publication.reason === "photoTakedown"
+                  ? "写真がなくなったため、この掲載は一時非公開になっています。写真を登録して保存し、再公開すると、閲覧者に表示されます。"
+                  : "写真を登録して保存すると、この表示は消えます。"}
+              </Notice>
             </div>
           ) : null}
-          {data.suspended ? null : published ? (
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() => setConfirming("unpublish")}
+          {data.suspended ? (
+            <Notice
+              variant="manage"
+              tone="paper"
+              title="運営により非公開になっています"
             >
-              一時非公開にする
-            </Button>
-          ) : (
-            <Button variant="secondary" disabled={busy} onClick={publish}>
-              {unpublished ? "確認せずに再公開する" : "確認せずに公開する"}
-            </Button>
-          )}
-          {dirty && !published && !data.suspended ? (
-            <p className="m-field__help">
-              保存していない変更は、保存してから公開します。
-            </p>
+              閲覧者には表示されていません。解除できるのはサービス運営者だけです。そのほかの編集と提供状態の操作は、いつもどおり行えます。
+            </Notice>
           ) : null}
-        </section>
+          {data.place.suspended ? (
+            <Notice variant="manage" tone="paper" title="この店舗は非公開です">
+              店舗の非公開が解除されるまで、店舗と掲載は閲覧者に表示されません。操作は、これまでどおり行えます。
+            </Notice>
+          ) : null}
 
-        <section className="m-section" aria-labelledby="sm04-offering">
-          <SectionTitle variant="manage" id="sm04-offering">
-            提供状態
-          </SectionTitle>
-          <div className="sm04-state">
-            <Badge
-              tone={
-                status.phase === "ended"
-                  ? "muted"
-                  : status.phase === "available"
-                    ? "accent"
-                    : "neutral"
-              }
-            >
-              {offeringPhaseLabel(status)}
-            </Badge>
-            <span className="sm04-state__text">
-              {offeringStatusText(data.offering, status)}
-            </span>
-          </div>
-          {status.phase === "ended" && status.cause === "manual" ? (
-            <>
-              {status.scheduleElapsed ? (
-                <p className="m-field__help">
-                  提供中に戻しても、終了日または最後の開催日を過ぎているため提供終了のままです。提供期間・開催日を変更してください。
-                </p>
+          <ListingFormFields
+            values={values}
+            onChange={(change) =>
+              setDraft((current) => ({
+                ...current,
+                values: { ...current.values, ...change },
+              }))
+            }
+            errors={failure?.fields ?? {}}
+            categories={categories}
+            place={data.place}
+            disabled={busy}
+          />
+
+          <hr className="m-divider" />
+          <section className="m-section" aria-labelledby="sm04-publish">
+            <SectionTitle variant="manage" id="sm04-publish">
+              公開
+            </SectionTitle>
+            <div className="sm04-state">
+              <Badge
+                tone={published ? "accent" : unpublished ? "muted" : "neutral"}
+              >
+                {publicationLabel(data.publication)}
+              </Badge>
+              {data.suspended ? (
+                <Badge tone="alert">運営による非公開</Badge>
               ) : null}
+              <span className="sm04-state__text">
+                {viewable
+                  ? "保存した内容は、閲覧者への表示にすぐ反映します。"
+                  : "閲覧者には表示されていません。"}
+              </span>
+            </div>
+            {viewable ? (
+              <div className="sm04-links">
+                <TextLink to={listingPagePath(data.id)}>
+                  閲覧者に見える掲載ページ
+                </TextLink>
+                <TextLink to={placePagePath(data.place.id)}>
+                  店舗ページ
+                </TextLink>
+              </div>
+            ) : null}
+            {data.suspended ? null : published ? (
               <Button
                 variant="secondary"
                 disabled={busy}
-                onClick={() => transition("resumeOffering")}
+                onClick={() => setConfirming("unpublish")}
               >
-                提供中に戻す
+                一時非公開にする
               </Button>
-            </>
-          ) : status.phase === "ended" ? (
+            ) : (
+              <Button variant="secondary" disabled={busy} onClick={publish}>
+                {unpublished ? "確認せずに再公開する" : "確認せずに公開する"}
+              </Button>
+            )}
+            {dirty && !published && !data.suspended ? (
+              <p className="m-field__help">
+                保存していない変更は、保存してから公開します。
+              </p>
+            ) : null}
+          </section>
+
+          <section className="m-section" aria-labelledby="sm04-offering">
+            <SectionTitle variant="manage" id="sm04-offering">
+              提供状態
+            </SectionTitle>
+            <div className="sm04-state">
+              <Badge
+                tone={
+                  status.phase === "ended"
+                    ? "muted"
+                    : status.phase === "available"
+                      ? "accent"
+                      : "neutral"
+                }
+              >
+                {offeringPhaseLabel(status)}
+              </Badge>
+              <span className="sm04-state__text">
+                {offeringStatusText(data.offering, status)}
+              </span>
+            </div>
+            {status.phase === "ended" && status.cause === "manual" ? (
+              <>
+                {status.scheduleElapsed ? (
+                  <p className="m-field__help">
+                    提供中に戻しても、終了日または最後の開催日を過ぎているため提供終了のままです。提供期間・開催日を変更してください。
+                  </p>
+                ) : null}
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => transition("resumeOffering")}
+                >
+                  提供中に戻す
+                </Button>
+              </>
+            ) : status.phase === "ended" ? (
+              <p className="m-field__help">
+                提供期間の終了日を更新するか外す、または開催日を追加して保存すると、提供中に戻ります。
+              </p>
+            ) : published ? (
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setConfirming("endOffering")}
+              >
+                提供を終了する
+              </Button>
+            ) : (
+              <p className="m-field__help">
+                提供を終了する操作は、公開中の掲載に示します。
+              </p>
+            )}
+          </section>
+
+          <hr className="m-divider" />
+          <section className="m-section" aria-labelledby="sm04-more">
+            <SectionTitle variant="manage" id="sm04-more">
+              この掲載
+            </SectionTitle>
+            <Button variant="secondary" disabled={busy} onClick={duplicate}>
+              複製して新しい下書きをつくる
+            </Button>
             <p className="m-field__help">
-              提供期間の終了日を更新するか外す、または開催日を追加して保存すると、提供中に戻ります。
+              名称・紹介文・カテゴリー・写真を引き継ぎます。提供期間と開催日は引き継ぎません。
             </p>
-          ) : published ? (
             <Button
               variant="secondary"
+              className="sm04-danger"
               disabled={busy}
-              onClick={() => setConfirming("endOffering")}
+              onClick={() => setConfirming("delete")}
             >
-              提供を終了する
+              この掲載を削除
             </Button>
-          ) : (
-            <p className="m-field__help">
-              提供を終了する操作は、公開中の掲載に示します。
-            </p>
-          )}
-        </section>
-
-        <hr className="m-divider" />
-        <section className="m-section" aria-labelledby="sm04-more">
-          <SectionTitle variant="manage" id="sm04-more">
-            この掲載
-          </SectionTitle>
-          <Button variant="secondary" disabled={busy} onClick={duplicate}>
-            複製して新しい下書きをつくる
-          </Button>
-          <p className="m-field__help">
-            名称・紹介文・カテゴリー・写真を引き継ぎます。提供期間と開催日は引き継ぎません。
-          </p>
-          <Button
-            variant="secondary"
-            className="sm04-danger"
-            disabled={busy}
-            onClick={() => setConfirming("delete")}
-          >
-            この掲載を削除
-          </Button>
-        </section>
+          </section>
+        </HydrationGate>
       </form>
 
       <ConfirmDialog

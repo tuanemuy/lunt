@@ -13,6 +13,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { TextLink } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { newId } from "@/presentation/newId";
@@ -193,83 +194,85 @@ export function NewPlaceEditor({ lists }: { lists: AreaLists }) {
           register();
         }}
       >
-        {taken === null ? null : (
-          <Alert
-            title="この店舗は、すでに登録されていました"
-            actions={
-              <>
-                <ButtonLink
-                  variant="secondary"
-                  to="/manage/places/$placeId/info"
-                  params={{ placeId: taken }}
-                >
-                  登録された店舗情報を開く
-                </ButtonLink>
-                <ButtonLink
-                  variant="secondary"
-                  to="/ops/subjects/$kind/$id"
-                  params={{ kind: "place", id: taken }}
-                >
-                  店舗の運営へ
-                </ButtonLink>
-              </>
+        <HydrationGate>
+          {taken === null ? null : (
+            <Alert
+              title="この店舗は、すでに登録されていました"
+              actions={
+                <>
+                  <ButtonLink
+                    variant="secondary"
+                    to="/manage/places/$placeId/info"
+                    params={{ placeId: taken }}
+                  >
+                    登録された店舗情報を開く
+                  </ButtonLink>
+                  <ButtonLink
+                    variant="secondary"
+                    to="/ops/subjects/$kind/$id"
+                    params={{ kind: "place", id: taken }}
+                  >
+                    店舗の運営へ
+                  </ButtonLink>
+                </>
+              }
+            >
+              通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録された店舗を開いて、店舗情報を確かめてください。
+            </Alert>
+          )}
+          {failure === null ? null : failure.kind === "invalidInput" ? (
+            <Alert
+              title="登録できませんでした"
+              list={listed.map((field) => (
+                <li key={field}>
+                  <a
+                    className="text-button"
+                    href={`#${PLACE_FIELD_ANCHOR[field]}`}
+                  >
+                    {PLACE_FIELD_LABEL[field]}
+                  </a>
+                </li>
+              ))}
+            >
+              {listed.length === 0
+                ? failure.message
+                : "店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"}
+            </Alert>
+          ) : (
+            <Alert
+              title="登録できませんでした"
+              {...(failure.kind === "failed"
+                ? {
+                    actions: (
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        disabled={registering}
+                      >
+                        もう一度登録
+                      </Button>
+                    ),
+                  }
+                : {})}
+            >
+              {failure.kind === "failed"
+                ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
+                : failure.message}
+            </Alert>
+          )}
+          <p className="om02-lead">
+            登録した店舗は、管理者のいない店舗として公開されます。非公開の店舗を含めて、同じ店舗がないことを「対象を探す」で確かめてから登録します。
+          </p>
+          <PlaceFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
             }
-          >
-            通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録された店舗を開いて、店舗情報を確かめてください。
-          </Alert>
-        )}
-        {failure === null ? null : failure.kind === "invalidInput" ? (
-          <Alert
-            title="登録できませんでした"
-            list={listed.map((field) => (
-              <li key={field}>
-                <a
-                  className="text-button"
-                  href={`#${PLACE_FIELD_ANCHOR[field]}`}
-                >
-                  {PLACE_FIELD_LABEL[field]}
-                </a>
-              </li>
-            ))}
-          >
-            {listed.length === 0
-              ? failure.message
-              : "店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"}
-          </Alert>
-        ) : (
-          <Alert
-            title="登録できませんでした"
-            {...(failure.kind === "failed"
-              ? {
-                  actions: (
-                    <Button
-                      type="submit"
-                      variant="secondary"
-                      disabled={registering}
-                    >
-                      もう一度登録
-                    </Button>
-                  ),
-                }
-              : {})}
-          >
-            {failure.kind === "failed"
-              ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
-              : failure.message}
-          </Alert>
-        )}
-        <p className="om02-lead">
-          登録した店舗は、管理者のいない店舗として公開されます。非公開の店舗を含めて、同じ店舗がないことを「対象を探す」で確かめてから登録します。
-        </p>
-        <PlaceFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={state.fields}
-          lists={lists}
-          disabled={registering}
-        />
+            errors={state.fields}
+            lists={lists}
+            disabled={registering}
+          />
+        </HydrationGate>
       </form>
     </ManagePage>
   );

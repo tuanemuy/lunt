@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -463,203 +464,208 @@ export function OccasionEditor({
           save();
         }}
       >
-        {failure === null ? null : (
-          <FailureAlert
-            failure={failure}
-            occasionId={data.occasionId}
-            proxy={proxy}
-            busy={busy}
-            onReload={() =>
-              startBusy(async () => {
-                setDraft(reloadDraft);
-                await reconcile();
-                setFailure(null);
-              })
-            }
-            onRetry={
-              failure.attempt === "save"
-                ? save
-                : failure.attempt === "publish"
-                  ? publish
-                  : null
-            }
-          />
-        )}
-        {registered ? (
-          <div role="status">
-            <Notice variant="manage" title="イベントを下書きとして登録しました">
-              この画面のまま、内容を整えて公開へ進めます。登録したイベントは運営者が不在のイベントです。管理権限は、メンバーの管理から付与します。
-            </Notice>
-          </div>
-        ) : null}
-        {data.photosTakenDown ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="申立てにより、イベントの写真が削除されました"
-              actions={
-                <a className="text-button" href="#photos">
-                  写真を登録する
-                </a>
+        <HydrationGate>
+          {failure === null ? null : (
+            <FailureAlert
+              failure={failure}
+              occasionId={data.occasionId}
+              proxy={proxy}
+              busy={busy}
+              onReload={() =>
+                startBusy(async () => {
+                  setDraft(reloadDraft);
+                  await reconcile();
+                  setFailure(null);
+                })
               }
-            >
-              {data.publication.status === "unpublished" &&
-              data.publication.reason === "photoTakedown"
-                ? data.suspended
-                  ? "写真がなくなったため、イベントは公開を取り下げた状態になりました。写真を登録して保存し、運営による非公開が解除された後に、公開の操作で再び公開してください。"
-                  : "写真がなくなったため、イベントは公開を取り下げた状態になりました。写真を登録して保存し、公開の操作で再び公開してください。"
-                : "写真を登録して保存すると、この表示は消えます。"}
-            </Notice>
-          </div>
-        ) : null}
-
-        <section className="m-section" aria-labelledby="em02-state">
-          <SectionTitle variant="manage" id="em02-state">
-            公開状態
-          </SectionTitle>
-          <div className="em-state">
-            <p className="p-badges">
-              {data.suspended ? (
-                <Badge tone="alert">運営による非公開</Badge>
-              ) : null}
-              <Badge
-                tone={
-                  published
-                    ? data.suspended
-                      ? "neutral"
-                      : "accent"
-                    : data.publication.status === "unpublished"
-                      ? "muted"
-                      : "neutral"
+              onRetry={
+                failure.attempt === "save"
+                  ? save
+                  : failure.attempt === "publish"
+                    ? publish
+                    : null
+              }
+            />
+          )}
+          {registered ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                title="イベントを下書きとして登録しました"
+              >
+                この画面のまま、内容を整えて公開へ進めます。登録したイベントは運営者が不在のイベントです。管理権限は、メンバーの管理から付与します。
+              </Notice>
+            </div>
+          ) : null}
+          {data.photosTakenDown ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="申立てにより、イベントの写真が削除されました"
+                actions={
+                  <a className="text-button" href="#photos">
+                    写真を登録する
+                  </a>
                 }
               >
-                {data.suspended && published
-                  ? "公開"
-                  : occasionPublicationLabel(data.publication)}
-              </Badge>
-            </p>
-            <p className="m-field__help">
-              {data.suspended
-                ? "サービス運営者がイベントを非公開にしています。解除されるまで、イベントは閲覧者に表示されません。解除できるのはサービス運営者だけです。その間も、イベント情報の保存と、中止・中止の取り消しは行えます。"
-                : published
-                  ? "イベントは閲覧者に表示されています。保存した内容は、その時点でイベントページに反映します。公開をやめるときは、公開を取り下げます。"
-                  : data.publication.status === "unpublished"
-                    ? "イベントは閲覧者に表示されていません。参加関係と開催地域の関連づけは保たれています。公開すると、再び表示されます。"
-                    : "イベントは閲覧者に表示されていません。名称・開催期間・開催場所・写真が揃うと公開できます。イベント運営者がいなくても公開できます。"}
-            </p>
-            {dirty && !published && !data.suspended ? (
-              <p className="m-field__help">
-                保存していない変更は、保存してから公開します。
-              </p>
-            ) : null}
-          </div>
-        </section>
+                {data.publication.status === "unpublished" &&
+                data.publication.reason === "photoTakedown"
+                  ? data.suspended
+                    ? "写真がなくなったため、イベントは公開を取り下げた状態になりました。写真を登録して保存し、運営による非公開が解除された後に、公開の操作で再び公開してください。"
+                    : "写真がなくなったため、イベントは公開を取り下げた状態になりました。写真を登録して保存し、公開の操作で再び公開してください。"
+                  : "写真を登録して保存すると、この表示は消えます。"}
+              </Notice>
+            </div>
+          ) : null}
 
-        <section className="m-section" aria-labelledby="em02-held">
-          <SectionTitle variant="manage" id="em02-held">
-            開催の状態
-          </SectionTitle>
-          <div className="em-state">
-            <p className="p-badges">
-              {data.holding === null ? (
-                <Badge>開催期間が未設定</Badge>
-              ) : (
+          <section className="m-section" aria-labelledby="em02-state">
+            <SectionTitle variant="manage" id="em02-state">
+              公開状態
+            </SectionTitle>
+            <div className="em-state">
+              <p className="p-badges">
+                {data.suspended ? (
+                  <Badge tone="alert">運営による非公開</Badge>
+                ) : null}
                 <Badge
                   tone={
-                    data.holding === "cancelled"
-                      ? "alert"
-                      : data.holding === "ended"
-                        ? "muted"
+                    published
+                      ? data.suspended
+                        ? "neutral"
                         : "accent"
+                      : data.publication.status === "unpublished"
+                        ? "muted"
+                        : "neutral"
                   }
                 >
-                  {HOLDING_LABEL[data.holding]}
+                  {data.suspended && published
+                    ? "公開"
+                    : occasionPublicationLabel(data.publication)}
                 </Badge>
-              )}
-            </p>
-            <p className="m-field__help">
-              {data.cancelled
-                ? "イベントは、フィードとイベントの一覧と関連するイベントに表示されていません。開催期間を変えて保存しても、中止のままです。中止を取り消すと、開催の状態は開催期間と今日の日付から決まる状態に戻ります。"
-                : data.holding === "ended"
-                  ? "開催期間を過ぎています。開催期間を今日より後へ変えて保存すると、開催前または開催中に戻ります。"
-                  : data.holding === null
-                    ? "開催期間を入力して保存すると、開催の状態が決まります。"
-                    : "開催の状態は、開催期間と今日の日付から決まります。延期するときは、開催期間を変えて保存します。"}
-            </p>
-            <div>
-              {data.cancelled ? (
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    transition("revokeCancellation", { kind: "uncancelled" })
-                  }
-                >
-                  中止を取り消す
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => setConfirming("cancel")}
-                >
-                  中止にする
-                </Button>
-              )}
+              </p>
+              <p className="m-field__help">
+                {data.suspended
+                  ? "サービス運営者がイベントを非公開にしています。解除されるまで、イベントは閲覧者に表示されません。解除できるのはサービス運営者だけです。その間も、イベント情報の保存と、中止・中止の取り消しは行えます。"
+                  : published
+                    ? "イベントは閲覧者に表示されています。保存した内容は、その時点でイベントページに反映します。公開をやめるときは、公開を取り下げます。"
+                    : data.publication.status === "unpublished"
+                      ? "イベントは閲覧者に表示されていません。参加関係と開催地域の関連づけは保たれています。公開すると、再び表示されます。"
+                      : "イベントは閲覧者に表示されていません。名称・開催期間・開催場所・写真が揃うと公開できます。イベント運営者がいなくても公開できます。"}
+              </p>
+              {dirty && !published && !data.suspended ? (
+                <p className="m-field__help">
+                  保存していない変更は、保存してから公開します。
+                </p>
+              ) : null}
             </div>
-          </div>
-        </section>
+          </section>
 
-        {resumed ? <FocusOnMount>{fields}</FocusOnMount> : fields}
+          <section className="m-section" aria-labelledby="em02-held">
+            <SectionTitle variant="manage" id="em02-held">
+              開催の状態
+            </SectionTitle>
+            <div className="em-state">
+              <p className="p-badges">
+                {data.holding === null ? (
+                  <Badge>開催期間が未設定</Badge>
+                ) : (
+                  <Badge
+                    tone={
+                      data.holding === "cancelled"
+                        ? "alert"
+                        : data.holding === "ended"
+                          ? "muted"
+                          : "accent"
+                    }
+                  >
+                    {HOLDING_LABEL[data.holding]}
+                  </Badge>
+                )}
+              </p>
+              <p className="m-field__help">
+                {data.cancelled
+                  ? "イベントは、フィードとイベントの一覧と関連するイベントに表示されていません。開催期間を変えて保存しても、中止のままです。中止を取り消すと、開催の状態は開催期間と今日の日付から決まる状態に戻ります。"
+                  : data.holding === "ended"
+                    ? "開催期間を過ぎています。開催期間を今日より後へ変えて保存すると、開催前または開催中に戻ります。"
+                    : data.holding === null
+                      ? "開催期間を入力して保存すると、開催の状態が決まります。"
+                      : "開催の状態は、開催期間と今日の日付から決まります。延期するときは、開催期間を変えて保存します。"}
+              </p>
+              <div>
+                {data.cancelled ? (
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      transition("revokeCancellation", { kind: "uncancelled" })
+                    }
+                  >
+                    中止を取り消す
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => setConfirming("cancel")}
+                  >
+                    中止にする
+                  </Button>
+                )}
+              </div>
+            </div>
+          </section>
 
-        <hr className="m-divider" />
-        <section className="m-section" aria-labelledby="em02-related">
-          <SectionTitle variant="manage" id="em02-related">
-            イベントの運営
-          </SectionTitle>
-          <LinkList>
-            {data.viewable ? (
+          {resumed ? <FocusOnMount>{fields}</FocusOnMount> : fields}
+
+          <hr className="m-divider" />
+          <section className="m-section" aria-labelledby="em02-related">
+            <SectionTitle variant="manage" id="em02-related">
+              イベントの運営
+            </SectionTitle>
+            <LinkList>
+              {data.viewable ? (
+                <li>
+                  <ListRowLink
+                    to={occasionPagePath(data.occasionId)}
+                    title="閲覧者に見えるイベントページ"
+                    meta="保存した内容は、このイベントページにすぐ反映します"
+                  />
+                </li>
+              ) : null}
               <li>
                 <ListRowLink
-                  to={occasionPagePath(data.occasionId)}
-                  title="閲覧者に見えるイベントページ"
-                  meta="保存した内容は、このイベントページにすぐ反映します"
-                />
-              </li>
-            ) : null}
-            <li>
-              <ListRowLink
-                to="/manage/events/$occasionId/regions"
-                params={params}
-                title="開催地域"
-                meta={
-                  data.linkedRegions.count === 0
-                    ? "関連づけている地域はありません"
-                    : data.linkedRegions.count === 1
-                      ? (data.linkedRegions.first ?? "1地域")
-                      : `${data.linkedRegions.first ?? "地域"} ほか ${data.linkedRegions.count - 1}地域`
-                }
-              />
-            </li>
-            {proxy ? null : (
-              <li>
-                <ListRowLink
-                  to={occasionMembersPath(data.occasionId)}
-                  title="メンバーの管理"
+                  to="/manage/events/$occasionId/regions"
+                  params={params}
+                  title="開催地域"
                   meta={
-                    data.stewardCount === 0
-                      ? "イベント運営者はいません"
-                      : `イベント運営者 ${data.stewardCount}人`
+                    data.linkedRegions.count === 0
+                      ? "関連づけている地域はありません"
+                      : data.linkedRegions.count === 1
+                        ? (data.linkedRegions.first ?? "1地域")
+                        : `${data.linkedRegions.first ?? "地域"} ほか ${data.linkedRegions.count - 1}地域`
                   }
                 />
               </li>
-            )}
-          </LinkList>
-          <p className="m-field__help">
-            参加店舗の情報と掲載は、イベントの運営からは変えられません。
-          </p>
-        </section>
+              {proxy ? null : (
+                <li>
+                  <ListRowLink
+                    to={occasionMembersPath(data.occasionId)}
+                    title="メンバーの管理"
+                    meta={
+                      data.stewardCount === 0
+                        ? "イベント運営者はいません"
+                        : `イベント運営者 ${data.stewardCount}人`
+                    }
+                  />
+                </li>
+              )}
+            </LinkList>
+            <p className="m-field__help">
+              参加店舗の情報と掲載は、イベントの運営からは変えられません。
+            </p>
+          </section>
+        </HydrationGate>
       </form>
 
       <ConfirmDialog

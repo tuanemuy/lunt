@@ -12,6 +12,7 @@ import {
 import { OpsSearchReturnLink } from "@/components/ops/OpsSearchReturn";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { TextLink } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
@@ -151,78 +152,80 @@ export function NewOccasionEditor({ lists }: { lists: AreaLists }) {
           register();
         }}
       >
-        {taken === null ? null : (
-          <Alert
-            title="このイベントは、すでに登録されていました"
-            actions={
-              <ButtonLink
-                variant="secondary"
-                to="/manage/events/$occasionId/info"
-                params={{ occasionId: taken }}
-              >
-                登録されたイベントを開く
-              </ButtonLink>
-            }
-          >
-            通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録されたイベントを開いて、イベント情報を確かめてください。
-          </Alert>
-        )}
-        {failure === null ? null : failure.kind === "invalidInput" ? (
-          <Alert
-            title="登録できませんでした"
-            list={listed.map((field) => (
-              <li key={field}>
-                <a
-                  className="text-button"
-                  href={`#${OCCASION_FIELD_ANCHOR[field]}`}
+        <HydrationGate>
+          {taken === null ? null : (
+            <Alert
+              title="このイベントは、すでに登録されていました"
+              actions={
+                <ButtonLink
+                  variant="secondary"
+                  to="/manage/events/$occasionId/info"
+                  params={{ occasionId: taken }}
                 >
-                  {OCCASION_FIELD_LABEL[field]}
-                </a>
-              </li>
-            ))}
+                  登録されたイベントを開く
+                </ButtonLink>
+              }
+            >
+              通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録されたイベントを開いて、イベント情報を確かめてください。
+            </Alert>
+          )}
+          {failure === null ? null : failure.kind === "invalidInput" ? (
+            <Alert
+              title="登録できませんでした"
+              list={listed.map((field) => (
+                <li key={field}>
+                  <a
+                    className="text-button"
+                    href={`#${OCCASION_FIELD_ANCHOR[field]}`}
+                  >
+                    {OCCASION_FIELD_LABEL[field]}
+                  </a>
+                </li>
+              ))}
+            >
+              {listed.length === 0
+                ? failure.message
+                : "次の項目を直してください。"}
+            </Alert>
+          ) : (
+            <Alert
+              title="登録できませんでした"
+              {...(failure.kind === "failed"
+                ? {
+                    actions: (
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        disabled={registering}
+                      >
+                        もう一度登録
+                      </Button>
+                    ),
+                  }
+                : {})}
+            >
+              {failure.kind === "failed"
+                ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
+                : failure.message}
+            </Alert>
+          )}
+          <Notice
+            variant="manage"
+            tone="paper"
+            title="イベントを下書きとして登録します"
           >
-            {listed.length === 0
-              ? failure.message
-              : "次の項目を直してください。"}
-          </Alert>
-        ) : (
-          <Alert
-            title="登録できませんでした"
-            {...(failure.kind === "failed"
-              ? {
-                  actions: (
-                    <Button
-                      type="submit"
-                      variant="secondary"
-                      disabled={registering}
-                    >
-                      もう一度登録
-                    </Button>
-                  ),
-                }
-              : {})}
-          >
-            {failure.kind === "failed"
-              ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
-              : failure.message}
-          </Alert>
-        )}
-        <Notice
-          variant="manage"
-          tone="paper"
-          title="イベントを下書きとして登録します"
-        >
-          保存すると、イベントは下書きとして登録され、この画面のまま公開へ進めます。保存せずにやめると、イベントは登録されません。登録したイベントは運営者が不在のイベントになります。管理権限は、メンバーから付与します。
-        </Notice>
-        <OccasionFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={state.fields}
-          lists={lists}
-          disabled={registering}
-        />
+            保存すると、イベントは下書きとして登録され、この画面のまま公開へ進めます。保存せずにやめると、イベントは登録されません。登録したイベントは運営者が不在のイベントになります。管理権限は、メンバーから付与します。
+          </Notice>
+          <OccasionFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
+            }
+            errors={state.fields}
+            lists={lists}
+            disabled={registering}
+          />
+        </HydrationGate>
       </form>
     </ManagePage>
   );

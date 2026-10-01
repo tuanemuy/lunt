@@ -14,6 +14,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -249,155 +250,157 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
           save();
         }}
       >
-        {failure === null ? null : failure.kind === "forbidden" && proxy ? (
-          <Alert
-            title="この店舗は代行できません"
-            actions={
-              <ButtonLink
-                variant="secondary"
-                to="/ops/subjects/$kind/$id"
-                params={{ kind: "place", id: frame.placeId }}
-              >
-                店舗の運営へ戻る
-              </ButtonLink>
-            }
-          >
-            この店舗には店舗管理者が就きました。変更は保存していません。店舗の運営の画面で、管理者がいることを確かめてください。
-          </Alert>
-        ) : failure.kind === "conflict" ? (
-          <Alert
-            title="ほかの人が先に店舗情報を保存していました"
-            actions={
-              <Button
-                variant="secondary"
-                disabled={saving}
-                onClick={() =>
-                  startSave(async () => {
-                    setDraft(reloadDraft);
-                    await reconcile();
-                    setSaveState(NO_ERROR);
-                  })
+        <HydrationGate>
+          {failure === null ? null : failure.kind === "forbidden" && proxy ? (
+            <Alert
+              title="この店舗は代行できません"
+              actions={
+                <ButtonLink
+                  variant="secondary"
+                  to="/ops/subjects/$kind/$id"
+                  params={{ kind: "place", id: frame.placeId }}
+                >
+                  店舗の運営へ戻る
+                </ButtonLink>
+              }
+            >
+              この店舗には店舗管理者が就きました。変更は保存していません。店舗の運営の画面で、管理者がいることを確かめてください。
+            </Alert>
+          ) : failure.kind === "conflict" ? (
+            <Alert
+              title="ほかの人が先に店舗情報を保存していました"
+              actions={
+                <Button
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() =>
+                    startSave(async () => {
+                      setDraft(reloadDraft);
+                      await reconcile();
+                      setSaveState(NO_ERROR);
+                    })
+                  }
+                >
+                  最新の内容を読み直す
+                </Button>
+              }
+            >
+              この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。
+            </Alert>
+          ) : failure.kind === "invalidInput" ? (
+            <Alert
+              title="保存できませんでした"
+              list={<FieldList fields={saveState.fields} />}
+            >
+              {Object.keys(saveState.fields).length === 0
+                ? failure.message
+                : "店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"}
+            </Alert>
+          ) : failure.kind === "notFound" ? (
+            <Alert title="店舗が見つかりません">{failure.message}</Alert>
+          ) : (
+            <Alert
+              title="保存できませんでした"
+              actions={
+                <Button type="submit" variant="secondary" disabled={saving}>
+                  もう一度保存
+                </Button>
+              }
+            >
+              {failure.kind === "failed"
+                ? "通信を確かめて、もう一度保存してください。入力した内容は残っています。"
+                : failure.message}
+            </Alert>
+          )}
+          {frame.suspended ? (
+            <Notice variant="manage" tone="paper" title="この店舗は非公開です">
+              解除されるまで、店舗と掲載は閲覧者に表示されません。情報の編集は、これまでどおり行えます。
+            </Notice>
+          ) : null}
+          {data.photosTakenDown ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="申立てにより、店舗の写真が削除されました"
+                actions={
+                  <a className="text-button" href="#photos">
+                    写真を登録する
+                  </a>
                 }
               >
-                最新の内容を読み直す
-              </Button>
+                店舗は公開を続けています。写真を登録して保存すると、この表示は消えます。
+              </Notice>
+            </div>
+          ) : null}
+          {resumed ? <FocusOnMount>{fields}</FocusOnMount> : fields}
+          <hr className="m-divider" />
+          <OperatingStatusPanel
+            placeId={data.placeId}
+            version={draft.version}
+            current={data.operatingStatus}
+            proxy={proxy}
+            suspended={frame.suspended}
+            onChanged={(version) =>
+              setDraft((current) => movedDraft(current, version))
             }
-          >
-            この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。
-          </Alert>
-        ) : failure.kind === "invalidInput" ? (
-          <Alert
-            title="保存できませんでした"
-            list={<FieldList fields={saveState.fields} />}
-          >
-            {Object.keys(saveState.fields).length === 0
-              ? failure.message
-              : "店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"}
-          </Alert>
-        ) : failure.kind === "notFound" ? (
-          <Alert title="店舗が見つかりません">{failure.message}</Alert>
-        ) : (
-          <Alert
-            title="保存できませんでした"
-            actions={
-              <Button type="submit" variant="secondary" disabled={saving}>
-                もう一度保存
-              </Button>
-            }
-          >
-            {failure.kind === "failed"
-              ? "通信を確かめて、もう一度保存してください。入力した内容は残っています。"
-              : failure.message}
-          </Alert>
-        )}
-        {frame.suspended ? (
-          <Notice variant="manage" tone="paper" title="この店舗は非公開です">
-            解除されるまで、店舗と掲載は閲覧者に表示されません。情報の編集は、これまでどおり行えます。
-          </Notice>
-        ) : null}
-        {data.photosTakenDown ? (
-          <div role="status">
+            onReload={() => setDraft(reloadDraft)}
+            onLostAccess={() => {
+              setOutcome({ kind: "lostAccess" });
+              router.clearCache();
+            }}
+          />
+          <hr className="m-divider" />
+          <section className="m-section" aria-labelledby="sm02-related">
+            <SectionTitle variant="manage" id="sm02-related">
+              店舗の管理
+            </SectionTitle>
+            <LinkList>
+              {proxy ? null : (
+                <li>
+                  <ListRowLink
+                    to="/manage/places/$placeId/regions"
+                    params={{ placeId: frame.placeId }}
+                    title="所属地域の状況"
+                    meta={
+                      data.regionNames.length === 0
+                        ? "所属している地域はありません"
+                        : `所属中 · ${data.regionNames.join("、")}`
+                    }
+                  />
+                </li>
+              )}
+              {proxy ? null : (
+                <li>
+                  <ListRowLink
+                    to={placeMembersPath(frame.placeId)}
+                    title="メンバーの管理"
+                    meta="店舗管理者の確認と招待"
+                  />
+                </li>
+              )}
+              <li>
+                <ListRowLink
+                  to={placePagePath(frame.placeId)}
+                  title="閲覧者に見える店舗ページ"
+                  meta="保存した内容は、この店舗ページにすぐ反映します"
+                />
+              </li>
+            </LinkList>
             <Notice
               variant="manage"
               tone="paper"
-              title="申立てにより、店舗の写真が削除されました"
+              title="Lunt への掲載をやめるとき"
               actions={
-                <a className="text-button" href="#photos">
-                  写真を登録する
-                </a>
+                <TextLink to={placePagePath(frame.placeId)}>
+                  店舗ページを開く
+                </TextLink>
               }
             >
-              店舗は公開を続けています。写真を登録して保存すると、この表示は消えます。
+              店舗を非公開にする操作と、削除する操作はありません。掲載をやめるときは、店舗ページから取り下げを申し立ててください。
             </Notice>
-          </div>
-        ) : null}
-        {resumed ? <FocusOnMount>{fields}</FocusOnMount> : fields}
-        <hr className="m-divider" />
-        <OperatingStatusPanel
-          placeId={data.placeId}
-          version={draft.version}
-          current={data.operatingStatus}
-          proxy={proxy}
-          suspended={frame.suspended}
-          onChanged={(version) =>
-            setDraft((current) => movedDraft(current, version))
-          }
-          onReload={() => setDraft(reloadDraft)}
-          onLostAccess={() => {
-            setOutcome({ kind: "lostAccess" });
-            router.clearCache();
-          }}
-        />
-        <hr className="m-divider" />
-        <section className="m-section" aria-labelledby="sm02-related">
-          <SectionTitle variant="manage" id="sm02-related">
-            店舗の管理
-          </SectionTitle>
-          <LinkList>
-            {proxy ? null : (
-              <li>
-                <ListRowLink
-                  to="/manage/places/$placeId/regions"
-                  params={{ placeId: frame.placeId }}
-                  title="所属地域の状況"
-                  meta={
-                    data.regionNames.length === 0
-                      ? "所属している地域はありません"
-                      : `所属中 · ${data.regionNames.join("、")}`
-                  }
-                />
-              </li>
-            )}
-            {proxy ? null : (
-              <li>
-                <ListRowLink
-                  to={placeMembersPath(frame.placeId)}
-                  title="メンバーの管理"
-                  meta="店舗管理者の確認と招待"
-                />
-              </li>
-            )}
-            <li>
-              <ListRowLink
-                to={placePagePath(frame.placeId)}
-                title="閲覧者に見える店舗ページ"
-                meta="保存した内容は、この店舗ページにすぐ反映します"
-              />
-            </li>
-          </LinkList>
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="Lunt への掲載をやめるとき"
-            actions={
-              <TextLink to={placePagePath(frame.placeId)}>
-                店舗ページを開く
-              </TextLink>
-            }
-          >
-            店舗を非公開にする操作と、削除する操作はありません。掲載をやめるときは、店舗ページから取り下げを申し立ててください。
-          </Notice>
-        </section>
+          </section>
+        </HydrationGate>
       </form>
     </ShopPage>
   );

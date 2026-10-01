@@ -13,6 +13,7 @@ import { OpsSearchReturnLink } from "@/components/ops/OpsSearchReturn";
 import { rememberProxyVisit } from "@/components/ops/ProxyReturn";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { TextLink } from "@/components/ui/TextButton";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
@@ -147,79 +148,81 @@ export function NewRegionEditor({ lists }: { lists: AreaLists }) {
           register();
         }}
       >
-        {taken === null ? null : (
-          <Alert
-            title="この地域は、すでに登録されていました"
-            actions={
-              <ButtonLink
-                variant="secondary"
-                to="/manage/regions/$regionId/info"
-                params={{ regionId: taken }}
-                onClick={() => rememberProxyVisit(regionProxyKey(taken))}
-              >
-                登録された地域情報を開く
-              </ButtonLink>
-            }
-          >
-            通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録された地域を開いて、地域情報を確かめてください。
-          </Alert>
-        )}
-        {failure === null ? null : failure.kind === "invalidInput" ? (
-          <Alert
-            title="登録できませんでした"
-            list={listed.map((field) => (
-              <li key={field}>
-                <a
-                  className="text-button"
-                  href={`#${REGION_FIELD_ANCHOR[field]}`}
+        <HydrationGate>
+          {taken === null ? null : (
+            <Alert
+              title="この地域は、すでに登録されていました"
+              actions={
+                <ButtonLink
+                  variant="secondary"
+                  to="/manage/regions/$regionId/info"
+                  params={{ regionId: taken }}
+                  onClick={() => rememberProxyVisit(regionProxyKey(taken))}
                 >
-                  {REGION_FIELD_LABEL[field]}
-                </a>
-              </li>
-            ))}
+                  登録された地域情報を開く
+                </ButtonLink>
+              }
+            >
+              通信が途切れる前の登録が届いていました。そのあとに変えた内容は登録していません。登録された地域を開いて、地域情報を確かめてください。
+            </Alert>
+          )}
+          {failure === null ? null : failure.kind === "invalidInput" ? (
+            <Alert
+              title="登録できませんでした"
+              list={listed.map((field) => (
+                <li key={field}>
+                  <a
+                    className="text-button"
+                    href={`#${REGION_FIELD_ANCHOR[field]}`}
+                  >
+                    {REGION_FIELD_LABEL[field]}
+                  </a>
+                </li>
+              ))}
+            >
+              {listed.length === 0
+                ? failure.message
+                : "次の項目を直してください。"}
+            </Alert>
+          ) : (
+            <Alert
+              title="登録できませんでした"
+              {...(failure.kind === "failed"
+                ? {
+                    actions: (
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        disabled={registering}
+                      >
+                        もう一度登録
+                      </Button>
+                    ),
+                  }
+                : {})}
+            >
+              {failure.kind === "failed"
+                ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
+                : failure.message}
+            </Alert>
+          )}
+          <Notice
+            variant="manage"
+            tone="paper"
+            title="地域を下書きとして登録します"
           >
-            {listed.length === 0
-              ? failure.message
-              : "次の項目を直してください。"}
-          </Alert>
-        ) : (
-          <Alert
-            title="登録できませんでした"
-            {...(failure.kind === "failed"
-              ? {
-                  actions: (
-                    <Button
-                      type="submit"
-                      variant="secondary"
-                      disabled={registering}
-                    >
-                      もう一度登録
-                    </Button>
-                  ),
-                }
-              : {})}
-          >
-            {failure.kind === "failed"
-              ? "通信を確かめて、もう一度登録してください。入力した内容は残っています。"
-              : failure.message}
-          </Alert>
-        )}
-        <Notice
-          variant="manage"
-          tone="paper"
-          title="地域を下書きとして登録します"
-        >
-          保存すると、地域は下書きとして登録され、この画面のまま公開へ進めます。保存せずにやめると、地域は登録されません。登録した地域は運営者が不在の地域になります。管理権限は、メンバーから付与します。
-        </Notice>
-        <RegionFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={state.fields}
-          lists={lists}
-          disabled={registering}
-        />
+            保存すると、地域は下書きとして登録され、この画面のまま公開へ進めます。保存せずにやめると、地域は登録されません。登録した地域は運営者が不在の地域になります。管理権限は、メンバーから付与します。
+          </Notice>
+          <RegionFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
+            }
+            errors={state.fields}
+            lists={lists}
+            disabled={registering}
+          />
+        </HydrationGate>
       </form>
     </ManagePage>
   );

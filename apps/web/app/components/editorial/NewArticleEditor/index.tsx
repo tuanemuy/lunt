@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { ManagePage } from "@/components/layout/ManageShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { createArticleFn } from "@/presentation/editorial";
 import {
   ARTICLE_FIELD_ANCHOR,
@@ -159,39 +160,41 @@ export function NewArticleEditor() {
           save();
         }}
       >
-        <p className="m-status" data-tone="neutral">
-          まだ保存していません · 保存すると下書きになります
-        </p>
-        {taken === null ? null : (
-          <div role="alert">
-            <Alert
-              title="この読みものは、前の保存で作成されていました"
-              actions={
-                <ButtonLink variant="secondary" to={articleEditPath(taken)}>
-                  作成された下書きを開く
-                </ButtonLink>
-              }
-            >
-              前の保存は通信の途中で結果が分からなくなりましたが、下書きは作成されていました。その後の変更は保存していません。作成された下書きを開いて、もう一度変更してください。
-            </Alert>
-          </div>
-        )}
-        {failure === null ? null : (
-          <FailureAlert
-            key={`${failure.state.kind}:${failure.state.code}`}
-            failure={failure}
-            busy={saving}
-            onRetry={save}
+        <HydrationGate>
+          <p className="m-status" data-tone="neutral">
+            まだ保存していません · 保存すると下書きになります
+          </p>
+          {taken === null ? null : (
+            <div role="alert">
+              <Alert
+                title="この読みものは、前の保存で作成されていました"
+                actions={
+                  <ButtonLink variant="secondary" to={articleEditPath(taken)}>
+                    作成された下書きを開く
+                  </ButtonLink>
+                }
+              >
+                前の保存は通信の途中で結果が分からなくなりましたが、下書きは作成されていました。その後の変更は保存していません。作成された下書きを開いて、もう一度変更してください。
+              </Alert>
+            </div>
+          )}
+          {failure === null ? null : (
+            <FailureAlert
+              key={`${failure.state.kind}:${failure.state.code}`}
+              failure={failure}
+              busy={saving}
+              onRetry={save}
+            />
+          )}
+          <ArticleFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
+            }
+            errors={failure?.fields ?? {}}
+            disabled={saving}
           />
-        )}
-        <ArticleFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={failure?.fields ?? {}}
-          disabled={saving}
-        />
+        </HydrationGate>
       </form>
     </ManagePage>
   );

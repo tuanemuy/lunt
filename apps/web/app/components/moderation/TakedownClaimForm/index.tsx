@@ -9,6 +9,7 @@ import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { Field, Fieldset, Input, Textarea } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
@@ -271,194 +272,203 @@ export function TakedownClaimForm({
           startSubmit(() => submit());
         }}
       >
-        <ManageBody>
-          <p className="my-lead">
-            ログインせずに申し立てられます。結果は、入力したメールアドレスに届きます。
-          </p>
-          {outcome.kind === "failed" ? (
-            <Alert
-              title="申立てを送れませんでした"
-              {...(outcome.error.kind === "failed"
-                ? {
-                    actions: (
-                      <Button
-                        variant="secondary"
-                        type="submit"
-                        disabled={sending}
-                      >
-                        もう一度送る
-                      </Button>
-                    ),
-                  }
-                : {})}
-            >
-              {outcome.error.kind === "failed"
-                ? "通信を確かめて、もう一度送ってください。入力した内容は残っています。"
-                : outcome.error.message}
-            </Alert>
-          ) : null}
-          {outcome.kind === "invalid" ? (
-            <Alert
-              title="申立てを送れませんでした"
-              list={FIELD_ANCHORS.filter(
-                ([key]) => fields[key] !== undefined,
-              ).map(([key, anchor, label]) => (
-                <li key={key}>
-                  <a className="m-link" href={`#${anchor}`}>
-                    {label}
-                  </a>
-                </li>
-              ))}
-            >
-              次の項目を直してください。
-            </Alert>
-          ) : null}
-          {outcome.kind === "removed" ? (
-            <Alert title="選んだ写真は、すでに対象から外されています">
-              申立ては送られていません。入力した内容は残っています。対象の現在の写真から選び直すか、申立てをやめてください。
-            </Alert>
-          ) : null}
-          {outcome.kind === "removed" && outcome.photos.length > 0 ? (
-            <ul className="rq07-removed-list">
-              {outcome.photos.map((photo) => (
-                <li className="rq07-removed" key={photo.photoId}>
-                  <span className="rq07-removed__thumb">
-                    {photo.url === null ? null : (
-                      <img src={photo.url} alt="外された写真" />
-                    )}
-                  </span>
-                  <span className="rq07-removed__text">
-                    <span className="m-row__name">選んでいた写真</span>
-                    <Badge tone="alert">外された</Badge>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+        <HydrationGate>
+          <ManageBody>
+            <p className="my-lead">
+              ログインせずに申し立てられます。結果は、入力したメールアドレスに届きます。
+            </p>
+            {outcome.kind === "failed" ? (
+              <Alert
+                title="申立てを送れませんでした"
+                {...(outcome.error.kind === "failed"
+                  ? {
+                      actions: (
+                        <Button
+                          variant="secondary"
+                          type="submit"
+                          disabled={sending}
+                        >
+                          もう一度送る
+                        </Button>
+                      ),
+                    }
+                  : {})}
+              >
+                {outcome.error.kind === "failed"
+                  ? "通信を確かめて、もう一度送ってください。入力した内容は残っています。"
+                  : outcome.error.message}
+              </Alert>
+            ) : null}
+            {outcome.kind === "invalid" ? (
+              <Alert
+                title="申立てを送れませんでした"
+                list={FIELD_ANCHORS.filter(
+                  ([key]) => fields[key] !== undefined,
+                ).map(([key, anchor, label]) => (
+                  <li key={key}>
+                    <a className="m-link" href={`#${anchor}`}>
+                      {label}
+                    </a>
+                  </li>
+                ))}
+              >
+                次の項目を直してください。
+              </Alert>
+            ) : null}
+            {outcome.kind === "removed" ? (
+              <Alert title="選んだ写真は、すでに対象から外されています">
+                申立ては送られていません。入力した内容は残っています。対象の現在の写真から選び直すか、申立てをやめてください。
+              </Alert>
+            ) : null}
+            {outcome.kind === "removed" && outcome.photos.length > 0 ? (
+              <ul className="rq07-removed-list">
+                {outcome.photos.map((photo) => (
+                  <li className="rq07-removed" key={photo.photoId}>
+                    <span className="rq07-removed__thumb">
+                      {photo.url === null ? null : (
+                        <img src={photo.url} alt="外された写真" />
+                      )}
+                    </span>
+                    <span className="rq07-removed__text">
+                      <span className="m-row__name">選んでいた写真</span>
+                      <Badge tone="alert">外された</Badge>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
-          <div className="m-field">
-            <p className="m-field__label">申立ての対象</p>
-            <ReportTargetRowView row={target} />
-          </div>
+            <div className="m-field">
+              <p className="m-field__label">申立ての対象</p>
+              <ReportTargetRowView row={target} />
+            </div>
 
-          <div id="rq07-standing">
-            <ChoiceGroup
-              legend="申し立てる人の立場"
-              name="standing"
+            <div id="rq07-standing">
+              <ChoiceGroup
+                legend="申し立てる人の立場"
+                name="standing"
+                requirement="required"
+                choices={CLAIMANT_STANDINGS.map((value) => ({
+                  value,
+                  label: STANDING_LABEL[value],
+                  ...(value === "proprietor" && !canBeProprietor
+                    ? { disabled: true }
+                    : {}),
+                }))}
+                value={values.standing}
+                onChange={(standing) =>
+                  setValues((current) => ({ ...current, standing }))
+                }
+                {...(fields.standing === undefined
+                  ? {}
+                  : { error: fields.standing })}
+                help={standingHelp(target.kind)}
+              />
+            </div>
+
+            {rights ? (
+              <Fieldset
+                id="rq07-photos"
+                legend="削除を求める写真"
+                requirement="required"
+                {...(fields.photos === undefined
+                  ? {}
+                  : { error: fields.photos })}
+                help="対象の写真から、削除を求める写真を選びます。複数選べます。"
+              >
+                {photos.length === 0 ? (
+                  <p className="m-field__help">
+                    この対象には、いま写真がありません。
+                  </p>
+                ) : (
+                  <div
+                    className="rq07-photos"
+                    aria-invalid={
+                      fields.photos === undefined ? undefined : true
+                    }
+                  >
+                    {photos.map((photo, index) => (
+                      <label className="rq07-photo" key={photo.photoId}>
+                        <input
+                          type="checkbox"
+                          name="photo"
+                          value={photo.photoId}
+                          checked={values.photoIds.includes(photo.photoId)}
+                          onChange={(event) =>
+                            togglePhoto(
+                              photo.photoId,
+                              event.currentTarget.checked,
+                            )
+                          }
+                        />
+                        <span className="rq07-photo__img">
+                          {photo.url === null ? null : (
+                            <img
+                              src={photo.url}
+                              alt={`${index + 1}枚目の写真`}
+                            />
+                          )}
+                        </span>
+                        <span className="rq07-photo__cap">
+                          {`${index + 1}枚目`}
+                          <span className="rq07-photo__mark">選択中</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </Fieldset>
+            ) : null}
+
+            <Field
+              id="rq07-reason"
+              label="理由"
               requirement="required"
-              choices={CLAIMANT_STANDINGS.map((value) => ({
-                value,
-                label: STANDING_LABEL[value],
-                ...(value === "proprietor" && !canBeProprietor
-                  ? { disabled: true }
-                  : {}),
-              }))}
-              value={values.standing}
-              onChange={(standing) =>
-                setValues((current) => ({ ...current, standing }))
-              }
-              {...(fields.standing === undefined
-                ? {}
-                : { error: fields.standing })}
-              help={standingHelp(target.kind)}
-            />
-          </div>
-
-          {rights ? (
-            <Fieldset
-              id="rq07-photos"
-              legend="削除を求める写真"
-              requirement="required"
-              {...(fields.photos === undefined ? {} : { error: fields.photos })}
-              help="対象の写真から、削除を求める写真を選びます。複数選べます。"
+              {...(fields.reason === undefined ? {} : { error: fields.reason })}
             >
-              {photos.length === 0 ? (
-                <p className="m-field__help">
-                  この対象には、いま写真がありません。
-                </p>
-              ) : (
-                <div
-                  className="rq07-photos"
-                  aria-invalid={fields.photos === undefined ? undefined : true}
-                >
-                  {photos.map((photo, index) => (
-                    <label className="rq07-photo" key={photo.photoId}>
-                      <input
-                        type="checkbox"
-                        name="photo"
-                        value={photo.photoId}
-                        checked={values.photoIds.includes(photo.photoId)}
-                        onChange={(event) =>
-                          togglePhoto(
-                            photo.photoId,
-                            event.currentTarget.checked,
-                          )
-                        }
-                      />
-                      <span className="rq07-photo__img">
-                        {photo.url === null ? null : (
-                          <img src={photo.url} alt={`${index + 1}枚目の写真`} />
-                        )}
-                      </span>
-                      <span className="rq07-photo__cap">
-                        {`${index + 1}枚目`}
-                        <span className="rq07-photo__mark">選択中</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+              {(control) => (
+                <Textarea
+                  {...control}
+                  name="reason"
+                  rows={4}
+                  placeholder="取り下げを求める理由を書きます"
+                  value={values.reason}
+                  onChange={(event) => {
+                    const reason = event.currentTarget.value;
+                    setValues((current) => ({ ...current, reason }));
+                  }}
+                />
               )}
-            </Fieldset>
-          ) : null}
+            </Field>
 
-          <Field
-            id="rq07-reason"
-            label="理由"
-            requirement="required"
-            {...(fields.reason === undefined ? {} : { error: fields.reason })}
-          >
-            {(control) => (
-              <Textarea
-                {...control}
-                name="reason"
-                rows={4}
-                placeholder="取り下げを求める理由を書きます"
-                value={values.reason}
-                onChange={(event) => {
-                  const reason = event.currentTarget.value;
-                  setValues((current) => ({ ...current, reason }));
-                }}
-              />
-            )}
-          </Field>
+            <Field
+              id="rq07-email"
+              label="メールアドレス"
+              requirement="required"
+              help="申立ての結果を、このメールアドレスに送ります。"
+              {...(fields.email === undefined ? {} : { error: fields.email })}
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="例: name@example.com"
+                  value={values.email}
+                  onChange={(event) => {
+                    const email = event.currentTarget.value;
+                    setValues((current) => ({ ...current, email }));
+                  }}
+                />
+              )}
+            </Field>
 
-          <Field
-            id="rq07-email"
-            label="メールアドレス"
-            requirement="required"
-            help="申立ての結果を、このメールアドレスに送ります。"
-            {...(fields.email === undefined ? {} : { error: fields.email })}
-          >
-            {(control) => (
-              <Input
-                {...control}
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="例: name@example.com"
-                value={values.email}
-                onChange={(event) => {
-                  const email = event.currentTarget.value;
-                  setValues((current) => ({ ...current, email }));
-                }}
-              />
-            )}
-          </Field>
-
-          <Notice variant="manage" tone="paper" title="申し立てた後のこと">
-            申立ての状況を確かめる画面と、申立てを取り消す操作はありません。結果は、入力したメールアドレスに届きます。
-          </Notice>
-        </ManageBody>
+            <Notice variant="manage" tone="paper" title="申し立てた後のこと">
+              申立ての状況を確かめる画面と、申立てを取り消す操作はありません。結果は、入力したメールアドレスに届きます。
+            </Notice>
+          </ManageBody>
+        </HydrationGate>
       </form>
     </ManagePage>
   );

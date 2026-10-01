@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -513,146 +514,148 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
           save();
         }}
       >
-        {failure === null ? null : (
-          <FailureAlert
-            key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
-            failure={failure}
-            publicationText={regionPublicationLabel(publication)}
-            busy={busy}
-            onReload={() =>
-              startBusy(async () => {
-                setDraft(reloadDraft);
-                await reconcile();
-                setFailure(null);
-              })
-            }
-            onRetry={() => retry(failure.attempt)}
-          />
-        )}
-        {showCreated ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              title="地域を下書きとして登録しました"
-              actions={
-                <ButtonLink
-                  variant="secondary"
-                  to="/ops/subjects/$kind/$id"
-                  params={{ kind: "region", id: data.regionId }}
-                >
-                  地域の運営へ（管理権限の付与）
-                </ButtonLink>
+        <HydrationGate>
+          {failure === null ? null : (
+            <FailureAlert
+              key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
+              failure={failure}
+              publicationText={regionPublicationLabel(publication)}
+              busy={busy}
+              onReload={() =>
+                startBusy(async () => {
+                  setDraft(reloadDraft);
+                  await reconcile();
+                  setFailure(null);
+                })
               }
-            >
-              この画面のまま公開へ進めます。地域は運営者が不在の地域です。管理権限は、地域の運営の画面からメンバーの管理を開いて付与します。
-            </Notice>
-          </div>
-        ) : null}
-        {data.photosTakenDown ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="申立てにより、地域の写真が削除されました"
-              actions={
-                <a className="text-button" href="#photos">
-                  写真を登録する
-                </a>
-              }
-            >
-              {photoTakedown
-                ? suspended
-                  ? "写真がなくなったため、地域は公開を取り下げた状態になりました。写真を登録して保存し、運営による非公開が解除された後に、公開の操作で再び公開してください。"
-                  : "写真がなくなったため、地域は公開を取り下げた状態になりました。写真を登録して保存し、公開の操作で再び公開してください。"
-                : `地域は「${regionPublicationLabel(publication)}」のままです。写真を登録して保存すると、この表示は消えます。`}
-            </Notice>
-          </div>
-        ) : null}
-
-        <section className="m-section" aria-labelledby="rm02-state">
-          <SectionTitle variant="manage" id="rm02-state">
-            公開状態
-          </SectionTitle>
-          <p className="p-badges">
-            {suspended ? <Badge tone="alert">運営による非公開</Badge> : null}
-            <Badge
-              tone={
-                published
-                  ? suspended
-                    ? "neutral"
-                    : "accent"
-                  : publication.status === "unpublished"
-                    ? "muted"
-                    : "neutral"
-              }
-            >
-              {suspended && published
-                ? "公開"
-                : regionPublicationLabel(publication)}
-            </Badge>
-          </p>
-          <p className="m-field__help">
-            {suspended
-              ? `サービス運営者が地域を非公開にしています。解除されるまで、地域は閲覧者に表示されません。解除できるのはサービス運営者だけで、解除すると「${regionPublicationLabel(publication)}」に戻ります。その間も、地域情報の保存はこれまでどおり行えます。`
-              : published
-                ? "地域は閲覧者に表示されています。保存した内容は、その時点で地域ページに反映します。公開をやめるときは、公開を取り下げます。"
-                : publication.status === "draft"
-                  ? "地域は閲覧者に表示されていません。名称・所在地・位置・写真が揃うと公開できます。地域運営者がいなくても公開できます。"
-                  : "地域は閲覧者に表示されていません。所属関係とイベントの関連づけは保たれています。公開すると、再び表示されます。"}
-          </p>
-        </section>
-
-        <RegionFormFields
-          values={values}
-          onChange={(change) =>
-            setDraft((current) => ({
-              ...current,
-              values: { ...current.values, ...change },
-            }))
-          }
-          errors={failure?.fields ?? {}}
-          lists={data.areaLists}
-          disabled={busy}
-          {...(data.photosTakenDown && values.photos.length === 0
-            ? { emptyPhotoText: "写真は削除されました" }
-            : {})}
-        />
-
-        <hr className="m-divider" />
-        <section className="m-section" aria-labelledby="rm02-related">
-          <SectionTitle variant="manage" id="rm02-related">
-            地域の運営
-          </SectionTitle>
-          {!data.viewable && proxy ? null : (
-            <LinkList>
-              {data.viewable ? (
-                <li>
-                  <ListRowLink
-                    to={regionPagePath(data.regionId)}
-                    title="閲覧者に見える地域ページ"
-                    meta="保存した内容は、この地域ページにすぐ反映します"
-                  />
-                </li>
-              ) : null}
-              {proxy ? null : (
-                <li>
-                  <ListRowLink
-                    to={regionMembersPath(data.regionId)}
-                    title="メンバーの管理"
-                    meta={
-                      data.stewardCount === 0
-                        ? "地域運営者はいません · 管理権限を付与できます"
-                        : `地域運営者 ${data.stewardCount}人`
-                    }
-                  />
-                </li>
-              )}
-            </LinkList>
+              onRetry={() => retry(failure.attempt)}
+            />
           )}
-          <p className="m-field__help">
-            所属店舗の情報と掲載は、地域の運営からは変えられません。
-          </p>
-        </section>
+          {showCreated ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                title="地域を下書きとして登録しました"
+                actions={
+                  <ButtonLink
+                    variant="secondary"
+                    to="/ops/subjects/$kind/$id"
+                    params={{ kind: "region", id: data.regionId }}
+                  >
+                    地域の運営へ（管理権限の付与）
+                  </ButtonLink>
+                }
+              >
+                この画面のまま公開へ進めます。地域は運営者が不在の地域です。管理権限は、地域の運営の画面からメンバーの管理を開いて付与します。
+              </Notice>
+            </div>
+          ) : null}
+          {data.photosTakenDown ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="申立てにより、地域の写真が削除されました"
+                actions={
+                  <a className="text-button" href="#photos">
+                    写真を登録する
+                  </a>
+                }
+              >
+                {photoTakedown
+                  ? suspended
+                    ? "写真がなくなったため、地域は公開を取り下げた状態になりました。写真を登録して保存し、運営による非公開が解除された後に、公開の操作で再び公開してください。"
+                    : "写真がなくなったため、地域は公開を取り下げた状態になりました。写真を登録して保存し、公開の操作で再び公開してください。"
+                  : `地域は「${regionPublicationLabel(publication)}」のままです。写真を登録して保存すると、この表示は消えます。`}
+              </Notice>
+            </div>
+          ) : null}
+
+          <section className="m-section" aria-labelledby="rm02-state">
+            <SectionTitle variant="manage" id="rm02-state">
+              公開状態
+            </SectionTitle>
+            <p className="p-badges">
+              {suspended ? <Badge tone="alert">運営による非公開</Badge> : null}
+              <Badge
+                tone={
+                  published
+                    ? suspended
+                      ? "neutral"
+                      : "accent"
+                    : publication.status === "unpublished"
+                      ? "muted"
+                      : "neutral"
+                }
+              >
+                {suspended && published
+                  ? "公開"
+                  : regionPublicationLabel(publication)}
+              </Badge>
+            </p>
+            <p className="m-field__help">
+              {suspended
+                ? `サービス運営者が地域を非公開にしています。解除されるまで、地域は閲覧者に表示されません。解除できるのはサービス運営者だけで、解除すると「${regionPublicationLabel(publication)}」に戻ります。その間も、地域情報の保存はこれまでどおり行えます。`
+                : published
+                  ? "地域は閲覧者に表示されています。保存した内容は、その時点で地域ページに反映します。公開をやめるときは、公開を取り下げます。"
+                  : publication.status === "draft"
+                    ? "地域は閲覧者に表示されていません。名称・所在地・位置・写真が揃うと公開できます。地域運営者がいなくても公開できます。"
+                    : "地域は閲覧者に表示されていません。所属関係とイベントの関連づけは保たれています。公開すると、再び表示されます。"}
+            </p>
+          </section>
+
+          <RegionFormFields
+            values={values}
+            onChange={(change) =>
+              setDraft((current) => ({
+                ...current,
+                values: { ...current.values, ...change },
+              }))
+            }
+            errors={failure?.fields ?? {}}
+            lists={data.areaLists}
+            disabled={busy}
+            {...(data.photosTakenDown && values.photos.length === 0
+              ? { emptyPhotoText: "写真は削除されました" }
+              : {})}
+          />
+
+          <hr className="m-divider" />
+          <section className="m-section" aria-labelledby="rm02-related">
+            <SectionTitle variant="manage" id="rm02-related">
+              地域の運営
+            </SectionTitle>
+            {!data.viewable && proxy ? null : (
+              <LinkList>
+                {data.viewable ? (
+                  <li>
+                    <ListRowLink
+                      to={regionPagePath(data.regionId)}
+                      title="閲覧者に見える地域ページ"
+                      meta="保存した内容は、この地域ページにすぐ反映します"
+                    />
+                  </li>
+                ) : null}
+                {proxy ? null : (
+                  <li>
+                    <ListRowLink
+                      to={regionMembersPath(data.regionId)}
+                      title="メンバーの管理"
+                      meta={
+                        data.stewardCount === 0
+                          ? "地域運営者はいません · 管理権限を付与できます"
+                          : `地域運営者 ${data.stewardCount}人`
+                      }
+                    />
+                  </li>
+                )}
+              </LinkList>
+            )}
+            <p className="m-field__help">
+              所属店舗の情報と掲載は、地域の運営からは変えられません。
+            </p>
+          </section>
+        </HydrationGate>
       </form>
 
       <ConfirmDialog

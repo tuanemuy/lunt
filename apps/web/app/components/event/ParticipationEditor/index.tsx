@@ -39,6 +39,7 @@ import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Field, Input } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink, Row, RowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -585,331 +586,340 @@ function ParticipationEditor({
           if (!cannotSave) save();
         }}
       >
-        {failure !== null || stewardArrived || alreadyParticipating ? (
-          <div ref={alertRef} tabIndex={-1} className="outline-none">
-            <FailureAlert
-              failure={failure}
-              mode={mode}
-              proxy={proxy}
-              busy={busy}
-              shopName={shopName}
-              occasionId={occasion.id}
-              placeId={data.place.id}
-              onReload={() =>
-                startBusy(async () => {
-                  setDraft(reloadDraft);
-                  await reconcile();
-                  setFailure(null);
-                })
-              }
-              onRetry={save}
-            />
-            {stewardArrived && failure === null ? (
-              <StewardArrived mode={mode} shopName={shopName} params={params} />
-            ) : null}
-            {alreadyParticipating && failure === null ? (
-              <Alert
-                title={`${shopName}は、すでに参加しています`}
-                actions={
-                  <ButtonLink
-                    variant="secondary"
-                    to="/manage/events/$occasionId/participants/$placeId"
-                    params={{ ...params, placeId: data.place.id }}
-                  >
-                    参加内容を変更する
-                  </ButtonLink>
+        <HydrationGate>
+          {failure !== null || stewardArrived || alreadyParticipating ? (
+            <div ref={alertRef} tabIndex={-1} className="outline-none">
+              <FailureAlert
+                failure={failure}
+                mode={mode}
+                proxy={proxy}
+                busy={busy}
+                shopName={shopName}
+                occasionId={occasion.id}
+                placeId={data.place.id}
+                onReload={() =>
+                  startBusy(async () => {
+                    setDraft(reloadDraft);
+                    await reconcile();
+                    setFailure(null);
+                  })
                 }
-              >
-                参加店舗として追加していません。参加内容の変更へ進めます。
-              </Alert>
-            ) : null}
-          </div>
-        ) : null}
-        {side === "place" && !occasionViewable ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="このイベントは閲覧者に表示されていません"
-            >
-              {occasion.suspended
-                ? "サービス運営者がイベントを非公開にしています。解除されるまで、参加店舗と添えた掲載はイベントページに表示されません。参加内容の変更と取りやめは、これまでどおり行えます。"
-                : "イベントが公開されていないため、参加店舗と添えた掲載はイベントページに表示されません。参加内容の変更と取りやめは、これまでどおり行えます。"}
-            </Notice>
-          </div>
-        ) : null}
-        {leftOutside.length > 0 ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="開催期間の外の参加日があります"
-            >
-              {`${period === null ? "開催期間は決まっていません" : `開催期間は${periodText(period)}です`}。開催期間の外になった参加日は、閲覧者に表示されていません。外してから保存できます。`}
-            </Notice>
-          </div>
-        ) : null}
-
-        <section className="m-section" aria-labelledby="cm04-join">
-          <SectionTitle variant="manage" id="cm04-join">
-            参加
-          </SectionTitle>
-          <div className="em-sub">
-            <p className="m-field__label">イベント</p>
-            <RowLink
-              to={occasionPagePath(occasion.id)}
-              photo={photoOf(occasion.photoUrl)}
-              name={eventName}
-              meta={period === null ? "開催期間は未設定" : periodText(period)}
-              sub={<OccasionBadges occasion={occasion} />}
-            />
-          </div>
-          <div className="em-sub">
-            <p className="m-field__label">店舗</p>
-            <div className="cm04-item">
-              <RowLink
-                to={placePagePath(data.place.id)}
-                photo={photoOf(data.place.photoUrl)}
-                name={shopName}
-                meta={
-                  data.place.operatingStatus === null
-                    ? "閲覧者に表示されていない店舗"
-                    : OPERATING_STATUS_LABEL[data.place.operatingStatus]
-                }
-                {...(side === "occasion"
-                  ? {
-                      sub: stewardArrived
-                        ? "店舗管理者のいる店舗"
-                        : "管理者のいない店舗",
-                    }
-                  : {})}
+                onRetry={save}
               />
-              {mode === "add" ? (
-                <ChipLink
-                  to="/manage/events/$occasionId/participants/new"
+              {stewardArrived && failure === null ? (
+                <StewardArrived
+                  mode={mode}
+                  shopName={shopName}
                   params={params}
-                  search={{}}
+                />
+              ) : null}
+              {alreadyParticipating && failure === null ? (
+                <Alert
+                  title={`${shopName}は、すでに参加しています`}
+                  actions={
+                    <ButtonLink
+                      variant="secondary"
+                      to="/manage/events/$occasionId/participants/$placeId"
+                      params={{ ...params, placeId: data.place.id }}
+                    >
+                      参加内容を変更する
+                    </ButtonLink>
+                  }
                 >
-                  選び直す
-                </ChipLink>
+                  参加店舗として追加していません。参加内容の変更へ進めます。
+                </Alert>
               ) : null}
             </div>
-            {side === "occasion" && mode === "edit" ? (
-              <p className="m-field__help">
-                {stewardArrived
-                  ? "店舗管理者のいる参加店舗です。参加内容は、店舗管理者が変更します。イベントの運営者は変更できません。"
-                  : "店舗管理者のいない参加店舗です。参加内容は、イベントの運営者が変更できます。参加店舗から外すときは、参加店舗と申請で除外します。"}
-              </p>
-            ) : null}
-          </div>
-        </section>
+          ) : null}
+          {side === "place" && !occasionViewable ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="このイベントは閲覧者に表示されていません"
+              >
+                {occasion.suspended
+                  ? "サービス運営者がイベントを非公開にしています。解除されるまで、参加店舗と添えた掲載はイベントページに表示されません。参加内容の変更と取りやめは、これまでどおり行えます。"
+                  : "イベントが公開されていないため、参加店舗と添えた掲載はイベントページに表示されません。参加内容の変更と取りやめは、これまでどおり行えます。"}
+              </Notice>
+            </div>
+          ) : null}
+          {leftOutside.length > 0 ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="開催期間の外の参加日があります"
+              >
+                {`${period === null ? "開催期間は決まっていません" : `開催期間は${periodText(period)}です`}。開催期間の外になった参加日は、閲覧者に表示されていません。外してから保存できます。`}
+              </Notice>
+            </div>
+          ) : null}
 
-        <section className="m-section" aria-labelledby="cm04-listings">
-          <SectionTitle variant="manage" id="cm04-listings">
-            添える掲載
-          </SectionTitle>
-          <p className="m-field__help">
-            店舗の公開中の掲載から選びます。提供状態は問いません。掲載は複数添えられ、添えなくても参加できます。
-          </p>
-          {values.listingIds.length === 0 ? (
-            <p className="m-field__help">
-              {mode === "add"
-                ? "まだ添えた掲載はありません。添えずに追加することもできます。"
-                : "添えた掲載はありません。"}
-            </p>
-          ) : (
-            <ul className="cm04-items">
-              {values.listingIds.map((id) => (
-                <AttachedRow
-                  key={id}
-                  id={id}
-                  stored={known.get(id) ?? null}
-                  candidate={attachable.get(id) ?? null}
-                  pickedName={picked.get(id) ?? null}
-                  disabled={busy || cannotSave}
-                  onRemove={() =>
-                    change({
-                      listingIds: values.listingIds.filter(
-                        (listed) => listed !== id,
-                      ),
-                    })
+          <section className="m-section" aria-labelledby="cm04-join">
+            <SectionTitle variant="manage" id="cm04-join">
+              参加
+            </SectionTitle>
+            <div className="em-sub">
+              <p className="m-field__label">イベント</p>
+              <RowLink
+                to={occasionPagePath(occasion.id)}
+                photo={photoOf(occasion.photoUrl)}
+                name={eventName}
+                meta={period === null ? "開催期間は未設定" : periodText(period)}
+                sub={<OccasionBadges occasion={occasion} />}
+              />
+            </div>
+            <div className="em-sub">
+              <p className="m-field__label">店舗</p>
+              <div className="cm04-item">
+                <RowLink
+                  to={placePagePath(data.place.id)}
+                  photo={photoOf(data.place.photoUrl)}
+                  name={shopName}
+                  meta={
+                    data.place.operatingStatus === null
+                      ? "閲覧者に表示されていない店舗"
+                      : OPERATING_STATUS_LABEL[data.place.operatingStatus]
                   }
+                  {...(side === "occasion"
+                    ? {
+                        sub: stewardArrived
+                          ? "店舗管理者のいる店舗"
+                          : "管理者のいない店舗",
+                      }
+                    : {})}
                 />
-              ))}
-            </ul>
-          )}
-          <div className="em-sub">
-            <p className="m-field__label">追加できる掲載</p>
-            {candidates.length === 0 ? (
+                {mode === "add" ? (
+                  <ChipLink
+                    to="/manage/events/$occasionId/participants/new"
+                    params={params}
+                    search={{}}
+                  >
+                    選び直す
+                  </ChipLink>
+                ) : null}
+              </div>
+              {side === "occasion" && mode === "edit" ? (
+                <p className="m-field__help">
+                  {stewardArrived
+                    ? "店舗管理者のいる参加店舗です。参加内容は、店舗管理者が変更します。イベントの運営者は変更できません。"
+                    : "店舗管理者のいない参加店舗です。参加内容は、イベントの運営者が変更できます。参加店舗から外すときは、参加店舗と申請で除外します。"}
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="m-section" aria-labelledby="cm04-listings">
+            <SectionTitle variant="manage" id="cm04-listings">
+              添える掲載
+            </SectionTitle>
+            <p className="m-field__help">
+              店舗の公開中の掲載から選びます。提供状態は問いません。掲載は複数添えられ、添えなくても参加できます。
+            </p>
+            {values.listingIds.length === 0 ? (
               <p className="m-field__help">
-                追加できる掲載は、ほかにありません。
+                {mode === "add"
+                  ? "まだ添えた掲載はありません。添えずに追加することもできます。"
+                  : "添えた掲載はありません。"}
               </p>
             ) : (
               <ul className="cm04-items">
-                {candidates.map((item) => {
-                  const name = item.name ?? "名称未設定";
+                {values.listingIds.map((id) => (
+                  <AttachedRow
+                    key={id}
+                    id={id}
+                    stored={known.get(id) ?? null}
+                    candidate={attachable.get(id) ?? null}
+                    pickedName={picked.get(id) ?? null}
+                    disabled={busy || cannotSave}
+                    onRemove={() =>
+                      change({
+                        listingIds: values.listingIds.filter(
+                          (listed) => listed !== id,
+                        ),
+                      })
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+            <div className="em-sub">
+              <p className="m-field__label">追加できる掲載</p>
+              {candidates.length === 0 ? (
+                <p className="m-field__help">
+                  追加できる掲載は、ほかにありません。
+                </p>
+              ) : (
+                <ul className="cm04-items">
+                  {candidates.map((item) => {
+                    const name = item.name ?? "名称未設定";
+                    return (
+                      <li key={item.id} className="cm04-item">
+                        <RowLink
+                          to={listingPagePath(item.id)}
+                          photo={photoOf(item.photoUrl)}
+                          name={name}
+                          {...listingMeta(item.offeringStatus)}
+                          sub={<OfferingBadge status={item.offeringStatus} />}
+                        />
+                        <ChipButton
+                          disabled={busy || cannotSave}
+                          aria-label={`${name}を添える`}
+                          onClick={() => {
+                            setPicked((current) =>
+                              new Map(current).set(item.id, item.name),
+                            );
+                            change({
+                              listingIds: [...values.listingIds, item.id],
+                            });
+                          }}
+                        >
+                          添える
+                        </ChipButton>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <p className="m-field__help">
+                下書き・一時非公開・運営による非公開の掲載は、候補に出ません。
+              </p>
+            </div>
+          </section>
+
+          <section className="m-section" aria-labelledby="cm04-dates">
+            <SectionTitle variant="manage" id="cm04-dates">
+              参加日
+            </SectionTitle>
+            {values.dates.length === 0 ? (
+              <p className="m-field__help">
+                {mode === "add"
+                  ? "まだ参加日はありません。添えずに追加することもできます。"
+                  : "参加日はありません。"}
+              </p>
+            ) : (
+              <LinkList>
+                {values.dates.map((date) => {
+                  const out = !inPeriod(date, period);
+                  const saved = savedDates.has(date);
                   return (
-                    <li key={item.id} className="cm04-item">
-                      <RowLink
-                        to={listingPagePath(item.id)}
-                        photo={photoOf(item.photoUrl)}
-                        name={name}
-                        {...listingMeta(item.offeringStatus)}
-                        sub={<OfferingBadge status={item.offeringStatus} />}
-                      />
+                    <li key={date} className="m-list__item cm04-date">
+                      <span className="m-list__text">
+                        <span className="m-list__title">
+                          {jpDateWithWeekday(date)}
+                        </span>
+                        {out ? (
+                          <>
+                            <Badge tone="alert">開催期間の外</Badge>
+                            <span className="m-list__meta">
+                              {saved
+                                ? "閲覧者に表示されていません。外してから保存してください"
+                                : "このままでは保存できません。外してください"}
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
                       <ChipButton
                         disabled={busy || cannotSave}
-                        aria-label={`${name}を添える`}
+                        aria-label={`${jpDate(date)}を外す`}
                         onClick={() => {
-                          setPicked((current) =>
-                            new Map(current).set(item.id, item.name),
-                          );
-                          change({
-                            listingIds: [...values.listingIds, item.id],
-                          });
+                          const rest = values.dates.filter((d) => d !== date);
+                          change({ dates: rest });
+                          if (rest.every((d) => inPeriod(d, period))) {
+                            setDateError(null);
+                          }
                         }}
                       >
-                        添える
+                        外す
                       </ChipButton>
                     </li>
                   );
                 })}
-              </ul>
+              </LinkList>
             )}
-            <p className="m-field__help">
-              下書き・一時非公開・運営による非公開の掲載は、候補に出ません。
-            </p>
-          </div>
-        </section>
+            <Field
+              id="cm04-date"
+              label="参加日を追加"
+              requirement="optional"
+              help={
+                period === null
+                  ? "開催期間が決まると、参加日を添えられます。"
+                  : `開催期間（${periodText(period)}）の日付から選びます。参加日は複数添えられ、添えなくても参加できます。`
+              }
+              {...(dateError === null ? {} : { error: dateError })}
+            >
+              {(control) => (
+                <div className="m-inline">
+                  <Input
+                    {...control}
+                    type="date"
+                    value={newDate}
+                    disabled={busy || cannotSave}
+                    onChange={(event) => setNewDate(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addDate();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    disabled={busy || cannotSave}
+                    onClick={addDate}
+                  >
+                    追加
+                  </Button>
+                </div>
+              )}
+            </Field>
+          </section>
 
-        <section className="m-section" aria-labelledby="cm04-dates">
-          <SectionTitle variant="manage" id="cm04-dates">
-            参加日
-          </SectionTitle>
-          {values.dates.length === 0 ? (
-            <p className="m-field__help">
-              {mode === "add"
-                ? "まだ参加日はありません。添えずに追加することもできます。"
-                : "参加日はありません。"}
-            </p>
-          ) : (
-            <LinkList>
-              {values.dates.map((date) => {
-                const out = !inPeriod(date, period);
-                const saved = savedDates.has(date);
-                return (
-                  <li key={date} className="m-list__item cm04-date">
-                    <span className="m-list__text">
-                      <span className="m-list__title">
-                        {jpDateWithWeekday(date)}
-                      </span>
-                      {out ? (
-                        <>
-                          <Badge tone="alert">開催期間の外</Badge>
-                          <span className="m-list__meta">
-                            {saved
-                              ? "閲覧者に表示されていません。外してから保存してください"
-                              : "このままでは保存できません。外してください"}
-                          </span>
-                        </>
-                      ) : null}
-                    </span>
-                    <ChipButton
-                      disabled={busy || cannotSave}
-                      aria-label={`${jpDate(date)}を外す`}
-                      onClick={() => {
-                        const rest = values.dates.filter((d) => d !== date);
-                        change({ dates: rest });
-                        if (rest.every((d) => inPeriod(d, period))) {
-                          setDateError(null);
-                        }
-                      }}
-                    >
-                      外す
-                    </ChipButton>
-                  </li>
-                );
-              })}
-            </LinkList>
-          )}
-          <Field
-            id="cm04-date"
-            label="参加日を追加"
-            requirement="optional"
-            help={
-              period === null
-                ? "開催期間が決まると、参加日を添えられます。"
-                : `開催期間（${periodText(period)}）の日付から選びます。参加日は複数添えられ、添えなくても参加できます。`
-            }
-            {...(dateError === null ? {} : { error: dateError })}
-          >
-            {(control) => (
-              <div className="m-inline">
-                <Input
-                  {...control}
-                  type="date"
-                  value={newDate}
-                  disabled={busy || cannotSave}
-                  onChange={(event) => setNewDate(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addDate();
-                    }
-                  }}
-                />
+          {occasionViewable ? (
+            <section className="m-section" aria-labelledby="cm04-pages">
+              <SectionTitle variant="manage" id="cm04-pages">
+                閲覧者への見え方
+              </SectionTitle>
+              <LinkList>
+                <li>
+                  <ListRowLink
+                    to={occasionPagePath(occasion.id)}
+                    title="閲覧者に見えるイベントページ"
+                    meta="保存した参加内容は、参加店舗としてすぐに反映します"
+                  />
+                </li>
+              </LinkList>
+              <p className="m-field__help">
+                承認を求めず、保存した時点で反映します。
+              </p>
+            </section>
+          ) : null}
+
+          {side === "place" ? (
+            <section
+              className="m-section cm04-withdraw"
+              aria-labelledby="cm04-w"
+            >
+              <hr className="m-divider" />
+              <SectionTitle variant="manage" id="cm04-w">
+                参加の取りやめ
+              </SectionTitle>
+              <p className="m-field__help">
+                {`取りやめると、${shopName}はこのイベントの参加店舗から外れます。承認は要りません。`}
+              </p>
+              <div>
                 <Button
                   variant="secondary"
-                  disabled={busy || cannotSave}
-                  onClick={addDate}
+                  disabled={busy}
+                  onClick={() => setConfirming(true)}
                 >
-                  追加
+                  参加を取りやめる
                 </Button>
               </div>
-            )}
-          </Field>
-        </section>
-
-        {occasionViewable ? (
-          <section className="m-section" aria-labelledby="cm04-pages">
-            <SectionTitle variant="manage" id="cm04-pages">
-              閲覧者への見え方
-            </SectionTitle>
-            <LinkList>
-              <li>
-                <ListRowLink
-                  to={occasionPagePath(occasion.id)}
-                  title="閲覧者に見えるイベントページ"
-                  meta="保存した参加内容は、参加店舗としてすぐに反映します"
-                />
-              </li>
-            </LinkList>
-            <p className="m-field__help">
-              承認を求めず、保存した時点で反映します。
-            </p>
-          </section>
-        ) : null}
-
-        {side === "place" ? (
-          <section className="m-section cm04-withdraw" aria-labelledby="cm04-w">
-            <hr className="m-divider" />
-            <SectionTitle variant="manage" id="cm04-w">
-              参加の取りやめ
-            </SectionTitle>
-            <p className="m-field__help">
-              {`取りやめると、${shopName}はこのイベントの参加店舗から外れます。承認は要りません。`}
-            </p>
-            <div>
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() => setConfirming(true)}
-              >
-                参加を取りやめる
-              </Button>
-            </div>
-          </section>
-        ) : null}
+            </section>
+          ) : null}
+        </HydrationGate>
       </form>
 
       <ConfirmDialog

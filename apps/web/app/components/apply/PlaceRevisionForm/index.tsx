@@ -16,6 +16,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import {
   resubmitApplicationFn,
@@ -369,91 +370,96 @@ export function PlaceRevisionForm({ data }: { data: PlaceRevisionFormData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={sending}
-            lead="店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={sending}
+              lead="店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
+              }
+              retry={
+                <Button variant="secondary" disabled={sending} onClick={send}>
+                  もう一度送る
+                </Button>
+              }
+            />
+          )}
+          {mode.kind === "new" ? (
+            <Notice
+              variant="manage"
+              tone="paper"
+              title="変えた項目だけが申請に入ります"
+            >
+              運営が確かめてから、店舗ページに反映します。営業状況の変更は、情報の修正と併せても、それだけでも申請できます。
+            </Notice>
+          ) : (
+            <ModeNotice
+              mode={mode}
+              reapplied="変更した項目（写真を含む）を、お店の現在の情報に重ねた内容"
+            />
+          )}
+          <PlaceFormFields
+            values={state.values}
+            onChange={(change) =>
+              setState((currentState) => ({
+                ...currentState,
+                values: { ...currentState.values, ...change },
+              }))
             }
-            retry={
-              <Button variant="secondary" disabled={sending} onClick={send}>
-                もう一度送る
-              </Button>
-            }
-          />
-        )}
-        {mode.kind === "new" ? (
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="変えた項目だけが申請に入ります"
-          >
-            運営が確かめてから、店舗ページに反映します。営業状況の変更は、情報の修正と併せても、それだけでも申請できます。
-          </Notice>
-        ) : (
-          <ModeNotice
-            mode={mode}
-            reapplied="変更した項目（写真を含む）を、お店の現在の情報に重ねた内容"
-          />
-        )}
-        <PlaceFormFields
-          values={state.values}
-          onChange={(change) =>
-            setState((currentState) => ({
-              ...currentState,
-              values: { ...currentState.values, ...change },
-            }))
-          }
-          errors={errors.place}
-          lists={data.lists}
-          disabled={sending}
-          notes={{
-            photos: note("photos"),
-            name: note("name"),
-            town: note("town"),
-            location: note("location"),
-            businessHours: note("businessHours"),
-            description: note("description"),
-            contact: note("contact"),
-          }}
-        />
-        <hr className="m-divider" />
-        <ManageSection id="rq02-status" title="営業状況">
-          <ManageStatus
-            tone={current.operatingStatus === "open" ? "accent" : "neutral"}
-          >
-            {`現在の営業状況: ${OPERATING_STATUS_LABEL[current.operatingStatus]}`}
-          </ManageStatus>
-          <ChoiceGroup
-            legend="申請する営業状況"
-            name="operatingStatus"
-            choices={OPERATING_STATUSES.map((status) => ({
-              value: status,
-              label: OPERATING_STATUS_LABEL[status],
-            }))}
-            value={state.operatingStatus}
-            onChange={(operatingStatus) =>
-              setState((currentState) => ({ ...currentState, operatingStatus }))
-            }
-            help="現在と同じ営業状況のままなら、営業状況は申請に入りません。"
-          />
-          {note("operatingStatus")}
-        </ManageSection>
-        {resubmit === null ? null : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
+            errors={errors.place}
+            lists={data.lists}
             disabled={sending}
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            notes={{
+              photos: note("photos"),
+              name: note("name"),
+              town: note("town"),
+              location: note("location"),
+              businessHours: note("businessHours"),
+              description: note("description"),
+              contact: note("contact"),
+            }}
           />
-        )}
+          <hr className="m-divider" />
+          <ManageSection id="rq02-status" title="営業状況">
+            <ManageStatus
+              tone={current.operatingStatus === "open" ? "accent" : "neutral"}
+            >
+              {`現在の営業状況: ${OPERATING_STATUS_LABEL[current.operatingStatus]}`}
+            </ManageStatus>
+            <ChoiceGroup
+              legend="申請する営業状況"
+              name="operatingStatus"
+              choices={OPERATING_STATUSES.map((status) => ({
+                value: status,
+                label: OPERATING_STATUS_LABEL[status],
+              }))}
+              value={state.operatingStatus}
+              onChange={(operatingStatus) =>
+                setState((currentState) => ({
+                  ...currentState,
+                  operatingStatus,
+                }))
+              }
+              help="現在と同じ営業状況のままなら、営業状況は申請に入りません。"
+            />
+            {note("operatingStatus")}
+          </ManageSection>
+          {resubmit === null ? null : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={sending}
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+        </HydrationGate>
       </form>
     </ManagePage>
   );

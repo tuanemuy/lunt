@@ -15,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { ChoiceGroup } from "@/components/ui/ChoiceGroup";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import {
   resubmitApplicationFn,
@@ -411,71 +412,73 @@ export function RegistrationForm({ data }: { data: RegistrationFormData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={sending}
-            lead="店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={sending}
+              lead="店舗の名称・所在地・位置は、店舗を公開するための条件です。次の項目を直してください。"
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
+              }
+              retry={
+                <Button variant="secondary" disabled={sending} onClick={send}>
+                  もう一度送る
+                </Button>
+              }
+            />
+          )}
+          <ModeNotice mode={mode} reapplied="内容（写真を含む）" />
+          <PlaceFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
             }
-            retry={
-              <Button variant="secondary" disabled={sending} onClick={send}>
-                もう一度送る
-              </Button>
-            }
-          />
-        )}
-        <ModeNotice mode={mode} reapplied="内容（写真を含む）" />
-        <PlaceFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={errors.place}
-          lists={data.lists}
-          disabled={sending}
-        />
-        {resubmit === null ? (
-          <>
-            <hr className="m-divider" />
-            <ManageSection id="rq02-claim" title="お店の管理権限">
-              <ChoiceGroup
-                legend="管理権限の申請を併せますか"
-                name="companion"
-                choices={[
-                  { value: "with", label: "管理権限も申請する" },
-                  { value: "without", label: "登録だけを申請する" },
-                ]}
-                value={companion}
-                onChange={setCompanion}
-                help="併せると、登録の申請と管理権限の申請が別々に確かめられます。登録だけにした場合は、登録が承認された後に、お店のページから管理権限を申請できます。"
-              />
-              {withClaim ? (
-                <ClaimFields
-                  values={claim}
-                  onChange={(change) =>
-                    setClaim((current) => ({ ...current, ...change }))
-                  }
-                  errors={errors.claim}
-                  disabled={sending}
-                />
-              ) : null}
-            </ManageSection>
-          </>
-        ) : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
+            errors={errors.place}
+            lists={data.lists}
             disabled={sending}
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
           />
-        )}
+          {resubmit === null ? (
+            <>
+              <hr className="m-divider" />
+              <ManageSection id="rq02-claim" title="お店の管理権限">
+                <ChoiceGroup
+                  legend="管理権限の申請を併せますか"
+                  name="companion"
+                  choices={[
+                    { value: "with", label: "管理権限も申請する" },
+                    { value: "without", label: "登録だけを申請する" },
+                  ]}
+                  value={companion}
+                  onChange={setCompanion}
+                  help="併せると、登録の申請と管理権限の申請が別々に確かめられます。登録だけにした場合は、登録が承認された後に、お店のページから管理権限を申請できます。"
+                />
+                {withClaim ? (
+                  <ClaimFields
+                    values={claim}
+                    onChange={(change) =>
+                      setClaim((current) => ({ ...current, ...change }))
+                    }
+                    errors={errors.claim}
+                    disabled={sending}
+                  />
+                ) : null}
+              </ManageSection>
+            </>
+          ) : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={sending}
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+        </HydrationGate>
       </form>
     </ManagePage>
   );

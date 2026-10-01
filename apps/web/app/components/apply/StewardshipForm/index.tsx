@@ -10,6 +10,7 @@ import {
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
 import {
@@ -392,53 +393,55 @@ export function StewardshipForm({ data }: { data: StewardshipFormData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={sending}
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={sending}
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
+              }
+              retry={
+                <Button variant="secondary" disabled={sending} onClick={send}>
+                  もう一度送る
+                </Button>
+              }
+            />
+          )}
+          <ManageSection id="rq03-target" title="管理を申請するお店">
+            <TargetPlace data={data} />
+          </ManageSection>
+          {place.kind === "place" && place.hasSteward ? (
+            <Notice
+              variant="manage"
+              title="いまの店舗管理者から招待を受けられます"
+            >
+              このお店には店舗管理者がいます。店舗管理者に頼んで招待を受けると、申請せずに管理者になれます。招待を受けられないときは、このまま申請を続けられます。
+            </Notice>
+          ) : null}
+          <ModeNotice mode={mode} reapplied="内容" />
+          <ClaimFields
+            values={claim}
+            onChange={(change) =>
+              setClaim((current) => ({ ...current, ...change }))
             }
-            retry={
-              <Button variant="secondary" disabled={sending} onClick={send}>
-                もう一度送る
-              </Button>
-            }
-          />
-        )}
-        <ManageSection id="rq03-target" title="管理を申請するお店">
-          <TargetPlace data={data} />
-        </ManageSection>
-        {place.kind === "place" && place.hasSteward ? (
-          <Notice
-            variant="manage"
-            title="いまの店舗管理者から招待を受けられます"
-          >
-            このお店には店舗管理者がいます。店舗管理者に頼んで招待を受けると、申請せずに管理者になれます。招待を受けられないときは、このまま申請を続けられます。
-          </Notice>
-        ) : null}
-        <ModeNotice mode={mode} reapplied="内容" />
-        <ClaimFields
-          values={claim}
-          onChange={(change) =>
-            setClaim((current) => ({ ...current, ...change }))
-          }
-          errors={errors.claim}
-          disabled={sending}
-        />
-        {resubmit === null ? null : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
+            errors={errors.claim}
             disabled={sending}
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
           />
-        )}
+          {resubmit === null ? null : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={sending}
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+        </HydrationGate>
       </form>
     </ManagePage>
   );

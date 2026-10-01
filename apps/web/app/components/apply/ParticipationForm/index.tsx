@@ -21,6 +21,7 @@ import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Fieldset } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { Row, RowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -846,377 +847,388 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={busy}
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
-            }
-            retry={
-              <Button variant="secondary" disabled={busy} onClick={send}>
-                もう一度送る
-              </Button>
-            }
-          />
-        )}
-        {stale === null ? null : (
-          <FocusOnMount role="alert">
-            <Alert title="添えた掲載の一部を、添えられなくなっていました">
-              {stale.length === 0
-                ? "申請は送っていません。最新の添えられる掲載から選び直してください。"
-                : `申請は送っていません。${stale.map(listingName).join("、")}は、いまは添えられません。外して、最新の添えられる掲載から選び直してください。`}
-            </Alert>
-          </FocusOnMount>
-        )}
-        <ModeNotice mode={mode} reapplied="イベント・掲載・参加日" />
-        {data.removed === null ? null : (
-          <Notice
-            variant="manage"
-            tone="paper"
-            title="いまは添えられないものを外しました"
-          >
-            {[
-              ...data.removed.listings.map(
-                (item) =>
-                  `${item.deleted ? "削除された掲載" : (item.name ?? "名称未設定")}（${attachedListingState(item).label}のため外しました）`,
-              ),
-              ...data.removed.dates.map(
-                (date) =>
-                  `${jpDateWithWeekday(date)}（開催期間の外のため外しました）`,
-              ),
-            ].join("、")}
-          </Notice>
-        )}
-
-        {fromEvent && resubmit === null ? (
-          <fieldset className="m-field" id="rq06-place">
-            <legend className="m-field__label" id="rq06-place-label">
-              申請する店舗
-              <span className="m-field__req">必須</span>
-            </legend>
-            <CandidateRadios
-              name="rq06-place"
-              labelledBy="rq06-place-label"
-              items={data.managed.map((item) => ({
-                id: item.placeId,
-                name: item.name,
-                meta: item.meta,
-                photoUrl: item.photoUrl,
-                // Each store was judged for the event DT-04 chose.
-                refusal: onPreset ? item.refusal : null,
-                detailHref: item.viewable
-                  ? `/places/${encodeURIComponent(item.placeId)}`
-                  : null,
-              }))}
-              value={place?.placeId ?? null}
-              disabled={busy}
-              invalid={errors.place !== undefined}
-              onChange={(id) => {
-                const next = data.managed.find((item) => item.placeId === id);
-                if (next !== undefined) choosePlace(next);
-              }}
-            />
-            {errors.place === undefined ? null : (
-              <p className="m-field__error">{errors.place}</p>
-            )}
-            <p className="m-field__help">
-              管理する店舗から選びます。選んだ店舗は、あとで選び直せます。
-            </p>
-          </fieldset>
-        ) : null}
-
-        {place === null && occasion !== null ? (
-          <section className="m-section" aria-labelledby="rq06-event">
-            <SectionTitle variant="manage" id="rq06-event">
-              参加するイベント
-            </SectionTitle>
-            <RowLink
-              to="/events/$occasionId"
-              params={{ occasionId: occasion.occasionId }}
-              photo={
-                occasion.photoUrl === null
-                  ? null
-                  : { src: occasion.photoUrl, alt: "" }
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={busy}
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
               }
-              name={occasion.name}
-              meta={occasion.periodText}
+              retry={
+                <Button variant="secondary" disabled={busy} onClick={send}>
+                  もう一度送る
+                </Button>
+              }
             />
-            <p className="m-field__help">
-              申請する店舗を選ぶと、添える掲載と参加日を選べます。
-            </p>
-          </section>
-        ) : null}
-
-        {pickSection}
-
-        {occasion !== null && place !== null && !picking ? (
-          <>
-            {occasion.photoUrl === null ? null : (
-              <div className="m-photo">
-                <img src={occasion.photoUrl} alt="" />
-              </div>
-            )}
-            <p className="rq06-event__name">{occasion.name}</p>
-            <div className="m-section">
-              <div className="rq06-event__meta">
-                {occasion.periodText === "" ? null : (
-                  <p>{occasion.periodText}</p>
-                )}
-                {occasion.venue === "" ? null : (
-                  <p>{`開催場所：${occasion.venue}`}</p>
-                )}
-              </div>
-              <div className="rq06-event__links">
-                {occasion.viewable ? (
-                  <TextLink
-                    to="/events/$occasionId"
-                    params={{ occasionId: occasion.occasionId }}
-                  >
-                    イベントの詳細を見る
-                  </TextLink>
-                ) : null}
-                {resubmit === null ? (
-                  <TextButton disabled={busy} onClick={() => setPicking(true)}>
-                    イベントを選び直す
-                  </TextButton>
-                ) : null}
-              </div>
-            </div>
-            <Notice variant="manage" title="参加の申請について">
-              イベントの運営者が確かめてから、参加が決まります。掲載と参加日は、どちらも添えずに申請できます。
+          )}
+          {stale === null ? null : (
+            <FocusOnMount role="alert">
+              <Alert title="添えた掲載の一部を、添えられなくなっていました">
+                {stale.length === 0
+                  ? "申請は送っていません。最新の添えられる掲載から選び直してください。"
+                  : `申請は送っていません。${stale.map(listingName).join("、")}は、いまは添えられません。外して、最新の添えられる掲載から選び直してください。`}
+              </Alert>
+            </FocusOnMount>
+          )}
+          <ModeNotice mode={mode} reapplied="イベント・掲載・参加日" />
+          {data.removed === null ? null : (
+            <Notice
+              variant="manage"
+              tone="paper"
+              title="いまは添えられないものを外しました"
+            >
+              {[
+                ...data.removed.listings.map(
+                  (item) =>
+                    `${item.deleted ? "削除された掲載" : (item.name ?? "名称未設定")}（${attachedListingState(item).label}のため外しました）`,
+                ),
+                ...data.removed.dates.map(
+                  (date) =>
+                    `${jpDateWithWeekday(date)}（開催期間の外のため外しました）`,
+                ),
+              ].join("、")}
             </Notice>
+          )}
 
-            <section className="m-section" aria-labelledby="rq06-listings">
-              <SectionTitle variant="manage" id="rq06-listings">
-                参加する掲載
-              </SectionTitle>
-              {listingIds.length === 0 ? (
-                <p className="m-field__help">
-                  まだ添えた掲載はありません。添えずに申請することもできます。
-                </p>
-              ) : (
-                <ul className="m-rows">
-                  {listingIds.map((id) => {
-                    const item = attachable.get(id);
-                    const kept = held.get(id);
-                    const name = listingName(id);
-                    const blocked =
-                      item === undefined && (stale?.includes(id) ?? true);
-                    const meta =
-                      item !== undefined
-                        ? `選択中 · ${offeringText(item)}`
-                        : kept !== undefined
-                          ? heldText(kept)
-                          : "いまは添えられません";
-                    return (
-                      <li key={id} className="rq06-row">
-                        {item !== undefined ? (
-                          <RowLink
-                            to="/listings/$listingId"
-                            params={{ listingId: id }}
-                            photo={listingPhoto(id)}
-                            name={name}
-                            meta={meta}
-                            sub={place.name}
-                          />
-                        ) : (
-                          <Row
-                            photo={listingPhoto(id)}
-                            name={name}
-                            meta={
-                              <span
-                                className="rq06-row__state"
-                                {...(blocked || kept !== undefined
-                                  ? { "data-tone": "alert" }
-                                  : {})}
-                              >
-                                {meta}
-                              </span>
-                            }
-                            sub={place.name}
-                          />
-                        )}
-                        <ChipButton
-                          disabled={busy}
-                          aria-label={`${name}を外す`}
-                          onClick={() => {
-                            const rest = listingIds.filter(
-                              (listed) => listed !== id,
-                            );
-                            setListingIds(rest);
-                            if (stale?.every((s) => !rest.includes(s))) {
-                              setStale(null);
-                            }
-                          }}
-                        >
-                          外す
-                        </ChipButton>
-                      </li>
-                    );
-                  })}
-                </ul>
+          {fromEvent && resubmit === null ? (
+            <fieldset className="m-field" id="rq06-place">
+              <legend className="m-field__label" id="rq06-place-label">
+                申請する店舗
+                <span className="m-field__req">必須</span>
+              </legend>
+              <CandidateRadios
+                name="rq06-place"
+                labelledBy="rq06-place-label"
+                items={data.managed.map((item) => ({
+                  id: item.placeId,
+                  name: item.name,
+                  meta: item.meta,
+                  photoUrl: item.photoUrl,
+                  // Each store was judged for the event DT-04 chose.
+                  refusal: onPreset ? item.refusal : null,
+                  detailHref: item.viewable
+                    ? `/places/${encodeURIComponent(item.placeId)}`
+                    : null,
+                }))}
+                value={place?.placeId ?? null}
+                disabled={busy}
+                invalid={errors.place !== undefined}
+                onChange={(id) => {
+                  const next = data.managed.find((item) => item.placeId === id);
+                  if (next !== undefined) choosePlace(next);
+                }}
+              />
+              {errors.place === undefined ? null : (
+                <p className="m-field__error">{errors.place}</p>
               )}
-              {(choice?.attachable.length ?? 0) === 0 ? (
-                <Notice
-                  variant="manage"
-                  tone="paper"
-                  title="添えられる掲載がありません"
-                  actions={
+              <p className="m-field__help">
+                管理する店舗から選びます。選んだ店舗は、あとで選び直せます。
+              </p>
+            </fieldset>
+          ) : null}
+
+          {place === null && occasion !== null ? (
+            <section className="m-section" aria-labelledby="rq06-event">
+              <SectionTitle variant="manage" id="rq06-event">
+                参加するイベント
+              </SectionTitle>
+              <RowLink
+                to="/events/$occasionId"
+                params={{ occasionId: occasion.occasionId }}
+                photo={
+                  occasion.photoUrl === null
+                    ? null
+                    : { src: occasion.photoUrl, alt: "" }
+                }
+                name={occasion.name}
+                meta={occasion.periodText}
+              />
+              <p className="m-field__help">
+                申請する店舗を選ぶと、添える掲載と参加日を選べます。
+              </p>
+            </section>
+          ) : null}
+
+          {pickSection}
+
+          {occasion !== null && place !== null && !picking ? (
+            <>
+              {occasion.photoUrl === null ? null : (
+                <div className="m-photo">
+                  <img src={occasion.photoUrl} alt="" />
+                </div>
+              )}
+              <p className="rq06-event__name">{occasion.name}</p>
+              <div className="m-section">
+                <div className="rq06-event__meta">
+                  {occasion.periodText === "" ? null : (
+                    <p>{occasion.periodText}</p>
+                  )}
+                  {occasion.venue === "" ? null : (
+                    <p>{`開催場所：${occasion.venue}`}</p>
+                  )}
+                </div>
+                <div className="rq06-event__links">
+                  {occasion.viewable ? (
                     <TextLink
-                      to="/manage/places/$placeId/listings"
-                      params={{ placeId: place.placeId }}
+                      to="/events/$occasionId"
+                      params={{ occasionId: occasion.occasionId }}
                     >
-                      掲載の一覧へ
+                      イベントの詳細を見る
                     </TextLink>
-                  }
-                >
-                  掲載を添えずに申請できます。添えたい掲載が公開されていなければ、先に掲載の編集で公開してください。
-                </Notice>
-              ) : candidates.length === 0 ? (
-                <p className="m-field__help">
-                  添えられる掲載は、ほかにありません。
-                </p>
-              ) : (
-                <div className="em-sub">
-                  <p className="m-field__label">添えられる掲載</p>
+                  ) : null}
+                  {resubmit === null ? (
+                    <TextButton
+                      disabled={busy}
+                      onClick={() => setPicking(true)}
+                    >
+                      イベントを選び直す
+                    </TextButton>
+                  ) : null}
+                </div>
+              </div>
+              <Notice variant="manage" title="参加の申請について">
+                イベントの運営者が確かめてから、参加が決まります。掲載と参加日は、どちらも添えずに申請できます。
+              </Notice>
+
+              <section className="m-section" aria-labelledby="rq06-listings">
+                <SectionTitle variant="manage" id="rq06-listings">
+                  参加する掲載
+                </SectionTitle>
+                {listingIds.length === 0 ? (
+                  <p className="m-field__help">
+                    まだ添えた掲載はありません。添えずに申請することもできます。
+                  </p>
+                ) : (
                   <ul className="m-rows">
-                    {candidates.map((item) => {
-                      const name = item.name ?? "名称未設定";
+                    {listingIds.map((id) => {
+                      const item = attachable.get(id);
+                      const kept = held.get(id);
+                      const name = listingName(id);
+                      const blocked =
+                        item === undefined && (stale?.includes(id) ?? true);
+                      const meta =
+                        item !== undefined
+                          ? `選択中 · ${offeringText(item)}`
+                          : kept !== undefined
+                            ? heldText(kept)
+                            : "いまは添えられません";
                       return (
-                        <li key={item.id} className="rq06-row">
-                          <RowLink
-                            to="/listings/$listingId"
-                            params={{ listingId: item.id }}
-                            photo={
-                              item.photoUrl === null
-                                ? null
-                                : { src: item.photoUrl, alt: "" }
-                            }
-                            name={name}
-                            meta={offeringText(item)}
-                          />
+                        <li key={id} className="rq06-row">
+                          {item !== undefined ? (
+                            <RowLink
+                              to="/listings/$listingId"
+                              params={{ listingId: id }}
+                              photo={listingPhoto(id)}
+                              name={name}
+                              meta={meta}
+                              sub={place.name}
+                            />
+                          ) : (
+                            <Row
+                              photo={listingPhoto(id)}
+                              name={name}
+                              meta={
+                                <span
+                                  className="rq06-row__state"
+                                  {...(blocked || kept !== undefined
+                                    ? { "data-tone": "alert" }
+                                    : {})}
+                                >
+                                  {meta}
+                                </span>
+                              }
+                              sub={place.name}
+                            />
+                          )}
                           <ChipButton
                             disabled={busy}
-                            aria-label={`${name}を添える`}
+                            aria-label={`${name}を外す`}
                             onClick={() => {
-                              setPicked((current) =>
-                                new Map(current).set(item.id, item.name),
+                              const rest = listingIds.filter(
+                                (listed) => listed !== id,
                               );
-                              setListingIds([...listingIds, item.id]);
+                              setListingIds(rest);
+                              if (stale?.every((s) => !rest.includes(s))) {
+                                setStale(null);
+                              }
                             }}
                           >
-                            添える
+                            外す
                           </ChipButton>
                         </li>
                       );
                     })}
                   </ul>
-                </div>
-              )}
-              <p className="m-field__help">
-                この店舗の公開中の掲載から、複数を選べます。提供開始前・提供終了の掲載も選べます。下書き・一時非公開・運営による非公開の掲載は、候補に出ません。
-              </p>
-              {(choice?.attachable.length ?? 0) > 0 && choice?.unpublished ? (
-                <Notice
-                  variant="manage"
-                  tone="paper"
-                  title="公開していない掲載があります"
-                  actions={
-                    <TextLink
-                      to="/manage/places/$placeId/listings"
-                      params={{ placeId: place.placeId }}
+                )}
+                {(choice?.attachable.length ?? 0) === 0 ? (
+                  <Notice
+                    variant="manage"
+                    tone="paper"
+                    title="添えられる掲載がありません"
+                    actions={
+                      <TextLink
+                        to="/manage/places/$placeId/listings"
+                        params={{ placeId: place.placeId }}
+                      >
+                        掲載の一覧へ
+                      </TextLink>
+                    }
+                  >
+                    掲載を添えずに申請できます。添えたい掲載が公開されていなければ、先に掲載の編集で公開してください。
+                  </Notice>
+                ) : candidates.length === 0 ? (
+                  <p className="m-field__help">
+                    添えられる掲載は、ほかにありません。
+                  </p>
+                ) : (
+                  <div className="em-sub">
+                    <p className="m-field__label">添えられる掲載</p>
+                    <ul className="m-rows">
+                      {candidates.map((item) => {
+                        const name = item.name ?? "名称未設定";
+                        return (
+                          <li key={item.id} className="rq06-row">
+                            <RowLink
+                              to="/listings/$listingId"
+                              params={{ listingId: item.id }}
+                              photo={
+                                item.photoUrl === null
+                                  ? null
+                                  : { src: item.photoUrl, alt: "" }
+                              }
+                              name={name}
+                              meta={offeringText(item)}
+                            />
+                            <ChipButton
+                              disabled={busy}
+                              aria-label={`${name}を添える`}
+                              onClick={() => {
+                                setPicked((current) =>
+                                  new Map(current).set(item.id, item.name),
+                                );
+                                setListingIds([...listingIds, item.id]);
+                              }}
+                            >
+                              添える
+                            </ChipButton>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+                <p className="m-field__help">
+                  この店舗の公開中の掲載から、複数を選べます。提供開始前・提供終了の掲載も選べます。下書き・一時非公開・運営による非公開の掲載は、候補に出ません。
+                </p>
+                {(choice?.attachable.length ?? 0) > 0 && choice?.unpublished ? (
+                  <Notice
+                    variant="manage"
+                    tone="paper"
+                    title="公開していない掲載があります"
+                    actions={
+                      <TextLink
+                        to="/manage/places/$placeId/listings"
+                        params={{ placeId: place.placeId }}
+                      >
+                        掲載の一覧へ
+                      </TextLink>
+                    }
+                  >
+                    添えたい掲載が公開されていなければ、先に掲載の編集で公開してください。公開すると、ここで添えられます。
+                  </Notice>
+                ) : null}
+              </section>
+
+              <Fieldset
+                id="rq06-dates"
+                legend="参加日"
+                requirement="optional"
+                help={
+                  period === null
+                    ? "開催期間が読めないため、選んだ参加日だけを示しています。"
+                    : `開催期間（${periodText(period)}）の中から、複数を選べます。`
+                }
+                {...(errors.dates === undefined ? {} : { error: errors.dates })}
+              >
+                {days === null && period !== null ? (
+                  <div className="m-inline">
+                    <input
+                      className="m-input"
+                      type="date"
+                      aria-label="参加日を追加"
+                      min={period.start}
+                      max={period.end}
+                      value={newDate}
+                      disabled={busy}
+                      onChange={(event) =>
+                        setNewDate(event.currentTarget.value)
+                      }
+                    />
+                    <Button
+                      variant="secondary"
+                      disabled={busy}
+                      onClick={addDate}
                     >
-                      掲載の一覧へ
-                    </TextLink>
-                  }
-                >
-                  添えたい掲載が公開されていなければ、先に掲載の編集で公開してください。公開すると、ここで添えられます。
-                </Notice>
-              ) : null}
-            </section>
+                      追加
+                    </Button>
+                  </div>
+                ) : null}
+                {shownDays.length === 0 ? null : (
+                  <div className="m-choices">
+                    {(days === null ? dates : shownDays).map((date) => {
+                      const outside = !inPeriod(date, period);
+                      return (
+                        <label className="m-choice" key={date}>
+                          <input
+                            type="checkbox"
+                            name="date"
+                            value={date}
+                            checked={dates.includes(date)}
+                            disabled={busy}
+                            aria-invalid={outside ? true : undefined}
+                            onChange={(event) => {
+                              const on = event.currentTarget.checked;
+                              const next = on
+                                ? [...dates, date].sort()
+                                : dates.filter((d) => d !== date);
+                              setDates(next);
+                              if (next.every((d) => inPeriod(d, period))) {
+                                setErrors((current) => ({
+                                  ...current,
+                                  dates: undefined,
+                                }));
+                              }
+                            }}
+                          />
+                          <span>{jpDateWithWeekday(date)}</span>
+                          {outside ? (
+                            <Badge tone="alert">開催期間の外</Badge>
+                          ) : null}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </Fieldset>
+            </>
+          ) : null}
 
-            <Fieldset
-              id="rq06-dates"
-              legend="参加日"
-              requirement="optional"
-              help={
-                period === null
-                  ? "開催期間が読めないため、選んだ参加日だけを示しています。"
-                  : `開催期間（${periodText(period)}）の中から、複数を選べます。`
-              }
-              {...(errors.dates === undefined ? {} : { error: errors.dates })}
-            >
-              {days === null && period !== null ? (
-                <div className="m-inline">
-                  <input
-                    className="m-input"
-                    type="date"
-                    aria-label="参加日を追加"
-                    min={period.start}
-                    max={period.end}
-                    value={newDate}
-                    disabled={busy}
-                    onChange={(event) => setNewDate(event.currentTarget.value)}
-                  />
-                  <Button variant="secondary" disabled={busy} onClick={addDate}>
-                    追加
-                  </Button>
-                </div>
-              ) : null}
-              {shownDays.length === 0 ? null : (
-                <div className="m-choices">
-                  {(days === null ? dates : shownDays).map((date) => {
-                    const outside = !inPeriod(date, period);
-                    return (
-                      <label className="m-choice" key={date}>
-                        <input
-                          type="checkbox"
-                          name="date"
-                          value={date}
-                          checked={dates.includes(date)}
-                          disabled={busy}
-                          aria-invalid={outside ? true : undefined}
-                          onChange={(event) => {
-                            const on = event.currentTarget.checked;
-                            const next = on
-                              ? [...dates, date].sort()
-                              : dates.filter((d) => d !== date);
-                            setDates(next);
-                            if (next.every((d) => inPeriod(d, period))) {
-                              setErrors((current) => ({
-                                ...current,
-                                dates: undefined,
-                              }));
-                            }
-                          }}
-                        />
-                        <span>{jpDateWithWeekday(date)}</span>
-                        {outside ? (
-                          <Badge tone="alert">開催期間の外</Badge>
-                        ) : null}
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </Fieldset>
-          </>
-        ) : null}
-
-        {resubmit === null ? null : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
-            disabled={busy}
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
-          />
-        )}
+          {resubmit === null ? null : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={busy}
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+        </HydrationGate>
       </form>
     </ManagePage>
   );

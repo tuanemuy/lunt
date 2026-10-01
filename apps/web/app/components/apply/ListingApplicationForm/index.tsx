@@ -15,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { Photo } from "@/components/ui/Photo";
 import { TextButton } from "@/components/ui/TextButton";
@@ -674,109 +675,113 @@ export function ListingApplicationForm({ apply }: { apply: ListingApplyData }) {
           check();
         }}
       >
-        {failure === null ? null : (
-          <SubmitFailureAlert
-            failure={failure}
-            resubmit={resubmit !== null}
-            applicationId={resubmit?.applicationId ?? null}
-            busy={sending}
-            lead="写真・名称・カテゴリーは、掲載を公開するための条件です。次の項目を直してください。"
-            onReload={() =>
-              startSend(async () => {
-                setFailure(null);
-                await reconcile();
-              })
-            }
-            retry={
-              <Button variant="secondary" disabled={sending} onClick={send}>
-                もう一度提出
-              </Button>
-            }
-          />
-        )}
-        <ModeNotice
-          mode={mode}
-          reapplied={
-            revision === null
-              ? "内容（写真を含む）"
-              : "変更した項目（写真を含む）を、掲載の現在の内容に重ねた内容"
-          }
-        />
-        <div className="m-field">
-          <p className="m-field__label">申請の対象</p>
-          <div className="m-row">
-            <Photo
-              photo={cover === null ? null : { src: cover.url, framing: null }}
-              alt=""
-              ratio={1}
-              className="m-row__photo"
-              emptyLabel="写真なし"
+        <HydrationGate>
+          {failure === null ? null : (
+            <SubmitFailureAlert
+              failure={failure}
+              resubmit={resubmit !== null}
+              applicationId={resubmit?.applicationId ?? null}
+              busy={sending}
+              lead="写真・名称・カテゴリーは、掲載を公開するための条件です。次の項目を直してください。"
+              onReload={() =>
+                startSend(async () => {
+                  setFailure(null);
+                  await reconcile();
+                })
+              }
+              retry={
+                <Button variant="secondary" disabled={sending} onClick={send}>
+                  もう一度提出
+                </Button>
+              }
             />
-            <span className="m-row__content">
-              {revision === null ? (
-                <>
-                  <span className="m-row__name">{place.name}</span>
-                  <span className="m-row__meta">新しい掲載</span>
-                  <span className="m-row__sub">
-                    {place.address === ""
-                      ? "管理者のいない店舗"
-                      : `管理者のいない店舗 · ${place.address}`}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="m-row__name">{revision.listing.name}</span>
-                  <span className="m-row__meta">{`掲載の修正 · ${place.name}`}</span>
-                </>
-              )}
-            </span>
-          </div>
-          <p className="m-field__help">
-            {revision === null
-              ? "店舗に管理者がいないため、個人として申請します。サービス運営者が確かめて、承認されると店舗の掲載として公開されます。"
-              : "掲載の現在の内容が入っています。直したい項目だけを変えます。変えた項目には「変更」と、現在の値を示します。"}
-          </p>
-        </div>
-        <ListingFormFields
-          values={values}
-          onChange={(change) =>
-            setValues((current) => ({ ...current, ...change }))
-          }
-          errors={errors.listing}
-          categories={categories}
-          place={{
-            id: place.placeId,
-            name: place.name,
-            address: place.address,
-          }}
-          disabled={sending}
-          requirement="required"
-          target={null}
-          notes={{
-            photos: note("photos"),
-            name: note("name"),
-            category: note("category"),
-            description: note("description"),
-            offering: note("offering"),
-          }}
-        />
-        {resubmit === null ? null : (
-          <ReplyField
-            value={reply}
-            onChange={setReply}
-            disabled={sending}
-            {...(errors.reply === undefined ? {} : { error: errors.reply })}
+          )}
+          <ModeNotice
+            mode={mode}
+            reapplied={
+              revision === null
+                ? "内容（写真を含む）"
+                : "変更した項目（写真を含む）を、掲載の現在の内容に重ねた内容"
+            }
           />
-        )}
-        <hr className="m-divider" />
-        <ManageSection id="rq04-preview" title="閲覧者への見え方">
-          <p className="m-field__help">
-            入力中の内容で、一覧のカードと掲載の詳細での見え方を確かめられます。戻ると、入力した内容は残っています。価格とキャッチコピーは、掲載に表示されません。
-          </p>
-          <Button variant="secondary" onClick={openPreview}>
-            閲覧者への見え方を確かめる
-          </Button>
-        </ManageSection>
+          <div className="m-field">
+            <p className="m-field__label">申請の対象</p>
+            <div className="m-row">
+              <Photo
+                photo={
+                  cover === null ? null : { src: cover.url, framing: null }
+                }
+                alt=""
+                ratio={1}
+                className="m-row__photo"
+                emptyLabel="写真なし"
+              />
+              <span className="m-row__content">
+                {revision === null ? (
+                  <>
+                    <span className="m-row__name">{place.name}</span>
+                    <span className="m-row__meta">新しい掲載</span>
+                    <span className="m-row__sub">
+                      {place.address === ""
+                        ? "管理者のいない店舗"
+                        : `管理者のいない店舗 · ${place.address}`}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="m-row__name">{revision.listing.name}</span>
+                    <span className="m-row__meta">{`掲載の修正 · ${place.name}`}</span>
+                  </>
+                )}
+              </span>
+            </div>
+            <p className="m-field__help">
+              {revision === null
+                ? "店舗に管理者がいないため、個人として申請します。サービス運営者が確かめて、承認されると店舗の掲載として公開されます。"
+                : "掲載の現在の内容が入っています。直したい項目だけを変えます。変えた項目には「変更」と、現在の値を示します。"}
+            </p>
+          </div>
+          <ListingFormFields
+            values={values}
+            onChange={(change) =>
+              setValues((current) => ({ ...current, ...change }))
+            }
+            errors={errors.listing}
+            categories={categories}
+            place={{
+              id: place.placeId,
+              name: place.name,
+              address: place.address,
+            }}
+            disabled={sending}
+            requirement="required"
+            target={null}
+            notes={{
+              photos: note("photos"),
+              name: note("name"),
+              category: note("category"),
+              description: note("description"),
+              offering: note("offering"),
+            }}
+          />
+          {resubmit === null ? null : (
+            <ReplyField
+              value={reply}
+              onChange={setReply}
+              disabled={sending}
+              {...(errors.reply === undefined ? {} : { error: errors.reply })}
+            />
+          )}
+          <hr className="m-divider" />
+          <ManageSection id="rq04-preview" title="閲覧者への見え方">
+            <p className="m-field__help">
+              入力中の内容で、一覧のカードと掲載の詳細での見え方を確かめられます。戻ると、入力した内容は残っています。価格とキャッチコピーは、掲載に表示されません。
+            </p>
+            <Button variant="secondary" onClick={openPreview}>
+              閲覧者への見え方を確かめる
+            </Button>
+          </ManageSection>
+        </HydrationGate>
       </form>
     </ManagePage>
   );

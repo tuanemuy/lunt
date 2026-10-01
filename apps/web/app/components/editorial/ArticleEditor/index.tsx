@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -432,155 +433,157 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
           save();
         }}
       >
-        <p className="m-status" data-tone={STATUS_TONE[data.status]}>
-          {data.statusText}
-        </p>
-        {hiddenCount === 0 ? null : (
-          <a className="text-button am02-warn" href="#h-refs">
-            {`閲覧者が閲覧できない紹介先が${hiddenCount}件あります`}
-          </a>
-        )}
-        {failure === null ? null : (
-          <FailureAlert
-            key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
-            failure={failure}
-            statusText={data.statusText}
-            takenDown={data.reason === "photoTakedown"}
-            busy={busy}
-            onReload={() =>
-              startBusy(async () => {
-                setDraft(reloadDraft);
-                await reconcile();
-                setFailure(null);
-              })
-            }
-            onRetry={() => retry(failure.attempt)}
-          />
-        )}
-        {outcome?.kind === "published" ? (
-          <FocusOnMount key={`published:${data.version}`} role="status">
-            <Notice
-              variant="manage"
-              title="読みものを公開しました"
-              actions={
-                <>
-                  <ButtonLink
-                    variant="secondary"
-                    to={articlePagePath(data.articleId)}
-                  >
-                    公開中の記事を見る
-                  </ButtonLink>
+        <HydrationGate>
+          <p className="m-status" data-tone={STATUS_TONE[data.status]}>
+            {data.statusText}
+          </p>
+          {hiddenCount === 0 ? null : (
+            <a className="text-button am02-warn" href="#h-refs">
+              {`閲覧者が閲覧できない紹介先が${hiddenCount}件あります`}
+            </a>
+          )}
+          {failure === null ? null : (
+            <FailureAlert
+              key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
+              failure={failure}
+              statusText={data.statusText}
+              takenDown={data.reason === "photoTakedown"}
+              busy={busy}
+              onReload={() =>
+                startBusy(async () => {
+                  setDraft(reloadDraft);
+                  await reconcile();
+                  setFailure(null);
+                })
+              }
+              onRetry={() => retry(failure.attempt)}
+            />
+          )}
+          {outcome?.kind === "published" ? (
+            <FocusOnMount key={`published:${data.version}`} role="status">
+              <Notice
+                variant="manage"
+                title="読みものを公開しました"
+                actions={
+                  <>
+                    <ButtonLink
+                      variant="secondary"
+                      to={articlePagePath(data.articleId)}
+                    >
+                      公開中の記事を見る
+                    </ButtonLink>
+                    <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
+                      読みものの一覧へ戻る
+                    </ButtonLink>
+                  </>
+                }
+              >
+                {`「${title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
+              </Notice>
+            </FocusOnMount>
+          ) : null}
+          {outcome?.kind === "unpublished" ? (
+            <FocusOnMount key={`unpublished:${data.version}`} role="status">
+              <Notice
+                variant="manage"
+                title="公開を取り下げました"
+                actions={
                   <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
                     読みものの一覧へ戻る
                   </ButtonLink>
-                </>
-              }
-            >
-              {`「${title}」は、読みものの一覧・フィード・キーワード検索と、紹介先の詳細に表示されます。`}
-            </Notice>
-          </FocusOnMount>
-        ) : null}
-        {outcome?.kind === "unpublished" ? (
-          <FocusOnMount key={`unpublished:${data.version}`} role="status">
-            <Notice
-              variant="manage"
-              title="公開を取り下げました"
-              actions={
-                <ButtonLink variant="secondary" to={EDITORIAL_HOME}>
-                  読みものの一覧へ戻る
-                </ButtonLink>
-              }
-            >
-              {`「${title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
-            </Notice>
-          </FocusOnMount>
-        ) : null}
-        {outcome?.kind === "saved" ? (
-          <FocusOnMount key={`saved:${data.version}`} role="status">
-            <Notice
-              variant="manage"
-              title={
-                data.status === "draft"
-                  ? "下書きとして保存しました"
-                  : published
-                    ? "保存しました。公開中の記事に反映しました"
-                    : "保存しました"
-              }
-              {...(published
-                ? {
-                    actions: (
-                      <ButtonLink
-                        variant="secondary"
-                        to={articlePagePath(data.articleId)}
-                      >
-                        公開中の記事を見る
-                      </ButtonLink>
-                    ),
-                  }
-                : {})}
-            >
-              {published
-                ? "閲覧者への表示に、その時点で反映しました。"
-                : "閲覧者には表示されていません。続けて、公開前の見え方を確かめるか、公開できます。"}
-            </Notice>
-          </FocusOnMount>
-        ) : null}
-        {data.photosTakenDown ? (
-          <div role="status">
-            <Notice
-              variant="manage"
-              tone="paper"
-              title="申立てにより、写真が削除されました"
-              actions={
-                <a className="text-button" href="#photos">
-                  写真を登録する
-                </a>
-              }
-            >
-              {data.reason === "photoTakedown"
-                ? "写真がなくなったため、公開を取り下げました。写真を登録して保存し、公開の操作で再び公開します。"
-                : `読みものは「${data.statusText}」のままです。写真を登録して保存すると、この表示は消えます。`}
-            </Notice>
-          </div>
-        ) : null}
+                }
+              >
+                {`「${title}」は、閲覧者に表示されなくなりました。内容と紹介先の結びつけは残っています。公開の操作で再び公開できます。`}
+              </Notice>
+            </FocusOnMount>
+          ) : null}
+          {outcome?.kind === "saved" ? (
+            <FocusOnMount key={`saved:${data.version}`} role="status">
+              <Notice
+                variant="manage"
+                title={
+                  data.status === "draft"
+                    ? "下書きとして保存しました"
+                    : published
+                      ? "保存しました。公開中の記事に反映しました"
+                      : "保存しました"
+                }
+                {...(published
+                  ? {
+                      actions: (
+                        <ButtonLink
+                          variant="secondary"
+                          to={articlePagePath(data.articleId)}
+                        >
+                          公開中の記事を見る
+                        </ButtonLink>
+                      ),
+                    }
+                  : {})}
+              >
+                {published
+                  ? "閲覧者への表示に、その時点で反映しました。"
+                  : "閲覧者には表示されていません。続けて、公開前の見え方を確かめるか、公開できます。"}
+              </Notice>
+            </FocusOnMount>
+          ) : null}
+          {data.photosTakenDown ? (
+            <div role="status">
+              <Notice
+                variant="manage"
+                tone="paper"
+                title="申立てにより、写真が削除されました"
+                actions={
+                  <a className="text-button" href="#photos">
+                    写真を登録する
+                  </a>
+                }
+              >
+                {data.reason === "photoTakedown"
+                  ? "写真がなくなったため、公開を取り下げました。写真を登録して保存し、公開の操作で再び公開します。"
+                  : `読みものは「${data.statusText}」のままです。写真を登録して保存すると、この表示は消えます。`}
+              </Notice>
+            </div>
+          ) : null}
 
-        <ArticleFormFields
-          values={values}
-          onChange={onChange}
-          errors={failure?.fields ?? {}}
-          disabled={busy}
-          {...(data.photosTakenDown
-            ? { emptyPhotoText: "写真は削除されました" }
-            : {})}
-        />
+          <ArticleFormFields
+            values={values}
+            onChange={onChange}
+            errors={failure?.fields ?? {}}
+            disabled={busy}
+            {...(data.photosTakenDown
+              ? { emptyPhotoText: "写真は削除されました" }
+              : {})}
+          />
 
-        <section className="m-section" aria-labelledby="h-preview">
-          <hr className="m-divider" />
-          <SectionTitle variant="manage" id="h-preview">
-            閲覧者への見え方
-          </SectionTitle>
-          <LinkList>
-            <li>
-              {published ? (
-                <ListRowLink
-                  to={articlePagePath(data.articleId)}
-                  title="公開中の記事を見る"
-                  meta="保存した内容は、その時点で記事に反映します"
-                />
-              ) : (
-                <ListRowLink
-                  to={articlePreviewPath(data.articleId)}
-                  title="公開前の見え方を確かめる"
-                  meta={
-                    dirty
-                      ? "保存した内容を、閲覧者に見える記事の形で確かめます。保存していない変更は含まれません"
-                      : "保存した内容を、閲覧者に見える記事の形で確かめます。公開の必須の手順ではありません"
-                  }
-                />
-              )}
-            </li>
-          </LinkList>
-        </section>
+          <section className="m-section" aria-labelledby="h-preview">
+            <hr className="m-divider" />
+            <SectionTitle variant="manage" id="h-preview">
+              閲覧者への見え方
+            </SectionTitle>
+            <LinkList>
+              <li>
+                {published ? (
+                  <ListRowLink
+                    to={articlePagePath(data.articleId)}
+                    title="公開中の記事を見る"
+                    meta="保存した内容は、その時点で記事に反映します"
+                  />
+                ) : (
+                  <ListRowLink
+                    to={articlePreviewPath(data.articleId)}
+                    title="公開前の見え方を確かめる"
+                    meta={
+                      dirty
+                        ? "保存した内容を、閲覧者に見える記事の形で確かめます。保存していない変更は含まれません"
+                        : "保存した内容を、閲覧者に見える記事の形で確かめます。公開の必須の手順ではありません"
+                    }
+                  />
+                )}
+              </li>
+            </LinkList>
+          </section>
+        </HydrationGate>
       </form>
 
       <ConfirmDialog

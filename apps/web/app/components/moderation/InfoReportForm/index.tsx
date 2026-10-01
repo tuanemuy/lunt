@@ -9,6 +9,7 @@ import { DonePanel } from "@/components/ui/DonePanel";
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
 import { Field, Textarea } from "@/components/ui/Field";
 import { FocusOnMount } from "@/components/ui/FocusOnMount";
+import { HydrationGate } from "@/components/ui/HydrationGate";
 import { Notice } from "@/components/ui/Notice";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import {
@@ -243,101 +244,105 @@ export function InfoReportForm({
           startSubmit(() => submit());
         }}
       >
-        <ManageBody>
-          <p className="my-lead">
-            店舗や掲載の情報の誤り、店舗の閉店に気づいたときに、サービス運営者に知らせます。
-          </p>
-          {outcome.kind === "failed" ? (
-            <Alert
-              title="連絡を送れませんでした"
-              {...(outcome.error.kind === "failed"
-                ? {
-                    actions: (
-                      <Button
-                        variant="secondary"
-                        type="submit"
-                        disabled={sending}
-                      >
-                        もう一度送る
-                      </Button>
-                    ),
-                  }
-                : {})}
-            >
-              {outcome.error.kind === "failed"
-                ? "通信を確かめて、もう一度送ってください。入力した内容は残っています。"
-                : outcome.error.message}
-            </Alert>
-          ) : null}
-          {outcome.kind === "invalid" ? (
-            <Alert
-              title="連絡を送れませんでした"
-              list={FIELD_ANCHORS.filter(
-                ([key]) => fields[key] !== undefined,
-              ).map(([key, anchor, label]) => (
-                <li key={key}>
-                  <a className="m-link" href={`#${anchor}`}>
-                    {label}
-                  </a>
-                </li>
-              ))}
-            >
-              次の項目を直してください。
-            </Alert>
-          ) : null}
-          {from === null ? null : (
-            <Notice
-              variant="manage"
-              tone="paper"
-              title={`${INFO_REPORT_SOURCE_LABEL[from]}から移りました`}
-            >
-              {`${place?.name ?? target.name}には店舗管理者がいるため、個人の申請は受け付けていません。情報の誤りや閉店は、ここからサービス運営者に連絡できます。`}
-            </Notice>
-          )}
-
-          <TargetField target={target} place={place} />
-
-          <div id="rq08-category">
-            <ChoiceGroup
-              legend="連絡の種類"
-              name="category"
-              requirement="required"
-              choices={INFO_REPORT_CATEGORIES.map((value) => ({
-                value,
-                label: CATEGORY_LABEL[value],
-              }))}
-              value={category}
-              onChange={setCategory}
-              help="店舗が営業をやめていたときは「閉店」を選びます。"
-              {...(fields.category === undefined
-                ? {}
-                : { error: fields.category })}
-            />
-          </div>
-
-          <Field
-            id="rq08-content"
-            label="内容"
-            requirement="required"
-            help="サービス運営者が内容を確かめて対応します。"
-            {...(fields.content === undefined ? {} : { error: fields.content })}
-          >
-            {(control) => (
-              <Textarea
-                {...control}
-                name="content"
-                rows={4}
-                placeholder="どの情報が、どう違っているかを書きます"
-                value={content}
-                onChange={(event) => setContent(event.currentTarget.value)}
-              />
+        <HydrationGate>
+          <ManageBody>
+            <p className="my-lead">
+              店舗や掲載の情報の誤り、店舗の閉店に気づいたときに、サービス運営者に知らせます。
+            </p>
+            {outcome.kind === "failed" ? (
+              <Alert
+                title="連絡を送れませんでした"
+                {...(outcome.error.kind === "failed"
+                  ? {
+                      actions: (
+                        <Button
+                          variant="secondary"
+                          type="submit"
+                          disabled={sending}
+                        >
+                          もう一度送る
+                        </Button>
+                      ),
+                    }
+                  : {})}
+              >
+                {outcome.error.kind === "failed"
+                  ? "通信を確かめて、もう一度送ってください。入力した内容は残っています。"
+                  : outcome.error.message}
+              </Alert>
+            ) : null}
+            {outcome.kind === "invalid" ? (
+              <Alert
+                title="連絡を送れませんでした"
+                list={FIELD_ANCHORS.filter(
+                  ([key]) => fields[key] !== undefined,
+                ).map(([key, anchor, label]) => (
+                  <li key={key}>
+                    <a className="m-link" href={`#${anchor}`}>
+                      {label}
+                    </a>
+                  </li>
+                ))}
+              >
+                次の項目を直してください。
+              </Alert>
+            ) : null}
+            {from === null ? null : (
+              <Notice
+                variant="manage"
+                tone="paper"
+                title={`${INFO_REPORT_SOURCE_LABEL[from]}から移りました`}
+              >
+                {`${place?.name ?? target.name}には店舗管理者がいるため、個人の申請は受け付けていません。情報の誤りや閉店は、ここからサービス運営者に連絡できます。`}
+              </Notice>
             )}
-          </Field>
 
-          <Notice variant="manage" tone="paper" title="連絡した後のこと">
-            連絡の結果は通知されません。更新された内容は、店舗と掲載のページで確かめられます。連絡の状況を確かめる画面と、連絡を取り消す操作はありません。
-          </Notice>
-        </ManageBody>
+            <TargetField target={target} place={place} />
+
+            <div id="rq08-category">
+              <ChoiceGroup
+                legend="連絡の種類"
+                name="category"
+                requirement="required"
+                choices={INFO_REPORT_CATEGORIES.map((value) => ({
+                  value,
+                  label: CATEGORY_LABEL[value],
+                }))}
+                value={category}
+                onChange={setCategory}
+                help="店舗が営業をやめていたときは「閉店」を選びます。"
+                {...(fields.category === undefined
+                  ? {}
+                  : { error: fields.category })}
+              />
+            </div>
+
+            <Field
+              id="rq08-content"
+              label="内容"
+              requirement="required"
+              help="サービス運営者が内容を確かめて対応します。"
+              {...(fields.content === undefined
+                ? {}
+                : { error: fields.content })}
+            >
+              {(control) => (
+                <Textarea
+                  {...control}
+                  name="content"
+                  rows={4}
+                  placeholder="どの情報が、どう違っているかを書きます"
+                  value={content}
+                  onChange={(event) => setContent(event.currentTarget.value)}
+                />
+              )}
+            </Field>
+
+            <Notice variant="manage" tone="paper" title="連絡した後のこと">
+              連絡の結果は通知されません。更新された内容は、店舗と掲載のページで確かめられます。連絡の状況を確かめる画面と、連絡を取り消す操作はありません。
+            </Notice>
+          </ManageBody>
+        </HydrationGate>
       </form>
     </ManagePage>
   );
