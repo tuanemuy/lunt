@@ -285,18 +285,19 @@ UnitOfWork を1つ使う。
 ### 入出力
 
 - 入力: なし（スケジュール）
-- 出力: なし
+- 出力: なし。日次のジョブとして報告する処理件数は、削除の前に `countClosedBefore`（同じ基準）で数えた件数。実行の途中で閉じたログインの確認は、削除されても数えない
 - `Actor` を取らない
 
 ### 使用するドメインの振る舞い・ポート
 
-- `LoginChallengeRepository.deleteClosedBefore`
+- `LoginChallengeRepository.countClosedBefore`、`deleteClosedBefore`
 - `Clock`
 
 ### トランザクション境界
 
 UnitOfWork を1つ使う。
 
+- 削除と同じ UnitOfWork の中で、削除の前に `loginChallengeRepository.countClosedBefore` で処理件数を数える
 - スコープに含まれる書き込み: `loginChallengeRepository.deleteClosedBefore`
 - ドメインイベントは出さない。失敗した実行は、次の実行が同じ対象を削除する
 

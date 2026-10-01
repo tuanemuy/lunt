@@ -606,16 +606,18 @@
 ### 入出力
 
 - 入力: `Actor`、`PlaceId`
-- 出力: 申請の一覧（種類、対象、状態）。並びは `findActiveBySubject` の契約（ID の昇順）による。なければ空の一覧
+- 出力: 申請の一覧（種類、対象とその名称、状態）。並びは `findActiveBySubject` の契約（ID の昇順）による。なければ空の一覧
+- 対象（店舗と、申請の種類に応じた地域・イベント）の名称は「申請の対象の名称」の規則による
 
 ### 使用するドメインの振る舞い・ポート
 
 - `ApplicationRepository.findActiveBySubject`（`place`。すべてのページを読む）
 - `Application.isHandledBy`（`ActingApplicant` の `individual`。`true` の申請だけを返す）
+- `Application.subjects`、対象の名称の読み取り（Moderation の `ContentDirectory.describe`、併せた登録申請の `ApplicationRepository.findByIds`）
 
 ### トランザクション境界
 
-読み取りだけの `run` を1つ使い、書き込まずに返す。
+読み取りだけの `run` を1つ使い、書き込まずに返す。`ContentDirectory.describe` は `run` の後に `run` の外で呼ぶ。
 
 ### エラーケース
 
@@ -636,7 +638,8 @@
 ### 入出力
 
 - 入力: `Actor`、`ApplicationId`
-- 出力: 申請の種類、対象とその名称（「申請の対象の名称」の規則）、対象はまだないかどうか（「まだない対象」の規則）、申請者（店舗管理者として行った申請は店舗）、内容、状態と結果（確認中の再提出された申請は、答えている追加で必要な確認と回答）、修正の申請の見比べと重ねた内容、併せた申請または参照する登録申請、承認された申請の `Application.reflectedRef`。内容の写真を含み、カテゴリーは現役に解決したものを返す
+- 出力: 申請の種類、対象とその名称（「申請の対象の名称」の規則）、対象はまだないかどうか（「まだない対象」の規則）、申請者（店舗管理者として行った申請は店舗）、内容、状態と結果（確認中の再提出された申請は、答えている追加で必要な確認と回答）、修正の申請の見比べと重ねた内容、併せた申請または参照する登録申請、承認された申請の `Application.reflectedRef`、承認者（`approver`）。内容の写真を含み、カテゴリーは現役に解決したものを返す
+- `approver` は、承認者の席（`Application.approverSeat`）が `steward` で、席の対象（地域・イベント）に運営者がいれば `steward`（その地域運営者・イベント運営者）、いなければ `operator`（サービス運営者。不在の代行）。席が `operator` なら `operator`。申請の状態によらず、読んだ時点の管理体制で決める
 
 ### 使用するドメインの振る舞い・ポート
 
@@ -648,6 +651,7 @@
 - `ApplicationRepository.findPageBySubject`（`registration`。登録申請から併せた申請をたどる。`limit: 1`）
 - 対象の名称の読み取り（`ContentDirectory.describe`、併せた登録申請の `ApplicationRepository.findByIds`）
 - `Application.reflectedRef`
+- `Application.approverSeat`、席が `steward` なら `StewardshipRepository.findById`（席の対象）、`Stewardship.isVacant`（承認者）
 - `CategoryCatalogRepository.find`、`CategoryCatalog.resolve`
 - `PhotoStorage.displayRefs`
 

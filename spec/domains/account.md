@@ -212,6 +212,7 @@ interface LoginChallengeRepository
   findByLinkTokenDigest(digest: SecretDigest): Promise<Versioned<LoginChallenge> | null>;
   countUnexpired(email: EmailAddress, now: Date): Promise<number>;
   deleteClosedBefore(threshold: Date): Promise<void>;
+  countClosedBefore(threshold: Date): Promise<number>;
 }
 ```
 
@@ -222,6 +223,7 @@ interface LoginChallengeRepository
 | `countUnexpired` | `email` のログインの確認のうち、`now < expiresAt` のものの数を返す。状態（`pending`・`redeemed`・`exhausted`）で絞らない。`deleteClosedBefore` で削除されたものは数えない |
 | `save` | 楽観ロック。リンクとコードの同時の使用、同時のコードの入力は、一方が `ConflictError` になる。対象がなければ（`deleteClosedBefore` で削除済みを含む）、版にかかわらず `NotFoundError` |
 | `deleteClosedBefore` | `redeemed`・`exhausted`、または `expiresAt < threshold` のログインの確認を削除する。集約の版を確かめない。繰り返し呼んでも、残るログインの確認は同じ |
+| `countClosedBefore` | 同じ `threshold` の `deleteClosedBefore` が削除の対象にするログインの確認（`redeemed`・`exhausted`、または `expiresAt < threshold`）の数を、保存されている状態で返す。削除しない |
 
 エラー: `ConflictError`、`NotFoundError`。
 

@@ -60,3 +60,11 @@
 | 空 | UnitOfWork の中で `insert(C1)` と `insert(C2)` を行い、`fn` が例外を投げる | ロールバックされる。どちらの `findById` も `null` | |
 | `redeemed` の C1 がある | UnitOfWork の中で `deleteClosedBefore(T)` を行い、`fn` が例外を投げる | ロールバックされる。`findById(C1.id)` は C1 を返す | |
 | `insert(C1)` 済み | UnitOfWork の中で、`insert(C2)` と、古い `expectedVersion` での C1 の `save` を行う | 遅くともコミットの時点で `ConflictError` になる。スコープ全体がロールバックされ、`findById(C2.id)` は `null` | |
+
+## countClosedBefore
+
+| 前提条件 | 操作 | 期待結果 | 実装ステータス |
+|---|---|---|---|
+| 空 | `countClosedBefore(T)` | 0 | |
+| `redeemed`（`expiresAt` が T より後）、`exhausted`（`expiresAt` が T より後）、`expiresAt` が T より前の `pending` が1件ずつ。ほかに、`expiresAt` が T と等しい `pending` と、T より後の `pending` が1件ずつ | `countClosedBefore(T)` の後、`findById` で5件を読む | 3。`deleteClosedBefore(T)` が削除の対象にするものだけを数え、`expiresAt` が T と等しいものと T より後の `pending` は数えない。5件とも残る（削除しない） | |
+| 前の行と同じ5件で、`deleteClosedBefore(T)` を実行した後 | `countClosedBefore(T)` | 0 | |
