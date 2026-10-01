@@ -48,7 +48,9 @@ import {
   type PlaceOption,
   type RelationRefusal,
   refusalLinkOf,
+  type SubmittedApplication,
   shopEventsPath,
+  submittedApprover,
 } from "@/presentation/applyRelationsView";
 import { applicationPath, shopHomePath } from "@/presentation/applyView";
 import { useEntryDraft } from "@/presentation/entryDraft";
@@ -195,7 +197,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<SubmitFailure | null>(null);
   const [refusal, setRefusal] = useState<RelationRefusal | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<SubmittedApplication | null>(null);
   const [sending, startSend] = useTransition();
   const [loading, startLoad] = useTransition();
   useScrollTopOn(`${stage}:${done === null}:${refusal === null}`);
@@ -421,20 +423,29 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
           }
           router.clearCache();
           draft.clear();
-          setDone(resubmit.applicationId);
+          setDone({
+            applicationId: resubmit.applicationId,
+            approver: resubmit.requestedBy,
+          });
           return;
         }
         const key = JSON.stringify({ ...target, ...content });
         if (attempt.current?.key !== key) {
           attempt.current = { id: newId(), key };
         }
-        const { applicationId } = await submitParticipationFn({
+        const { applicationId, approver } = await submitParticipationFn({
           data: { applicationId: attempt.current.id, ...target, ...content },
         });
         attempt.current = null;
         router.clearCache();
         draft.clear();
-        setDone(applicationId);
+        setDone({
+          applicationId,
+          approver: submittedApprover(
+            approver,
+            `${occasion.name}のイベント運営者`,
+          ),
+        });
       } catch (error) {
         const failed = classifyError(error);
         if (
@@ -559,7 +570,7 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
                 }
                 actions={
                   <>
-                    <ButtonLink to={applicationPath(done)}>
+                    <ButtonLink to={applicationPath(done.applicationId)}>
                       申請の詳細を見る
                     </ButtonLink>
                     {place === null ? null : (
@@ -582,8 +593,8 @@ export function ParticipationForm({ data }: { data: ParticipationFormData }) {
                 }
               >
                 {resubmit === null
-                  ? `${occasion?.name ?? "イベント"}への参加の申請は、確認中になりました。イベントの運営者が確かめて、結果を通知します。参加が決まると、イベントのページに店舗と添えた掲載が並びます。`
-                  : "申請は確認中に戻りました。イベントの運営者が確かめた結果は、通知でお知らせします。"}
+                  ? `${occasion?.name ?? "イベント"}への参加の申請は、確認中になりました。${done.approver}が確かめて、結果を通知します。参加が決まると、イベントのページに店舗と添えた掲載が並びます。`
+                  : `申請は確認中に戻りました。${done.approver}が確かめた結果は、通知でお知らせします。`}
               </DonePanel>
             </FocusOnMount>
           </ManagePage>

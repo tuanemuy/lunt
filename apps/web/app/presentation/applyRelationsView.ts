@@ -1,3 +1,4 @@
+import type { ApproverSeatKind } from "@repo/core/domain/application/approverSeat";
 import type { ApplicationStatusKind } from "@repo/core/domain/application/status";
 import type { ApplyMode, ApplyRefusal } from "./applyView";
 import type { OfferingStatus } from "./listingView";
@@ -7,6 +8,22 @@ import type { AttachedListingItem, PeriodView } from "./occasionView";
  * What RQ-05 所属・離脱の申請 and RQ-06 参加の申請 show, as plain
  * serializable data. Client-safe: types only from the core.
  */
+
+/** A submitted application, as the completion shows it: the one MY-05 opens, and who decides it now. */
+export type SubmittedApplication = Readonly<{
+  applicationId: string;
+  approver: string;
+}>;
+
+/**
+ * Who decides a just-submitted affiliation, leave or participation, named
+ * as MY-05 decides it: the region's / event's stewards (`stewards`), or the
+ * service operators while it has none (不在の代行).
+ */
+export const submittedApprover = (
+  approver: ApproverSeatKind,
+  stewards: string,
+): string => (approver === "operator" ? "サービス運営者" : stewards);
 
 /** 申請者の立場: as the store's steward (the store applies), or as an individual. */
 export type ActingAs = "steward" | "individual";

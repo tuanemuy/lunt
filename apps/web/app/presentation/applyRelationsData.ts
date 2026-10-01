@@ -43,9 +43,11 @@ import {
 } from "@repo/core/application/place/listStewardedPlaces";
 import { getPlaceAffiliationStatus } from "@repo/core/application/region/getPlaceAffiliationStatus";
 import type { ApplicationKind } from "@repo/core/domain/application/application";
+import type { ApproverSeatKind } from "@repo/core/domain/application/approverSeat";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { Address } from "@repo/core/domain/common/address";
 import type {
+  ApplicationId,
   OccasionId,
   PlaceId,
   RegionId,
@@ -116,6 +118,24 @@ async function orNull<T>(read: () => Promise<T>): Promise<T | null> {
 // --- The application an entry names -------------------------------------------
 
 type Started = Readonly<{ app: MyApplicationView; mode: ApplyMode }>;
+
+/**
+ * Who decides an application the actor just submitted (RQ-05 / RQ-06 完了),
+ * as MY-05 names it: the region's / event's stewards, or the service
+ * operators while it has none (不在の代行).
+ */
+export async function approverOf(
+  container: RequestContainer,
+  actor: Actor,
+  applicationId: ApplicationId,
+): Promise<ApproverSeatKind> {
+  const view = await getMyApplication({
+    container,
+    actor,
+    input: { applicationId },
+  });
+  return view.approver;
+}
 
 const applicationNotFound = (): NotFoundError =>
   new NotFoundError(

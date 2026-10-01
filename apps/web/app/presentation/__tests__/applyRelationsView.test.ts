@@ -5,6 +5,7 @@ import {
   participationApplyHref,
   participationHeading,
   refusalLinkOf,
+  submittedApprover,
 } from "../applyRelationsView";
 
 describe("RQ-05 / RQ-06 entries", () => {
@@ -61,5 +62,19 @@ describe("RQ-05 / RQ-06 entries", () => {
         reapply: null,
       }),
     ).toBe("イベントに参加");
+  });
+});
+
+describe("RQ-05 / RQ-06 completion", () => {
+  it("names the region's or event's stewards while it has them", () => {
+    expect(submittedApprover("steward", "こもれび商店街の地域運営者")).toBe(
+      "こもれび商店街の地域運営者",
+    );
+  });
+
+  it("names the service operators for a region or event without a steward, as MY-05 does", () => {
+    expect(submittedApprover("operator", "白波横丁の地域運営者")).toBe(
+      "サービス運営者",
+    );
   });
 });

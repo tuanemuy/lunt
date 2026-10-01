@@ -44,6 +44,8 @@ import {
   type PlaceOption,
   type RegionOption,
   type RelationRefusal,
+  type SubmittedApplication,
+  submittedApprover,
 } from "@/presentation/applyRelationsView";
 import { applicationPath } from "@/presentation/applyView";
 import { useEntryDraft } from "@/presentation/entryDraft";
@@ -225,7 +227,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<SubmitFailure | null>(null);
   const [refusal, setRefusal] = useState<RelationRefusal | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<SubmittedApplication | null>(null);
   const [sending, startSend] = useTransition();
   useScrollTopOn(`${stage}:${done === null}:${refusal === null}`);
   const attempt = useRef<{ id: string; key: string } | null>(null);
@@ -392,21 +394,30 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
           }
           router.clearCache();
           draft.clear();
-          setDone(resubmit.applicationId);
+          setDone({
+            applicationId: resubmit.applicationId,
+            approver: resubmit.requestedBy,
+          });
           return;
         }
         const key = JSON.stringify(target);
         if (attempt.current?.key !== key) {
           attempt.current = { id: newId(), key };
         }
-        const { applicationId } = await submitAffiliationChangeFn({
+        const { applicationId, approver } = await submitAffiliationChangeFn({
           data: { applicationId: attempt.current.id, ...target },
         });
         attempt.current = null;
         // Not reloaded here: its eligibility would now refuse the region.
         router.clearCache();
         draft.clear();
-        setDone(applicationId);
+        setDone({
+          applicationId,
+          approver: submittedApprover(
+            approver,
+            `${region?.name ?? preset?.name ?? "地域"}の地域運営者`,
+          ),
+        });
       } catch (error) {
         const failed = classifyError(error);
         if (
@@ -488,7 +499,7 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
                 }
                 actions={
                   <>
-                    <ButtonLink to={applicationPath(done)}>
+                    <ButtonLink to={applicationPath(done.applicationId)}>
                       申請の詳細を見る
                     </ButtonLink>
                     {place === null ? null : steward ? (
@@ -511,8 +522,8 @@ export function MembershipForm({ data }: { data: MembershipFormData }) {
                 }
               >
                 {resubmit === null
-                  ? `${placeName}の${doneRegion}${kind === "leave" ? "からの" : "への"}${words}の申請は、確認中になりました。地域の運営者が確かめて、結果を通知します。${steward ? "所属地域の状況にも、申請中として表示されます。" : ""}${kind === "leave" ? "承認されるまで、所属は続きます。" : ""}`
-                  : "申請は確認中に戻りました。地域の運営者が確かめた結果は、通知でお知らせします。"}
+                  ? `${placeName}の${doneRegion}${kind === "leave" ? "からの" : "への"}${words}の申請は、確認中になりました。${done.approver}が確かめて、結果を通知します。${steward ? "所属地域の状況にも、申請中として表示されます。" : ""}${kind === "leave" ? "承認されるまで、所属は続きます。" : ""}`
+                  : `申請は確認中に戻りました。${done.approver}が確かめた結果は、通知でお知らせします。`}
               </DonePanel>
             </FocusOnMount>
           </ManagePage>

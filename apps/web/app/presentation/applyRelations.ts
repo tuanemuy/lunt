@@ -90,12 +90,14 @@ export const submitAffiliationChangeFn = createServerFn({ method: "POST" })
       { submitAffiliationChange },
       { parseGeneratedId },
       { placeIdOf, regionIdOf },
+      { approverOf },
     ] = await Promise.all([
       import("@repo/core/application/di/containerStore"),
       import("./actor"),
       import("@repo/core/application/application/submitAffiliationChange"),
       import("./validator"),
       import("./targetIds"),
+      import("./applyRelationsData"),
     ]);
     const container = await getContainer();
     const actor = await requireActor(container);
@@ -114,7 +116,10 @@ export const submitAffiliationChangeFn = createServerFn({ method: "POST" })
         regionId: regionIdOf(data.regionId),
       },
     });
-    return { applicationId: application.id };
+    return {
+      applicationId: application.id,
+      approver: await approverOf(container, actor, application.id),
+    };
   });
 
 const dayField = z
@@ -141,6 +146,7 @@ export const submitParticipationFn = createServerFn({ method: "POST" })
       { parseGeneratedId },
       { placeIdOf, occasionIdOf, listingIdOf },
       { LocalDate },
+      { approverOf },
     ] = await Promise.all([
       import("@repo/core/application/di/containerStore"),
       import("./actor"),
@@ -148,6 +154,7 @@ export const submitParticipationFn = createServerFn({ method: "POST" })
       import("./validator"),
       import("./targetIds"),
       import("@repo/core/domain/common/localDate"),
+      import("./applyRelationsData"),
     ]);
     const container = await getContainer();
     const actor = await requireActor(container);
@@ -166,7 +173,10 @@ export const submitParticipationFn = createServerFn({ method: "POST" })
         dates: data.dates.map((date) => LocalDate.parse(date)),
       },
     });
-    return { applicationId: application.id };
+    return {
+      applicationId: application.id,
+      approver: await approverOf(container, actor, application.id),
+    };
   });
 
 /** RQ-05 CF-02 (所属): published regions, each judged for the store. */
