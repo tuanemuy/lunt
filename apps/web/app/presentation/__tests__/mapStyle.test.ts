@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_MAP_STYLE_URL } from "@/components/map/mapStyle";
+import { DEFAULT_MAP_STYLE_URL } from "../defaultMapStyle";
 import { readMapStyleUrl } from "../mapStyle";
 
 describe("readMapStyleUrl", () => {

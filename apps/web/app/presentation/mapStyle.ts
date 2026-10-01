@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { DEFAULT_MAP_STYLE_URL } from "@/components/map/mapStyle";
+import { DEFAULT_MAP_STYLE_URL } from "./defaultMapStyle";
 import { errorResponseMiddleware } from "./errorResponseMiddleware";
 
 /** The setting the map reads (brief A-04, A-06). */

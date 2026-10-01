@@ -5,15 +5,6 @@ import type {
   SymbolLayerSpecification,
 } from "maplibre-gl";
 
-/**
- * OpenFreeMap's Positron (https://openfreemap.org): OpenStreetMap vector
- * tiles with no API key and no request limit; attribution is required and
- * comes from the tiles' TileJSON through the attribution control.
- * `MAP_STYLE_URL` replaces it (`apps/web/app/presentation/mapStyle.ts`).
- */
-export const DEFAULT_MAP_STYLE_URL =
-  "https://tiles.openfreemap.org/styles/positron";
-
 /** The MapCanvas palette of `spec/design/assets/map-canvas.svg`. */
 const PALETTE = {
   ground: "#F3F1EB",
@@ -107,7 +98,8 @@ function tintLayer(layer: LayerSpecification): LayerSpecification {
 
 /**
  * The default style drawn in Lunt's MapCanvas colours with Japanese
- * labels. Only for `DEFAULT_MAP_STYLE_URL`: another style is used as-is.
+ * labels. Only for `DEFAULT_MAP_STYLE_URL` (`@/presentation/defaultMapStyle`):
+ * another style is used as-is.
  */
 export function tintStyle(style: StyleSpecification): StyleSpecification {
   return { ...style, layers: style.layers.map(tintLayer) };

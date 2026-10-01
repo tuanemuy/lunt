@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_MAP_STYLE_URL } from "@/presentation/defaultMapStyle";
 import { loadMapStyleFn } from "@/presentation/mapStyle";
-import { DEFAULT_MAP_STYLE_URL } from "./mapStyle";
 
 let pending: Promise<string> | null = null;
 

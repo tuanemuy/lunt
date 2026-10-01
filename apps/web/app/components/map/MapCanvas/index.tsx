@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { DEFAULT_MAP_STYLE_URL } from "@/presentation/defaultMapStyle";
 import { cx } from "../../ui/cx";
 import { TextButton } from "../../ui/TextButton";
 import {
@@ -28,7 +29,7 @@ import {
   viewportKey,
   visibleBounds,
 } from "../geometry";
-import { DEFAULT_MAP_STYLE_URL, tintStyle } from "../mapStyle";
+import { tintStyle } from "../mapStyle";
 import type {
   LngLat,
   MapBounds,
