@@ -114,8 +114,11 @@ function ReviewError({ error }: ErrorComponentProps) {
         </ManageShell>
       );
     case "forbidden":
+      // Not the approver: the list named by `?from=` may be one the viewer
+      // cannot open either (another region's RM-01), so the frame is the
+      // neutral one and the way back is MY-01 (CS-05).
       return (
-        <Frame origin={origin}>
+        <Frame origin={null}>
           <ManageBody>
             <EmptyPanel
               title="この申請の承認者ではありません"
