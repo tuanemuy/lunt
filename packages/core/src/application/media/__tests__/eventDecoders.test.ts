@@ -3,7 +3,7 @@ import { PhotoId } from "@repo/core/domain/common/ids";
 import { PhotosReleasedEvent } from "@repo/core/domain/common/photoEvents";
 import { ContentRef } from "@repo/core/domain/common/refs";
 import { describe, expect, it } from "vitest";
-import { isSystemError } from "../../errors";
+import { SystemError } from "../../errors";
 import { photoEventDecoders } from "../eventDecoders";
 
 const decode = photoEventDecoders["photos.released"];
@@ -42,6 +42,6 @@ describe("photoEventDecoders", () => {
     ["a non-string id", { photoIds: [1] }],
     ["a blank id", { photoIds: [" "] }],
   ])("refuses %s as a data-integrity failure", (_, payload) => {
-    expect(isSystemError(failure(payload))).toBe(true);
+    expect(failure(payload)).toBeInstanceOf(SystemError);
   });
 });

@@ -28,10 +28,6 @@ export abstract class ApplicationError<
   override readonly name: string = "ApplicationError";
 }
 
-export function isApplicationError(error: unknown): error is ApplicationError {
-  return error instanceof ApplicationError;
-}
-
 export class NotFoundError extends ApplicationError {
   override readonly name = "NotFoundError";
 
@@ -89,12 +85,6 @@ export class UnauthorizedError extends ApplicationError {
       retryable: this.retryable,
     };
   }
-}
-
-export function isUnauthorizedError(
-  error: unknown,
-): error is UnauthorizedError {
-  return error instanceof UnauthorizedError;
 }
 
 export class ForbiddenError extends ApplicationError {
@@ -163,8 +153,4 @@ export class SystemError extends ApplicationError<SystemErrorCode> {
       retryable: this.retryable,
     };
   }
-}
-
-export function isSystemError(error: unknown): error is SystemError {
-  return error instanceof SystemError;
 }
