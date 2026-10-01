@@ -23,6 +23,7 @@ import {
   useEditDraft,
 } from "@/presentation/editDraft";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
+import { photosTakenMeanwhile } from "@/presentation/photoTakedown";
 import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import {
@@ -104,12 +105,15 @@ function FieldLinks({ fields }: { fields: RegionFieldErrors }) {
 function FailureAlert({
   failure,
   publicationText,
+  photosTakenMeanwhile,
   busy,
   onReload,
   onRetry,
 }: {
   failure: Failure;
   publicationText: string;
+  /** A claim removed photos the form started from: the cause of a CS-07. */
+  photosTakenMeanwhile: boolean;
   busy: boolean;
   onReload: () => void;
   onRetry: () => void;
@@ -123,14 +127,20 @@ function FailureAlert({
     if (state.kind === "conflict") {
       return (
         <Alert
-          title="ほかの運営者が先に地域情報を保存していました"
+          title={
+            photosTakenMeanwhile
+              ? "申立てにより、写真が削除されていました"
+              : "ほかの運営者が先に地域情報を保存していました"
+          }
           actions={
             <Button variant="secondary" disabled={busy} onClick={onReload}>
               最新の内容を読み直す
             </Button>
           }
         >
-          この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。
+          {photosTakenMeanwhile
+            ? "編集している間に、サービス運営者が申立てに基づいてこの地域の写真を削除しました。この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。"
+            : "この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。"}
         </Alert>
       );
     }
@@ -261,6 +271,10 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
     }
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
+      await reconcile();
+    } else if (state.kind === "conflict") {
+      // The edits and their version stay; the fresh copy tells a claim's
+      // takedown (CS-16) from another operator's save.
       await reconcile();
     }
     // Set after the reconcile and inside the transition (a set after an
@@ -520,6 +534,10 @@ export function RegionEditor({ data }: { data: RegionEditorData }) {
               key={`${failure.attempt}:${failure.state.kind}:${failure.state.code}`}
               failure={failure}
               publicationText={regionPublicationLabel(publication)}
+              photosTakenMeanwhile={photosTakenMeanwhile(
+                data,
+                draft.base.photos,
+              )}
               busy={busy}
               onReload={() =>
                 startBusy(async () => {

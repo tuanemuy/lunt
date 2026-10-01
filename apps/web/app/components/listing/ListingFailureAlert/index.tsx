@@ -31,6 +31,8 @@ type ListingFailureAlertProps = {
    * publish conditions may point to it (not while 運営による非公開, CF-08).
    */
   unpublishable?: boolean;
+  /** A claim removed photos the form started from: the cause of a CS-07. */
+  photosTakenMeanwhile?: boolean;
   /** 最新の内容を読み直す (CS-07). */
   onReload: () => void;
   /** もう一度 (CS-02): resubmits the form or reruns the operation. */
@@ -80,6 +82,7 @@ function FailureAlert({
   placeId,
   proxy,
   unpublishable = true,
+  photosTakenMeanwhile = false,
   onReload,
   retry,
   busy,
@@ -106,14 +109,20 @@ function FailureAlert({
   if (state.kind === "conflict") {
     return (
       <Alert
-        title="ほかの管理者が先にこの掲載を保存していました"
+        title={
+          photosTakenMeanwhile
+            ? "申立てにより、写真が削除されていました"
+            : "ほかの管理者が先にこの掲載を保存していました"
+        }
         actions={
           <Button variant="secondary" disabled={busy} onClick={onReload}>
             最新の内容を読み直す
           </Button>
         }
       >
-        この変更は反映していません。最新の内容を読み直してから、もう一度操作してください。
+        {photosTakenMeanwhile
+          ? "編集している間に、サービス運営者が申立てに基づいてこの掲載の写真を削除しました。この変更は反映していません。最新の内容を読み直してから、もう一度操作してください。"
+          : "この変更は反映していません。最新の内容を読み直してから、もう一度操作してください。"}
       </Alert>
     );
   }

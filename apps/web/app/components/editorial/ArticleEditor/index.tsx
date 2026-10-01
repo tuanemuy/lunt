@@ -44,6 +44,7 @@ import {
 } from "@/presentation/editorialView";
 import { classifyError, type ErrorState } from "@/presentation/errorState";
 import { rememberOwnPublication } from "@/presentation/ownPublication";
+import { photosTakenMeanwhile } from "@/presentation/photoTakedown";
 import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import { ArticleFormFields } from "../ArticleFormFields";
@@ -463,13 +464,10 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
               failure={failure}
               statusText={data.statusText}
               takenDown={data.reason === "photoTakedown"}
-              photosTakenMeanwhile={
-                data.photosTakenDown &&
-                draft.base.photos.some(
-                  (photo) =>
-                    !data.photos.some((kept) => kept.photoId === photo.photoId),
-                )
-              }
+              photosTakenMeanwhile={photosTakenMeanwhile(
+                data,
+                draft.base.photos,
+              )}
               busy={busy}
               onReload={() =>
                 startBusy(async () => {

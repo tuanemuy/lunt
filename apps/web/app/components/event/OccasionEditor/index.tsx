@@ -51,6 +51,7 @@ import {
   occasionName,
   occasionPublicationLabel,
 } from "@/presentation/occasionView";
+import { photosTakenMeanwhile } from "@/presentation/photoTakedown";
 import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import { OccasionFormFields } from "./OccasionFormFields";
@@ -179,6 +180,10 @@ export function OccasionEditor({
     }
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
+      await reconcile();
+    } else if (state.kind === "conflict") {
+      // The edits and their version stay; the fresh copy tells a claim's
+      // takedown (CS-16) from another operator's save.
       await reconcile();
     }
     // Set after the reconcile and inside the transition (a set after an
@@ -470,6 +475,10 @@ export function OccasionEditor({
               failure={failure}
               occasionId={data.occasionId}
               proxy={proxy}
+              photosTakenMeanwhile={photosTakenMeanwhile(
+                data,
+                draft.base.photos,
+              )}
               busy={busy}
               onReload={() =>
                 startBusy(async () => {
@@ -735,6 +744,8 @@ type FailureAlertProps = {
   failure: Failure;
   occasionId: string;
   proxy: boolean;
+  /** A claim removed photos the form started from: the cause of a CS-07. */
+  photosTakenMeanwhile: boolean;
   busy: boolean;
   onReload: () => void;
   onRetry: (() => void) | null;
@@ -744,6 +755,7 @@ function FailureBody({
   failure,
   occasionId,
   proxy,
+  photosTakenMeanwhile,
   busy,
   onReload,
   onRetry,
@@ -761,14 +773,20 @@ function FailureBody({
   if (state.kind === "conflict") {
     return (
       <Alert
-        title="ほかの運営者が先にイベント情報を保存していました"
+        title={
+          photosTakenMeanwhile
+            ? "申立てにより、写真が削除されていました"
+            : "ほかの運営者が先にイベント情報を保存していました"
+        }
         actions={
           <Button variant="secondary" disabled={busy} onClick={onReload}>
             最新の内容を読み直す
           </Button>
         }
       >
-        この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。
+        {photosTakenMeanwhile
+          ? "編集している間に、サービス運営者が申立てに基づいてこのイベントの写真を削除しました。この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。"
+          : "この変更は保存していません。最新の内容を読み直してから、もう一度変更してください。"}
       </Alert>
     );
   }

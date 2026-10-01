@@ -50,6 +50,7 @@ import {
   publicationLabel,
 } from "@/presentation/listingView";
 import { newId } from "@/presentation/newId";
+import { photosTakenMeanwhile } from "@/presentation/photoTakedown";
 import { publishSaveFailure } from "@/presentation/publishPremise";
 import { useReconcile } from "@/presentation/reconcile";
 import {
@@ -181,6 +182,10 @@ export function ListingEditor({
       } else if (!savedFirst) {
         setDraft(followDraft);
       }
+      await reconcile();
+    } else if (state.kind === "conflict") {
+      // The edits and their version stay; the fresh copy tells a claim's
+      // takedown (CS-16) from another manager's save.
       await reconcile();
     }
     // Set after the reconcile and inside the transition (a set after an
@@ -544,6 +549,10 @@ export function ListingEditor({
               placeId={data.place.id}
               proxy={proxy}
               unpublishable={!data.suspended}
+              photosTakenMeanwhile={photosTakenMeanwhile(
+                data,
+                draft.base.photos,
+              )}
               busy={busy}
               onReload={() =>
                 startBusy(async () => {
