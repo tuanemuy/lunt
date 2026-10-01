@@ -20,6 +20,7 @@ import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
 import {
+  conflictedDraft,
   isDirty,
   movedDraft,
   reloadDraft,
@@ -126,6 +127,7 @@ export function PlaceEditor({ data }: { data: PlaceEditorData }) {
           setOutcome({ kind: "lostAccess" });
           router.clearCache();
         }
+        if (state.kind === "conflict") setDraft(conflictedDraft);
         setSaveState({ error: state, fields: placeFieldErrors(state) });
       }
     });

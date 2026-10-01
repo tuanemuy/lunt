@@ -45,6 +45,7 @@ import { LinkList, ListRowLink, Row, RowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
 import {
+  conflictedDraft,
   isDirty,
   reloadDraft,
   savedDraft,
@@ -391,6 +392,7 @@ function ParticipationEditor({
           : `${outside.length === 0 ? "参加日" : outside.map(jpDate).join("、")}は開催期間の外です。参加日は、開催期間（${periodText(period)}）の日付に限ります`,
       );
     }
+    if (state.kind === "conflict") setDraft(conflictedDraft);
     setFailure({ state, attempt });
     if (state.kind === "premiseChanged") await reconcile();
   };

@@ -20,6 +20,7 @@ import { Notice } from "@/components/ui/Notice";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TextLink } from "@/components/ui/TextButton";
 import {
+  conflictedDraft,
   followDraft,
   isDirty,
   reloadDraft,
@@ -184,8 +185,9 @@ export function ListingEditor({
       }
       await reconcile();
     } else if (state.kind === "conflict") {
-      // The edits and their version stay; the fresh copy tells a claim's
-      // takedown (CS-16) from another manager's save.
+      // The edits and their version stay until 最新の内容を読み直す; the fresh
+      // copy tells a claim's takedown (CS-16) from another manager's save.
+      setDraft(conflictedDraft);
       await reconcile();
     }
     // Set after the reconcile and inside the transition (a set after an

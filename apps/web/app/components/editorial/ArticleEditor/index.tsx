@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui/Notice";
 import { LinkList, ListRowLink } from "@/components/ui/Rows";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import {
+  conflictedDraft,
   followDraft,
   isDirty,
   reloadDraft,
@@ -299,8 +300,9 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
       if (!savedFirst) setDraft(followDraft);
       await reconcile();
     } else if (state.kind === "conflict") {
-      // The edits and their version stay; the fresh copy tells a claim's
-      // takedown (CS-16) from another editor's save.
+      // The edits and their version stay until 最新の内容を読み直す; the fresh
+      // copy tells a claim's takedown (CS-16) from another editor's save.
+      setDraft(conflictedDraft);
       await reconcile();
     }
     const next: Failure = {

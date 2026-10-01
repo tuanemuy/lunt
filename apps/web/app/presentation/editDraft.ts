@@ -28,6 +28,12 @@ import { useState } from "react";
  * swaps in the fresh one without remounting the form, and the editor's own
  * publication changes, which do not check the version: taking their reply's
  * version alone would let the next save overwrite an edit saved before them.
+ *
+ * A save refused as a conflict (CS-07, `conflictedDraft`) holds the draft:
+ * it follows no newer copy until 最新の内容を読み直す restarts it. Following
+ * would adopt the version of a change that left the content alone (a
+ * publication change, 運営による非公開), so the reload would wait for a
+ * version newer still and a save without reloading would go through.
  */
 export type EditDraft<V> = Readonly<{
   values: V;
@@ -44,6 +50,8 @@ export type EditDraft<V> = Readonly<{
   }> | null;
   /** The persisted content of the form's values; display-only parts left out. */
   contentOf: (values: V) => unknown;
+  /** A save was refused as a conflict (CS-07) and the form was not reloaded since. */
+  conflicted: boolean;
 }>;
 
 const signature = (value: unknown): string => JSON.stringify(value);
@@ -63,6 +71,7 @@ export const startEditDraft = <V>(
   version,
   resync: null,
   contentOf,
+  conflicted: false,
 });
 
 export const isDirty = <V>(draft: EditDraft<V>): boolean =>
@@ -85,6 +94,7 @@ export const savedDraft = <V>(
   base: submitted,
   version,
   resync: { mode: "content", atLeast: version },
+  conflicted: false,
 });
 
 /**
@@ -96,11 +106,29 @@ export const savedDraft = <V>(
 export const movedDraft = <V>(
   draft: EditDraft<V>,
   version: number,
-): EditDraft<V> => ({ ...draft, version: Math.max(draft.version, version) });
+): EditDraft<V> => ({
+  ...draft,
+  version: Math.max(draft.version, version),
+  conflicted: false,
+});
+
+/**
+ * A save was refused as a conflict (CS-07): the form keeps its values and the
+ * version it started from, follows no newer copy, and only
+ * `reloadDraft` takes the server's content and version, so a save made
+ * without reloading is refused again.
+ */
+export const conflictedDraft = <V>(draft: EditDraft<V>): EditDraft<V> => ({
+  ...draft,
+  resync: null,
+  conflicted: true,
+});
 
 /**
  * Start again from the server's content (CS-07 最新の内容を読み直す): the
- * loader's copy replaces the form once it is newer than the draft.
+ * loader's copy replaces the form's values, base and version once it is
+ * newer than the draft. After `conflictedDraft` the draft still has the
+ * version the refused save sent, so any change the server holds is newer.
  */
 export const reloadDraft = <V>(draft: EditDraft<V>): EditDraft<V> => ({
   ...draft,
@@ -149,6 +177,7 @@ export function syncEditDraft<V>(
   version: number,
 ): EditDraft<V> {
   const { resync } = draft;
+  if (draft.conflicted && resync?.mode !== "restart") return draft;
   if (resync === null) {
     return version <= draft.version ? draft : follow(draft, fresh(), version);
   }
@@ -162,6 +191,7 @@ export function syncEditDraft<V>(
     base: content,
     version,
     resync: null,
+    conflicted: false,
   };
 }
 
@@ -179,6 +209,7 @@ export function refreshDraft<V>(
 ): EditDraft<V> {
   if (
     draft.resync !== null ||
+    draft.conflicted ||
     version !== draft.version ||
     isDirty(draft) ||
     signature(fresh) === signature(draft.values)

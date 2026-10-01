@@ -3,12 +3,15 @@ import { act, cleanup, render, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  conflictedDraft,
   followDraft,
   isDirty,
   reloadDraft,
   savedDraft,
+  settledDraft,
   useEditDraft,
 } from "../editDraft";
+import { photosTakenMeanwhile } from "../photoTakedown";
 
 type Data = Readonly<{ version: number; name: string }>;
 type Values = Readonly<{ name: string }>;
@@ -257,5 +260,152 @@ describe("useEditDraft", () => {
     expect(result.current[0].version).toBe(5);
     expect(result.current[0].values).toEqual({ name: "theirs" });
     expect(isDirty(result.current[0])).toBe(false);
+  });
+});
+
+describe("useEditDraft after a save refused as a conflict (CS-07)", () => {
+  type Photo = Readonly<{ photoId: string }>;
+  type Stored = Readonly<{
+    version: number;
+    body: string;
+    status: string;
+    photos: readonly Photo[];
+    photosTakenDown: boolean;
+  }>;
+  type Form = Readonly<{ body: string; photos: readonly Photo[] }>;
+
+  const start: Stored = {
+    version: 3,
+    body: "谷中の路地を歩いて、喫茶店でひと休み。",
+    status: "published",
+    photos: [{ photoId: "p1" }, { photoId: "p2" }],
+    photosTakenDown: false,
+  };
+
+  const renderEditor = () =>
+    renderHook(
+      ({ data }: { data: Stored }) =>
+        useEditDraft(
+          data,
+          (d): Form => ({ body: d.body, photos: d.photos }),
+          (values) => values,
+        ),
+      { initialProps: { data: start } },
+    );
+
+  /** Types into the form, then the save is refused and reconciles to `fresh`. */
+  const refuse = (
+    hook: ReturnType<typeof renderEditor>,
+    fresh: Stored,
+  ): void => {
+    act(() => {
+      const [, setDraft] = hook.result.current;
+      setDraft((draft) => ({
+        ...draft,
+        values: { ...draft.values, body: "取り下げの間の編集" },
+      }));
+    });
+    act(() => {
+      const [, setDraft] = hook.result.current;
+      setDraft(settledDraft);
+      setDraft(conflictedDraft);
+    });
+    hook.rerender({ data: fresh });
+  };
+
+  const reload = (hook: ReturnType<typeof renderEditor>): void => {
+    act(() => {
+      const [, setDraft] = hook.result.current;
+      setDraft(reloadDraft);
+    });
+  };
+
+  it("another editor's unpublish moved only the version: the edits stay until the reload, which takes the latest content and version", () => {
+    const hook = renderEditor();
+    const unpublished: Stored = { ...start, version: 4, status: "unpublished" };
+    refuse(hook, unpublished);
+    expect(hook.result.current[0].values.body).toBe("取り下げの間の編集");
+    // A save without reloading still sends the refused version.
+    expect(hook.result.current[0].version).toBe(3);
+    act(() => {
+      const [, setDraft] = hook.result.current;
+      setDraft(settledDraft);
+    });
+    hook.rerender({ data: { ...unpublished } });
+    expect(hook.result.current[0].version).toBe(3);
+    reload(hook);
+    const [draft] = hook.result.current;
+    expect(draft.version).toBe(4);
+    expect(draft.values.body).toBe("谷中の路地を歩いて、喫茶店でひと休み。");
+    expect(isDirty(draft)).toBe(false);
+    expect(draft.conflicted).toBe(false);
+  });
+
+  it("an operator's suspension moved only the version and the reconcile came twice: the reload still restarts", () => {
+    const hook = renderEditor();
+    const suspended: Stored = { ...start, version: 4 };
+    refuse(hook, suspended);
+    hook.rerender({ data: { ...suspended } });
+    expect(hook.result.current[0].version).toBe(3);
+    reload(hook);
+    expect(hook.result.current[0].version).toBe(4);
+    expect(hook.result.current[0].values.body).toBe(start.body);
+  });
+
+  it("another editor saved new content: the edits stay until the reload, which takes their content and version", () => {
+    const hook = renderEditor();
+    const theirs: Stored = {
+      ...start,
+      version: 4,
+      body: "ほかの編集担当者の本文",
+    };
+    refuse(hook, theirs);
+    expect(hook.result.current[0].values.body).toBe("取り下げの間の編集");
+    expect(hook.result.current[0].version).toBe(3);
+    reload(hook);
+    expect(hook.result.current[0].version).toBe(4);
+    expect(hook.result.current[0].values.body).toBe("ほかの編集担当者の本文");
+    expect(isDirty(hook.result.current[0])).toBe(false);
+  });
+
+  it("a claim took a photo: the conflict names the takedown, and the reload shows the kept photos", () => {
+    const hook = renderEditor();
+    const takenDown: Stored = {
+      ...start,
+      version: 4,
+      photos: [{ photoId: "p1" }],
+      photosTakenDown: true,
+    };
+    refuse(hook, takenDown);
+    expect(
+      photosTakenMeanwhile(takenDown, hook.result.current[0].base.photos),
+    ).toBe(true);
+    expect(hook.result.current[0].values.photos).toHaveLength(2);
+    reload(hook);
+    const [draft] = hook.result.current;
+    expect(draft.version).toBe(4);
+    expect(draft.values).toEqual({
+      body: start.body,
+      photos: [{ photoId: "p1" }],
+    });
+    expect(photosTakenMeanwhile(takenDown, draft.base.photos)).toBe(false);
+  });
+
+  it("a reload whose loader copy arrives only after the reconcile takes it then", () => {
+    const hook = renderEditor();
+    act(() => {
+      const [, setDraft] = hook.result.current;
+      setDraft((draft) =>
+        conflictedDraft({
+          ...draft,
+          values: { ...draft.values, body: "mine" },
+        }),
+      );
+    });
+    reload(hook);
+    expect(hook.result.current[0].values.body).toBe("mine");
+    hook.rerender({ data: { ...start, version: 5, status: "unpublished" } });
+    expect(hook.result.current[0].version).toBe(5);
+    expect(hook.result.current[0].values.body).toBe(start.body);
   });
 });
