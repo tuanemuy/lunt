@@ -97,8 +97,8 @@ export type MemberItem = Readonly<{
 export type InvitationItem = Readonly<{
   invitationId: string;
   email: string;
-  /** ISO 8601; `null` for an optimistic row. */
-  invitedAt: string | null;
+  /** `9月20日に招待` (`invitedOnText`); `null` for an optimistic row. */
+  invitedOn: string | null;
   pending?: boolean;
 }>;
 
@@ -120,10 +120,18 @@ export type MemberBoardData = Readonly<{
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-/** `9月20日に招待`, on the Japan-time calendar day of `iso`. */
-export function invitedOnText(iso: string): string {
-  const day = new Date(new Date(iso).getTime() + JST_OFFSET_MS);
-  return `${day.getUTCMonth() + 1}月${day.getUTCDate()}日に招待`;
+/**
+ * `9月20日に招待`, on the Japan-time calendar day of `at`; the year leads
+ * when it is not `now`'s (`2025年9月20日に招待`), as other dates do.
+ */
+export function invitedOnText(at: Date, now: Date): string {
+  const day = new Date(at.getTime() + JST_OFFSET_MS);
+  const year = day.getUTCFullYear();
+  const head =
+    year === new Date(now.getTime() + JST_OFFSET_MS).getUTCFullYear()
+      ? ""
+      : `${year}年`;
+  return `${head}${day.getUTCMonth() + 1}月${day.getUTCDate()}日に招待`;
 }
 
 const kindField = z.enum(["place", "region", "occasion"]);

@@ -24,7 +24,6 @@ import { classifyError } from "@/presentation/errorState";
 import {
   cancelInvitationFn,
   type InvitationItem,
-  invitedOnText,
   MEMBER_WORDS,
   type MemberBoardData,
   type MemberItem,
@@ -451,9 +450,9 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
                 <span className="m-list__text">
                   <span className="m-list__title">{invitation.email}</span>
                   <span className="m-list__meta">
-                    {invitation.invitedAt === null
+                    {invitation.invitedOn === null
                       ? "送っています…"
-                      : `${invitedOnText(invitation.invitedAt)} · 承諾前`}
+                      : `${invitation.invitedOn} · 承諾前`}
                   </span>
                 </span>
                 {canCancel ? (
@@ -496,7 +495,7 @@ export function MemberBoard({ data }: { data: MemberBoardData }) {
                 invitation: {
                   invitationId,
                   email,
-                  invitedAt: null,
+                  invitedOn: null,
                   pending: true,
                 },
               });

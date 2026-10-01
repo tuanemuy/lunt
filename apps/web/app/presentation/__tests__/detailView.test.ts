@@ -75,8 +75,27 @@ describe("offeringLabel", () => {
 });
 
 describe("invitedOnText", () => {
+  const now = new Date("2026-10-01T03:00:00.000Z");
+
   it("uses the Japan-time calendar day", () => {
-    expect(invitedOnText("2026-09-19T15:30:00.000Z")).toBe("9月20日に招待");
+    expect(invitedOnText(new Date("2026-09-19T15:30:00.000Z"), now)).toBe(
+      "9月20日に招待",
+    );
+  });
+
+  it("leads with the year of an invitation from another year (CM-02)", () => {
+    expect(invitedOnText(new Date("2025-10-01T03:00:00.000Z"), now)).toBe(
+      "2025年10月1日に招待",
+    );
+  });
+
+  it("compares the years on the Japan-time calendar", () => {
+    expect(
+      invitedOnText(
+        new Date("2026-12-31T15:30:00.000Z"),
+        new Date("2027-01-01T00:00:00.000Z"),
+      ),
+    ).toBe("1月1日に招待");
   });
 });
 

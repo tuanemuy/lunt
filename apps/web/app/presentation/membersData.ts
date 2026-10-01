@@ -10,10 +10,11 @@ import type { Actor } from "@repo/core/domain/common/actor";
 import { StewardedRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
 import { publicationView } from "./listingData";
-import type {
-  MemberBoardData,
-  MembersFrame,
-  MemberTargetInput,
+import {
+  invitedOnText,
+  type MemberBoardData,
+  type MembersFrame,
+  type MemberTargetInput,
 } from "./members";
 import { isOperator } from "./operatorAccess";
 import { placeStateText } from "./placeView";
@@ -154,7 +155,7 @@ export async function loadMemberBoard(
     invitations: members.invitations.map((invitation) => ({
       invitationId: invitation.invitationId,
       email: invitation.email,
-      invitedAt: invitation.invitedAt.toISOString(),
+      invitedOn: invitedOnText(invitation.invitedAt, container.clock.now()),
     })),
     steward: members.stewards.some((member) => member.isSelf),
     operator,

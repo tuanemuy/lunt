@@ -30,7 +30,6 @@ import {
   offeringPhaseLabel,
   publicationLabel,
 } from "@/presentation/listingView";
-import { invitedOnText } from "@/presentation/members";
 import type {
   ListingSubjectData,
   OccasionSubjectData,
@@ -299,7 +298,7 @@ function PlaceSubject({ data }: { data: PlaceSubjectData }) {
                       : `${data.invitations.length}件: ${data.invitations
                           .map(
                             (invitation) =>
-                              `${invitation.email}（${invitedOnText(invitation.invitedAt)}）`,
+                              `${invitation.email}（${invitation.invitedOn}）`,
                           )
                           .join("、")}`}
                   </dd>
@@ -727,7 +726,7 @@ function StewardedSubject({
                       : `${invitations}件: ${data.invitations
                           .map(
                             (invitation) =>
-                              `${invitation.email}（${invitedOnText(invitation.invitedAt)}）`,
+                              `${invitation.email}（${invitation.invitedOn}）`,
                           )
                           .join("、")}`}
                   </dd>

@@ -21,6 +21,7 @@ import type { Pagination } from "@repo/core/domain/common/pagination";
 import type { StewardedRef } from "@repo/core/domain/common/refs";
 import { requireActor } from "./actor";
 import { listingPhotoItem, publicationView } from "./listingData";
+import { invitedOnText } from "./members";
 import { requireOperator } from "./operatorAccess";
 import type {
   ListingMatchItem,
@@ -185,7 +186,7 @@ async function invitationsOf(
     stewardCount: members.stewards.length,
     invitations: members.invitations.map((invitation) => ({
       email: invitation.email,
-      invitedAt: invitation.invitedAt.toISOString(),
+      invitedOn: invitedOnText(invitation.invitedAt, container.clock.now()),
     })),
   };
 }
@@ -239,7 +240,7 @@ async function readOpsSubject(
         stewardCount: members.stewards.length,
         invitations: members.invitations.map((invitation) => ({
           email: invitation.email,
-          invitedAt: invitation.invitedAt.toISOString(),
+          invitedOn: invitedOnText(invitation.invitedAt, container.clock.now()),
         })),
       };
     }

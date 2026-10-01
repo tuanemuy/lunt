@@ -24,8 +24,8 @@ export type PlaceSubjectData = Readonly<{
   operatingStatus: OperatingStatus;
   suspended: boolean;
   stewardCount: number;
-  /** Pending invitations, oldest first (ISO dates). */
-  invitations: readonly Readonly<{ email: string; invitedAt: string }>[];
+  /** Pending invitations, oldest first, with `invitedOnText`. */
+  invitations: readonly Readonly<{ email: string; invitedOn: string }>[];
 }>;
 
 export type ListingSubjectData = Readonly<{
@@ -44,10 +44,10 @@ export type ListingSubjectData = Readonly<{
   }>;
 }>;
 
-/** Pending invitations of a stewarded subject, oldest first (ISO dates). */
+/** Pending invitations of a stewarded subject, oldest first, with `invitedOnText`. */
 type PendingInvitations = readonly Readonly<{
   email: string;
-  invitedAt: string;
+  invitedOn: string;
 }>[];
 
 export type RegionSubjectData = Readonly<{
