@@ -72,6 +72,11 @@ function Footer({
       <p className="om02-end" role="status">
         {loading ? "続きを読み込んでいます" : ""}
       </p>
+      {loading ? null : (
+        <Button variant="secondary" fit onClick={loadMore}>
+          続きを読み込む
+        </Button>
+      )}
     </div>
   ) : (
     <p className="om02-end">結果は以上です</p>

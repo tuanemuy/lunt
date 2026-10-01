@@ -286,6 +286,11 @@ export function ListingRows({
                     <p className="p-end" role="status">
                       {loading ? "続きを読み込んでいます" : ""}
                     </p>
+                    {loading ? null : (
+                      <Button variant="secondary" fit onClick={loadMore}>
+                        続きを読み込む
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <p className="p-end">すべての掲載を表示しました</p>

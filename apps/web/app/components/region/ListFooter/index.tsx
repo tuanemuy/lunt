@@ -6,8 +6,9 @@ import { Notice } from "@/components/ui/Notice";
 import type { ErrorState } from "@/presentation/errorState";
 
 /**
- * The end of an RM list (CF-05): the sentinel that loads the next page,
- * the failure of a further page with its retry, or 「すべて…を表示しました」.
+ * The end of an RM list (CF-05): 「続きを読み込む」 (also loaded as it
+ * comes into view), the failure of a further page with its retry, or
+ * 「すべて…を表示しました」.
  */
 export function ListFooter({
   hasMore,
@@ -48,6 +49,11 @@ export function ListFooter({
       <p className="p-end" role="status">
         {loading ? "続きを読み込んでいます" : ""}
       </p>
+      {loading ? null : (
+        <Button variant="secondary" fit onClick={loadMore}>
+          続きを読み込む
+        </Button>
+      )}
     </div>
   ) : (
     <p className="p-end">{endText}</p>
