@@ -1,25 +1,13 @@
 import { loadArticlePreview } from "@/presentation/editorialData";
-import type { ArticlePreviewData } from "@/presentation/editorialView";
-import { readFailureState } from "@/presentation/readFailure";
 import { ArticlePreview } from "../ArticlePreview";
-import { EditorialProblem } from "../EditorialShell";
 
-/** CM-03's preview of an article, read on the server; `ArticlePreview` owns the publish. */
-export async function ArticlePreviewContent({
-  articleId,
-}: {
-  articleId: string;
-}) {
-  let data: ArticlePreviewData;
-  try {
-    data = await loadArticlePreview(articleId);
-  } catch (error) {
-    return (
-      <EditorialProblem
-        kind={(await readFailureState(error)).kind}
-        heading="公開前プレビュー"
-      />
-    );
-  }
+/**
+ * CM-03's preview of an article, read on the server before its body
+ * streams; `ArticlePreview` owns the publish. A missing article (CS-17) or
+ * a non-editor (CS-05) throws here, so the route fails and the document
+ * answers 404 / 403.
+ */
+export async function readArticlePreview(articleId: string) {
+  const data = await loadArticlePreview(articleId);
   return <ArticlePreview key={data.articleId} data={data} />;
 }

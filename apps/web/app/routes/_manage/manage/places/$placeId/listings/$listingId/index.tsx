@@ -1,8 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { z } from "zod";
+import { ShopProblem } from "@/components/manage/ShopProblem";
 import { ShopPage, ShopShell } from "@/components/manage/ShopShell";
 import { ShopSkeleton } from "@/components/manage/ShopSkeleton";
 import { Deferred } from "@/components/ui/Deferred";
+import { classifyError } from "@/presentation/errorState";
 import { renderListingEditor } from "../../../-render";
 
 const searchSchema = z.object({
@@ -36,6 +41,7 @@ export const Route = createFileRoute(
   },
   head: () => ({ meta: [{ title: "掲載を編集 — Lunt" }] }),
   component: ListingEditorPage,
+  errorComponent: ListingEditorError,
 });
 
 function ListingEditorPage() {
@@ -50,6 +56,21 @@ function ListingEditorPage() {
             <ShopSkeleton variant="form" label="掲載を読み込んでいます" />
           </ShopPage>
         }
+      />
+    </ShopShell>
+  );
+}
+
+/** The listing's read failed: CS-17 (back to SM-03), CS-05 or CS-02, in the store's frame. */
+function ListingEditorError({ error }: ErrorComponentProps) {
+  const { frame } = Route.useRouteContext();
+  return (
+    <ShopShell homeTo={`/manage/places/${frame.placeId}`}>
+      <ShopProblem
+        kind={classifyError(error).kind}
+        heading="掲載を編集"
+        missingTitle="この掲載は削除されています"
+        back={{ label: "掲載の一覧へ戻る", to: "listings" }}
       />
     </ShopShell>
   );

@@ -123,17 +123,19 @@ export const renderListingEditor = createServerFn({ method: "GET" })
     ),
   )
   .handler(async ({ data }) => {
-    const { ListingEditorContent } = await import(
+    const { readListingEditor } = await import(
       "@/components/listing/ListingEditorContent"
     );
+    // Read before the body streams: a missing listing (CS-17) fails the
+    // route, so the document answers 404.
     return {
       Content: renderServerComponent(
-        <ListingEditorContent
-          placeId={data.placeId}
-          listingId={data.listingId}
-          copyFrom={data.copyFrom ?? null}
-          created={data.created}
-        />,
+        await readListingEditor({
+          placeId: data.placeId,
+          listingId: data.listingId,
+          copyFrom: data.copyFrom ?? null,
+          created: data.created,
+        }),
       ),
     };
   });
@@ -143,15 +145,13 @@ export const renderListingPreview = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(listingRef))
   .handler(async ({ data }) => {
-    const { ListingPreviewContent } = await import(
+    const { readListingPreview } = await import(
       "@/components/listing/ListingPreviewContent"
     );
+    // Read before the body streams, like SM-04 (編集).
     return {
       Content: renderServerComponent(
-        <ListingPreviewContent
-          placeId={data.placeId}
-          listingId={data.listingId}
-        />,
+        await readListingPreview(data.placeId, data.listingId),
       ),
     };
   });

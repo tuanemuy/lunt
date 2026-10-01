@@ -7,7 +7,9 @@ import { validateInput } from "@/presentation/validator";
 // The editorial screens' bodies as RSC payloads, returned unresolved so
 // each loader can forward them and the body streams in under its
 // skeleton. The usecases behind every body check the editor role
-// themselves; the bodies render their own CS-17 / CS-05.
+// themselves. AM-01 renders its own CS-05; an article's screens read the
+// article before the body streams and throw its CS-17 / CS-05 to the
+// route, so the document answers 404 / 403 (`documentStatusOf`).
 
 /** AM-01. */
 export const renderArticleList = createServerFn({ method: "GET" })
@@ -24,13 +26,11 @@ export const renderArticleEditor = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(articleRefSchema))
   .handler(async ({ data }) => {
-    const { ArticleEditorContent } = await import(
+    const { readArticleEditor } = await import(
       "@/components/editorial/ArticleEditorContent"
     );
     return {
-      Content: renderServerComponent(
-        <ArticleEditorContent articleId={data.articleId} />,
-      ),
+      Content: renderServerComponent(await readArticleEditor(data.articleId)),
     };
   });
 
@@ -39,12 +39,10 @@ export const renderArticlePreview = createServerFn({ method: "GET" })
   .middleware([errorResponseMiddleware])
   .validator(validateInput(articleRefSchema))
   .handler(async ({ data }) => {
-    const { ArticlePreviewContent } = await import(
+    const { readArticlePreview } = await import(
       "@/components/editorial/ArticlePreviewContent"
     );
     return {
-      Content: renderServerComponent(
-        <ArticlePreviewContent articleId={data.articleId} />,
-      ),
+      Content: renderServerComponent(await readArticlePreview(data.articleId)),
     };
   });

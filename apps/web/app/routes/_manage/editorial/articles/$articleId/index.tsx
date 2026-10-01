@@ -1,9 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { z } from "zod";
-import { EditorialTitle } from "@/components/editorial/EditorialShell";
+import {
+  EditorialProblem,
+  EditorialTitle,
+} from "@/components/editorial/EditorialShell";
 import { ManagePage } from "@/components/layout/ManageShell";
 import { ShopSkeleton } from "@/components/manage/ShopSkeleton";
 import { Deferred } from "@/components/ui/Deferred";
+import { classifyError } from "@/presentation/errorState";
 import { renderArticleEditor } from "../../-render";
 
 const searchSchema = z.object({
@@ -23,6 +30,7 @@ export const Route = createFileRoute("/_manage/editorial/articles/$articleId/")(
     },
     head: () => ({ meta: [{ title: "読みものの編集 — Lunt" }] }),
     component: ArticleEditorPage,
+    errorComponent: ArticleEditorPageError,
   },
 );
 
@@ -36,6 +44,16 @@ function ArticleEditorPage() {
           <ShopSkeleton variant="form" label="読みものを読み込んでいます" />
         </ManagePage>
       }
+    />
+  );
+}
+
+/** The article's read failed: CS-17, CS-05 or CS-02, in the editorial frame. */
+function ArticleEditorPageError({ error }: ErrorComponentProps) {
+  return (
+    <EditorialProblem
+      kind={classifyError(error).kind}
+      heading="読みものを編集"
     />
   );
 }

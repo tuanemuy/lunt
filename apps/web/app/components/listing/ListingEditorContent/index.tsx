@@ -9,24 +9,12 @@ import { readFailureState } from "@/presentation/readFailure";
 import { ListingEditor } from "../ListingEditor";
 import { NewListingEditor } from "../NewListingEditor";
 
-const MISSING = {
-  missingTitle: "この掲載は削除されています",
-  back: { label: "掲載の一覧へ戻る", to: "listings" },
-} as const;
-
-const readEditor = (
-  placeId: string,
-  listingId: string,
-  copyFrom: string | null,
-) =>
-  Promise.all([
-    loadListingEditor(placeId, listingId),
-    loadCategoryOptions(),
-    copyFrom === null ? null : loadListingName(placeId, copyFrom),
-  ]);
-
-/** SM-04 (編集), read on the server; `ListingEditor` owns the changes. */
-export async function ListingEditorContent({
+/**
+ * SM-04 (編集), read on the server before its body streams; `ListingEditor`
+ * owns the changes. A missing listing (CS-17) throws here, so the route
+ * fails and the document answers 404.
+ */
+export async function readListingEditor({
   placeId,
   listingId,
   copyFrom,
@@ -37,19 +25,11 @@ export async function ListingEditorContent({
   copyFrom: string | null;
   created: boolean;
 }) {
-  let read: Awaited<ReturnType<typeof readEditor>>;
-  try {
-    read = await readEditor(placeId, listingId, copyFrom);
-  } catch (error) {
-    return (
-      <ShopProblem
-        kind={(await readFailureState(error)).kind}
-        heading="掲載を編集"
-        {...MISSING}
-      />
-    );
-  }
-  const [data, categories, sourceName] = read;
+  const [data, categories, sourceName] = await Promise.all([
+    loadListingEditor(placeId, listingId),
+    loadCategoryOptions(),
+    copyFrom === null ? null : loadListingName(placeId, copyFrom),
+  ]);
   return (
     <ListingEditor
       key={data.id}
