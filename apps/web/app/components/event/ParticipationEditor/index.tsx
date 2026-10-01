@@ -93,14 +93,22 @@ type Outcome =
   | Readonly<{ kind: "saved" }>
   | Readonly<{ kind: "added" }>
   | Readonly<{ kind: "withdrawn" }>
-  /** `atSave`: dissolved while editing; otherwise already dissolved when opened. */
-  | Readonly<{ kind: "gone"; atSave: boolean }>
-  | Readonly<{ kind: "lostAccess" }>;
+  /** `during`: dissolved before that save or withdrawal; `null`: already dissolved when opened. */
+  | Readonly<{ kind: "gone"; during: "save" | "withdraw" | null }>
+  /** The access was lost before that save, addition or withdrawal. */
+  | Readonly<{ kind: "lostAccess"; during: Failure["attempt"] }>;
 
 type Failure = Readonly<{
   state: ErrorState;
   attempt: "save" | "add" | "withdraw";
 }>;
+
+/** What an attempt refused for lost access left undone (CS-05). */
+const LOST_ACCESS_NOT_APPLIED = {
+  save: "変更は保存していません。",
+  add: "参加店舗として追加していません。",
+  withdraw: "参加は取りやめていません。",
+} as const satisfies Record<Failure["attempt"], string>;
 
 type PageProps = {
   heading: string;
@@ -329,7 +337,7 @@ function ParticipationEditor({
   const dirty = isDirty(draft);
   const [outcome, setOutcome] = useState<Outcome | null>(
     mode === "edit" && data.participation === null
-      ? { kind: "gone", atSave: false }
+      ? { kind: "gone", during: null }
       : null,
   );
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -359,11 +367,14 @@ function ParticipationEditor({
   const fail = async (error: unknown, attempt: Failure["attempt"]) => {
     const state = classifyError(error);
     if (state.kind === "notFound" && state.code === "PARTICIPATION_NOT_FOUND") {
-      setOutcome({ kind: "gone", atSave: true });
+      setOutcome({
+        kind: "gone",
+        during: attempt === "withdraw" ? "withdraw" : "save",
+      });
       return;
     }
     if (state.kind === "forbidden" && !proxy) {
-      setOutcome({ kind: "lostAccess" });
+      setOutcome({ kind: "lostAccess", during: attempt });
       router.clearCache();
       return;
     }
@@ -487,16 +498,18 @@ function ParticipationEditor({
                 title="この参加は解除されています"
                 actions={backToList}
               >
-                {outcome.atSave
-                  ? `保存するまでの間に、${shopName}の${eventName}への参加が、取りやめか除外で解除されていました。変更は保存していません。`
-                  : `${shopName}の${eventName}への参加は、取りやめか除外で、すでに解除されています。`}
+                {outcome.during === "withdraw"
+                  ? `取りやめるまでの間に、${shopName}の${eventName}への参加が、取りやめか除外で解除されていました。${shopName}は、すでに参加店舗から外れています。`
+                  : outcome.during === "save"
+                    ? `保存するまでの間に、${shopName}の${eventName}への参加が、取りやめか除外で解除されていました。変更は保存していません。`
+                    : `${shopName}の${eventName}への参加は、取りやめか除外で、すでに解除されています。`}
               </EmptyPanel>
             ) : (
               <EmptyPanel
                 title="この参加内容を編集する権限がありません"
                 actions={<ButtonLink to="/me">マイページへ戻る</ButtonLink>}
               >
-                参加内容は、その店舗の店舗管理者と、店舗管理者のいない店舗ではイベントの運営者だけが編集できます。変更は反映していません。
+                {`参加内容は、その店舗の店舗管理者と、店舗管理者のいない店舗ではイベントの運営者だけが編集できます。${LOST_ACCESS_NOT_APPLIED[outcome.during]}`}
               </EmptyPanel>
             )}
           </FocusOnMount>
@@ -1146,7 +1159,7 @@ function FailureAlert({
   if (state.kind === "forbidden" && proxy) {
     return (
       <ProxyUnavailablePanel occasionId={occasionId}>
-        このイベントにはイベント運営者が就きました。変更は保存していません。イベントの運営の画面で、運営者がいることを確かめてください。
+        {`このイベントにはイベント運営者が就きました。${mode === "add" ? "参加店舗として追加していません。" : "変更は保存していません。"}イベントの運営の画面で、運営者がいることを確かめてください。`}
       </ProxyUnavailablePanel>
     );
   }
@@ -1192,7 +1205,9 @@ function FailureAlert({
     case "OCCASION_LISTING_NOT_ATTACHABLE":
       return (
         <Alert title="添えられない掲載があります">
-          新たに添えた掲載のうち、公開中でなくなったものがあるため、参加内容は保存していません。「添えられません」の掲載を外すか、最新の追加できる掲載から選び直して、もう一度保存してください。
+          {mode === "add"
+            ? "新たに添えた掲載のうち、公開中でなくなったものがあるため、参加店舗として追加していません。「添えられません」の掲載を外すか、最新の追加できる掲載から選び直して、もう一度追加してください。"
+            : "新たに添えた掲載のうち、公開中でなくなったものがあるため、参加内容は保存していません。「添えられません」の掲載を外すか、最新の追加できる掲載から選び直して、もう一度保存してください。"}
         </Alert>
       );
     default:

@@ -150,7 +150,11 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
   const [busy, startBusy] = useTransition();
   const listRef = useRef<HTMLElement>(null);
 
-  const refused = async (error: unknown, title: string) => {
+  const refused = async (
+    error: unknown,
+    attempt: "link" | "unlink",
+    title: string,
+  ) => {
     const state = classifyError(error);
     if (state.kind === "forbidden") {
       setOutcome({ kind: proxy ? "proxyLost" : "lostAccess" });
@@ -172,7 +176,10 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
         message:
           state.kind === "notFound"
             ? "外そうとした関連づけは、すでにありませんでした"
-            : state.message,
+            : attempt === "unlink" &&
+                state.code === "OCCASION_REGION_LINK_DETACHED"
+              ? "この地域の運営者が、先に関連づけを解除していました"
+              : state.message,
       });
       await reconcile();
       return;
@@ -203,7 +210,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
         setOutcome({ kind: "linked", regionId, name });
         await reconcile();
       } catch (error) {
-        await refused(error, `${name}を関連づけられませんでした`);
+        await refused(error, "link", `${name}を関連づけられませんでした`);
       }
     });
 
@@ -220,7 +227,7 @@ export function RegionLinkBoard({ data }: { data: RegionLinksData }) {
         setOutcome({ kind: "unlinked", name });
         await reconcile();
       } catch (error) {
-        await refused(error, `${name}を外せませんでした`);
+        await refused(error, "unlink", `${name}を外せませんでした`);
       }
     });
 
