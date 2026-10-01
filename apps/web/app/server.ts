@@ -28,8 +28,8 @@ import { provisionInitialCategories } from "@repo/core/application/listing/provi
 import { dailyJobs } from "@repo/core/application/workers/dailyJobRegistry";
 import { runDailyJobs } from "@repo/core/application/workers/dailyJobs";
 import type { EventMessage } from "@repo/core/application/workers/eventDelivery";
-import { default as defaultEntry } from "@tanstack/react-start/server-entry";
 import { LuntStateObject } from "./durable-objects/luntState";
+import { fetchDocument } from "./presentation/documentStatus";
 import { presentationPorts } from "./presentation/ports";
 import { DEV_SEED_PATH, handleDevSeedRequest } from "./worker/devSeed";
 import { handleOpsRequest, OPS_PREFIX } from "./worker/ops";
@@ -105,7 +105,7 @@ export default {
       container.photoPolicy.maxBytes,
     );
     if (oversized !== null) return oversized;
-    return storage.run(container, async () => defaultEntry.fetch(request));
+    return storage.run(container, async () => fetchDocument(request));
   },
 
   async queue(
