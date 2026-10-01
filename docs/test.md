@@ -20,12 +20,12 @@ Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Ob
 - `spec/testcases/{domain}/{usecase}.md` → `packages/core/src/application/{domain}/__tests__/{usecase}.test.ts`.
 - `spec/testcases/ports/{port}.md` → `{port}.ts` in the `__conformance__/` directory of its adapters.
 - Each `##` section is a `describe`; each table row is an `it` whose title starts with `{usecase or port}#{n}` — `n` counts the rows of the file in order across its tables — followed by the row's precondition and operation text (design.md D-11). The text makes a renumbering after a spec edit visible.
-- A row that needs a later stage's domain (a target kind, an event of another domain) is an `it.todo` with the exact name until that stage lands; the mechanism it tests is covered meanwhile by extra tests named without the `#n` prefix. Ports that read targets of later kinds run against conformance-only tables and lookups (e.g. `__conformance__/stewardedTargetDirectory.ts`), and Application's ports against the test kinds in `domain/application/__tests__/testKinds.ts`.
+- Every row runs; there is no `it.todo`. A mechanism worth covering beyond the rows gets extra tests named without the `#n` prefix: the per-kind lookup of `ContentDirectory` also runs against a conformance-only table (`__conformance__/contentDirectory.ts`), and Application's kind-agnostic core and ports against the test kinds in `domain/application/__tests__/testKinds.ts`.
 
 ## Rules
 
 - No repository or unit-of-work fakes: usecases run on the real store.
-- Build fixtures through usecases or repositories, never with raw SQL (the conformance-only target tables above are the exception).
+- Build fixtures through usecases or repositories, never with raw SQL (the conformance-only table above is the exception).
 - Concurrency cases interleave deterministically: a barrier or `commitAfter` lets the competing unit of work commit after the other's reads and before its commit, so the named loser is asserted.
 - The Workers pool isolates storage per file only; each test takes a fresh object with `idFromName(crypto.randomUUID())`. Alarms fire for real, so relay outcomes are polled with `vi.waitFor`.
 

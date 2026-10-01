@@ -699,7 +699,7 @@ export class DoStewardshipRepository implements StewardshipRepository {
 
 ### Kind-pluggable lookups
 
-`StewardedTargetDirectory` answers for places, regions and occasions, whose tables arrive in later stages. The object-side read (`describeStewardedTargets` in `adapters/do/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (empty in P1 — a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/do/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
+`StewardedTargetDirectory` answers for places, regions and occasions, whose tables their own domains own. The object-side read (`describeStewardedTargets` in `adapters/do/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/do/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
 
 ### External adapters
 

@@ -78,7 +78,7 @@ function OpsError({ error }: ErrorComponentProps) {
 }
 ```
 
-A management page is `ManagePage` inside the area's shell: a title band (`ManageTitle`, `ManageHeading`, `ManageBackLink`), `ManageBody` blocks, the dock of `actions` (fixed to the bottom on mobile, after the body from `lg`) and the area's `nav` (`OpsNav` in `apps/web/app/components/ops/OpsShell/index.tsx`). A screen of a later stage keeps its planned URL: `/ops` redirects to OM-07 until OM-01 exists (`apps/web/app/routes/_manage/ops/index.tsx`).
+A management page is `ManagePage` inside the area's shell: a title band (`ManageTitle`, `ManageHeading`, `ManageBackLink`), `ManageBody` blocks, the dock of `actions` (fixed to the bottom on mobile, after the body from `lg`) and the area's `nav` (`OpsNav` in `apps/web/app/components/ops/OpsShell/index.tsx`).
 
 ## 2. Reading data: server component → `Deferred` → skeleton
 
