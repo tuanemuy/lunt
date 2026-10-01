@@ -1,0 +1,17 @@
+{
+  "TC-MOD-122": {
+    "affiliations": [
+      {
+        "place": "谷中せんべい本舗",
+        "regions": ["谷中ぶらり"]
+      }
+    ],
+    "participations": [
+      {
+        "occasion": "谷中あかりまつり",
+        "place": "谷中せんべい本舗",
+        "by": "eventop@example.com"
+      }
+    ]
+  }
+}

@@ -751,6 +751,55 @@ describe("devSeed (development tool)", () => {
     expect(events.filter((type) => type === "listing.deleted")).toHaveLength(1);
   });
 
+  it("affiliates a place and adds it to an occasion onto the same state", async () => {
+    const t = createTestContainer({ start: START });
+    const { container } = t;
+    const first = await devSeed({ container, input: AREA_FIXTURE });
+    const R5 = first.regions.R5 ?? "";
+    const O1 = first.occasions.O1 ?? "";
+    const eventOp = first.accounts["event-op@example.com"] ?? "";
+    const more = await devSeed({
+      container,
+      input: {
+        accounts: ["op1@example.com", "event-op@example.com"],
+        onto: {
+          operator: "op1@example.com",
+          regions: { R5 },
+          occasions: { O1 },
+        },
+        places: [
+          { key: "P9", name: "重複の店", address: AREA, location: NEAR },
+        ],
+        affiliations: [{ place: "P9", regions: ["R5"] }],
+        participations: [
+          { occasion: "O1", place: "P9", by: "event-op@example.com" },
+        ],
+      },
+    });
+    const P9 = more.places.P9;
+    const page = Pagination.create({ page: 1, limit: 100 });
+    const affiliated = await listAffiliatedPlaces({
+      container,
+      actor: { accountId: first.accounts["op1@example.com"] ?? "" },
+      input: { regionId: R5, pagination: page },
+    });
+    expect(affiliated.items.map((p) => p.placeId)).toEqual([P9]);
+    const participants = await listOccasionParticipants({
+      container,
+      actor: { accountId: eventOp },
+      input: { occasionId: O1, pagination: page },
+    });
+    expect(
+      participants.items.map((item) => [item.place.id, item.placeHasSteward]),
+    ).toContainEqual([P9, false]);
+    const events = await t.storedEvents();
+    expect(
+      events
+        .filter((event) => event.type === "occasion.participation_established")
+        .map((event) => event.payload),
+    ).toContainEqual(expect.objectContaining({ placeId: P9 }));
+  });
+
   it("seeds articles last through the editors' usecases, then more onto the same state", async () => {
     const t = createTestContainer({ start: START });
     const { container } = t;

@@ -3,7 +3,7 @@
 // posts scripts/manual-test-fixtures/<document>.json to POST /__dev/seed
 // (DEV_TOOLS=1, an empty state) and writes the ids it answers to
 // .wrangler/seed-<document>-<port>.json. Onto that seeded state:
-//   ... <document> --add <set>      a listing or article set of sets/<document>.json
+//   ... <document> --add <set>      a listing, article or relation set of sets/<document>.json
 //   ... <document> --remove <set>   deletes the listings (unpublishes the articles) --add <set> created
 //   ... <document> --volume <N>     N more places, each with listings
 // In two steps, for a check made before any article exists:
@@ -146,7 +146,26 @@ if ("add" in options || "remove" in options) {
     process.exit(2);
   }
   const suffix = `-set-${name}`;
-  if ("add" in options && set.articles !== undefined) {
+  const relations =
+    set.affiliations !== undefined || set.participations !== undefined;
+  if ("remove" in options && relations) {
+    console.error(
+      `${name} cannot be removed: reset the state and seed ${document} again`,
+    );
+    process.exit(2);
+  }
+  if (relations) {
+    const participations = set.participations ?? [];
+    await post({
+      accounts: [operator, ...new Set(participations.map((p) => p.by))],
+      onto: ontoBase(baseIds()),
+      affiliations: set.affiliations ?? [],
+      participations,
+    });
+    console.log(
+      `${name}: ${(set.affiliations ?? []).length} affiliations, ${participations.length} participations`,
+    );
+  } else if ("add" in options && set.articles !== undefined) {
     const ids = await post({
       accounts: [operator, set.by],
       onto: ontoBase(baseIds()),

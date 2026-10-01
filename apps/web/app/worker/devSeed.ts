@@ -116,6 +116,12 @@ const affiliation = z
   })
   .strict();
 
+const participation = {
+  place: key,
+  listings: z.array(key).max(50).optional(),
+  dates: z.array(seedDate).max(100).optional(),
+};
+
 const occasion = z
   .object({
     ...content,
@@ -132,15 +138,7 @@ const occasion = z
       .max(50)
       .optional(),
     participations: z
-      .array(
-        z
-          .object({
-            place: key,
-            listings: z.array(key).max(50).optional(),
-            dates: z.array(seedDate).max(100).optional(),
-          })
-          .strict(),
-      )
+      .array(z.object(participation).strict())
       .max(100)
       .optional(),
   })
@@ -192,6 +190,10 @@ const contents = {
   regions: z.array(region).max(50).optional(),
   affiliations: z.array(affiliation).max(100).optional(),
   occasions: z.array(occasion).max(50).optional(),
+  participations: z
+    .array(z.object({ ...participation, occasion: key, by: email }).strict())
+    .max(100)
+    .optional(),
   articles: z.array(article).max(50).optional(),
 };
 

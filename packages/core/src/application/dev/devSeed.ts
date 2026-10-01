@@ -213,6 +213,19 @@ export type SeedParticipation = Readonly<{
   dates?: readonly SeedDate[] | undefined;
 }>;
 
+/**
+ * A place taking part in an occasion seeded earlier (`onto.occasions`) or
+ * by this fixture, after every occasion: a place without a steward, added
+ * directly by `by`, the occasion's manager.
+ */
+export type SeedOccasionParticipation = SeedParticipation &
+  Readonly<{
+    /** An occasion key. */
+    occasion: string;
+    /** The occasion's manager (in `accounts`). */
+    by: string;
+  }>;
+
 /** An occasion; registered by the first operator, managed by its first steward (or the operator standing in). */
 export type SeedOccasion = SeedContent &
   Readonly<{
@@ -308,6 +321,7 @@ type SeedContents = Readonly<{
   regions?: readonly SeedRegion[] | undefined;
   affiliations?: readonly SeedAffiliation[] | undefined;
   occasions?: readonly SeedOccasion[] | undefined;
+  participations?: readonly SeedOccasionParticipation[] | undefined;
   articles?: readonly SeedArticle[] | undefined;
 }>;
 
@@ -315,8 +329,9 @@ type SeedContents = Readonly<{
  * What `devSeed` puts into an empty environment (or, with `onto`, into
  * one an earlier seed filled): accounts first, then roles, categories,
  * places with their stewards and listings, the fixture-level listings,
- * regions, affiliations, and occasions with their region links and
- * participations. The states that would stand in the way of later steps
+ * regions, affiliations, occasions with their region links and
+ * participations, and the participations in occasions seeded earlier.
+ * The states that would stand in the way of later steps
  * (unpublished, ended or suspended listings, suspended places, unpublished
  * or suspended regions, cancelled, unpublished or suspended occasions,
  * detached region links) are applied after those, then the occasions
@@ -833,6 +848,19 @@ export async function devSeed({
   }
 
   const occasions: Record<string, OccasionId> = {};
+  const participationDetails = (
+    occasionId: OccasionId,
+    participation: SeedParticipation,
+  ) => ({
+    occasionId,
+    placeId: lookup(places, participation.place, "PLACE", knownPlaces),
+    listingIds: (participation.listings ?? []).map((key) =>
+      lookup(listings, key, "LISTING", knownListings),
+    ),
+    dates: (participation.dates ?? []).map((day) =>
+      LocalDate.parse(resolveDate(day, today)),
+    ),
+  });
   for (const fixture of input.occasions ?? []) {
     const period =
       fixture.period === undefined || fixture.period === null
@@ -880,17 +908,7 @@ export async function devSeed({
     }
 
     for (const participation of fixture.participations ?? []) {
-      const placeId = lookup(places, participation.place, "PLACE", knownPlaces);
-      const details = {
-        occasionId: occasion.id,
-        placeId,
-        listingIds: (participation.listings ?? []).map((key) =>
-          lookup(listings, key, "LISTING", knownListings),
-        ),
-        dates: (participation.dates ?? []).map((day) =>
-          LocalDate.parse(resolveDate(day, today)),
-        ),
-      };
+      const details = participationDetails(occasion.id, participation);
       if ((placeStewards.get(participation.place) ?? []).length > 0) {
         await devEstablishParticipation({ container, input: details });
       } else {
@@ -917,6 +935,17 @@ export async function devSeed({
         suspendOccasion({ container, actor: operator, input: ref }),
       );
     }
+  }
+
+  for (const participation of input.participations ?? []) {
+    await addParticipationDirectly({
+      container,
+      actor: actorOf(participation.by),
+      input: participationDetails(
+        lookup(occasions, participation.occasion, "OCCASION", knownOccasions),
+        participation,
+      ),
+    });
   }
 
   for (const step of finishing) await step();
