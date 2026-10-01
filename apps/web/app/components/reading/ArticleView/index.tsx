@@ -1,36 +1,17 @@
 "use client";
 
-import {
-  ListingRow,
-  OccasionRow,
-  PlaceRow,
-  RegionRow,
-} from "@/components/detail/RelatedRows";
 import { ButtonLink } from "@/components/ui/Button";
 import { Feedback } from "@/components/ui/Feedback";
 import { Photo } from "@/components/ui/Photo";
 import { TextLink } from "@/components/ui/TextButton";
 import {
   type ArticleDetailData,
-  type ShowcaseItem,
   showcaseItemKey,
 } from "@/presentation/readingView";
+import { ShowcaseRow } from "../ShowcaseRow";
 
 /** The cover's box (EditorialFeature 348 × 193). */
 const FEATURE_RATIO = 348 / 193;
-
-function ShowcaseRow({ item }: { item: ShowcaseItem }) {
-  switch (item.kind) {
-    case "listing":
-      return <ListingRow item={item.listing} closure={item.closure} />;
-    case "place":
-      return <PlaceRow item={item.place} />;
-    case "region":
-      return <RegionRow item={item.region} />;
-    case "occasion":
-      return <OccasionRow item={item.occasion} />;
-  }
-}
 
 /**
  * CS-06 of DT-05: the article is unpublished or missing. Neither its title
