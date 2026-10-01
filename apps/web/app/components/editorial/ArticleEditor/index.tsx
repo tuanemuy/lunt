@@ -117,6 +117,7 @@ function FailureAlert({
   failure,
   statusText,
   takenDown,
+  photosTakenMeanwhile,
   busy,
   onReload,
   onRetry,
@@ -125,6 +126,8 @@ function FailureAlert({
   statusText: string;
   /** The article is 公開の取り下げ because a claim took its last photo. */
   takenDown: boolean;
+  /** A claim removed photos the form started from: the cause of a CS-07. */
+  photosTakenMeanwhile: boolean;
   busy: boolean;
   onReload: () => void;
   onRetry: () => void;
@@ -138,14 +141,20 @@ function FailureAlert({
     if (state.kind === "conflict") {
       return (
         <Alert
-          title="ほかの編集担当者が先に保存していました"
+          title={
+            photosTakenMeanwhile
+              ? "申立てにより、写真が削除されていました"
+              : "ほかの編集担当者が先に保存していました"
+          }
           actions={
             <Button variant="secondary" disabled={busy} onClick={onReload}>
               最新の内容を読み直す
             </Button>
           }
         >
-          この変更は保存していません。最新の内容を読み直してから、もう一度編集してください。
+          {photosTakenMeanwhile
+            ? "編集している間に、サービス運営者が申立てに基づいてこの読みものの写真を削除しました。この変更は保存していません。最新の内容を読み直してから、もう一度編集してください。"
+            : "この変更は保存していません。最新の内容を読み直してから、もう一度編集してください。"}
         </Alert>
       );
     }
@@ -286,6 +295,10 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
     }
     if (state.kind === "premiseChanged" || savedFirst) {
       if (!savedFirst) setDraft(followDraft);
+      await reconcile();
+    } else if (state.kind === "conflict") {
+      // The edits and their version stay; the fresh copy tells a claim's
+      // takedown (CS-16) from another editor's save.
       await reconcile();
     }
     const next: Failure = {
@@ -448,6 +461,13 @@ export function ArticleEditor({ data }: { data: ArticleEditorData }) {
               failure={failure}
               statusText={data.statusText}
               takenDown={data.reason === "photoTakedown"}
+              photosTakenMeanwhile={
+                data.photosTakenDown &&
+                draft.base.photos.some(
+                  (photo) =>
+                    !data.photos.some((kept) => kept.photoId === photo.photoId),
+                )
+              }
               busy={busy}
               onReload={() =>
                 startBusy(async () => {
