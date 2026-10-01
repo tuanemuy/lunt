@@ -110,9 +110,25 @@ describe("purgeClosedLoginChallenges", () => {
     const [result] = await runDailyJobs(t.container, [
       purgeClosedLoginChallengesJob,
     ]);
-    expect(result?.outcome.kind).toBe("completed");
+    expect(result?.outcome).toEqual({
+      kind: "completed",
+      report: { processed: 3, failed: 0, skipped: 0, abandoned: false },
+    });
     expect(await remaining(t, Object.values(all))).toEqual([
       "usable@example.com",
     ]);
+  });
+
+  it("reports nothing processed when no challenge is closed", async () => {
+    const t = createLoginTestContext();
+    await t.start("usable@example.com");
+    await purge(t);
+    const [result] = await runDailyJobs(t.container, [
+      purgeClosedLoginChallengesJob,
+    ]);
+    expect(result?.outcome).toEqual({
+      kind: "completed",
+      report: { processed: 0, failed: 0, skipped: 0, abandoned: false },
+    });
   });
 });

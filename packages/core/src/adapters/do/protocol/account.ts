@@ -41,6 +41,11 @@ export type AccountQueries = {
     { email: string; now: number },
     number
   >;
+  /** Challenges `deleteClosedBefore` would remove at `threshold` (epoch ms). */
+  "account.loginChallenge.countClosedBefore": QuerySpec<
+    { threshold: number },
+    number
+  >;
 };
 
 export type AccountCommand =

@@ -97,6 +97,14 @@ export class DoLoginChallengeRepository implements LoginChallengeRepository {
     );
   }
 
+  countClosedBefore(threshold: Date): Promise<number> {
+    return mapDoError("Failed to count login challenges", () =>
+      this.client.query("account.loginChallenge.countClosedBefore", {
+        threshold: threshold.getTime(),
+      }),
+    );
+  }
+
   async insert(challenge: LoginChallenge): Promise<void> {
     this.writes.push({
       kind: "account.loginChallenge.insert",

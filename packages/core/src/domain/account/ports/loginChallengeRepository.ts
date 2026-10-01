@@ -21,6 +21,8 @@ import type { SecretDigest } from "../loginSecret";
  * - `deleteClosedBefore`: removes every `redeemed` / `exhausted`
  *   challenge and every one with `expiresAt < threshold`, ignoring
  *   versions. Idempotent.
+ * - `countClosedBefore`: how many challenges `deleteClosedBefore` with the
+ *   same threshold would remove, as stored now.
  */
 export interface LoginChallengeRepository
   extends Omit<
@@ -32,4 +34,5 @@ export interface LoginChallengeRepository
   ): Promise<Versioned<LoginChallenge> | null>;
   countUnexpired(email: EmailAddress, now: Date): Promise<number>;
   deleteClosedBefore(threshold: Date): Promise<void>;
+  countClosedBefore(threshold: Date): Promise<number>;
 }

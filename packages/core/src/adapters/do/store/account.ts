@@ -173,6 +173,17 @@ export const accountQueryHandlers: QueryHandlersOf<AccountQueries> = {
         )
         .toArray()[0]?.n ?? 0,
     ),
+  // The same condition as `deleteClosedBefore`'s, once a day.
+  "account.loginChallenge.countClosedBefore": (sql, { threshold }) =>
+    Number(
+      sql
+        .exec<{ n: number } & SqlRow>(
+          `SELECT COUNT(*) AS n FROM login_challenges
+             WHERE status <> 'pending' OR expires_at < ?`,
+          threshold,
+        )
+        .toArray()[0]?.n ?? 0,
+    ),
 };
 
 export const accountCommandHandlers: CommandHandlersOf<AccountCommand> = {

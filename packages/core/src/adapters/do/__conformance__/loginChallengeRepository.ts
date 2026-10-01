@@ -128,6 +128,12 @@ function deleteClosedBefore(h: ConformanceHarness, threshold: Date) {
   );
 }
 
+function countClosedBefore(h: ConformanceHarness, threshold: Date) {
+  return h.uow.run(({ loginChallengeRepository }) =>
+    loginChallengeRepository.countClosedBefore(threshold),
+  );
+}
+
 /** Inserts `c` and saves `transition(c)` over it. */
 async function store(
   h: ConformanceHarness,
@@ -495,6 +501,26 @@ export function describeLoginChallengeRepositoryContract(
         await expect(
           save(h, v.entity, v.expectedVersion),
         ).rejects.toBeInstanceOf(NotFoundError);
+      });
+    });
+
+    describe("countClosedBefore", () => {
+      it("counts what deleteClosedBefore(T) removes: redeemed, exhausted and expired, not the usable or the one expiring at T", async () => {
+        const h = await makeHarness();
+        await expect(countClosedBefore(h, T)).resolves.toBe(0);
+        const next = challengeFactory();
+        const later = new Date(T.getTime() + 60 * MINUTE);
+        await store(h, next({ expiresAt: later }), redeemedByLink);
+        await store(h, next({ expiresAt: later }), exhausted);
+        await insert(
+          h,
+          next({ expiresAt: new Date(T.getTime() - 1) }),
+          next({ expiresAt: T }),
+          next({ expiresAt: later }),
+        );
+        await expect(countClosedBefore(h, T)).resolves.toBe(3);
+        await deleteClosedBefore(h, T);
+        await expect(countClosedBefore(h, T)).resolves.toBe(0);
       });
     });
 
