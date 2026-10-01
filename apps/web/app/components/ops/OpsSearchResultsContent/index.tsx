@@ -1,5 +1,4 @@
 import { EmptyPanel } from "@/components/ui/EmptyPanel";
-import { classifyError } from "@/presentation/errorState";
 import {
   searchListings,
   searchOccasions,
@@ -7,6 +6,7 @@ import {
   searchRegions,
 } from "@/presentation/opsData";
 import { OPS_SEARCH_PAGE_SIZE, type OpsSearch } from "@/presentation/opsSearch";
+import { readFailureState } from "@/presentation/readFailure";
 import { RegisterEntries } from "../OpsSearchForms";
 import {
   KeywordResults,
@@ -78,7 +78,7 @@ export async function OpsSearchResultsContent({
     }
     return null;
   } catch (error) {
-    const state = classifyError(error);
+    const state = await readFailureState(error);
     return <SearchFailure kind={state.kind} message={state.message} />;
   }
 }

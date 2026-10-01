@@ -1,4 +1,4 @@
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { loadRegionLinksFirst } from "@/presentation/regionData";
 import type { ListPage, RegionLinkItem } from "@/presentation/regionView";
 import { RegionLinkBoard } from "../RegionLinkBoard";
@@ -12,7 +12,7 @@ export async function RegionLinksContent({ regionId }: { regionId: string }) {
   } catch (error) {
     return (
       <RegionProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="関連づけられたイベント"
         failedTitle="関連づけられたイベントを読み込めませんでした"
       />

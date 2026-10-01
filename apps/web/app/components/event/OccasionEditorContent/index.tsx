@@ -1,10 +1,10 @@
 import { EventProblem } from "@/components/event/EventShell/EventProblem";
-import { classifyError } from "@/presentation/errorState";
 import {
   loadNewOccasionLists,
   loadOccasionEditor,
 } from "@/presentation/occasionData";
 import type { OccasionEditorData } from "@/presentation/occasionView";
+import { readFailureState } from "@/presentation/readFailure";
 import { NewOccasionEditor } from "../NewOccasionEditor";
 import { OccasionEditor } from "../OccasionEditor";
 
@@ -22,7 +22,7 @@ export async function OccasionEditorContent({
   } catch (error) {
     return (
       <EventProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="イベント情報を編集"
       />
     );

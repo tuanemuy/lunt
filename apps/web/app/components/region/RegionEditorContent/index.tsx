@@ -1,4 +1,4 @@
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import {
   loadNewRegionLists,
   loadRegionEditor,
@@ -16,7 +16,7 @@ export async function RegionEditorContent({ regionId }: { regionId: string }) {
   } catch (error) {
     return (
       <RegionProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="地域情報を編集"
         failedTitle="地域情報を読み込めませんでした"
       />

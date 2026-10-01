@@ -1,6 +1,6 @@
 import { loadEditorialList } from "@/presentation/editorialData";
 import type { EditorialListData } from "@/presentation/editorialView";
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { ArticleList } from "../ArticleList";
 import { EditorialProblem } from "../EditorialShell";
 
@@ -12,7 +12,7 @@ export async function ArticleListContent() {
   } catch (error) {
     return (
       <EditorialProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="読みものの一覧"
       />
     );

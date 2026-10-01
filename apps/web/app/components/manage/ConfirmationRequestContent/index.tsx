@@ -1,6 +1,6 @@
-import { classifyError } from "@/presentation/errorState";
 import type { ConfirmationRequestData } from "@/presentation/moderation";
 import { loadConfirmationRequest } from "@/presentation/moderationData";
+import { readFailureState } from "@/presentation/readFailure";
 import { ConfirmationRequestView } from "../ConfirmationRequestView";
 import { ShopProblem } from "../ShopProblem";
 
@@ -21,7 +21,7 @@ export async function ConfirmationRequestContent({
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="確認の依頼"
         missingTitle="確認の依頼が見つかりません"
         back={{ label: "店舗ホームへ戻る", to: "home" }}

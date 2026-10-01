@@ -1,5 +1,4 @@
 import { ShopProblem } from "@/components/manage/ShopProblem";
-import { classifyError } from "@/presentation/errorState";
 import { LISTING_PAGE_SIZE } from "@/presentation/listing";
 import { loadListingRows } from "@/presentation/listingData";
 import type {
@@ -7,6 +6,7 @@ import type {
   ListingShelfCountsView,
   ListingShelfKey,
 } from "@/presentation/listingView";
+import { readFailureState } from "@/presentation/readFailure";
 import { ListingRows } from "../ListingRows";
 
 /** SM-03's first page, read on the server; `ListingRows` loads the rest. */
@@ -28,7 +28,7 @@ export async function ListingRowsContent({
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="掲載"
         missingTitle="店舗が見つかりません"
         back={{ label: "マイページへ戻る", to: "home" }}

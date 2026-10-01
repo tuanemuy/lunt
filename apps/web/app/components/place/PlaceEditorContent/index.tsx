@@ -1,6 +1,6 @@
 import { ShopProblem } from "@/components/manage/ShopProblem";
-import { classifyError } from "@/presentation/errorState";
 import type { PlaceEditorData } from "@/presentation/placeView";
+import { readFailureState } from "@/presentation/readFailure";
 import { loadNewPlaceLists, loadPlaceEditor } from "@/presentation/shopData";
 import { NewPlaceEditor } from "../NewPlaceEditor";
 import { PlaceEditor } from "../PlaceEditor";
@@ -13,7 +13,7 @@ export async function PlaceEditorContent({ placeId }: { placeId: string }) {
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="店舗情報"
         missingTitle="店舗が見つかりません"
         back={{ label: "マイページへ戻る", to: "home" }}

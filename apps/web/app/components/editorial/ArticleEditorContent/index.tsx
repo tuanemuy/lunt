@@ -1,6 +1,6 @@
 import { loadArticleEditor } from "@/presentation/editorialData";
 import type { ArticleEditorData } from "@/presentation/editorialView";
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { ArticleEditor } from "../ArticleEditor";
 import { EditorialProblem } from "../EditorialShell";
 
@@ -16,7 +16,7 @@ export async function ArticleEditorContent({
   } catch (error) {
     return (
       <EditorialProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="読みものを編集"
       />
     );

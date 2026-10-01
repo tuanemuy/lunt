@@ -1,11 +1,11 @@
 import { ShopProblem } from "@/components/manage/ShopProblem";
-import { classifyError } from "@/presentation/errorState";
 import {
   loadCategoryOptions,
   loadListingEditor,
   loadListingName,
   loadNewListing,
 } from "@/presentation/listingData";
+import { readFailureState } from "@/presentation/readFailure";
 import { ListingEditor } from "../ListingEditor";
 import { NewListingEditor } from "../NewListingEditor";
 
@@ -43,7 +43,7 @@ export async function ListingEditorContent({
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="掲載を編集"
         {...MISSING}
       />
@@ -69,7 +69,7 @@ export async function NewListingContent({ placeId }: { placeId: string }) {
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="掲載を追加"
         missingTitle="店舗が見つかりません"
         back={{ label: "マイページへ戻る", to: "home" }}

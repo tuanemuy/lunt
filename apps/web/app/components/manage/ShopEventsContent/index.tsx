@@ -1,4 +1,4 @@
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import type { ShopEventsData } from "@/presentation/shopRelations";
 import { loadShopEvents } from "@/presentation/shopRelationsData";
 import { ShopEventsView } from "../ShopEventsView";
@@ -12,7 +12,7 @@ export async function ShopEventsContent({ placeId }: { placeId: string }) {
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="イベントの状況"
         missingTitle="店舗が見つかりません"
         back={{ label: "店舗ホームへ戻る", to: "home" }}

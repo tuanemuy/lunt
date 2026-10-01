@@ -10,7 +10,8 @@ import {
   type RelationPage,
 } from "@/presentation/applyRelationsView";
 import type { ApplyMode } from "@/presentation/applyView";
-import { classifyError } from "@/presentation/errorState";
+import type { ErrorState } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { ApplyProblem } from "../ApplyParts";
 import { MembershipForm } from "../MembershipForm";
 import { ParticipationForm } from "../ParticipationForm";
@@ -25,11 +26,11 @@ import { RelationRefused } from "../RelationParts";
 
 async function read<D>(
   load: () => Promise<RelationPage<D>>,
-): Promise<RelationPage<D> | Readonly<{ kind: "problem"; error: unknown }>> {
+): Promise<RelationPage<D> | Readonly<{ kind: "problem"; state: ErrorState }>> {
   try {
     return await load();
   } catch (error) {
-    return { kind: "problem", error };
+    return { kind: "problem", state: await readFailureState(error) };
   }
 }
 
@@ -49,7 +50,7 @@ export async function MembershipContent({ entry }: { entry: MembershipEntry }) {
       return (
         <ApplyProblem
           heading={membershipHeading(entry)}
-          kind={classifyError(page.error).kind}
+          kind={page.state.kind}
         />
       );
     case "refused":
@@ -77,7 +78,7 @@ export async function ParticipationApplyContent({
       return (
         <ApplyProblem
           heading={participationHeading(entry)}
-          kind={classifyError(page.error).kind}
+          kind={page.state.kind}
         />
       );
     case "refused":

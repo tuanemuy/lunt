@@ -1,4 +1,4 @@
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import type { AffiliationStatusData } from "@/presentation/shopRelations";
 import { loadAffiliationStatus } from "@/presentation/shopRelationsData";
 import { AffiliationStatusView } from "../AffiliationStatusView";
@@ -16,7 +16,7 @@ export async function AffiliationStatusContent({
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="所属地域の状況"
         missingTitle="店舗が見つかりません"
         back={{ label: "店舗ホームへ戻る", to: "home" }}

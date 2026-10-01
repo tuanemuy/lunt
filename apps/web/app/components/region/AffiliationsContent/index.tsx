@@ -1,4 +1,4 @@
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { loadAffiliations } from "@/presentation/regionData";
 import type { AffiliationsData } from "@/presentation/regionView";
 import { AffiliationBoard } from "../AffiliationBoard";
@@ -12,7 +12,7 @@ export async function AffiliationsContent({ regionId }: { regionId: string }) {
   } catch (error) {
     return (
       <RegionProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="所属店舗と申請"
         failedTitle="所属店舗と申請を読み込めませんでした"
       />

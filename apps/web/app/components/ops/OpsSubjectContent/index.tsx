@@ -1,6 +1,6 @@
-import { classifyError } from "@/presentation/errorState";
 import { loadOpsSubject } from "@/presentation/opsData";
 import type { OpsSubjectData, OpsSubjectKind } from "@/presentation/opsSubject";
+import { readFailureState } from "@/presentation/readFailure";
 import { OpsSubjectProblem, OpsSubjectView } from "../OpsSubjectView";
 
 /** OM-03's subject, read on the server; `OpsSubjectView` owns the suspension. */
@@ -18,7 +18,7 @@ export async function OpsSubjectContent({
     return (
       <OpsSubjectProblem
         kind={kind}
-        missing={classifyError(error).kind === "notFound"}
+        missing={(await readFailureState(error)).kind === "notFound"}
       />
     );
   }

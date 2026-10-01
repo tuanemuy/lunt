@@ -1,6 +1,6 @@
 import { loadArticlePreview } from "@/presentation/editorialData";
 import type { ArticlePreviewData } from "@/presentation/editorialView";
-import { classifyError } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { ArticlePreview } from "../ArticlePreview";
 import { EditorialProblem } from "../EditorialShell";
 
@@ -16,7 +16,7 @@ export async function ArticlePreviewContent({
   } catch (error) {
     return (
       <EditorialProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         heading="公開前プレビュー"
       />
     );

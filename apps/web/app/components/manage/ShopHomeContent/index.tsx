@@ -1,5 +1,5 @@
-import { classifyError } from "@/presentation/errorState";
 import type { ShopHomeData } from "@/presentation/placeView";
+import { readFailureState } from "@/presentation/readFailure";
 import { loadShopHome } from "@/presentation/shopData";
 import { ShopHomeView } from "../ShopHomeView";
 import { ShopProblem } from "../ShopProblem";
@@ -12,7 +12,7 @@ export async function ShopHomeContent({ placeId }: { placeId: string }) {
   } catch (error) {
     return (
       <ShopProblem
-        kind={classifyError(error).kind}
+        kind={(await readFailureState(error)).kind}
         missingTitle="店舗が見つかりません"
         back={{ label: "マイページへ戻る", to: "home" }}
       />

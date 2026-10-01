@@ -7,7 +7,8 @@ import {
   loadStewardshipPage,
 } from "@/presentation/applyData";
 import type { ApplyMode, ApplyPage } from "@/presentation/applyView";
-import { classifyError } from "@/presentation/errorState";
+import type { ErrorState } from "@/presentation/errorState";
+import { readFailureState } from "@/presentation/readFailure";
 import { ApplyProblem, ApplyRefused, type RefusedWhat } from "../ApplyParts";
 import { ListingApplicationForm } from "../ListingApplicationForm";
 import { PlaceRevisionForm } from "../PlaceRevisionForm";
@@ -23,11 +24,11 @@ import { StewardshipForm } from "../StewardshipForm";
 
 async function read<D>(
   load: () => Promise<ApplyPage<D>>,
-): Promise<ApplyPage<D> | Readonly<{ kind: "problem"; error: unknown }>> {
+): Promise<ApplyPage<D> | Readonly<{ kind: "problem"; state: ErrorState }>> {
   try {
     return await load();
   } catch (error) {
-    return { kind: "problem", error };
+    return { kind: "problem", state: await readFailureState(error) };
   }
 }
 
@@ -49,12 +50,12 @@ function Unavailable({
 }: {
   heading: string;
   page:
-    | Readonly<{ kind: "problem"; error: unknown }>
+    | Readonly<{ kind: "problem"; state: ErrorState }>
     | Extract<ApplyPage<unknown>, { kind: "refused" }>;
   what: RefusedWhat;
 }) {
   return page.kind === "problem" ? (
-    <ApplyProblem heading={heading} kind={classifyError(page.error).kind} />
+    <ApplyProblem heading={heading} kind={page.state.kind} />
   ) : (
     <ApplyRefused heading={heading} refusal={page.refusal} what={what} />
   );

@@ -1,11 +1,11 @@
 import { EventProblem } from "@/components/event/EventShell/EventProblem";
 import { ShopProblem } from "@/components/manage/ShopProblem";
-import { classifyError } from "@/presentation/errorState";
 import { loadParticipationEditor } from "@/presentation/occasionData";
 import type {
   ParticipationEditorData,
   ParticipationSide,
 } from "@/presentation/occasionView";
+import { readFailureState } from "@/presentation/readFailure";
 import {
   OccasionParticipationEditor,
   PlaceParticipationEditor,
@@ -33,7 +33,7 @@ export async function ParticipationEditorContent({
   try {
     data = await loadParticipationEditor({ side, occasionId, placeId });
   } catch (error) {
-    const kind = classifyError(error).kind;
+    const kind = (await readFailureState(error)).kind;
     return side === "place" ? (
       <ShopProblem
         kind={kind}
