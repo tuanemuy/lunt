@@ -1,7 +1,7 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import type { ConformanceHarness } from "@repo/core/adapters/do/__conformance__/harness";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { ConformanceHarness } from "@repo/core/adapters/durableObject/__conformance__/harness";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 
 /**

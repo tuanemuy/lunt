@@ -1,6 +1,6 @@
-import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
-import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
-import { InMemoryPhotoBucket } from "@repo/core/adapters/photos/testing/inMemoryPhotoBucket";
+import { InMemoryPhotoBucket } from "@repo/core/adapters/inMemory/inMemoryPhotoBucket";
+import { R2PhotoStorage } from "@repo/core/adapters/r2/r2PhotoStorage";
+import { StructuralPhotoInspector } from "@repo/core/adapters/shared/structuralPhotoInspector";
 import { PhotoPolicy } from "@repo/core/domain/media/photoPolicy";
 import type { TestServiceDeps } from "../../__tests__/testServiceDeps";
 import type { MediaServices } from "../services";

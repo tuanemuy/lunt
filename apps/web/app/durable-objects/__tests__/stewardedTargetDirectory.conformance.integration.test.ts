@@ -1,19 +1,19 @@
 import { env } from "cloudflare:test";
-import { authorityIds } from "@repo/core/adapters/do/__conformance__/authorityFixtures";
-import { insertOccasions } from "@repo/core/adapters/do/__conformance__/occasionFixtures";
+import { authorityIds } from "@repo/core/adapters/durableObject/__conformance__/authorityFixtures";
+import { insertOccasions } from "@repo/core/adapters/durableObject/__conformance__/occasionFixtures";
 import {
   insertPlaces,
   newPlace,
-} from "@repo/core/adapters/do/__conformance__/placeFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/placeFixtures";
 import {
   insertRegions,
   newRegion,
   regionContent,
-} from "@repo/core/adapters/do/__conformance__/regionFixtures";
-import { describeStewardedTargetDirectoryContract } from "@repo/core/adapters/do/__conformance__/stewardedTargetDirectory";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+} from "@repo/core/adapters/durableObject/__conformance__/regionFixtures";
+import { describeStewardedTargetDirectoryContract } from "@repo/core/adapters/durableObject/__conformance__/stewardedTargetDirectory";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/durableObject/stewardedTargetDirectory";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { describe, expect, it } from "vitest";

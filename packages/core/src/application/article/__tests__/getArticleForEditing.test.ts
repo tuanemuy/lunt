@@ -1,4 +1,4 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import type { Article } from "@repo/core/domain/article/article";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";
 import { Listing } from "@repo/core/domain/listing/listing";

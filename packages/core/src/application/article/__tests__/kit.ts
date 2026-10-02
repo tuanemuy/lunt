@@ -1,4 +1,4 @@
-import { discoveryWorld } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { discoveryWorld } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { Article } from "@repo/core/domain/article/article";
 import { ArticleId, type PhotoId } from "@repo/core/domain/common/ids";
 import type { ShowcaseRef } from "@repo/core/domain/common/refs";

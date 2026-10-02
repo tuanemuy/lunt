@@ -1,4 +1,4 @@
-import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { expectBusinessRuleError } from "@repo/core/adapters/durableObject/__conformance__/assertions";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import { PlaceId } from "@repo/core/domain/common/ids";
 import type { Pagination } from "@repo/core/domain/common/pagination";

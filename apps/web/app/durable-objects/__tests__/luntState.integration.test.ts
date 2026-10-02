@@ -1,8 +1,8 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import type { DurableObjectNamespace } from "@cloudflare/workers-types";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { MIGRATIONS } from "@repo/core/adapters/do/store/schema";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { MIGRATIONS } from "@repo/core/adapters/durableObject/store/schema";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { createRequestContainer } from "@repo/core/application/di/container";
 import { ForbiddenError } from "@repo/core/application/errors";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";

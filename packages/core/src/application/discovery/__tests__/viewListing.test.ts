@@ -1,6 +1,6 @@
-import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import { openDates } from "@repo/core/adapters/do/__conformance__/listingFixtures";
+import { expectBusinessRuleError } from "@repo/core/adapters/durableObject/__conformance__/assertions";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
+import { openDates } from "@repo/core/adapters/durableObject/__conformance__/listingFixtures";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import { ListingId } from "@repo/core/domain/common/ids";

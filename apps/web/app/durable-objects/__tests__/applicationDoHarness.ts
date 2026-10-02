@@ -1,6 +1,6 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import type { SavedEvent } from "@repo/core/adapters/do/__conformance__/harness";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { SavedEvent } from "@repo/core/adapters/durableObject/__conformance__/harness";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import {
   type IdGenerator,
   UuidV7Generator,

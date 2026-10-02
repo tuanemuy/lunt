@@ -1,4 +1,4 @@
-import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
+import { StructuralPhotoInspector } from "@repo/core/adapters/shared/structuralPhotoInspector";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { ForbiddenError, NotFoundError } from "@repo/core/application/errors";
 import { ArticleId, ListingId } from "@repo/core/domain/common/ids";

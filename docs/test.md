@@ -1,6 +1,6 @@
 # Testing
 
-Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Object's store code (`packages/core/src/adapters/do/store/`) runs on `node:sqlite` in the Node pool and inside the real object in the Workers pool.
+Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Object's store code (`packages/core/src/adapters/durableObject/store/`) runs on `node:sqlite` in the Node pool and inside the real object in the Workers pool.
 
 ## Layers
 
@@ -8,12 +8,12 @@ Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Ob
 | --- | --- | --- |
 | Domain | Node, `pnpm test:unit` | Value objects, entities, shared kernel rules and error codes. Property-based with fast-check where boundaries matter. |
 | Usecase | Node, `pnpm test:unit` | Usecases over a production-shaped container: the real request-side adapters and unit of work, the DO store on an in-memory `node:sqlite` database (`createInProcessState`), `FakeIdGenerator`, a fixed clock, and fakes only for external ports (mail, photo storage, identity providers). |
-| Port conformance | Node **and** Workers | One suite per port in an `__conformance__/` directory next to its adapters (`adapters/do/`, `adapters/mail/`, `adapters/login/`, and `application/notification/` for the presentation-side mail renderer), run by a Node runner (`*.conformance.test.ts`) and, for every port that touches the state object or the mail transport, a Workers runner against the real object (`apps/web/app/durable-objects/__tests__/*.conformance.integration.test.ts`). The real SMTP and Google adapters run their suites only when their credentials are in the environment (`docs/runtime_cloudflare_do.md` 「Mail and external login」). |
+| Port conformance | Node **and** Workers | One suite per port in an `__conformance__/` directory next to its adapters (`adapters/durableObject/`, `adapters/r2/`, `adapters/staticAssets/`, `adapters/webCrypto/`, `adapters/shared/` for ports served by a provider-independent composition, and `application/notification/` for the presentation-side mail renderer), run by a Node runner (`*.conformance.test.ts`) and, for every port that touches the state object or the mail transport, a Workers runner against the real object (`apps/web/app/durable-objects/__tests__/*.conformance.integration.test.ts`). The real SMTP and Google adapters run their suites only when their credentials are in the environment (`docs/runtime_cloudflare_do.md` 「Mail and external login」). |
 | Runtime wiring | Workers, `pnpm test:integration` | RPC serialization, `transactionSync`, schema migrations, the alarm relay, fan-out to the queue, consumer receipts. |
 
 ## Fidelity of the Node pool
 
-`createNodeSqlStorage` (`adapters/do/testing/nodeSqlStorage.ts`) reproduces the platform restrictions: transaction-control statements are refused, at most 100 bound parameters, only string / number / null / ArrayBuffer bindings. `createInProcessState` passes every RPC argument and result through `structuredClone`. The conformance suites run on both pools, so any remaining difference between `node:sqlite` and the Durable Object shows up as a failing Workers run.
+`createNodeSqlStorage` (`adapters/nodeSqlite/nodeSqlStorage.ts`) reproduces the platform restrictions: transaction-control statements are refused, at most 100 bound parameters, only string / number / null / ArrayBuffer bindings. `createInProcessState` passes every RPC argument and result through `structuredClone`. The conformance suites run on both pools, so any remaining difference between `node:sqlite` and the Durable Object shows up as a failing Workers run.
 
 ## Mapping spec test cases
 
@@ -38,7 +38,7 @@ Lunt's tests run in two Vitest pools. Both exercise the same SQL: the Durable Ob
 | Workers pool | `pnpm test:integration` |
 | One directory | `pnpm exec vitest run packages/core/src/domain/common` |
 | SMTP contract (sends real mail) | `SMTP_HOST=… SMTP_USERNAME=… SMTP_PASSWORD=… MAIL_FROM=… SMTP_TEST_TO=… pnpm test:integration` |
-| Google contract | `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm exec vitest run packages/core/src/adapters/identity` |
+| Google contract | `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm exec vitest run packages/core/src/adapters/shared/__tests__/externalIdentityVerifier.conformance.test.ts` |
 | Types and lint | `pnpm typecheck`, `pnpm lint` |
 
 Without the credentials the contract suites are skipped, which is what the skipped counts of a plain `pnpm test` are.

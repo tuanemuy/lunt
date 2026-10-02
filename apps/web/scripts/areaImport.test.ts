@@ -1,9 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AreaAssetFetcher } from "@repo/core/adapters/area/assetAreaCatalog";
-import { buildAreaAssets } from "@repo/core/adapters/area/assetFormat";
-import { parseJapanPostCsv } from "@repo/core/adapters/area/japanPost";
+import { parseJapanPostCsv } from "@repo/core/adapters/japanPost/japanPost";
+import type { AreaAssetFetcher } from "@repo/core/adapters/staticAssets/assetAreaCatalog";
+import { buildAreaAssets } from "@repo/core/adapters/staticAssets/assetFormat";
 import { createAreaServices } from "@repo/core/application/di/area";
 import { PostalCode } from "@repo/core/domain/area/postalCode";
 import { Town } from "@repo/core/domain/area/town";

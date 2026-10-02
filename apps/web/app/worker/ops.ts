@@ -1,4 +1,4 @@
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { z } from "zod";
 import {

@@ -10,7 +10,7 @@ import type {
   MessageBatch,
   ScheduledController,
 } from "@cloudflare/workers-types";
-import { DoConsumerReceipts } from "@repo/core/adapters/do/consumerReceipts";
+import { DoConsumerReceipts } from "@repo/core/adapters/durableObject/consumerReceipts";
 import { establishFirstOperator } from "@repo/core/application/authority/establishFirstOperator";
 import { devSeed } from "@repo/core/application/dev/devSeed";
 import {

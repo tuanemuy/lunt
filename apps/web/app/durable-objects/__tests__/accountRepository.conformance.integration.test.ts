@@ -1,4 +1,4 @@
-import { describeAccountRepositoryContract } from "@repo/core/adapters/do/__conformance__/accountRepository";
+import { describeAccountRepositoryContract } from "@repo/core/adapters/durableObject/__conformance__/accountRepository";
 import { createDoHarness } from "./doHarness";
 
 describeAccountRepositoryContract(createDoHarness);

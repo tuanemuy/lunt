@@ -1,4 +1,4 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import { OccasionId } from "@repo/core/domain/common/ids";
 import type { OperatingStatus } from "@repo/core/domain/place/operatingStatus";

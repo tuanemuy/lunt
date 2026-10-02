@@ -95,7 +95,7 @@ A few suites need real credentials and are skipped without them (the SMTP contra
 | Suite | Enabled by | Command |
 | --- | --- | --- |
 | SMTP login mail and Mailer (Workers pool) | `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM`, `SMTP_TEST_TO` (optional `SMTP_TEST_TO_2`) in the shell | `pnpm test:integration` |
-| Google OIDC | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in the shell | `pnpm vitest run packages/core/src/adapters/identity` |
+| Google OIDC | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in the shell | `pnpm vitest run packages/core/src/adapters/shared/__tests__/externalIdentityVerifier.conformance.test.ts` |
 
 What each layer covers and how tests map to `spec/testcases/`: `docs/test.md`. Browser procedures (`spec/manual-tests/`): `docs/manual_test.md`.
 

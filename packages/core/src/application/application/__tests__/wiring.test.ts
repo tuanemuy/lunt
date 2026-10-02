@@ -1,10 +1,10 @@
 import {
   applicationHarness,
   insertApplications,
-} from "@repo/core/adapters/do/__conformance__/applicationFixtures";
-import { DoApplicationReviewDesk } from "@repo/core/adapters/do/applicationReviewDesk";
-import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+} from "@repo/core/adapters/durableObject/__conformance__/applicationFixtures";
+import { DoApplicationReviewDesk } from "@repo/core/adapters/durableObject/applicationReviewDesk";
+import { createInProcessState } from "@repo/core/adapters/durableObject/testing/inProcessState";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { SystemError } from "@repo/core/application/errors";
 import {
   applicationIds,

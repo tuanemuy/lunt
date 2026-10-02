@@ -1,12 +1,12 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import type { DiscoveryHarness } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import { DoDetailQueries } from "@repo/core/adapters/do/detailQueries";
-import { DoExplorationQueries } from "@repo/core/adapters/do/explorationQueries";
-import { DoFeedCandidateQueries } from "@repo/core/adapters/do/feedCandidateQueries";
-import { DoKeywordSearchQueries } from "@repo/core/adapters/do/keywordSearchQueries";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { DoReferenceQueries } from "@repo/core/adapters/do/referenceQueries";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { DiscoveryHarness } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
+import { DoDetailQueries } from "@repo/core/adapters/durableObject/detailQueries";
+import { DoExplorationQueries } from "@repo/core/adapters/durableObject/explorationQueries";
+import { DoFeedCandidateQueries } from "@repo/core/adapters/durableObject/feedCandidateQueries";
+import { DoKeywordSearchQueries } from "@repo/core/adapters/durableObject/keywordSearchQueries";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { DoReferenceQueries } from "@repo/core/adapters/durableObject/referenceQueries";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 
 /** Discovery's read ports over a fresh, real `LuntStateObject`. */

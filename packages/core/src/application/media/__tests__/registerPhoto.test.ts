@@ -1,10 +1,10 @@
-import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { expectBusinessRuleError } from "@repo/core/adapters/durableObject/__conformance__/assertions";
 import {
   pngOfLength,
   sampleJpeg,
   sampleVideo,
   truncated,
-} from "@repo/core/adapters/photos/testing/photoSamples";
+} from "@repo/core/adapters/shared/testing/photoSamples";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { MediaErrorCode } from "@repo/core/domain/media/errorCode";
 import { PhotoDigest } from "@repo/core/domain/media/photoFile";

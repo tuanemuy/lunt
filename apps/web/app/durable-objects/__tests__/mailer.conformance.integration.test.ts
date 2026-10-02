@@ -1,12 +1,12 @@
 import { env } from "cloudflare:test";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { describeMailerContract } from "@repo/core/adapters/mail/__conformance__/mailer";
 import {
   DevInboxMailTransport,
   DoDevInbox,
-} from "@repo/core/adapters/mail/devInbox";
-import { TransportMailer } from "@repo/core/adapters/mail/mailer";
-import { SmtpMailTransport } from "@repo/core/adapters/mail/smtpTransport";
+} from "@repo/core/adapters/durableObject/devInbox";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { describeMailerContract } from "@repo/core/adapters/shared/__conformance__/mailer";
+import { TransportMailer } from "@repo/core/adapters/shared/transportMailer";
+import { SmtpMailTransport } from "@repo/core/adapters/smtp/smtpTransport";
 import { parseMailFrom } from "@repo/core/application/di/mail";
 import { SystemClock } from "@repo/core/application/ports/clock";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";

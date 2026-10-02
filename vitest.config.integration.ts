@@ -33,7 +33,7 @@ export default defineConfig({
         r2Buckets: ["PHOTOS"],
         assets: {
           directory:
-            "./packages/core/src/adapters/area/testing/testMasterAssets",
+            "./packages/core/src/adapters/staticAssets/testing/testMasterAssets",
           binding: "ASSETS",
         },
         durableObjects: {

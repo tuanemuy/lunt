@@ -1,4 +1,4 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { RegionId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
 import { REGION_NOT_FOUND, viewRegion } from "../viewRegion";

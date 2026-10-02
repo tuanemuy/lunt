@@ -1,4 +1,4 @@
-import { samplePng } from "@repo/core/adapters/photos/testing/photoSamples";
+import { samplePng } from "@repo/core/adapters/shared/testing/photoSamples";
 import { TownRef } from "@repo/core/domain/area/townRef";
 import {
   CategoryId,

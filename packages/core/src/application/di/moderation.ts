@@ -1,4 +1,4 @@
-import { DoContentDirectory } from "@repo/core/adapters/do/contentDirectory";
+import { DoContentDirectory } from "@repo/core/adapters/durableObject/contentDirectory";
 import type { ModerationServices } from "../moderation/services";
 import type { ServiceDeps } from "./serviceDeps";
 

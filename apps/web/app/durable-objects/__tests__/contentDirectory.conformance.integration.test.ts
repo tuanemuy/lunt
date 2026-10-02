@@ -4,23 +4,23 @@ import {
   describeContentDirectoryContract,
   describeContentLookupMechanism,
   seedConformanceContent,
-} from "@repo/core/adapters/do/__conformance__/contentDirectory";
-import { insertOccasions } from "@repo/core/adapters/do/__conformance__/occasionFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/contentDirectory";
+import { insertOccasions } from "@repo/core/adapters/durableObject/__conformance__/occasionFixtures";
 import {
   insertRegions,
   publishedRegion,
   regionIds,
-} from "@repo/core/adapters/do/__conformance__/regionFixtures";
-import { DoContentDirectory } from "@repo/core/adapters/do/contentDirectory";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+} from "@repo/core/adapters/durableObject/__conformance__/regionFixtures";
+import { DoContentDirectory } from "@repo/core/adapters/durableObject/contentDirectory";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import type {
   QueryArgs,
   QueryName,
   QueryResult,
-} from "@repo/core/adapters/do/protocol/queries";
-import type { SqlExec } from "@repo/core/adapters/do/sql";
-import { describeContent } from "@repo/core/adapters/do/store/contentLookups";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+} from "@repo/core/adapters/durableObject/protocol/queries";
+import type { SqlExec } from "@repo/core/adapters/durableObject/sql";
+import { describeContent } from "@repo/core/adapters/durableObject/store/contentLookups";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import { occasionFactory } from "@repo/core/domain/occasion/testing/samples";
 import { describe, expect, it } from "vitest";

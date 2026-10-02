@@ -31,7 +31,7 @@ curl "http://localhost:3000/cdn-cgi/local/scheduled?cron=5+15+*+*+*"
 
 ## RPC protocol
 
-The object's RPC surface (`packages/core/src/adapters/do/protocol/client.ts`, `LuntStateClient`):
+The object's RPC surface (`packages/core/src/adapters/durableObject/protocol/client.ts`, `LuntStateClient`):
 
 - `query(name, args)` — a named read. `protocol/queries.ts` is the typed catalog (name → args, result); `store/queries.ts` holds the handler of every name, and `satisfies` makes a missing handler a type error.
 - `commit({ conditions, writes, events })` — applies a unit of work. `protocol/commands.ts` is the typed union of write commands; `store/commands.ts` holds one handler per `kind`. `protocol/conditions.ts` is the typed union of commit conditions — facts an access decision rested on (a role still held, a steward still stewarding, a target still vacant), added through Authority's `AccessGuard` — and `store/conditions.ts` checks each. The object reads the conditions, runs every command and inserts the outbox rows inside one `transactionSync`.
@@ -46,7 +46,7 @@ Durable Object SQLite limits to design around: at most 100 bound parameters per 
 
 ## Relay and consumers
 
-Committing events arms the alarm. `alarm()` runs the shared `processOutboxEvents` over the object's outbox, then prunes processed rows and old receipts, then re-arms while rows remain (`adapters/do/alarm.ts`). The platform retries a throwing alarm, so no cron safety net is needed.
+Committing events arms the alarm. `alarm()` runs the shared `processOutboxEvents` over the object's outbox, then prunes processed rows and old receipts, then re-arms while rows remain (`adapters/durableObject/alarm.ts`). The platform retries a throwing alarm, so no cron safety net is needed.
 
 The relay never gives up on an event: a failed publish (the queue refused the batch, or the event could not be decoded) is retried with exponential backoff capped at one hour, for as long as it takes. From `OUTBOX_ALERT_AFTER_ATTEMPTS` failures on, each further failure is logged at error level. `kickRelay` requeues rows an earlier version parked (`failed_at`) and relays at once.
 
@@ -97,7 +97,7 @@ Procedure, per job, once a key keeps coming back:
 
 1. Collect the keys: the `target` field of the failed / unreadable lines of the last runs. The same key on consecutive days is a persistent failure; a key seen once is transient and the next run retries it.
 2. Check the dead letters for the same ids (`GET /__ops/dead-letters?limit=100`, see above; match the key against each letter's `aggregateId` and `payload`). The job's own failures never reach the queue, but a broken aggregate usually breaks its consumers too: `discardReleasedPhotos` letters whose `photos.released` payload holds the photo id (`sweepUnownedPhotos`), `deliverNotifications` letters for `listing.offering_ended` or other events of the listing (`detectEndedOfferings`), `deliverNotifications` / `reassessApplicationPremises` letters for `occasion.ended` or other events of the occasion (`recordEndedOccasions`). The letter holds no error: the cause is on the `[queue] <consumer> failed on <type> <eventId>` lines of its retries (error level, `cause` attached), and the same error as the job's confirms the diagnosis.
-3. Fix the cause and deploy. A `RehydrationError` means a stored row no longer matches its aggregate's snapshot shape: either make the adapter restore it (the row was written by an earlier version) or repair it with a data migration in the state object's schema (`packages/core/src/adapters/do/store/schema.ts`, the next free version; the object applies it on its next start). A storage failure (R2 for `sweepUnownedPhotos`) is fixed on the storage side; nothing in the state object needs to change.
+3. Fix the cause and deploy. A `RehydrationError` means a stored row no longer matches its aggregate's snapshot shape: either make the adapter restore it (the row was written by an earlier version) or repair it with a data migration in the state object's schema (`packages/core/src/adapters/durableObject/store/schema.ts`, the next free version; the object applies it on its next start). A storage failure (R2 for `sweepUnownedPhotos`) is fixed on the storage side; nothing in the state object needs to change.
 4. Let the next 00:05 run pick the targets up: the query still selects them, and the stopped run left everything behind them untouched, so one successful run drains the backlog. Then re-drive the dead letters found in step 2 (`POST /__ops/dead-letters/redrive`); the consumers are idempotent.
 5. Confirm on the next `[daily] <job> completed` line: `failed` back to 0 and `abandoned: false`.
 
@@ -187,7 +187,7 @@ In Google Cloud Console (APIs & Services):
 
 The flow uses the authorization code with PKCE (S256), `state` and `nonce`, and requires `email_verified`. Checks:
 
-- Automated (discovery, authorization URL, a refused callback and a bogus code; runs only with the variables set): `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm vitest run packages/core/src/adapters/identity`.
+- Automated (discovery, authorization URL, a refused callback and a bogus code; runs only with the variables set): `GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… pnpm vitest run packages/core/src/adapters/shared/__tests__/externalIdentityVerifier.conformance.test.ts`.
 - By hand: log in with Google from `/login`; the account for that address is created or reused (a second login lands on the same account), and cancelling on Google's consent screen returns to MY-02 with the external-login failure state. An account without a verified address cannot be produced with Google accounts; that case is covered by the fake provider.
 
 ## Area master
@@ -200,7 +200,7 @@ The area master (prefectures, municipalities, towns) is static JSON served from 
 
 Without an import, development (`DEV_TOOLS=1`) uses the committed sample in `apps/web/public/area-sample/` (Tokyo's Chiyoda, Chuo, Bunkyo, Taito, Mikurajima; Yokohama Naka; Osaka Kita; Okaya, Nagano, for the 「…の次に番地がくる場合」 town — every postal code the manual tests use), built from `apps/web/scripts/areaSample.csv`. A deployment without `DEV_TOOLS` reads only `/area`, and area lookups fail with `DATA_INTEGRITY_ERROR` until the master is imported.
 
-Maintenance: `pnpm area:import apps/web/scripts/areaSample.csv --out apps/web/public/area-sample` rebuilds the sample; `pnpm area:import --test-master` rebuilds the tests' master (`packages/core/src/adapters/area/testing/testMasterAssets/`). Tests check that both committed copies match their sources.
+Maintenance: `pnpm area:import apps/web/scripts/areaSample.csv --out apps/web/public/area-sample` rebuilds the sample; `pnpm area:import --test-master` rebuilds the tests' master (`packages/core/src/adapters/staticAssets/testing/testMasterAssets/`). Tests check that both committed copies match their sources.
 
 ## Photos
 
@@ -222,13 +222,13 @@ The browser fetches the style, tiles, glyphs and sprites from the style's host (
 
 ## Schema
 
-`adapters/do/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration. Versions are allocated globally and applied lowest first: 1 core (outbox, receipts), 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox, 9 development clock, 10 media, 11 place, 12 listing, 13 discovery, 14 moderation, 15 application (stage 2), 16 notification (stage 2), 17 region, 18 occasion, 19 bookmark, 20 article, 21 discovery (search texts, with a backfill). A deploy that adds a version needs no step of its own: the object applies it on its next start, before it serves any request.
+`adapters/durableObject/store/schema.ts` is an append-only list of versioned migrations recorded in `_schema_migrations`. Each runs once, in its own transaction, from the object's constructor. Never edit an applied migration. Versions are allocated globally and applied lowest first: 1 core (outbox, receipts), 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox, 9 development clock, 10 media, 11 place, 12 listing, 13 discovery, 14 moderation, 15 application (stage 2), 16 notification (stage 2), 17 region, 18 occasion, 19 bookmark, 20 article, 21 discovery (search texts, with a backfill). A deploy that adds a version needs no step of its own: the object applies it on its next start, before it serves any request.
 
 A change that narrows a value rule (e.g. the line-break set of `domain/common/lineBreak.ts`) leaves stored rows the new rule rejects unrestorable, so ship it with a migration that rewrites that data and rebuilds `search_texts` (texts stored under the old rule would still match such rows).
 
 ## Tests
 
-- `pnpm test:unit` runs the object's store code on `node:sqlite` (`adapters/do/testing/`), which reproduces the platform's statement restrictions.
+- `pnpm test:unit` runs the object's store code on `node:sqlite` (`adapters/nodeSqlite/`, driven by the harnesses in `adapters/durableObject/testing/`), which reproduces the platform's statement restrictions.
 - `pnpm test:integration` runs the same port conformance suites and the relay end to end against the real object in the Workers pool (`apps/web/app/durable-objects/__tests__/`).
 
 ## Deployment

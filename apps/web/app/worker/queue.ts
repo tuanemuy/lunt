@@ -1,5 +1,5 @@
 import type { Message, MessageBatch } from "@cloudflare/workers-types";
-import type { DeadLetterInput } from "@repo/core/adapters/do/protocol/deadLetters";
+import type { DeadLetterInput } from "@repo/core/adapters/durableObject/protocol/deadLetters";
 import type { RequestContainer } from "@repo/core/application/di/types";
 import type { ConsumerRegistry } from "@repo/core/application/events/consumers";
 import type { ConsumerReceipts } from "@repo/core/application/ports/consumerReceipts";

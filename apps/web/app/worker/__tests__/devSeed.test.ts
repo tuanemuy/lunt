@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { AssetAreaCatalog } from "@repo/core/adapters/area/assetAreaCatalog";
-import { parseJapanPostCsv } from "@repo/core/adapters/area/japanPost";
-import { InMemoryAreaAssets } from "@repo/core/adapters/area/testing/inMemoryAreaAssets";
+import { InMemoryAreaAssets } from "@repo/core/adapters/inMemory/inMemoryAreaAssets";
+import { parseJapanPostCsv } from "@repo/core/adapters/japanPost/japanPost";
+import { AssetAreaCatalog } from "@repo/core/adapters/staticAssets/assetAreaCatalog";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import { devSeed } from "@repo/core/application/dev/devSeed";
 import { listCategories } from "@repo/core/application/listing/listCategories";

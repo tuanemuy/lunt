@@ -1,4 +1,4 @@
-import { readLoginMail } from "@repo/core/adapters/login/mailLoginMailSender";
+import { readLoginMail } from "@repo/core/adapters/shared/mailLoginMailSender";
 import { LinkToken, LoginCode } from "@repo/core/domain/account/loginSecret";
 import { describe, expect, it } from "vitest";
 import { ConflictError } from "../../errors";

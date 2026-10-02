@@ -1,6 +1,6 @@
-import type { SqlExec } from "@repo/core/adapters/do/sql";
-import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { SqlExec } from "@repo/core/adapters/durableObject/sql";
+import { createInProcessState } from "@repo/core/adapters/durableObject/testing/inProcessState";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { createTestAccountServices } from "../account/__tests__/testServices";
 import { createTestApplicationServices } from "../application/__tests__/testServices";
 import { createTestAreaServices } from "../area/__tests__/testServices";

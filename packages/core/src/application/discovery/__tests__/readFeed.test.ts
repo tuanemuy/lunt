@@ -1,7 +1,7 @@
 import {
   PERIODS,
   type PlaceSpec,
-} from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { AreaSelection } from "@repo/core/domain/area/areaSelection";
 import { GeoPoint } from "@repo/core/domain/common/geo";
 import type { ListingId, PlaceId } from "@repo/core/domain/common/ids";

@@ -1,4 +1,4 @@
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import { type Clock, offsetClock, SystemClock } from "../ports/clock";
 
 type ClockEnv = Readonly<{

@@ -1,7 +1,7 @@
 import {
   type DiscoveryHarness,
   discoveryWorld,
-} from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { Account } from "@repo/core/domain/account/entity";
 import {
   type GrantableRef,

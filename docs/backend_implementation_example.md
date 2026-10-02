@@ -100,24 +100,24 @@ Every shared registry is split per domain. A domain owns its fragment files; the
 | `application/{d}/eventDecoders.ts` | `application/events/registry.ts` | `LuntDomainEvent` union + `eventDecoders` spread |
 | consumers (in `application/{d}/`) | `application/events/consumers.ts` | `consumers` |
 | daily jobs (in `application/{d}/`) | `application/workers/dailyJobRegistry.ts` | `dailyJobs` array |
-| `adapters/do/protocol/{d}.ts` | `adapters/do/protocol/queries.ts`, `adapters/do/protocol/commands.ts` | `QueryCatalog` intersection, `WriteCommand` union |
-| `adapters/do/store/{d}.ts` | `adapters/do/store/queries.ts`, `adapters/do/store/commands.ts`, `adapters/do/store/schema.ts` | handler spreads `satisfies`, `MIGRATIONS` |
-| `adapters/do/repositories/{d}.ts` | `adapters/do/repositories/index.ts` | `createRepositories` spread |
+| `adapters/durableObject/protocol/{d}.ts` | `adapters/durableObject/protocol/queries.ts`, `adapters/durableObject/protocol/commands.ts` | `QueryCatalog` intersection, `WriteCommand` union |
+| `adapters/durableObject/store/{d}.ts` | `adapters/durableObject/store/queries.ts`, `adapters/durableObject/store/commands.ts`, `adapters/durableObject/store/schema.ts` | handler spreads `satisfies`, `MIGRATIONS` |
+| `adapters/durableObject/repositories/{d}.ts` | `adapters/durableObject/repositories/index.ts` | `createRepositories` spread |
 | `application/{d}/__tests__/testServices.ts` | `application/__tests__/testContainer.ts` | `...createTest{D}Services(deps)` |
 
 ### Adding a new domain: checklist
 
-A domain starts with every fragment in place and empty, the way Notification's were scaffolded before its stage (`domain/notification/ports/unitOfWork.ts`, `application/notification/services.ts`, `application/di/notification.ts`, `adapters/do/protocol/notification.ts`, `adapters/do/store/notification.ts`, `adapters/do/repositories/notification.ts`, `application/notification/__tests__/testServices.ts`, `apps/web/app/presentation/errorCatalog/notification.ts`).
+A domain starts with every fragment in place and empty, the way Notification's were scaffolded before its stage (`domain/notification/ports/unitOfWork.ts`, `application/notification/services.ts`, `application/di/notification.ts`, `adapters/durableObject/protocol/notification.ts`, `adapters/durableObject/store/notification.ts`, `adapters/durableObject/repositories/notification.ts`, `application/notification/__tests__/testServices.ts`, `apps/web/app/presentation/errorCatalog/notification.ts`).
 
 ```ts
 // domain/notification/ports/unitOfWork.ts
 export type NotificationRepositories = Readonly<Record<never, never>>;
 
-// adapters/do/protocol/notification.ts
+// adapters/durableObject/protocol/notification.ts
 export type NotificationQueries = Record<never, QuerySpec<unknown, unknown>>;
 export type NotificationCommand = never;
 
-// adapters/do/store/notification.ts
+// adapters/durableObject/store/notification.ts
 export const NOTIFICATION_MIGRATIONS: readonly Migration[] = [];
 export const notificationQueryHandlers: QueryHandlersOf<NotificationQueries> = {};
 export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand> = {};
@@ -126,7 +126,7 @@ export const notificationCommandHandlers: CommandHandlersOf<NotificationCommand>
 1. Domain: `domain/{d}/errorCode.ts` (`{D}_…` codes, `as const`) → add the type to `BusinessErrorCode` in `domain/businessErrorCode.ts`; add `errorCatalog/{d}.ts` (`satisfies Record<{D}ErrorCode, BusinessErrorPresentation>`) and spread it in `businessErrorCatalog.ts`.
 2. Ports: `domain/{d}/ports/unitOfWork.ts` (`{D}Repositories`) → intersect it into `UnitOfWorkRepositories`.
 3. Container: `application/{d}/services.ts` (`{D}Services`) → intersect into `RequestContainer`; `application/di/{d}.ts` (`{D}Env`, `create{D}Services`) → intersect `{D}Env` into `LuntEnv` and spread the call in `createRequestContainer`; `application/{d}/__tests__/testServices.ts` → spread in `createTestContainer`.
-4. Store: `adapters/do/protocol/{d}.ts` (`{D}Queries`, `{D}Command`) → add to `QueryCatalog` / `WriteCommand`; `adapters/do/store/{d}.ts` → spread handlers in `store/queries.ts` / `store/commands.ts` and `...{D}_MIGRATIONS` in `MIGRATIONS`; `adapters/do/repositories/{d}.ts` → spread in `createRepositories`.
+4. Store: `adapters/durableObject/protocol/{d}.ts` (`{D}Queries`, `{D}Command`) → add to `QueryCatalog` / `WriteCommand`; `adapters/durableObject/store/{d}.ts` → spread handlers in `store/queries.ts` / `store/commands.ts` and `...{D}_MIGRATIONS` in `MIGRATIONS`; `adapters/durableObject/repositories/{d}.ts` → spread in `createRepositories`.
 5. Migration versions are global, not per domain: reserve the next free number (the list is in the `MIGRATIONS` JSDoc: 1 core, 2 accounts, 3 dead letters, 4 login challenges, 5 authority, 6 application, 7 notification, 8 development mailbox — the next free one is 9) and add it to that JSDoc. `applyMigrations` runs every version an object has not recorded, lowest first, so a reserved lower number that lands after a higher one still runs; a migration may therefore depend only on versions below it. Never edit an applied migration.
 6. Events (when the domain has any): `domain/{d}/events.ts`, `application/{d}/eventDecoders.ts` → add to `LuntDomainEvent` and `eventDecoders`; give every event type at least one consumer (compile-time check in `application/events/consumers.ts`).
 7. Daily jobs: append to `dailyJobs` in `application/workers/dailyJobRegistry.ts`.
@@ -390,7 +390,7 @@ export async function grantRole({ container, actor, input }: ActorServiceArgs<Gr
 
 ### Unit of work
 
-`UnitOfWorkProvider.run(fn)` (`application/execution/unitOfWork.ts`, implemented by `adapters/do/unitOfWork.ts`):
+`UnitOfWorkProvider.run(fn)` (`application/execution/unitOfWork.ts`, implemented by `adapters/durableObject/unitOfWork.ts`):
 
 - Reads (`findById`, queries) go to the state object immediately.
 - Writes (`insert`, `save`, `delete`) and `collectEvents(drafts)` are buffered and committed together in one transaction after `fn` resolves. A scope therefore never sees its own writes: read everything first, then write.
@@ -465,7 +465,7 @@ return settled.result;
 
 ### Application errors
 
-`application/errors.ts`: `NotFoundError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError` (free-string codes, e.g. `LOGIN_CHALLENGE_ID_CONFLICT`, exported as a constant when the presentation needs it) and `SystemError` with `SystemErrorCode` (`DATABASE_ERROR` from a failing store call, `DATA_INTEGRITY_ERROR` from bad stored data, `NETWORK_ERROR` / `EXTERNAL_API_ERROR` — the retryable ones — from external adapters such as `adapters/identity/googleOidc.ts`). Domain `BusinessRuleError`s pass through usecases untouched.
+`application/errors.ts`: `NotFoundError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError` (free-string codes, e.g. `LOGIN_CHALLENGE_ID_CONFLICT`, exported as a constant when the presentation needs it) and `SystemError` with `SystemErrorCode` (`DATABASE_ERROR` from a failing store call, `DATA_INTEGRITY_ERROR` from bad stored data, `NETWORK_ERROR` / `EXTERNAL_API_ERROR` — the retryable ones — from external adapters such as `adapters/google/googleOidc.ts`). Domain `BusinessRuleError`s pass through usecases untouched.
 
 ### Event decoders
 
@@ -572,17 +572,17 @@ export function createAccountServices(env: AccountEnv, deps: ServiceDeps): Accou
 
 ### RPC protocol
 
-The request side talks to one `LuntStateObject` through `LuntStateClient` (`adapters/do/protocol/client.ts`):
+The request side talks to one `LuntStateObject` through `LuntStateClient` (`adapters/durableObject/protocol/client.ts`):
 
 - `query(name, args)` — a named, typed read.
-- `commit({ writes, events })` — one unit of work; the object applies every command and inserts the outbox rows in one `transactionSync` (`adapters/do/store/stateStore.ts`), and returns `committed` or `rejected` with the first `WriteFailure`.
+- `commit({ writes, events })` — one unit of work; the object applies every command and inserts the outbox rows in one `transactionSync` (`adapters/durableObject/store/stateStore.ts`), and returns `committed` or `rejected` with the first `WriteFailure`.
 
-Workers RPC loses error classes, so every outcome a port names travels as data. `DoUnitOfWorkProvider` rethrows a rejection as `ConflictError` / `NotFoundError`; `mapDoError` (`adapters/do/helpers.ts`) turns anything else thrown into `SystemError(DATABASE_ERROR)`. Arguments and results are structured-clonable plain data (records, not entities).
+Workers RPC loses error classes, so every outcome a port names travels as data. `DoUnitOfWorkProvider` rethrows a rejection as `ConflictError` / `NotFoundError`; `mapDoError` (`adapters/durableObject/helpers.ts`) turns anything else thrown into `SystemError(DATABASE_ERROR)`. Arguments and results are structured-clonable plain data (records, not entities).
 
 ### Protocol fragment
 
 ```ts
-// adapters/do/protocol/authority.ts
+// adapters/durableObject/protocol/authority.ts
 export type StewardshipRecord = Readonly<{
   target: TargetRecord;
   status: string;
@@ -611,7 +611,7 @@ Names are `{domain}.{operation}`. Commands carry the whole aggregate snapshot; d
 Migrations and one synchronous handler per query name and command kind. The fragment annotates its tables with `QueryHandlersOf<…>` / `CommandHandlersOf<…>`; the aggregators (`store/queries.ts`, `store/commands.ts`) spread them `satisfies QueryHandlers` / `CommandHandlers`, so a catalog entry without a handler does not compile.
 
 ```ts
-// adapters/do/store/authority.ts
+// adapters/durableObject/store/authority.ts
 const AUTHORITY_TABLES_MIGRATION: Migration = {
   version: 5,
   name: "stewardships and role rosters",
@@ -638,7 +638,7 @@ Store child collections of an aggregate as JSON in its row (dates as epoch ms) a
 
 ### Versioned writes
 
-`adapters/do/store/versioned.ts` returns outcomes as data, which `StateStore.commit` turns into a rollback plus `rejected`:
+`adapters/durableObject/store/versioned.ts` returns outcomes as data, which `StateStore.commit` turns into a rollback plus `rejected`:
 
 | Helper | Outcome |
 | --- | --- |
@@ -650,10 +650,10 @@ A "save if absent" for a fixed-key aggregate is `insertUnique` when `expectedVer
 
 ### Request-side repository
 
-One class per port in `adapters/do/repositories/`, constructed per unit of work by the domain's `create{D}Repositories(deps)` with the shared write buffer:
+One class per port in `adapters/durableObject/repositories/`, constructed per unit of work by the domain's `create{D}Repositories(deps)` with the shared write buffer:
 
 ```ts
-// adapters/do/repositories/stewardshipRepository.ts
+// adapters/durableObject/repositories/stewardshipRepository.ts
 export class DoStewardshipRepository implements StewardshipRepository {
   constructor(private readonly client: LuntStateClient, private readonly writes: WriteCommand[], private readonly idGenerator: IdGenerator) {}
 
@@ -688,29 +688,32 @@ export class DoStewardshipRepository implements StewardshipRepository {
 
 - Reads: `mapDoError` + `client.query`, then `idGenerator.parse` on every stored id and `reconstruct`, both failing as `DATA_INTEGRITY_ERROR`. `toVersioned` is the only place an `ExpectedVersion` is cast.
 - Writes: push a command; nothing is sent until commit.
-- `DoLoginChallengeRepository` (`adapters/do/repositories/loginChallengeRepository.ts`) is the same shape with `LoginChallenge.snapshot` for the record.
+- `DoLoginChallengeRepository` (`adapters/durableObject/repositories/loginChallengeRepository.ts`) is the same shape with `LoginChallenge.snapshot` for the record.
 
 ### SQLite limits in the object
 
 - At most 100 bound parameters per statement: ports cap id lists at 100 (`IdBatch.assertWithinLimit`, before any query), and handlers pass the list as one JSON parameter — `FROM json_each(?) j JOIN stewardships s ON s.target_kind = json_extract(j.value, '$.kind') …`, `INSERT … SELECT value, ? FROM json_each(?)`.
 - No `BEGIN` / `SAVEPOINT`: atomicity comes from `transactionSync` around the whole commit; handlers just run statements.
 - Keep `LIKE` patterns short; match text with the domain's own normalization instead.
-- `adapters/do/testing/nodeSqlStorage.ts` reproduces these limits in the Node pool.
+- `adapters/nodeSqlite/nodeSqlStorage.ts` reproduces these limits in the Node pool.
 
 ### Kind-pluggable lookups
 
-`StewardedTargetDirectory` answers for places, regions and occasions, whose tables their own domains own. The object-side read (`describeStewardedTargets` in `adapters/do/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/do/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
+`StewardedTargetDirectory` answers for places, regions and occasions, whose tables their own domains own. The object-side read (`describeStewardedTargets` in `adapters/durableObject/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/durableObject/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
 
 ### External adapters
 
-- `adapters/mail/`: `MailTransport` (`adapters/mail/transport.ts`) with `SmtpMailTransport` and the development inbox (`DevInboxMailTransport` storing into the object, `DoDevInbox` reading it). Domain-specific senders render and hand over to the transport.
-- `adapters/login/`: `MailLoginMailSender` (renders the login mail; the secrets never reach the outbox or logs), `WebCryptoLoginSecretGenerator`.
-- `adapters/identity/`: `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), `GoogleOidcProvider`, `FakeIdpProvider`, and `FakeIdpScreen` (the development provider's side, behind the application port `FakeIdp` in `application/dev/fakeIdp.ts`, so the `/__dev/idp/authorize` screen reaches it through usecases like any other).
-- Domain ports get a conformance suite beside their adapter (`adapters/login/__conformance__/`, `adapters/identity/__conformance__/`); test doubles for external I/O live under `testing/` (`InMemoryMailTransport` in `adapters/mail/testing/inMemoryMailTransport.ts`, `adapters/identity/testing/fakeIdpFlow.ts`).
+Adapters are grouped per provider (`adapters/{provider}/`), not per port. A development or test implementation is a provider named by its mechanism (`fake/`, `inMemory/`, `nodeSqlite/`), never by its purpose.
+
+- `adapters/shared/`: the provider-independent pieces. `MailTransport` (`adapters/shared/mailTransport.ts`, the adapter-internal port every mail provider implements), `TransportMailer` and `MailLoginMailSender` over it (domain-specific senders render and hand over to the transport; the login secrets never reach the outbox or logs), `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), and `StructuralPhotoInspector`.
+- `adapters/smtp/`: `SmtpMailTransport`. `adapters/durableObject/devInbox.ts`: the development inbox (`DevInboxMailTransport` storing into the object, `DoDevInbox` reading it).
+- `adapters/google/`: `GoogleOidcProvider`. `adapters/fake/`: `FakeIdpProvider` and `FakeIdpScreen` (the fake provider's side, behind the application port `FakeIdp` in `application/dev/fakeIdp.ts`, so the `/__dev/idp/authorize` screen reaches it through usecases like any other).
+- `adapters/webCrypto/`: `WebCryptoLoginSecretGenerator`. `adapters/r2/`: `R2PhotoStorage` and photo delivery. `adapters/staticAssets/`: `AssetAreaCatalog`. `adapters/japanPost/`: the postal-code CSV parser `pnpm area:import` uses.
+- Domain ports get a conformance suite beside the adapter that serves them (`adapters/webCrypto/__conformance__/`, `adapters/shared/__conformance__/`). In-memory stand-ins for external I/O live in `adapters/inMemory/` (`InMemoryMailTransport`, `InMemoryPhotoBucket`, `InMemoryAreaAssets`); fixtures and harnesses stay under the `testing/` of the provider they exercise (`adapters/fake/testing/fakeIdpFlow.ts`, `adapters/staticAssets/testing/testAreaMaster.ts`).
 
 ## 5. Outbox, relay, consumers, dead letters
 
-`collectEvents` drafts become outbox rows in the same transaction as the writes. The object's alarm runs `processOutboxEvents` (`application/workers/eventRelayWorker.ts`, via `adapters/do/alarm.ts`), and `createFanOutDispatcher` (`application/workers/eventDelivery.ts`) sends one queue message per subscribed consumer. The Worker's `queue` handler (`apps/web/app/worker/queue.ts`) runs `consumeEventMessage`: skip if the consumer's receipt exists, handle, then record the receipt. Exhausted messages land in the dead-letter queue and are stored in the object for an operator to re-drive through `/__ops/dead-letters` (`apps/web/app/worker/ops.ts`).
+`collectEvents` drafts become outbox rows in the same transaction as the writes. The object's alarm runs `processOutboxEvents` (`application/workers/eventRelayWorker.ts`, via `adapters/durableObject/alarm.ts`), and `createFanOutDispatcher` (`application/workers/eventDelivery.ts`) sends one queue message per subscribed consumer. The Worker's `queue` handler (`apps/web/app/worker/queue.ts`) runs `consumeEventMessage`: skip if the consumer's receipt exists, handle, then record the receipt. Exhausted messages land in the dead-letter queue and are stored in the object for an operator to re-drive through `/__ops/dead-letters` (`apps/web/app/worker/ops.ts`).
 
 What this means for new code — at-least-once, unordered, per-consumer retry — is in `AGENTS.md` (Outbox / domain events); the operational side (backoff, alerts, re-drive procedure, relay kick) is in `docs/runtime_cloudflare_do.md`.
 
@@ -721,7 +724,7 @@ Layers, pools and rules are in `docs/test.md`. The patterns:
 ### Port conformance: one suite, two runners
 
 ```ts
-// adapters/do/__conformance__/stewardshipRepository.ts — the suite, written once
+// adapters/durableObject/__conformance__/stewardshipRepository.ts — the suite, written once
 export function describeStewardshipRepositoryContract(makeHarness: HarnessFactory): void {
   describe("StewardshipRepository contract", () => {
     describe("insert、findById", () => {
@@ -736,7 +739,7 @@ export function describeStewardshipRepositoryContract(makeHarness: HarnessFactor
 ```
 
 ```ts
-// adapters/do/__tests__/stewardshipRepository.conformance.test.ts — Node pool, node:sqlite
+// adapters/durableObject/__tests__/stewardshipRepository.conformance.test.ts — Node pool, node:sqlite
 describeStewardshipRepositoryContract(async () => createNodeHarness());
 ```
 
@@ -745,7 +748,7 @@ describeStewardshipRepositoryContract(async () => createNodeHarness());
 describeStewardshipRepositoryContract(createDoHarness);
 ```
 
-A `ConformanceHarness` (`adapters/do/__conformance__/harness.ts`) is a fresh store's `uow` plus `savedEvents()`; build fixtures through the port, never with SQL (`adapters/do/__conformance__/authorityFixtures.ts`).
+A `ConformanceHarness` (`adapters/durableObject/__conformance__/harness.ts`) is a fresh store's `uow` plus `savedEvents()`; build fixtures through the port, never with SQL (`adapters/durableObject/__conformance__/authorityFixtures.ts`).
 
 ### Usecase tests
 
@@ -763,7 +766,7 @@ Domains wrap it in a small kit of fixtures built through usecases (`authorityKit
 
 ### Naming (design.md D-11)
 
-`spec/testcases/{d}/{usecase}.md` → `application/{d}/__tests__/{usecase}.test.ts`; `spec/testcases/ports/{port}.md` → `adapters/do/__conformance__/{port}.ts`. Each `##` section is a `describe`, each table row an `it` titled `{usecase}#{n} {前提条件} / {操作}`, `n` counting rows through the file:
+`spec/testcases/{d}/{usecase}.md` → `application/{d}/__tests__/{usecase}.test.ts`; `spec/testcases/ports/{port}.md` → `adapters/durableObject/__conformance__/{port}.ts`. Each `##` section is a `describe`, each table row an `it` titled `{usecase}#{n} {前提条件} / {操作}`, `n` counting rows through the file:
 
 ```ts
 it("grantRole#1 O はサービス運営者。U のアカウントがある。編集担当者はいない / O を Actor として、editor と U のメールアドレスで実行する", async () => {

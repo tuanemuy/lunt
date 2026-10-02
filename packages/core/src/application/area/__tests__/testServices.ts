@@ -1,4 +1,4 @@
-import { createTestAreaCatalog } from "@repo/core/adapters/area/testing/testAreaMaster";
+import { createTestAreaCatalog } from "@repo/core/adapters/staticAssets/testing/testAreaMaster";
 import type { TestServiceDeps } from "../../__tests__/testServiceDeps";
 import type { AreaServices } from "../services";
 

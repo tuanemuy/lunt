@@ -1,4 +1,4 @@
-import { TransportMailer } from "@repo/core/adapters/mail/mailer";
+import { TransportMailer } from "@repo/core/adapters/shared/transportMailer";
 import { content } from "@repo/core/config";
 import type { NotificationServices } from "../notification/services";
 import { createMailTransport, type MailEnv, readMailSettings } from "./mail";

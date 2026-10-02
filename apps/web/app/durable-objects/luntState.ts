@@ -1,53 +1,53 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Queue } from "@cloudflare/workers-types";
-import { runOutboxAlarmTick } from "@repo/core/adapters/do/alarm";
+import { runOutboxAlarmTick } from "@repo/core/adapters/durableObject/alarm";
 import {
   type RedriveTarget,
   redriveDeadLetters,
-} from "@repo/core/adapters/do/deadLetterRedrive";
+} from "@repo/core/adapters/durableObject/deadLetterRedrive";
 import {
   DoSqliteOutboxRepository,
   nextOutboxWakeUpAt,
   requeueParkedOutboxEvents,
-} from "@repo/core/adapters/do/outboxStore";
+} from "@repo/core/adapters/durableObject/outboxStore";
 import type {
   CommitRequest,
   CommitResult,
-} from "@repo/core/adapters/do/protocol/client";
+} from "@repo/core/adapters/durableObject/protocol/client";
 import type {
   DeadLetterInput,
   DeadLetterRecord,
   RedriveResult,
-} from "@repo/core/adapters/do/protocol/deadLetters";
-import type { DevClockAdvance } from "@repo/core/adapters/do/protocol/devClock";
+} from "@repo/core/adapters/durableObject/protocol/deadLetters";
+import type { DevClockAdvance } from "@repo/core/adapters/durableObject/protocol/devClock";
 import type {
   DevMailInput,
   DevMailQuery,
   DevMailRecord,
-} from "@repo/core/adapters/do/protocol/devMailbox";
+} from "@repo/core/adapters/durableObject/protocol/devMailbox";
 import type {
   QueryArgs,
   QueryName,
   QueryResult,
-} from "@repo/core/adapters/do/protocol/queries";
+} from "@repo/core/adapters/durableObject/protocol/queries";
 import {
   listPendingDeadLetters,
   recordDeadLetter,
-} from "@repo/core/adapters/do/store/deadLetters";
+} from "@repo/core/adapters/durableObject/store/deadLetters";
 import {
   advanceDevClock,
   readDevClockOffset,
   resetDevClock,
-} from "@repo/core/adapters/do/store/devClock";
+} from "@repo/core/adapters/durableObject/store/devClock";
 import {
   appendDevMail,
   listDevMail,
-} from "@repo/core/adapters/do/store/devMailbox";
-import { applyMigrations } from "@repo/core/adapters/do/store/schema";
+} from "@repo/core/adapters/durableObject/store/devMailbox";
+import { applyMigrations } from "@repo/core/adapters/durableObject/store/schema";
 import {
   createStateStore,
   type StateStore,
-} from "@repo/core/adapters/do/store/stateStore";
+} from "@repo/core/adapters/durableObject/store/stateStore";
 import {
   readPruneTuning,
   readRelayTuning,

@@ -1,4 +1,4 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";
 import { listOccasions } from "../listOccasions";

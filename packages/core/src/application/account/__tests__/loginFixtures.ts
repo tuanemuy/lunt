@@ -1,5 +1,5 @@
-import { readLoginMail } from "@repo/core/adapters/login/mailLoginMailSender";
-import { InMemoryMailTransport } from "@repo/core/adapters/mail/testing/inMemoryMailTransport";
+import { InMemoryMailTransport } from "@repo/core/adapters/inMemory/inMemoryMailTransport";
+import { readLoginMail } from "@repo/core/adapters/shared/mailLoginMailSender";
 import { Account } from "@repo/core/domain/account/entity";
 import {
   type LoginChallenge,

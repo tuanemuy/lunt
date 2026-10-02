@@ -1,4 +1,4 @@
-import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/durableObject/stewardedTargetDirectory";
 import type { AuthorityServices } from "../authority/services";
 import type { ServiceDeps } from "./serviceDeps";
 

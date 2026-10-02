@@ -1,4 +1,4 @@
-import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
+import { createInProcessState } from "@repo/core/adapters/durableObject/testing/inProcessState";
 import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
 import { SystemClock } from "@repo/core/application/ports/clock";
 import { describe, expect, it, vi } from "vitest";

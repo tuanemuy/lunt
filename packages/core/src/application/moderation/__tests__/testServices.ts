@@ -1,4 +1,4 @@
-import { DoContentDirectory } from "@repo/core/adapters/do/contentDirectory";
+import { DoContentDirectory } from "@repo/core/adapters/durableObject/contentDirectory";
 import { IdBatch } from "@repo/core/domain/common/idBatch";
 import type { PhotoId } from "@repo/core/domain/common/ids";
 import { ContentRef } from "@repo/core/domain/common/refs";

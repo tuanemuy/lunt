@@ -1,9 +1,9 @@
 import {
   DevInboxMailTransport,
   DoDevInbox,
-} from "@repo/core/adapters/mail/devInbox";
-import { SmtpMailTransport } from "@repo/core/adapters/mail/smtpTransport";
-import type { MailTransport } from "@repo/core/adapters/mail/transport";
+} from "@repo/core/adapters/durableObject/devInbox";
+import type { MailTransport } from "@repo/core/adapters/shared/mailTransport";
+import { SmtpMailTransport } from "@repo/core/adapters/smtp/smtpTransport";
 import { z } from "zod";
 import type { DevInbox } from "../dev/devInbox";
 import type { ServiceDeps } from "./serviceDeps";

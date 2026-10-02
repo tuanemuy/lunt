@@ -1,14 +1,14 @@
 import { env } from "cloudflare:test";
-import { describeAreaCatalogContract } from "@repo/core/adapters/area/__conformance__/areaCatalog";
+import { describeAreaCatalogContract } from "@repo/core/adapters/staticAssets/__conformance__/areaCatalog";
 import {
   type AreaAssetFetcher,
   AssetAreaCatalog,
-} from "@repo/core/adapters/area/assetAreaCatalog";
-import { TEST_AREA_MASTER_BASE_PATH } from "@repo/core/adapters/area/testing/testAreaMaster";
+} from "@repo/core/adapters/staticAssets/assetAreaCatalog";
+import { TEST_AREA_MASTER_BASE_PATH } from "@repo/core/adapters/staticAssets/testing/testAreaMaster";
 
 // The committed test-master files served by the Workers static-assets
 // binding (`vitest.config.integration.ts` points `assets.directory` at
-// packages/core/src/adapters/area/testing/testMasterAssets), read the way
+// packages/core/src/adapters/staticAssets/testing/testMasterAssets), read the way
 // the Worker reads `env.ASSETS`.
 const assets = (env as unknown as { ASSETS?: AreaAssetFetcher }).ASSETS;
 
