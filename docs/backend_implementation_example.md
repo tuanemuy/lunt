@@ -567,9 +567,21 @@ export function createAccountServices(env: AccountEnv, deps: ServiceDeps): Accou
 - A setting shared by several domains gets its own module: `application/di/mail.ts` (`MailEnv`, `readMailSettings`, `createMailTransport`) chooses one `MailTransport` per deployment for Account's login mail and, later, Notification's mail.
 - A domain with nothing to wire still has its fragment (`AuthorityEnv = Readonly<Record<never, never>>`).
 
-## 4. Adapters: the Durable Object
+## 4. Adapters
 
-### RPC protocol
+### One directory per provider
+
+Adapters live in `adapters/{provider}/`, never grouped per port. A development or test stand-in is a provider too, named by its mechanism (`fake`, `inMemory`, …), never by its purpose. Mail is the reference:
+
+- The domain port `Mailer` is served by `TransportMailer` over the adapter-internal port `MailTransport`. Neither depends on a provider, so both live in `adapters/shared/` (`transportMailer.ts`, `mailTransport.ts`). Domain-specific senders such as `MailLoginMailSender` render their mail and hand it to the same transport, so login secrets never reach the outbox or logs.
+- Each way of delivering mail is a provider implementing `MailTransport`: `SmtpMailTransport` (`adapters/smtp/`), the development inbox's `DevInboxMailTransport` (`adapters/durableObject/devInbox.ts`, since it stores into the object) and `InMemoryMailTransport` (`adapters/inMemory/`) for tests.
+- The port's conformance suite sits beside the adapter that serves it (`adapters/shared/__conformance__/mailer.ts`) and runs once per transport: in-memory and development inbox in the Node pool; the real object, plus SMTP when its credentials are set, in the Workers pool (`apps/web/app/durable-objects/__tests__/mailer.conformance.integration.test.ts`). Fixtures and harnesses stay under the `testing/` of the provider they exercise.
+
+### The persistence provider: `durableObject`
+
+Every domain persists through the one state Durable Object, so adding a domain always adds a protocol, a store and a repositories fragment here.
+
+#### RPC protocol
 
 The request side talks to one `LuntStateObject` through `LuntStateClient` (`adapters/durableObject/protocol/client.ts`):
 
@@ -578,7 +590,7 @@ The request side talks to one `LuntStateObject` through `LuntStateClient` (`adap
 
 Workers RPC loses error classes, so every outcome a port names travels as data. `DoUnitOfWorkProvider` rethrows a rejection as `ConflictError` / `NotFoundError`; `mapDoError` (`adapters/durableObject/helpers.ts`) turns anything else thrown into `SystemError(DATABASE_ERROR)`. Arguments and results are structured-clonable plain data (records, not entities).
 
-### Protocol fragment
+#### Protocol fragment
 
 ```ts
 // adapters/durableObject/protocol/authority.ts
@@ -605,7 +617,7 @@ export type AuthorityCommand =
 
 Names are `{domain}.{operation}`. Commands carry the whole aggregate snapshot; derived columns and reverse indexes are computed by the handler from it.
 
-### Store fragment
+#### Store fragment
 
 Migrations and one synchronous handler per query name and command kind. The fragment annotates its tables with `QueryHandlersOf<…>` / `CommandHandlersOf<…>`; the aggregators (`store/queries.ts`, `store/commands.ts`) spread them `satisfies QueryHandlers` / `CommandHandlers`, so a catalog entry without a handler does not compile.
 
@@ -635,7 +647,7 @@ export const authorityCommandHandlers: CommandHandlersOf<AuthorityCommand> = {
 
 Store child collections of an aggregate as JSON in its row (dates as epoch ms) and add a reverse-index table only for a lookup the port needs (`findPageBySteward`, `findRolesOf`).
 
-### Versioned writes
+#### Versioned writes
 
 `adapters/durableObject/store/versioned.ts` returns outcomes as data, which `StateStore.commit` turns into a rollback plus `rejected`:
 
@@ -647,7 +659,7 @@ Store child collections of an aggregate as JSON in its row (dates as epoch ms) a
 
 A "save if absent" for a fixed-key aggregate is `insertUnique` when `expectedVersion` is `null` (`authority.saveRoleRoster`). Never upsert — it would hide a lost update.
 
-### Request-side repository
+#### Request-side repository
 
 One class per port in `adapters/durableObject/repositories/`, constructed per unit of work by the domain's `create{D}Repositories(deps)` with the shared write buffer:
 
@@ -689,24 +701,16 @@ export class DoStewardshipRepository implements StewardshipRepository {
 - Writes: push a command; nothing is sent until commit.
 - `DoLoginChallengeRepository` (`adapters/durableObject/repositories/loginChallengeRepository.ts`) is the same shape with `LoginChallenge.snapshot` for the record.
 
-### SQLite limits in the object
+#### SQLite limits in the object
 
 - At most 100 bound parameters per statement: ports cap id lists at 100 (`IdBatch.assertWithinLimit`, before any query), and handlers pass the list as one JSON parameter — `FROM json_each(?) j JOIN stewardships s ON s.target_kind = json_extract(j.value, '$.kind') …`, `INSERT … SELECT value, ? FROM json_each(?)`.
 - No `BEGIN` / `SAVEPOINT`: atomicity comes from `transactionSync` around the whole commit; handlers just run statements.
 - Keep `LIKE` patterns short; match text with the domain's own normalization instead.
 - `adapters/nodeSqlite/nodeSqlStorage.ts` reproduces these limits in the Node pool.
 
-### Kind-pluggable lookups
+#### Kind-pluggable lookups
 
 `StewardedTargetDirectory` answers for places, regions and occasions, whose tables their own domains own. The object-side read (`describeStewardedTargets` in `adapters/durableObject/store/stewardedTargetLookups.ts`) groups the targets by kind and asks one `StewardedTargetLookup` per kind; a kind joins by adding its entry to `STEWARDED_TARGET_LOOKUPS` (a kind without an entry has no targets). The request side is `DoStewardedTargetDirectory` (`adapters/durableObject/stewardedTargetDirectory.ts`), a container-level read-only port wired in `application/di/authority.ts`. Use the same shape whenever a port has to span aggregates that other domains own.
-
-### External adapters
-
-One directory per provider (`adapters/{provider}/`), never per port. A development or test stand-in is a provider too, named by its mechanism (`fake`, `inMemory`, …), never by its purpose. Mail is the reference:
-
-- The domain port `Mailer` is served by `TransportMailer` over the adapter-internal port `MailTransport`. Neither depends on a provider, so both live in `adapters/shared/` (`transportMailer.ts`, `mailTransport.ts`). Domain-specific senders such as `MailLoginMailSender` render their mail and hand it to the same transport, so login secrets never reach the outbox or logs.
-- Each way of delivering mail is a provider implementing `MailTransport`: `SmtpMailTransport` (`adapters/smtp/`), the development inbox's `DevInboxMailTransport` (`adapters/durableObject/devInbox.ts`, since it stores into the object) and `InMemoryMailTransport` (`adapters/inMemory/`) for tests.
-- The port's conformance suite sits beside the adapter that serves it (`adapters/shared/__conformance__/mailer.ts`) and runs once per transport: in-memory and development inbox in the Node pool; the real object, plus SMTP when its credentials are set, in the Workers pool (`apps/web/app/durable-objects/__tests__/mailer.conformance.integration.test.ts`). Fixtures and harnesses stay under the `testing/` of the provider they exercise.
 
 ## 5. Outbox, relay, consumers, dead letters
 
