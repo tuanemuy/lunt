@@ -14,7 +14,7 @@
 packages/core/src/     # @repo/core — フレームワークに依らない層
   domain/              # エンティティ、値オブジェクト、ポート、ドメインイベント（common は共有カーネル）
   application/         # ユースケース、UnitOfWork、横断のポート、消費者と日次ジョブ、DI
-  adapters/            # ポートの実装をプロバイダーごとに（durableObject・r2・staticAssets・japanPost・smtp・google・webCrypto、fake・inMemory・nodeSqlite、共通部品は shared）
+  adapters/            # ポートの実装（プロバイダーごと。プロバイダーに依存しない部品は shared）
   lib/                 # すべての層が使う構造の部品
 apps/web/              # @repo/web — TanStack Start のアプリ
   app/server.ts        # Worker のエントリ（fetch・queue・scheduled）
