@@ -49,8 +49,8 @@ packages/core/src/
 │       ├── services.ts                {D}Services: container-level ports     ← fragment
 │       ├── eventDecoders.ts           {d}EventDecoders (domains with events) ← fragment
 │       └── __tests__/testServices.ts  createTest{D}Services                   ← fragment (tests)
-└── adapters/
-    ├── do/                            the Lunt state Durable Object
+└── adapters/                          one directory per provider, never per port
+    ├── durableObject/                 the Lunt state Durable Object
     │   ├── protocol/
     │   │   ├── client.ts              LuntStateClient (query / commit / …)
     │   │   ├── queries.ts             QueryCatalog                           ← aggregator
@@ -72,9 +72,8 @@ packages/core/src/
     │   ├── __conformance__/           one port contract suite per port
     │   ├── __tests__/                 Node runners of the suites
     │   └── testing/                   node:sqlite harness
-    ├── mail/                          MailTransport: SMTP, development inbox
-    ├── login/                         LoginMailSender, LoginSecretGenerator
-    └── identity/                      Google OIDC, fake IdP
+    ├── {provider}/                    an external service, or a stand-in named by mechanism (fake, inMemory, …)
+    └── shared/                        provider-independent: adapter-internal ports, compositions over them
 
 apps/web/app/
 ├── server.ts                          fetch / queue / scheduled of the one Worker
@@ -703,13 +702,11 @@ export class DoStewardshipRepository implements StewardshipRepository {
 
 ### External adapters
 
-Adapters are grouped per provider (`adapters/{provider}/`), not per port. A development or test implementation is a provider named by its mechanism (`fake/`, `inMemory/`, `nodeSqlite/`), never by its purpose.
+One directory per provider (`adapters/{provider}/`), never per port. A development or test stand-in is a provider too, named by its mechanism (`fake`, `inMemory`, …), never by its purpose. Mail is the reference:
 
-- `adapters/shared/`: the provider-independent pieces. `MailTransport` (`adapters/shared/mailTransport.ts`, the adapter-internal port every mail provider implements), `TransportMailer` and `MailLoginMailSender` over it (domain-specific senders render and hand over to the transport; the login secrets never reach the outbox or logs), `ExternalIdentityProviders` (the registry implementing `ExternalIdentityVerifier` and `ExternalLoginStarter`), and `StructuralPhotoInspector`.
-- `adapters/smtp/`: `SmtpMailTransport`. `adapters/durableObject/devInbox.ts`: the development inbox (`DevInboxMailTransport` storing into the object, `DoDevInbox` reading it).
-- `adapters/google/`: `GoogleOidcProvider`. `adapters/fake/`: `FakeIdpProvider` and `FakeIdpScreen` (the fake provider's side, behind the application port `FakeIdp` in `application/dev/fakeIdp.ts`, so the `/__dev/idp/authorize` screen reaches it through usecases like any other).
-- `adapters/webCrypto/`: `WebCryptoLoginSecretGenerator`. `adapters/r2/`: `R2PhotoStorage` and photo delivery. `adapters/staticAssets/`: `AssetAreaCatalog`. `adapters/japanPost/`: the postal-code CSV parser `pnpm area:import` uses.
-- Domain ports get a conformance suite beside the adapter that serves them (`adapters/webCrypto/__conformance__/`, `adapters/shared/__conformance__/`). In-memory stand-ins for external I/O live in `adapters/inMemory/` (`InMemoryMailTransport`, `InMemoryPhotoBucket`, `InMemoryAreaAssets`); fixtures and harnesses stay under the `testing/` of the provider they exercise (`adapters/fake/testing/fakeIdpFlow.ts`, `adapters/staticAssets/testing/testAreaMaster.ts`).
+- The domain port `Mailer` is served by `TransportMailer` over the adapter-internal port `MailTransport`. Neither depends on a provider, so both live in `adapters/shared/` (`transportMailer.ts`, `mailTransport.ts`). Domain-specific senders such as `MailLoginMailSender` render their mail and hand it to the same transport, so login secrets never reach the outbox or logs.
+- Each way of delivering mail is a provider implementing `MailTransport`: `SmtpMailTransport` (`adapters/smtp/`), the development inbox's `DevInboxMailTransport` (`adapters/durableObject/devInbox.ts`, since it stores into the object) and `InMemoryMailTransport` (`adapters/inMemory/`) for tests.
+- The port's conformance suite sits beside the adapter that serves it (`adapters/shared/__conformance__/mailer.ts`) and runs once per transport: in-memory and development inbox in the Node pool; the real object, plus SMTP when its credentials are set, in the Workers pool (`apps/web/app/durable-objects/__tests__/mailer.conformance.integration.test.ts`). Fixtures and harnesses stay under the `testing/` of the provider they exercise.
 
 ## 5. Outbox, relay, consumers, dead letters
 
