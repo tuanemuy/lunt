@@ -84,7 +84,7 @@ Each of these is enforced in code and documented in library-level JSDoc at the r
 
 ## Runtime
 
-One runtime: Cloudflare Workers + one SQLite-backed Durable Object + Queues (`.spec-implement/design.md` D-01, D-02, D-05). There is no Node, D1, AWS or GCP wiring and no `infra/` directory.
+One runtime: Cloudflare Workers + one SQLite-backed Durable Object + Queues (`spec/adr/0001`, `0002`, `0005`). There is no Node, D1, AWS or GCP wiring and no `infra/` directory.
 
 - Worker entry: `apps/web/app/server.ts` — `fetch` (TanStack Start, `/photos/*`, `/__ops/*`, `/__dev/seed`), `queue` (events consumer and dead-letter queue, `app/worker/queue.ts`), `scheduled` (daily jobs, Cron `5 15 * * *`).
 - State: `apps/web/app/durable-objects/luntState.ts` (`LuntStateObject`, one instance) over `packages/core/src/adapters/do/`; its alarm is the outbox relay and pruner; its constructor applies the schema migrations.

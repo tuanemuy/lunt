@@ -9,7 +9,7 @@ import type {
  * Where a `NotificationDestination` opens: the one destination → screen
  * mapping, shared by the notification mail renderer (`notificationMail.ts`)
  * and the notification list (MY-03). Screens follow `spec/pages/index.md`
- * 「通知から開く画面」 and the URL plan of `.spec-implement/phases/P0.md`
+ * 「通知から開く画面」 and the URL plan of `spec/adr/0019-screen-urls.md`
  * (付録: 画面と URL の対応): RM `/manage/regions/$regionId(/info|/events)`,
  * EM `/manage/events/$occasionId(/info|/regions)`, CM-04
  * `/manage/places/$placeId/events/$occasionId`, SM-05 / SM-06

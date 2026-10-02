@@ -1,6 +1,6 @@
 # Runtime: Cloudflare Workers + Durable Object + Queues
 
-Lunt runs as one Worker and one SQLite-backed Durable Object. The object holds every aggregate, the outbox and the per-consumer receipts in its private SQLite database, so a unit of work that writes several aggregates of different domains commits in one real transaction, and reads that span domains run as one query (`.spec-implement/design.md` D-02).
+Lunt runs as one Worker and one SQLite-backed Durable Object. The object holds every aggregate, the outbox and the per-consumer receipts in its private SQLite database, so a unit of work that writes several aggregates of different domains commits in one real transaction, and reads that span domains run as one query (`spec/adr/0002-single-global-durable-object.md`).
 
 ## Quick start
 
@@ -150,7 +150,7 @@ Bindings: `LUNT_STATE` (Durable Object `LuntStateObject`), `EVENTS_QUEUE` (produ
 
 ## Mail and external login
 
-Development uses the development inbox and a fake Google (`.spec-implement/design.md` D-07): mail is kept in the object and read at `/__dev/inbox`, and the "Google" button goes to `/__dev/idp/authorize`, where the tester picks a verified address, an unverified one, no address, or cancel. Both need `DEV_TOOLS=1` and are refused without it, so a deployment must select the real adapters. Even with `DEV_TOOLS=1`, every development tool answers only requests to `localhost` / `127.0.0.1` / `[::1]` unless `DEV_TOOLS_ALLOW_REMOTE=1` (trusted shared test environments only; `docs/manual_test.md`).
+Development uses the development inbox and a fake Google (`spec/adr/0009-mail-and-external-login.md`): mail is kept in the object and read at `/__dev/inbox`, and the "Google" button goes to `/__dev/idp/authorize`, where the tester picks a verified address, an unverified one, no address, or cancel. Both need `DEV_TOOLS=1` and are refused without it, so a deployment must select the real adapters. Even with `DEV_TOOLS=1`, every development tool answers only requests to `localhost` / `127.0.0.1` / `[::1]` unless `DEV_TOOLS_ALLOW_REMOTE=1` (trusted shared test environments only; `docs/manual_test.md`).
 
 | Variable | Kind | Meaning | Default |
 | --- | --- | --- | --- |
@@ -192,7 +192,7 @@ The flow uses the authorization code with PKCE (S256), `state` and `nonce`, and 
 
 ## Area master
 
-The area master (prefectures, municipalities, towns) is static JSON served from the Worker's static assets (`ASSETS`), built from Japan Post's 「住所の郵便番号（1レコード1行、UTF-8形式）」 (`.spec-implement/design.md` D-08).
+The area master (prefectures, municipalities, towns) is static JSON served from the Worker's static assets (`ASSETS`), built from Japan Post's 「住所の郵便番号（1レコード1行、UTF-8形式）」 (`spec/adr/0010-area-master.md`).
 
 1. Download `utf_ken_all.zip` from https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html (direct link: https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip; the older `/zipcode/dl/…` addresses no longer serve the file). Use the UTF-8 version, not the Shift_JIS `ken_all.zip`.
 2. Import it (a `.zip`, the extracted `utf_ken_all.csv`, or the URL): `pnpm area:import ~/Downloads/utf_ken_all.zip`. The files go to `apps/web/public/area/` (`index.json`, `towns/{prefecture}.json`, `postal/{first 3 digits}.json`; about 1,000 files). They are gitignored; `pnpm build` copies them into `dist/client`, and they deploy with the Worker. Re-run the import and redeploy when Japan Post publishes new data (monthly).
@@ -214,7 +214,7 @@ Photos live in the R2 bucket bound as `PHOTOS` (`apps/web/wrangler.jsonc`, bucke
 
 ## Map tiles
 
-VW-04 and VW-08 draw the map with MapLibre GL JS over public vector tiles (`.spec-implement/design.md` D-13). `MAP_STYLE_URL` (var) is the MapLibre style the browser loads; the default is OpenFreeMap's Positron, `https://tiles.openfreemap.org/styles/positron`: OpenStreetMap data, no API key, no registration and no request limit (https://openfreemap.org, terms at https://openfreemap.org/tos/). Attribution is required: it comes from the tiles' TileJSON and the map's attribution control shows 「OpenFreeMap © OpenMapTiles Data from OpenStreetMap」. With the default style, the map redraws it in the MapCanvas colours with Japanese labels (`apps/web/app/components/map/mapStyle.ts`); any other style is used as it is, so a replacement must carry its own attribution in its sources.
+VW-04 and VW-08 draw the map with MapLibre GL JS over public vector tiles (`spec/adr/0015-map.md`). `MAP_STYLE_URL` (var) is the MapLibre style the browser loads; the default is OpenFreeMap's Positron, `https://tiles.openfreemap.org/styles/positron`: OpenStreetMap data, no API key, no registration and no request limit (https://openfreemap.org, terms at https://openfreemap.org/tos/). Attribution is required: it comes from the tiles' TileJSON and the map's attribution control shows 「OpenFreeMap © OpenMapTiles Data from OpenStreetMap」. With the default style, the map redraws it in the MapCanvas colours with Japanese labels (`apps/web/app/components/map/mapStyle.ts`); any other style is used as it is, so a replacement must carry its own attribution in its sources.
 
 The browser fetches the style, tiles, glyphs and sprites from the style's host (`tiles.openfreemap.org` by default) and runs MapLibre's worker from the app's own assets. The app sets no Content-Security-Policy today; one added later must allow that host in `connect-src` and `img-src`, and `worker-src 'self' blob:`. If the style or every tile fails, the map shows 「地図を表示できませんでした」 with a retry, and the screen's lists keep working.
 

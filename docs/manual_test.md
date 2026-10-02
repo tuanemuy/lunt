@@ -171,7 +171,7 @@ Each server can keep its own state, so procedures that need an untouched environ
 
 ## Where the development tools answer
 
-With `DEV_TOOLS=1` the development tools — `/__dev/*` (clock and manual daily jobs, inbox, fake provider), the development clock's offset, the development inbox and fake Google as adapters, and the public development secrets — answer only requests to this machine: `localhost`, `127.0.0.1`, `[::1]` (`.spec-implement/design.md` D-19). A request to any other host gets them off: `/__dev/*` is not found, time is the wall clock, and a configuration that selects the development inbox or the fake provider (or keeps the public development secrets) refuses to serve it.
+With `DEV_TOOLS=1` the development tools — `/__dev/*` (clock and manual daily jobs, inbox, fake provider), the development clock's offset, the development inbox and fake Google as adapters, and the public development secrets — answer only requests to this machine: `localhost`, `127.0.0.1`, `[::1]` (`spec/adr/0008-dev-tools.md`). A request to any other host gets them off: `/__dev/*` is not found, time is the wall clock, and a configuration that selects the development inbox or the fake provider (or keeps the public development secrets) refuses to serve it.
 
 A shared test environment that testers reach by another host name sets `DEV_TOOLS_ALLOW_REMOTE="1"` in addition. Do this only for an environment used by trusted people: the fake provider lets anyone log in as any address, and `/__dev/clock` lets anyone move time and run the daily jobs. Never set either variable in a production configuration.
 

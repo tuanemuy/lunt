@@ -5,7 +5,7 @@ Copy-and-adapt patterns for adding a domain or a usecase to Lunt. Account (login
 - Principles and cross-cutting concepts (unit of work, outbox, idempotent create, validation, error kinds): `AGENTS.md`.
 - The runtime (one Worker, one SQLite-backed Durable Object, Queues, cron, ops endpoints): `docs/runtime_cloudflare_do.md`.
 - Test layers and rules: `docs/test.md`.
-- What to build: `spec/domains/`, `spec/usecases/`, `spec/flows/`, `spec/testcases/`; implementation decisions: `.spec-implement/design.md`.
+- What to build: `spec/domains/`, `spec/usecases/`, `spec/flows/`, `spec/testcases/`; implementation decisions: `spec/adr/`.
 
 ## 1. File layout
 

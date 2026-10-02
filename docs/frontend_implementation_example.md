@@ -4,7 +4,7 @@ Copy-and-adapt patterns for adding a screen to Lunt. The stage-1 screens are the
 
 - Principles, the frontend rules (server component → `"use client"` island → React 19 primitives, `useReconcile`, `Deferred`, skeletons) and the error catch policy: `AGENTS.md`.
 - The backend a screen calls (usecases, containers, errors): `docs/backend_implementation_example.md`.
-- What to build: `spec/pages/` (screens, states, the common states CS-01…CS-17), `spec/design/` (tokens and one HTML design per screen); URLs: `.spec-implement/phases/P0.md` (付録: 画面と URL の対応).
+- What to build: `spec/pages/` (screens, states, the common states CS-01…CS-17), `spec/design/` (tokens and one HTML design per screen); URLs: `spec/adr/0019-screen-urls.md`.
 
 ## 1. File layout
 

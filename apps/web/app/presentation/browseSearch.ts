@@ -163,7 +163,7 @@ export type FilterOrigin = "discover" | "map" | "regions";
 
 /**
  * VW-02's URL for the screen `from` with its current conditions
- * (`.spec-implement/phases/P0.md` 付録: `/filter?from=…&area=…&cat=…`).
+ * (`spec/adr/0019-screen-urls.md`: `/filter?from=…&area=…&cat=…`).
  */
 export function filterHref(from: FilterOrigin, search: BrowseSearch): string {
   const { area, cat } = browseSearchOf(browseCriteriaOf(search));

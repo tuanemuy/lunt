@@ -26,7 +26,6 @@ worker-configuration.d.ts
 *.db-shm
 *.db-wal
 
-.spec-implement/.stop-continues.*
 
 # A global "Icon" ignore (macOS folder icons) would hide the Icon component.
 !apps/web/app/components/ui/Icon/
