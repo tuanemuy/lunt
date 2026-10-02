@@ -42,7 +42,7 @@ Hexagonal architecture with DDD. Dependencies point inward: presentation → app
 
 - **Domain** (`packages/core/src/domain/`) — Pure business logic: entities, value objects, domain services, port interfaces, domain events. No I/O, no framework, no ambient time / id generation. Throws `BusinessRuleError` for invariant violations. `domain/common/` is the shared kernel.
 - **Application** (`packages/core/src/application/`) — Use cases that orchestrate the domain. Defines ports for cross-cutting concerns (clock, id generation, logging, consumer receipts), the unit-of-work abstraction, application-level errors, event consumers, daily jobs and the DI container (`application/di/`). DTO projection for the presentation layer lives here.
-- **Adapters** (`packages/core/src/adapters/`) — Concrete implementations of ports: `do/` (the state Durable Object's RPC protocol, store and request-side repositories), `mail/` (SMTP, development inbox), `identity/` (Google OIDC, development fake), `login/`, `photos/` (R2), `area/` (static-asset area master). Translate driver-specific errors into the shared error contracts.
+- **Adapters** (`packages/core/src/adapters/`) — Concrete implementations of ports, grouped **per provider** under `adapters/{provider}/`, never per port or concern. Development and test implementations are providers too, named by mechanism (`fake`, `inMemory`, `stub`, `empty`, `fileSystem`, …), never by purpose (no `dev/`, no `test/`). `shared/` holds only provider-independent pieces: adapter-internal ports, compositions over them, pure implementations. Translate driver-specific errors into the shared error contracts.
 - **Presentation** (`apps/web/app/presentation/`) — Framework-specific cross-cutting utilities for TanStack Start: server-function entry point, error-response middleware, transport-boundary input validation, error display helpers, the session and `Actor` boundary. The full `SerializedError` union is assembled here from each layer's variants.
 
 ### Not a layer
@@ -87,7 +87,7 @@ Each of these is enforced in code and documented in library-level JSDoc at the r
 One runtime: Cloudflare Workers + one SQLite-backed Durable Object + Queues (`spec/adr/0001`, `0002`, `0005`). There is no Node, D1, AWS or GCP wiring and no `infra/` directory.
 
 - Worker entry: `apps/web/app/server.ts` — `fetch` (TanStack Start, `/photos/*`, `/__ops/*`, `/__dev/seed`), `queue` (events consumer and dead-letter queue, `app/worker/queue.ts`), `scheduled` (daily jobs, Cron `5 15 * * *`).
-- State: `apps/web/app/durable-objects/luntState.ts` (`LuntStateObject`, one instance) over `packages/core/src/adapters/do/`; its alarm is the outbox relay and pruner; its constructor applies the schema migrations.
+- State: `apps/web/app/durable-objects/luntState.ts` (`LuntStateObject`, one instance) over `packages/core/src/adapters/durableObject/`; its alarm is the outbox relay and pruner; its constructor applies the schema migrations.
 - DI: `packages/core/src/application/di/container.ts` (`createRequestContainer`, one per request, queue batch or scheduled run).
 - Configuration: `apps/web/wrangler.jsonc` (local development, development tools on) and `apps/web/wrangler.production.example.jsonc` (deployment sample, development tools off).
 

@@ -1,12 +1,12 @@
+import { DoDevInbox } from "@repo/core/adapters/durableObject/devInbox";
 import {
   FakeIdpProvider,
   FakeIdpScreen,
-} from "@repo/core/adapters/identity/fakeIdp";
-import { ExternalIdentityProviders } from "@repo/core/adapters/identity/providers";
-import { MailLoginMailSender } from "@repo/core/adapters/login/mailLoginMailSender";
-import { WebCryptoLoginSecretGenerator } from "@repo/core/adapters/login/webCryptoLoginSecretGenerator";
-import { DoDevInbox } from "@repo/core/adapters/mail/devInbox";
-import { InMemoryMailTransport } from "@repo/core/adapters/mail/testing/inMemoryMailTransport";
+} from "@repo/core/adapters/fake/fakeIdp";
+import { InMemoryMailTransport } from "@repo/core/adapters/inMemory/inMemoryMailTransport";
+import { ExternalIdentityProviders } from "@repo/core/adapters/shared/externalIdentityProviders";
+import { MailLoginMailSender } from "@repo/core/adapters/shared/mailLoginMailSender";
+import { WebCryptoLoginSecretGenerator } from "@repo/core/adapters/webCrypto/webCryptoLoginSecretGenerator";
 import { AccountErrorCode } from "@repo/core/domain/account/errorCode";
 import type { ExternalIdentity } from "@repo/core/domain/account/externalIdentity";
 import type { ExternalIdentityVerifier } from "@repo/core/domain/account/ports/externalIdentityVerifier";

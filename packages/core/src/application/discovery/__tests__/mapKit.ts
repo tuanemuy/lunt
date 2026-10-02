@@ -1,11 +1,11 @@
 import type {
   DiscoveryWorld,
   PlaceSpec,
-} from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import {
   insertPlaces,
   newPlace,
-} from "@repo/core/adapters/do/__conformance__/placeFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/placeFixtures";
 import { GeoBounds, GeoPoint } from "@repo/core/domain/common/geo";
 import type { Place } from "@repo/core/domain/place/place";
 import type { BrowseCriteriaInput } from "../criteria";

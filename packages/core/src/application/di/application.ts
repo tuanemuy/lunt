@@ -1,4 +1,4 @@
-import { DoApplicationReviewDesk } from "@repo/core/adapters/do/applicationReviewDesk";
+import { DoApplicationReviewDesk } from "@repo/core/adapters/durableObject/applicationReviewDesk";
 import { applicationModel } from "@repo/core/domain/application/application";
 import type { ApplicationKindMap } from "@repo/core/domain/application/kinds";
 import { ReviewPolicy } from "@repo/core/domain/application/reviewPolicy";

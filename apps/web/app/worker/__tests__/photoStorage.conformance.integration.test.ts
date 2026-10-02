@@ -2,8 +2,8 @@ import { env } from "cloudflare:test";
 import {
   describePhotoStorageContract,
   fetchThrough,
-} from "@repo/core/adapters/photos/__conformance__/photoStorage";
-import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
+} from "@repo/core/adapters/r2/__conformance__/photoStorage";
+import { R2PhotoStorage } from "@repo/core/adapters/r2/r2PhotoStorage";
 import { createDoHarness } from "../../durable-objects/__tests__/doHarness";
 import { handlePhotoRequest } from "../photos";
 

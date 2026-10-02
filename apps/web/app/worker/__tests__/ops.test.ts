@@ -1,4 +1,4 @@
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import { NotFoundError } from "@repo/core/application/errors";
 import { AuthorityErrorCode } from "@repo/core/domain/authority/errorCode";
 import { BusinessRuleError } from "@repo/core/domain/error";

@@ -1,4 +1,4 @@
-import { fakeIdpProof } from "@repo/core/adapters/identity/testing/fakeIdpFlow";
+import { fakeIdpProof } from "@repo/core/adapters/fake/testing/fakeIdpFlow";
 import { ExternalProviderKey } from "@repo/core/domain/account/externalIdentity";
 import { EmailAddress } from "@repo/core/domain/common/emailAddress";
 import { describe, expect, it } from "vitest";

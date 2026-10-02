@@ -1,4 +1,4 @@
-import { createInProcessState } from "@repo/core/adapters/do/testing/inProcessState";
+import { createInProcessState } from "@repo/core/adapters/durableObject/testing/inProcessState";
 import { FakeIdGenerator } from "@repo/core/application/__tests__/fakes/fakeIdGenerator";
 import { createTestContainer } from "@repo/core/application/__tests__/testContainer";
 import {

@@ -1,4 +1,4 @@
-import { samplePng } from "@repo/core/adapters/photos/testing/photoSamples";
+import { samplePng } from "@repo/core/adapters/shared/testing/photoSamples";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import type { RequestContainer } from "../../di/types";

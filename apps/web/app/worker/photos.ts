@@ -1,8 +1,8 @@
-import type { PhotoBucket } from "@repo/core/adapters/photos/photoBucket";
+import type { PhotoBucket } from "@repo/core/adapters/r2/photoBucket";
 import {
   PHOTO_PATH_PREFIX,
   servePhoto,
-} from "@repo/core/adapters/photos/photoDelivery";
+} from "@repo/core/adapters/r2/photoDelivery";
 
 export { PHOTO_PATH_PREFIX };
 

@@ -1,5 +1,5 @@
 import type { DurableObjectNamespace } from "@cloudflare/workers-types";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 
 /** Every aggregate lives in this one object (design.md D-02). */
 export const STATE_OBJECT_NAME = "global";

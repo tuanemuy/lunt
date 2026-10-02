@@ -1,14 +1,14 @@
 import {
   FakeIdpProvider,
   FakeIdpScreen,
-} from "@repo/core/adapters/identity/fakeIdp";
-import { GoogleOidcProvider } from "@repo/core/adapters/identity/googleOidc";
+} from "@repo/core/adapters/fake/fakeIdp";
+import { GoogleOidcProvider } from "@repo/core/adapters/google/googleOidc";
 import {
   type ExternalIdentityProvider,
   ExternalIdentityProviders,
-} from "@repo/core/adapters/identity/providers";
-import { MailLoginMailSender } from "@repo/core/adapters/login/mailLoginMailSender";
-import { WebCryptoLoginSecretGenerator } from "@repo/core/adapters/login/webCryptoLoginSecretGenerator";
+} from "@repo/core/adapters/shared/externalIdentityProviders";
+import { MailLoginMailSender } from "@repo/core/adapters/shared/mailLoginMailSender";
+import { WebCryptoLoginSecretGenerator } from "@repo/core/adapters/webCrypto/webCryptoLoginSecretGenerator";
 import { content } from "@repo/core/config";
 import { ExternalProviderKey } from "@repo/core/domain/account/externalIdentity";
 import { z } from "zod";

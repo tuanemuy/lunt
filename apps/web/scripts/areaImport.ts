@@ -1,6 +1,6 @@
 // `pnpm area:import <source> [--out <dir>]` — builds the area master's
 // static JSON files (design.md D-08, format in
-// `packages/core/src/adapters/area/assetFormat.ts`) from Japan Post's
+// `packages/core/src/adapters/staticAssets/assetFormat.ts`) from Japan Post's
 // 「住所の郵便番号（1レコード1行、UTF-8形式）」.
 //
 //   <source>  utf_ken_all.csv, utf_ken_all.zip, or an http(s) URL of either
@@ -8,19 +8,19 @@
 //   --out     output directory (default: apps/web/public/area, gitignored)
 //
 // `pnpm area:import --test-master` rewrites the committed test master's
-// files (packages/core/src/adapters/area/testing/testMasterAssets/area)
+// files (packages/core/src/adapters/staticAssets/testing/testMasterAssets/area)
 // from `TEST_AREA_MASTER`. Relative paths are resolved against the
 // directory `pnpm` was started from.
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
+import { parseJapanPostCsv } from "@repo/core/adapters/japanPost/japanPost";
 import {
   AreaAssetPath,
   type AreaMasterRow,
   buildAreaAssets,
-} from "@repo/core/adapters/area/assetFormat";
-import { parseJapanPostCsv } from "@repo/core/adapters/area/japanPost";
-import { TEST_AREA_MASTER } from "@repo/core/adapters/area/testing/testAreaMaster";
+} from "@repo/core/adapters/staticAssets/assetFormat";
+import { TEST_AREA_MASTER } from "@repo/core/adapters/staticAssets/testing/testAreaMaster";
 
 const WEB_ROOT = process.cwd();
 const DEFAULT_OUT = path.join(WEB_ROOT, "public", "area");
@@ -28,7 +28,7 @@ const TEST_MASTER_OUT = path.join(
   WEB_ROOT,
   "..",
   "..",
-  "packages/core/src/adapters/area/testing/testMasterAssets/area",
+  "packages/core/src/adapters/staticAssets/testing/testMasterAssets/area",
 );
 const LINE_WIDTH = 80;
 

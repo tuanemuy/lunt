@@ -1,5 +1,5 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import { day } from "@repo/core/adapters/do/__conformance__/listingFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
+import { day } from "@repo/core/adapters/durableObject/__conformance__/listingFixtures";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { DateRange } from "@repo/core/domain/common/dateRange";
 import { OccasionId } from "@repo/core/domain/common/ids";

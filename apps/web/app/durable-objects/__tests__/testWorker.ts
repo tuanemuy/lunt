@@ -7,7 +7,7 @@ import type {
   DurableObjectNamespace,
   MessageBatch,
 } from "@cloudflare/workers-types";
-import { DoConsumerReceipts } from "@repo/core/adapters/do/consumerReceipts";
+import { DoConsumerReceipts } from "@repo/core/adapters/durableObject/consumerReceipts";
 import { createRequestContainer } from "@repo/core/application/di/container";
 import type {
   ConsumerRegistry,

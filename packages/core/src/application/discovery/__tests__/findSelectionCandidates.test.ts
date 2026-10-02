@@ -1,5 +1,5 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import { period } from "@repo/core/adapters/do/__conformance__/listingFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
+import { period } from "@repo/core/adapters/durableObject/__conformance__/listingFixtures";
 import type { SelectionScope } from "@repo/core/domain/discovery/selectionScope";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";
 import { describe, expect, it } from "vitest";

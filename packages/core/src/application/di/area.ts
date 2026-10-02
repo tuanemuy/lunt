@@ -2,7 +2,7 @@ import {
   AreaAssetCache,
   type AreaAssetFetcher,
   AssetAreaCatalog,
-} from "@repo/core/adapters/area/assetAreaCatalog";
+} from "@repo/core/adapters/staticAssets/assetAreaCatalog";
 import type { AreaServices } from "../area/services";
 import type { ServiceDeps } from "./serviceDeps";
 

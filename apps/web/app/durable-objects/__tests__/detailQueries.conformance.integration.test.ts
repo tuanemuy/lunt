@@ -1,4 +1,4 @@
-import { describeDetailQueriesContract } from "@repo/core/adapters/do/__conformance__/detailQueries";
+import { describeDetailQueriesContract } from "@repo/core/adapters/durableObject/__conformance__/detailQueries";
 import { createDiscoveryDoHarness } from "./discoveryDoHarness";
 
 describeDetailQueriesContract(createDiscoveryDoHarness);

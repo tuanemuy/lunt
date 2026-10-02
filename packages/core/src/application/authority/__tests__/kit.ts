@@ -1,4 +1,4 @@
-import { DoStewardedTargetDirectory } from "@repo/core/adapters/do/stewardedTargetDirectory";
+import { DoStewardedTargetDirectory } from "@repo/core/adapters/durableObject/stewardedTargetDirectory";
 import { Account } from "@repo/core/domain/account/entity";
 import {
   AccessPolicy,

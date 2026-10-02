@@ -1,8 +1,8 @@
-import { DoDetailQueries } from "@repo/core/adapters/do/detailQueries";
-import { DoExplorationQueries } from "@repo/core/adapters/do/explorationQueries";
-import { DoFeedCandidateQueries } from "@repo/core/adapters/do/feedCandidateQueries";
-import { DoKeywordSearchQueries } from "@repo/core/adapters/do/keywordSearchQueries";
-import { DoReferenceQueries } from "@repo/core/adapters/do/referenceQueries";
+import { DoDetailQueries } from "@repo/core/adapters/durableObject/detailQueries";
+import { DoExplorationQueries } from "@repo/core/adapters/durableObject/explorationQueries";
+import { DoFeedCandidateQueries } from "@repo/core/adapters/durableObject/feedCandidateQueries";
+import { DoKeywordSearchQueries } from "@repo/core/adapters/durableObject/keywordSearchQueries";
+import { DoReferenceQueries } from "@repo/core/adapters/durableObject/referenceQueries";
 import { z } from "zod";
 import type {
   DiscoveryServices,

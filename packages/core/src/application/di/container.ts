@@ -1,8 +1,8 @@
 // DI wiring of the Lunt runtime: one Worker whose fetch, queue and
 // scheduled handlers all talk to the single Lunt state Durable Object
 // (design.md D-02, D-05).
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { content } from "@repo/core/config";
 import { z } from "zod";
 import { type Clock, SystemClock } from "../ports/clock";

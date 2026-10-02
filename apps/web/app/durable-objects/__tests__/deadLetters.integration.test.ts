@@ -1,6 +1,6 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
-import { DoUnitOfWorkProvider } from "@repo/core/adapters/do/unitOfWork";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
+import { DoUnitOfWorkProvider } from "@repo/core/adapters/durableObject/unitOfWork";
 import { UuidV7Generator } from "@repo/core/application/ports/idGenerator";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PROBE_EVENT_TYPE, probeHealth } from "./testWorker";

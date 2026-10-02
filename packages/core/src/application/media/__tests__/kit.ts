@@ -1,7 +1,7 @@
-import { servePhoto } from "@repo/core/adapters/photos/photoDelivery";
-import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
-import { InMemoryPhotoBucket } from "@repo/core/adapters/photos/testing/inMemoryPhotoBucket";
-import { samplePng } from "@repo/core/adapters/photos/testing/photoSamples";
+import { InMemoryPhotoBucket } from "@repo/core/adapters/inMemory/inMemoryPhotoBucket";
+import { servePhoto } from "@repo/core/adapters/r2/photoDelivery";
+import { R2PhotoStorage } from "@repo/core/adapters/r2/r2PhotoStorage";
+import { samplePng } from "@repo/core/adapters/shared/testing/photoSamples";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { EventId } from "@repo/core/domain/common/event";
 import { AccountId, PhotoId } from "@repo/core/domain/common/ids";

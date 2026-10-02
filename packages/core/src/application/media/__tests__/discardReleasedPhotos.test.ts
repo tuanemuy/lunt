@@ -1,4 +1,4 @@
-import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { expectBusinessRuleError } from "@repo/core/adapters/durableObject/__conformance__/assertions";
 import { EventId } from "@repo/core/domain/common/event";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { MediaErrorCode } from "@repo/core/domain/media/errorCode";

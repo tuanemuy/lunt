@@ -1,9 +1,9 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
-import { period } from "@repo/core/adapters/do/__conformance__/listingFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
+import { period } from "@repo/core/adapters/durableObject/__conformance__/listingFixtures";
 import {
   insertPlaces,
   newPlace,
-} from "@repo/core/adapters/do/__conformance__/placeFixtures";
+} from "@repo/core/adapters/durableObject/__conformance__/placeFixtures";
 import { CommonErrorCode } from "@repo/core/domain/common/errorCode";
 import type { Listing } from "@repo/core/domain/listing/listing";
 import { SampleAddress } from "@repo/core/domain/place/testing/samples";

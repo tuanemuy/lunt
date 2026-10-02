@@ -1,7 +1,7 @@
-import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
-import { inspectPhoto } from "@repo/core/adapters/photos/structuralPhotoInspector";
-import { InMemoryPhotoBucket } from "@repo/core/adapters/photos/testing/inMemoryPhotoBucket";
-import { samplePng } from "@repo/core/adapters/photos/testing/photoSamples";
+import { InMemoryPhotoBucket } from "@repo/core/adapters/inMemory/inMemoryPhotoBucket";
+import { R2PhotoStorage } from "@repo/core/adapters/r2/r2PhotoStorage";
+import { inspectPhoto } from "@repo/core/adapters/shared/structuralPhotoInspector";
+import { samplePng } from "@repo/core/adapters/shared/testing/photoSamples";
 import { PhotoId } from "@repo/core/domain/common/ids";
 import { PhotoIntake } from "@repo/core/domain/media/photoIntake";
 import { describe, expect, it } from "vitest";

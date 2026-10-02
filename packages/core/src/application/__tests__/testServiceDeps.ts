@@ -1,4 +1,4 @@
-import type { LuntStateClient } from "@repo/core/adapters/do/protocol/client";
+import type { LuntStateClient } from "@repo/core/adapters/durableObject/protocol/client";
 import type { FakeClock } from "./fakes/fakeClock";
 import type { FakeIdGenerator } from "./fakes/fakeIdGenerator";
 import type { FakeLogger } from "./fakes/fakeLogger";

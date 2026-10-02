@@ -1,6 +1,6 @@
-import type { PhotoBucket } from "@repo/core/adapters/photos/photoBucket";
-import { R2PhotoStorage } from "@repo/core/adapters/photos/r2PhotoStorage";
-import { StructuralPhotoInspector } from "@repo/core/adapters/photos/structuralPhotoInspector";
+import type { PhotoBucket } from "@repo/core/adapters/r2/photoBucket";
+import { R2PhotoStorage } from "@repo/core/adapters/r2/r2PhotoStorage";
+import { StructuralPhotoInspector } from "@repo/core/adapters/shared/structuralPhotoInspector";
 import { PhotoPolicy } from "@repo/core/domain/media/photoPolicy";
 import type { PhotoStorage } from "@repo/core/domain/media/ports/photoStorage";
 import { z } from "zod";

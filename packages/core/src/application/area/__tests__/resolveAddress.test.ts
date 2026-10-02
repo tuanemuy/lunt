@@ -1,4 +1,4 @@
-import { createTestAreaCatalog } from "@repo/core/adapters/area/testing/testAreaMaster";
+import { createTestAreaCatalog } from "@repo/core/adapters/staticAssets/testing/testAreaMaster";
 import { TownRef } from "@repo/core/domain/area/townRef";
 import { BusinessRuleError } from "@repo/core/domain/error";
 import { describe, expect, it } from "vitest";

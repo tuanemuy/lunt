@@ -1,4 +1,4 @@
-import { regionContent } from "@repo/core/adapters/do/__conformance__/regionFixtures";
+import { regionContent } from "@repo/core/adapters/durableObject/__conformance__/regionFixtures";
 import { PhotoId, type PlaceId, RegionId } from "@repo/core/domain/common/ids";
 import { PlaceAffiliations } from "@repo/core/domain/region/placeAffiliations";
 import { Region } from "@repo/core/domain/region/region";

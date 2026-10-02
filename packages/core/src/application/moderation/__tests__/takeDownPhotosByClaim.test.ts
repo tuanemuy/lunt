@@ -1,4 +1,4 @@
-import { expectBusinessRuleError } from "@repo/core/adapters/do/__conformance__/assertions";
+import { expectBusinessRuleError } from "@repo/core/adapters/durableObject/__conformance__/assertions";
 import { Article } from "@repo/core/domain/article/article";
 import { RoleRoster } from "@repo/core/domain/authority/roleRoster";
 import { EventId } from "@repo/core/domain/common/event";

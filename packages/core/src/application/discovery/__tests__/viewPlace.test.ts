@@ -1,4 +1,4 @@
-import { PERIODS } from "@repo/core/adapters/do/__conformance__/discoveryFixtures";
+import { PERIODS } from "@repo/core/adapters/durableObject/__conformance__/discoveryFixtures";
 import type { Actor } from "@repo/core/domain/common/actor";
 import { PlaceId } from "@repo/core/domain/common/ids";
 import { describe, expect, it } from "vitest";
