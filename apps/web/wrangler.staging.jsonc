@@ -14,21 +14,20 @@
     "directory": "./dist/client",
     "binding": "ASSETS"
   },
-  // Serve on your own domain; without it the Worker answers on workers.dev.
-  // "routes": [{ "pattern": "staging.lunt.example.com", "custom_domain": true }],
+  "routes": [{ "pattern": "lunt.staging.maku-ja.com", "custom_domain": true }],
   // Workers Logs: the `[daily]`, `[queue]` and relay lines of
   // docs/runtime_cloudflare_do.md.
   "observability": { "enabled": true },
   "vars": {
     // The public origin: links in mail, the Google redirect URI.
-    "APP_URL": "https://staging.lunt.example.com",
+    "APP_URL": "https://lunt.staging.maku-ja.com",
     // No DEV_TOOLS, DEV_TOOLS_ALLOW_REMOTE or DAILY_JOBS_AUTO: without
     // DEV_TOOLS=1 there is no /__dev/*, no development clock, inbox or
     // fake provider, and the Cron Trigger always runs the daily jobs.
     "MAIL_TRANSPORT": "smtp",
-    "MAIL_FROM": "Lunt (staging) <no-reply@lunt.example.com>",
-    "SMTP_HOST": "smtp.example.com",
-    "SMTP_USERNAME": "example-user",
+    "MAIL_FROM": "Lunt (staging) <noreply@maku-ja.com>",
+    "SMTP_HOST": "smtp.resend.com",
+    "SMTP_USERNAME": "resend",
     "EXTERNAL_IDP": "google",
     "GOOGLE_CLIENT_ID": "example.apps.googleusercontent.com",
     // Values the code defaults to when left out.
