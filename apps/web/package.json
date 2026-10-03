@@ -12,6 +12,7 @@
     "typecheck": "tsc",
     "cf:types": "wrangler types",
     "dev:reset": "node scripts/resetLocalState.mjs",
+    "check:deploy-build": "node scripts/checkDeployBuild.mjs",
     "area:import": "esbuild scripts/areaImport.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/lunt/areaImport.mjs && node node_modules/.cache/lunt/areaImport.mjs"
   },
   "dependencies": {

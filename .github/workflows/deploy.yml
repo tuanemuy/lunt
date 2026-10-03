@@ -1,0 +1,88 @@
+name: Deploy
+
+# Called by deploy-staging.yml and deploy-production.yml. The caller's
+# GitHub environment holds the Worker's secrets; the repository holds
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (docs/deployment.md).
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment whose secrets the Worker gets
+        required: true
+        type: string
+      wrangler-config:
+        description: Wrangler configuration under apps/web the build carries
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AREA_MASTER_URL: https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
+
+jobs:
+  deploy:
+    name: Build + deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Import the area master
+        run: pnpm area:import "$AREA_MASTER_URL"
+
+      - name: Build
+        run: pnpm build
+        env:
+          LUNT_WRANGLER_CONFIG: ${{ inputs.wrangler-config }}
+
+      - name: Check the build
+        run: pnpm --filter @repo/web check:deploy-build
+
+      - name: Write the secrets file
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          OPS_TOKEN: ${{ secrets.OPS_TOKEN }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in SESSION_SECRET SMTP_PASSWORD GOOGLE_CLIENT_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is not set in the $DEPLOY_ENVIRONMENT environment"
+              exit 1
+            fi
+          done
+          # OPS_TOKEN is optional: left unset, /__ops/* stays off.
+          jq -n 'env | {SESSION_SECRET, OPS_TOKEN, SMTP_PASSWORD, GOOGLE_CLIENT_SECRET}
+            | with_entries(select(.value != null and .value != ""))' \
+            > "$RUNNER_TEMP/worker-secrets.json"
+
+      # Bare `wrangler deploy` deploys the build's dist/server/wrangler.json;
+      # the secrets go up with the same version, so it never runs without them.
+      - name: Deploy
+        working-directory: apps/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy --secrets-file "$RUNNER_TEMP/worker-secrets.json"
+
+      - name: Remove the secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker-secrets.json"

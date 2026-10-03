@@ -1,0 +1,80 @@
+// Staging configuration of the Lunt Worker: the production configuration
+// (`wrangler.production.jsonc`) under its own Worker name, queues and R2
+// bucket, so the two never share state. `.github/workflows/deploy-staging.yml`
+// builds with it and deploys on every push to main (docs/deployment.md).
+// Secrets come from the `staging` environment's GitHub secrets; the deploy
+// refuses a build whose vars still hold an `example` value.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lunt-staging",
+  "main": "app/server.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS"
+  },
+  "routes": [{ "pattern": "lunt.staging.maku-ja.com", "custom_domain": true }],
+  // Workers Logs: the `[daily]`, `[queue]` and relay lines of
+  // docs/runtime_cloudflare_do.md.
+  "observability": { "enabled": true },
+  "vars": {
+    // The public origin: links in mail, the Google redirect URI.
+    "APP_URL": "https://lunt.staging.maku-ja.com",
+    // No DEV_TOOLS, DEV_TOOLS_ALLOW_REMOTE or DAILY_JOBS_AUTO: without
+    // DEV_TOOLS=1 there is no /__dev/*, no development clock, inbox or
+    // fake provider, and the Cron Trigger always runs the daily jobs.
+    "MAIL_TRANSPORT": "smtp",
+    "MAIL_FROM": "Lunt (staging) <noreply@maku-ja.com>",
+    "SMTP_HOST": "smtp.resend.com",
+    "SMTP_USERNAME": "resend",
+    "EXTERNAL_IDP": "google",
+    "GOOGLE_CLIENT_ID": "example.apps.googleusercontent.com",
+    // Values the code defaults to when left out.
+    "LOGIN_CHALLENGE_TTL_MS": "900000",
+    "LOGIN_MAX_CODE_ATTEMPTS": "5",
+    "LOGIN_MAX_UNEXPIRED_CHALLENGES": "5",
+    "APPLICATION_PROXY_AFTER_MS": "604800000",
+    "VICINITY_RADIUS_METERS": "3000",
+    "MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/positron",
+    "PHOTO_UNOWNED_RETENTION_MS": "604800000",
+    "PHOTO_MAX_BYTES": "10485760",
+    "OUTBOX_BATCH_SIZE": "100",
+    "OUTBOX_LEASE_MS": "300000",
+    "OUTBOX_ALERT_AFTER_ATTEMPTS": "5",
+    "OUTBOX_RETENTION_MS": "604800000"
+  },
+  // `wrangler r2 bucket create lunt-staging-photos`
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-staging-photos" }],
+  "durable_objects": {
+    "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]
+  },
+  // Keep this entry as it is: it makes LuntStateObject SQLite-backed. The
+  // object's own schema migrations run from its constructor.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LuntStateObject"] }],
+  // `wrangler queues create lunt-staging-events` and `… lunt-staging-events-dlq`
+  "queues": {
+    "producers": [
+      { "binding": "EVENTS_QUEUE", "queue": "lunt-staging-events" }
+    ],
+    "consumers": [
+      {
+        "queue": "lunt-staging-events",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "lunt-staging-events-dlq"
+      },
+      {
+        "queue": "lunt-staging-events-dlq",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 10
+      }
+    ]
+  },
+  "triggers": {
+    // 15:05 UTC = 00:05 JST.
+    "crons": ["5 15 * * *"]
+  }
+}
