@@ -1,25 +1,12 @@
-// Sample deployed configuration of the Lunt Worker, with the development
-// tools off. Copy it to `wrangler.production.jsonc`, replace the
-// `example` values, and build with it: the build carries it into
-// `dist/server/wrangler.json`, which `wrangler deploy` then deploys
-// (docs/deployment.md):
-//
-//   LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build
-//   pnpm --filter @repo/web exec wrangler deploy
-//
-// Like `wrangler.jsonc`, the local development configuration, it is the
-// build's input, never `wrangler deploy --config`'s: that would bundle the
-// sources without the build and fails. Secrets are not here: set them with
-// `wrangler secret put <NAME> --config wrangler.production.jsonc`:
-//
-//   SESSION_SECRET        required, at least 32 random characters
-//   OPS_TOKEN             /__ops/* bearer token, at least 32 characters
-//                         (leave it unset to turn the endpoints off)
-//   SMTP_PASSWORD         required (MAIL_TRANSPORT=smtp)
-//   GOOGLE_CLIENT_SECRET  required (EXTERNAL_IDP=google)
+// Staging configuration of the Lunt Worker: the production configuration
+// (`wrangler.production.jsonc`) under its own Worker name, queues and R2
+// bucket, so the two never share state. `.github/workflows/deploy-staging.yml`
+// builds with it and deploys on every push to main (docs/deployment.md).
+// Secrets come from the `staging` environment's GitHub secrets; the deploy
+// refuses a build whose vars still hold an `example` value.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "lunt",
+  "name": "lunt-staging",
   "main": "app/server.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -28,18 +15,18 @@
     "binding": "ASSETS"
   },
   // Serve on your own domain; without it the Worker answers on workers.dev.
-  // "routes": [{ "pattern": "lunt.example.com", "custom_domain": true }],
+  // "routes": [{ "pattern": "staging.lunt.example.com", "custom_domain": true }],
   // Workers Logs: the `[daily]`, `[queue]` and relay lines of
   // docs/runtime_cloudflare_do.md.
   "observability": { "enabled": true },
   "vars": {
     // The public origin: links in mail, the Google redirect URI.
-    "APP_URL": "https://lunt.example.com",
+    "APP_URL": "https://staging.lunt.example.com",
     // No DEV_TOOLS, DEV_TOOLS_ALLOW_REMOTE or DAILY_JOBS_AUTO: without
     // DEV_TOOLS=1 there is no /__dev/*, no development clock, inbox or
     // fake provider, and the Cron Trigger always runs the daily jobs.
     "MAIL_TRANSPORT": "smtp",
-    "MAIL_FROM": "Lunt <no-reply@lunt.example.com>",
+    "MAIL_FROM": "Lunt (staging) <no-reply@lunt.example.com>",
     "SMTP_HOST": "smtp.example.com",
     "SMTP_USERNAME": "example-user",
     "EXTERNAL_IDP": "google",
@@ -58,27 +45,29 @@
     "OUTBOX_ALERT_AFTER_ATTEMPTS": "5",
     "OUTBOX_RETENTION_MS": "604800000"
   },
-  // `wrangler r2 bucket create lunt-photos`
-  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-photos" }],
+  // `wrangler r2 bucket create lunt-staging-photos`
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "lunt-staging-photos" }],
   "durable_objects": {
     "bindings": [{ "name": "LUNT_STATE", "class_name": "LuntStateObject" }]
   },
   // Keep this entry as it is: it makes LuntStateObject SQLite-backed. The
   // object's own schema migrations run from its constructor.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LuntStateObject"] }],
-  // `wrangler queues create lunt-events` and `… lunt-events-dlq`
+  // `wrangler queues create lunt-staging-events` and `… lunt-staging-events-dlq`
   "queues": {
-    "producers": [{ "binding": "EVENTS_QUEUE", "queue": "lunt-events" }],
+    "producers": [
+      { "binding": "EVENTS_QUEUE", "queue": "lunt-staging-events" }
+    ],
     "consumers": [
       {
-        "queue": "lunt-events",
+        "queue": "lunt-staging-events",
         "max_batch_size": 25,
         "max_batch_timeout": 5,
         "max_retries": 3,
-        "dead_letter_queue": "lunt-events-dlq"
+        "dead_letter_queue": "lunt-staging-events-dlq"
       },
       {
-        "queue": "lunt-events-dlq",
+        "queue": "lunt-staging-events-dlq",
         "max_batch_size": 25,
         "max_batch_timeout": 5,
         "max_retries": 10

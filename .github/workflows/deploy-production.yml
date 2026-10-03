@@ -1,0 +1,22 @@
+name: Deploy (production)
+
+# The tag is pushed when the release PR from release-please.yml is merged.
+# The `production` environment is meant to carry required reviewers, so the
+# deploy waits for an approval (docs/deployment.md).
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      wrangler-config: wrangler.production.jsonc
+    secrets: inherit

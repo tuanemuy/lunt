@@ -24,7 +24,8 @@ apps/web/              # @repo/web — TanStack Start のアプリ
   app/routes/          # ファイルベースのルート
   app/components/
   wrangler.jsonc       # ローカル開発の Worker の設定（開発用の道具が有効）
-  wrangler.production.example.jsonc  # デプロイ用の設定の見本（開発用の道具が無効）
+  wrangler.staging.jsonc     # staging の Worker の設定（開発用の道具が無効）
+  wrangler.production.jsonc  # 本番の Worker の設定（開発用の道具が無効）
   scripts/             # エリアのマスターの取り込み、ローカルの状態の削除、手動テストのデータ投入
 docs/                  # 実行環境とテストの手引き
 spec/                  # 設計
@@ -52,7 +53,7 @@ pnpm build
 pnpm start        # http://localhost:4173
 ```
 
-このビルドは開発用の設定（`wrangler.jsonc`）を成果物に入れる。デプロイ用のビルドは `LUNT_WRANGLER_CONFIG=wrangler.production.jsonc pnpm build` で作る（[`docs/deployment.md`](docs/deployment.md)）。
+このビルドは開発用の設定（`wrangler.jsonc`）を成果物に入れる。デプロイは GitHub Actions が行う。`main` への push で staging に、release-please のリリース PR をマージすると本番にデプロイされる（[`docs/deployment.md`](docs/deployment.md)）。
 
 ## 新しい環境の初期設定
 

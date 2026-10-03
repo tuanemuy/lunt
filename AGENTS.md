@@ -16,7 +16,7 @@ Guidance for coding agents working in this repository.
 pnpm monorepo. One lockfile at the root; packages resolve each other via package `exports` pointing straight at `.ts` sources (no build step for internal packages). `@repo/core` exposes a single flat rule — `"./*": "./src/*.ts"` — so every subpath maps 1:1 to a file and there is no barrel to import from.
 
 - `packages/core` (`@repo/core`) — domain / application / adapters + shared `lib/` primitives. Framework-free; imported everywhere as `@repo/core/*`.
-- `apps/web` (`@repo/web`) — the TanStack Start app and the one Cloudflare Worker: routes, components, the presentation layer, the Worker entry (`app/server.ts`), the state Durable Object, the queue and operations handlers, `scripts/`, and the runtime configs (`vite.config.ts`, `wrangler.jsonc`, `wrangler.production.example.jsonc`).
+- `apps/web` (`@repo/web`) — the TanStack Start app and the one Cloudflare Worker: routes, components, the presentation layer, the Worker entry (`app/server.ts`), the state Durable Object, the queue and operations handlers, `scripts/`, and the runtime configs (`vite.config.ts`, `wrangler.jsonc`, `wrangler.staging.jsonc`, `wrangler.production.jsonc`).
 - Root — shared tooling only: Biome, TypeScript, vitest configs (Node pool and Workers pool), delegating scripts. `apps/web` and `packages/core` declare no `typescript` of their own — their `tsc` is the root's (pnpm puts the workspace root's `node_modules/.bin` on every package script's `PATH`), so there is one compiler version to bump. `@types/*` are publicly hoisted (see `pnpm-workspace.yaml`) so `.d.ts` files inside the pnpm store can resolve `react` / `vitest` types.
 
 A future app (MCP server, CLI, …) is a new `apps/*` package that declares `"@repo/core": "workspace:*"` and owns its DI wiring or reuses `packages/core/src/application/di/`. No tsconfig `paths` mirror is needed.
@@ -89,7 +89,8 @@ One runtime: Cloudflare Workers + one SQLite-backed Durable Object + Queues (`sp
 - Worker entry: `apps/web/app/server.ts` — `fetch` (TanStack Start, `/photos/*`, `/__ops/*`, `/__dev/seed`), `queue` (events consumer and dead-letter queue, `app/worker/queue.ts`), `scheduled` (daily jobs, Cron `5 15 * * *`).
 - State: `apps/web/app/durable-objects/luntState.ts` (`LuntStateObject`, one instance) over `packages/core/src/adapters/durableObject/`; its alarm is the outbox relay and pruner; its constructor applies the schema migrations.
 - DI: `packages/core/src/application/di/container.ts` (`createRequestContainer`, one per request, queue batch or scheduled run).
-- Configuration: `apps/web/wrangler.jsonc` (local development, development tools on) and `apps/web/wrangler.production.example.jsonc` (deployment sample, development tools off).
+- Configuration: `apps/web/wrangler.jsonc` (local development, development tools on), `apps/web/wrangler.staging.jsonc` and `apps/web/wrangler.production.jsonc` (deployments, development tools off).
+- Release: commits on `main` follow Conventional Commits. A push to `main` deploys staging and updates release-please's release PR; merging that PR tags `vX.Y.Z` and deploys production (`.github/workflows/`, `docs/deployment.md`).
 
 Guides: `docs/getting_started.md` (setup, opening a fresh environment, tests), `docs/runtime_cloudflare_do.md` (topology, settings, real connections, operations), `docs/deployment.md`, `docs/manual_test.md`, `docs/test.md`.
 

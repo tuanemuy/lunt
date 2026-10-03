@@ -125,7 +125,7 @@ The answer is `{"provisioned": true}`, or `{"provisioned": false}` when the cata
 
 ## Settings
 
-Every setting is a Worker binding: `vars` in the configuration (`apps/web/wrangler.jsonc` locally, `apps/web/wrangler.production.example.jsonc` for a deployment), secrets from `wrangler secret put <NAME>` (locally: `apps/web/.dev.vars`, which overrides same-named `vars`). All values are strings; a variable left out takes its default, and a malformed value is refused where it is read (the request container reads the settings for every request, queue batch and scheduled run).
+Every setting is a Worker binding: `vars` in the configuration (`apps/web/wrangler.jsonc` locally, `apps/web/wrangler.staging.jsonc` / `apps/web/wrangler.production.jsonc` for a deployment), secrets from the deploy's `--secrets-file` (`docs/deployment.md`) (locally: `apps/web/.dev.vars`, which overrides same-named `vars`). All values are strings; a variable left out takes its default, and a malformed value is refused where it is read (the request container reads the settings for every request, queue batch and scheduled run).
 
 | Name | Kind | Meaning | Default |
 | --- | --- | --- | --- |
@@ -166,7 +166,7 @@ Development uses the development inbox and a fake Google (`spec/adr/0009-mail-an
 | `LOGIN_MAX_CODE_ATTEMPTS` | var | wrong codes that close a challenge | `5` |
 | `LOGIN_MAX_UNEXPIRED_CHALLENGES` | var | unexpired login mails one address may have | `5` |
 
-Locally, put secrets in `apps/web/.dev.vars` (template: `.dev.vars.example`); deployed, use `wrangler secret put`.
+Locally, put secrets in `apps/web/.dev.vars` (template: `.dev.vars.example`); deployed, they are the GitHub environment secrets the deploy uploads (`docs/deployment.md` 「GitHub」).
 
 ### SMTP (port 465)
 
@@ -233,4 +233,4 @@ A change that narrows a value rule (e.g. the line-break set of `domain/common/li
 
 ## Deployment
 
-`docs/deployment.md`: resources, the sample configuration with the development tools off (`apps/web/wrangler.production.example.jsonc`), secrets, deploy, opening the service, updates and backups.
+`docs/deployment.md`: resources, the staging and production configurations with the development tools off, the release and deploy workflows, secrets, opening the service, updates and backups.
